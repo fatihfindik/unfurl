@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unfurl – Kranich Health application</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif}
+a{color:var(--link)}a:hover{color:var(--accent-text)}
+.ak-root{color-scheme:light;--bg:#F6F7F9;--surface:#FFFFFF;--surface-2:#F9FAFB;--muted:#F2F4F7;--column:#EEF0F4;--border:#E4E7EC;--border-strong:#D0D5DD;--border-dash:#98A2B3;--text:#101828;--text-2:#344054;--text-3:#475467;--link:#4338CA;--accent-text:#3730A3;--accent-strong:#312E81;--accent-bg:#EEF0FF;--accent-bg-2:#E0E7FF;--accent-border:#C7D2FE;--blue-text:#1D4ED8;--blue-bg:#EFF4FF;--purple-text:#5B21B6;--purple-bg:#F4F0FF;--green-text:#067647;--green-bg:#ECFDF3;--red-text:#B42318;--red-bg:#FEF3F2;--amber-text:#B54708;--amber-bg:#FFFAEB;}
+.ak-root.ak-dark{color-scheme:dark;--bg:#0B0F19;--surface:#141A26;--surface-2:#182030;--muted:#1F2837;--column:#111827;--border:#283244;--border-strong:#3A4558;--border-dash:#56627A;--text:#F2F4F7;--text-2:#D0D5DD;--text-3:#A3ACBD;--link:#A5B4FC;--accent-text:#C7D2FE;--accent-strong:#E0E7FF;--accent-bg:#23264A;--accent-bg-2:#2E3270;--accent-border:#3B3F8C;--blue-text:#93C5FD;--blue-bg:rgba(59,130,246,0.18);--purple-text:#C4B5FD;--purple-bg:rgba(139,92,246,0.2);--green-text:#6EE7B7;--green-bg:rgba(16,185,129,0.18);--red-text:#FDA29B;--red-bg:rgba(240,68,56,0.18);--amber-text:#FEC84B;--amber-bg:rgba(247,144,9,0.18);}
+@media (prefers-color-scheme: dark){.ak-root.ak-system{color-scheme:dark;--bg:#0B0F19;--surface:#141A26;--surface-2:#182030;--muted:#1F2837;--column:#111827;--border:#283244;--border-strong:#3A4558;--border-dash:#56627A;--text:#F2F4F7;--text-2:#D0D5DD;--text-3:#A3ACBD;--link:#A5B4FC;--accent-text:#C7D2FE;--accent-strong:#E0E7FF;--accent-bg:#23264A;--accent-bg-2:#2E3270;--accent-border:#3B3F8C;--blue-text:#93C5FD;--blue-bg:rgba(59,130,246,0.18);--purple-text:#C4B5FD;--purple-bg:rgba(139,92,246,0.2);--green-text:#6EE7B7;--green-bg:rgba(16,185,129,0.18);--red-text:#FDA29B;--red-bg:rgba(240,68,56,0.18);--amber-text:#FEC84B;--amber-bg:rgba(247,144,9,0.18);}}
+</style>
+</helmet>
+<div class="ak-root {{themeClass}}" style="min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--bg); font-family: Inter, system-ui, sans-serif; color: var(--text)">
+
+  <nav aria-label="Main" style="flex: 1 1 220px; box-sizing: border-box; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 14px; display: flex; flex-direction: column; gap: 4px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px">
+      <div style="width: 34px; height: 34px; border-radius: 10px; background: #4F46E5; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6.5 21V5" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"></path><path d="M6.5 5.5c2.4-1.5 4.8 1.5 7.2 0s3.6-1.2 5.3-.6v8.3c-1.7-.6-2.9-.3-5.3 1.2s-4.8-1.5-7.2 0z" fill="#FFFFFF"></path><circle cx="6.5" cy="3.6" r="1.9" fill="#FDB022"></circle></svg>
+      </div>
+      <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 700; font-size: 19px; color: var(--text); letter-spacing: -0.02em">Unfurl</span>
+    </div>
+    <a href="Main.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Dashboard</a>
+    <a href="Applications.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600; color: var(--accent-text); background: var(--accent-bg)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"></rect><rect x="10" y="4" width="5" height="11" rx="1"></rect><rect x="17" y="4" width="4" height="7" rx="1"></rect></svg>Applications</a>
+    <a href="Learning.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H2z"></path><path d="M22 5h-7a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h8z"></path></svg>Learning</a>
+    <a href="Profile.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>Profile</a>
+    <a href="CVEditor.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>CVs</a>
+    <a href="CoverLetters.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>Cover letters</a>
+    <a href="Assistant.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"></path><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"></path></svg>Assistant</a>
+    <a href="Settings.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>Settings</a>
+    <div style="margin-top: 24px; padding: 14px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--text)"><span>AI credits</span><span>{{credits}} / 30</span></div>
+      <div style="height: 6px; border-radius: 3px; background: var(--border)"><div style="{{creditBar}}"></div></div>
+      <span style="font-size: 12px; color: var(--text-3)">Resets at midnight (Vienna)</span>
+      <a href="Settings.dc.html" style="font-size: 12px; font-weight: 600; color: var(--link)">Upgrade to Pro</a>
+    </div>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+  <div style="position: relative; display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 10px 32px; background: var(--surface); border-bottom: 1px solid var(--border)">
+    <div role="group" aria-label="Color theme" style="display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--muted)">
+      <button type="button" aria-label="Light mode" title="Light" aria-pressed="{{thLight}}" onClick="{{setLight}}" style="{{lightStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+      <button type="button" aria-label="Dark mode" title="Dark" aria-pressed="{{thDark}}" onClick="{{setDark}}" style="{{darkStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></button>
+      <button type="button" aria-label="Use system setting" title="System" aria-pressed="{{thSystem}}" onClick="{{setSystem}}" style="{{systemStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg></button>
+    </div>
+    <button type="button" aria-label="Notifications" aria-expanded="{{bellOpen}}" onClick="{{toggleBell}}" style="position: relative; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      <sc-if value="{{hasUnread}}" hint-placeholder-val="{{ true }}"><span style="position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #D92D20; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{unreadCount}}</span></sc-if>
+    </button>
+    <a href="Settings.dc.html" aria-label="Account settings" style="width: 40px; height: 40px; border-radius: 20px; background: var(--accent-bg-2); color: var(--accent-text); font-size: 14px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">JN</a>
+    <sc-if value="{{bellOpen}}" hint-placeholder-val="{{ false }}">
+      <div role="dialog" aria-label="Notifications" style="position: absolute; top: 58px; right: 32px; width: 380px; max-width: calc(100% - 32px); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 16px 40px rgba(16,24,40,0.22); z-index: 30; display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px">
+          <span style="font-size: 15px; font-weight: 700; color: var(--text)">Notifications</span>
+          <button type="button" onClick="{{markAll}}" style="border: none; background: none; padding: 4px; color: var(--link); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Mark all as read</button>
+        </div>
+        <sc-for list="{{notifs}}" as="n" hint-placeholder-count="4">
+          <a href="{{n.href}}" onClick="{{n.read}}" style="display: flex; gap: 12px; padding: 12px 16px; text-decoration: none; color: var(--text); border-top: 1px solid var(--muted); background: {{n.rowBg}}">
+            <span style="width: 34px; height: 34px; border-radius: 17px; flex: none; display: flex; align-items: center; justify-content: center; background: {{n.iconBg}}; color: {{n.iconColor}}; font-size: 13px; font-weight: 700">{{n.glyph}}</span>
+            <span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 14px; font-weight: 600; color: var(--text)">{{n.title}}</span>
+              <span style="font-size: 13px; color: var(--text-3)">{{n.sub}}</span>
+              <span style="font-size: 12px; color: var(--text-3)">{{n.time}}</span>
+            </span>
+            <sc-if value="{{n.unread}}" hint-placeholder-val="{{ true }}"><span aria-label="Unread" style="width: 8px; height: 8px; border-radius: 4px; background: #4F46E5; margin-top: 6px; flex: none"></span></sc-if>
+          </a>
+        </sc-for>
+        <a href="Settings.dc.html" style="padding: 12px 16px; border-top: 1px solid var(--muted); font-size: 13px; font-weight: 600; text-align: center; text-decoration: none">Notification settings</a>
+      </div>
+    </sc-if>
+  </div>
+    <header style="display: flex; flex-direction: column; gap: 16px; padding: 18px 32px 0; background: var(--surface); border-bottom: 1px solid var(--border)">
+      <div style="display: flex; gap: 8px; font-size: 13px; color: var(--text-3); align-items: center">
+        <a href="Applications.dc.html" style="color: var(--text-3); text-decoration: none">Applications</a>
+        <span aria-hidden="true">/</span>
+        <span style="color: var(--text); font-weight: 500">Kranich Health</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; justify-content: space-between">
+        <div style="display: flex; gap: 16px; align-items: center; min-width: 0">
+          <div style="width: 52px; height: 52px; border-radius: 12px; background: var(--green-bg); color: var(--green-text); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 20px; font-weight: 700; flex: none">KH</div>
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+            <h1 style="margin: 0; font-size: 22px; font-weight: 700">Senior Product Manager – Patient App</h1>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; color: var(--text-3)">
+              <span style="font-weight: 600; color: var(--text-2)">Kranich Health</span>
+              <span>Vienna · Hybrid</span>
+              <span>Full-time</span>
+              <span>€ 70,000–80,000 gross/year</span>
+              <a href="#" style="font-weight: 600">View posting on LinkedIn</a>
+            </div>
+          </div>
+        </div>
+        <div role="group" aria-label="Status" style="display: flex; flex-wrap: wrap; gap: 6px">
+          <sc-for list="{{statuses}}" as="s" hint-placeholder-count="5">
+            <button type="button" aria-pressed="{{s.active}}" onClick="{{s.pick}}" style="{{s.style}}">{{s.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div role="tablist" aria-label="Application sections" style="display: flex; gap: 4px; overflow-x: auto">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+          <button type="button" role="tab" aria-selected="{{t.active}}" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+
+    <div style="padding: 24px 32px 40px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; box-sizing: border-box; width: 100%; max-width: 1240px">
+      <div style="flex: 2 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+
+        <sc-if value="{{tabFit}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 20px">
+            <section aria-labelledby="fit-title" style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: flex; flex-wrap: wrap; gap: 24px; align-items: center">
+              <div style="width: 116px; height: 116px; border-radius: 58px; background: conic-gradient(#079455 0 82%, var(--border) 82% 100%); display: flex; align-items: center; justify-content: center; flex: none">
+                <div style="width: 92px; height: 92px; border-radius: 46px; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center">
+                  <span style="font-size: 32px; font-weight: 700; line-height: 1">{{score}}</span>
+                  <span style="font-size: 11px; font-weight: 600; color: var(--text-3)">of 100</span>
+                </div>
+              </div>
+              <div style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+                  <h2 id="fit-title" style="margin: 0; font-size: 18px; font-weight: 700">Fit analysis</h2>
+                  <span style="font-size: 12px; font-weight: 700; color: var(--green-text); background: var(--green-bg); border-radius: 12px; padding: 3px 10px">Apply</span>
+                </div>
+                <p style="margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-2)">Strong match on B2B product leadership, discovery and mobile delivery. The main gap is healthcare domain experience; German is required at C1 and your profile says B2.</p>
+                <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 12px; color: var(--text-3)">
+                  <span style="display: inline-flex; align-items: center; gap: 6px"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"></path></svg>AI-generated – please review</span>
+                  <span>Analyzed today, 14:20</span>
+                </div>
+              </div>
+              <button type="button" onClick="{{reanalyze}}" style="height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer">{{reanalyzeLabel}}</button>
+            </section>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 20px">
+              <section aria-labelledby="matched-title" style="flex: 1 1 280px; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+                <h3 id="matched-title" style="margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#079455" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>Matched (5)</h3>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 14px; font-weight: 600">5+ years of product management in B2B SaaS</span>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">7 years as PM at Baufeld Software and Ostwind Mobility.</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 14px; font-weight: 600">Owning a mobile app end to end</span>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">Led the rebuild of the Baufeld field app (iOS and Android).</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 14px; font-weight: 600">Continuous discovery and user research</span>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">Weekly customer interviews listed under Baufeld Software.</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 14px; font-weight: 600">Data-informed decisions (SQL, A/B testing)</span>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">SQL and A/B testing in your skills.</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <span style="font-size: 14px; font-weight: 600">Fluent English</span>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">English C2.</span>
+                </div>
+              </section>
+
+              <section aria-labelledby="missing-title" style="flex: 1 1 280px; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+                <h3 id="missing-title" style="margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B54708" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16.5v.5"></path></svg>Gaps (3)</h3>
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"><span style="font-size: 14px; font-weight: 600">German C1</span><span style="font-size: 11px; font-weight: 700; color: var(--red-text); background: var(--red-bg); border-radius: 10px; padding: 2px 8px">Critical</span></div>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">Your profile says B2. If you are close to C1, update your profile; otherwise mention an ongoing course in the cover letter.</span>
+                  <sc-if value="{{not_german}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{add_german}}" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--accent-border); background: var(--accent-bg); color: var(--accent-text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H2z"></path><path d="M22 5h-7a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h8z"></path></svg>Add to learning plan</button></sc-if>
+                  <sc-if value="{{has_german}}" hint-placeholder-val="{{ false }}"><a href="Learning.dc.html" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--green-text)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>Added as a goal · view in Learning</a></sc-if>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"><span style="font-size: 14px; font-weight: 600">Healthcare or MedTech experience</span><span style="font-size: 11px; font-weight: 700; color: var(--amber-text); background: var(--amber-bg); border-radius: 10px; padding: 2px 8px">Moderate</span></div>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">Highlight regulated-industry work, such as safety documentation in construction.</span>
+                  <sc-if value="{{not_health}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{add_health}}" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--accent-border); background: var(--accent-bg); color: var(--accent-text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H2z"></path><path d="M22 5h-7a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h8z"></path></svg>Add to learning plan</button></sc-if>
+                  <sc-if value="{{has_health}}" hint-placeholder-val="{{ false }}"><a href="Learning.dc.html" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--green-text)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>Added as a goal · view in Learning</a></sc-if>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"><span style="font-size: 14px; font-weight: 600">GDPR / data privacy in product</span><span style="font-size: 11px; font-weight: 700; color: var(--text-2); background: var(--muted); border-radius: 10px; padding: 2px 8px">Minor</span></div>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">Add a bullet if you have handled consent or data export features.</span>
+                </div>
+              </section>
+            </div>
+
+            <section aria-labelledby="kw-title" style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+              <h3 id="kw-title" style="margin: 0; font-size: 15px; font-weight: 700">Keywords to add to your CV</h3>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                <span style="font-size: 13px; font-weight: 500; color: var(--accent-text); background: var(--accent-bg); border-radius: 16px; padding: 5px 12px">patient experience</span>
+                <span style="font-size: 13px; font-weight: 500; color: var(--accent-text); background: var(--accent-bg); border-radius: 16px; padding: 5px 12px">outcome-based roadmap</span>
+                <span style="font-size: 13px; font-weight: 500; color: var(--accent-text); background: var(--accent-bg); border-radius: 16px; padding: 5px 12px">accessibility (WCAG)</span>
+                <span style="font-size: 13px; font-weight: 500; color: var(--accent-text); background: var(--accent-bg); border-radius: 16px; padding: 5px 12px">stakeholder management</span>
+              </div>
+              <h3 style="margin: 8px 0 0; font-size: 15px; font-weight: 700">Talking points for the interview</h3>
+              <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.5; color: var(--text-2)">
+                <li>How you rebuilt a field app used by non-technical users under time pressure.</li>
+                <li>Your discovery routine and how it changed a roadmap decision.</li>
+                <li>Working with compliance-heavy requirements in construction.</li>
+              </ol>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{tabReady}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 20px">
+            <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between">
+              <div style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 320px; min-width: 0">
+                <h2 style="margin: 0; font-size: 18px; font-weight: 700">Ready to apply?</h2>
+                <p style="margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-2)">Checks your CV and cover letter for this job against the posting before you send them. Fixes create a new version; your master documents stay unchanged.</p>
+                <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-3)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"></path></svg>AI check · 2 credits · last run today, 14:32</span>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px">
+                <span style="{{readyBadgeStyle}}">{{readyLabel}}</span>
+                <button type="button" onClick="{{rerunCheck}}" style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">{{rerunLabel}}</button>
+              </div>
+            </section>
+            <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px 20px; display: flex; flex-direction: column">
+              <sc-for list="{{checks}}" as="c" hint-placeholder-count="6">
+                <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 14px 0; border-top: 1px solid var(--muted)">
+                  <span style="{{c.iconStyle}}">{{c.icon}}</span>
+                  <div style="flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                    <span style="font-size: 14px; font-weight: 600; color: var(--text)">{{c.title}}</span>
+                    <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">{{c.detail}}</span>
+                  </div>
+                  <sc-if value="{{c.canFix}}" hint-placeholder-val="{{ false }}">
+                    <button type="button" onClick="{{c.fix}}" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--accent-border); background: var(--accent-bg); color: var(--accent-text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"></path></svg>{{c.fixLabel}}</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </section>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap">
+              <a href="CVEditor.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font-size: 14px; font-weight: 500; text-decoration: none">Review documents</a>
+              <button type="button" onClick="{{markApplied}}" style="height: 40px; padding: 0 16px; border-radius: 8px; border: none; background: #4F46E5; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer">Mark as applied and lock versions</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{tabOverview}}" hint-placeholder-val="{{ false }}">
+          <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 18px">
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <h2 style="margin: 0; font-size: 16px; font-weight: 700">Summary</h2>
+              <p style="margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-2)">Kranich Health is looking for a Senior PM to own its patient app, from appointment booking to lab results, working with a team of 8 engineers and 2 designers.</p>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <h2 style="margin: 0; font-size: 16px; font-weight: 700">Responsibilities</h2>
+              <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.7; color: var(--text-2)">
+                <li>Own the patient app vision, roadmap and outcomes</li>
+                <li>Run continuous discovery with patients and clinics</li>
+                <li>Work closely with compliance on medical data handling</li>
+              </ul>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <h2 style="margin: 0; font-size: 16px; font-weight: 700">Requirements</h2>
+              <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.7; color: var(--text-2)">
+                <li>5+ years of product management, ideally B2B or B2B2C</li>
+                <li>Experience with mobile apps</li>
+                <li>German C1 and fluent English</li>
+              </ul>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <h2 style="margin: 0; font-size: 16px; font-weight: 700">Nice to have</h2>
+              <ul style="margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.7; color: var(--text-2)">
+                <li>Healthcare or MedTech background</li>
+                <li>Accessibility know-how</li>
+              </ul>
+            </div>
+            <button type="button" style="align-self: flex-start; height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer">Show original posting text</button>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{tabDocs}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 20px">
+            <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+              <div style="display: flex; align-items: center; gap: 8px"><span style="color: var(--text-3); display: flex"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg></span><h2 style="margin: 0; font-size: 15px; font-weight: 700">Sent on Oct 30 (locked)</h2></div>
+              <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">This is exactly what you sent. It cannot be edited, so you can always check it before an interview.</span>
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border)">
+                <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">CV – Kranich Health (EN) · v1</span><span style="font-size: 12px; color: var(--text-3)">Classic template · copy of Master CV (EN)</span></span>
+                <div style="display: flex; gap: 8px"><a href="CVEditor.dc.html" style="display: inline-flex; align-items: center; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); color: var(--text-2); font-size: 13px; font-weight: 500; text-decoration: none">View</a><button type="button" style="height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer">PDF</button></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border)">
+                <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">Cover letter – Kranich Health (DE) · v1</span><span style="font-size: 12px; color: var(--text-3)">Formal · copy of Master letter (DE)</span></span>
+                <div style="display: flex; gap: 8px"><a href="CoverLetters.dc.html" style="display: inline-flex; align-items: center; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); color: var(--text-2); font-size: 13px; font-weight: 500; text-decoration: none">View</a><button type="button" style="height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer">PDF</button></div>
+              </div>
+            </section>
+            <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 700">Working copies</h2>
+              <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">Edits for the next round go into new versions. Your master documents and the sent versions stay untouched.</span>
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid var(--muted)">
+                <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">CV – Kranich Health (EN) · v2</span><span style="font-size: 12px; color: var(--text-3)">Draft · edited today · 2 changes since v1</span></span>
+                <a href="CVEditor.dc.html" style="display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 8px; background: var(--accent-bg); color: var(--accent-text); font-size: 13px; font-weight: 600; text-decoration: none">Open editor</a>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                <button type="button" style="height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer">New version from master</button>
+                <button type="button" style="height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer">Link an existing document</button>
+              </div>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{tabTimeline}}" hint-placeholder-val="{{ false }}">
+          <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Add a note
+              <textarea rows="2" placeholder="e.g. Call with recruiter, next step is a case study" style="font: inherit; font-size: 14px; font-weight: 400; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 8px; resize: vertical"></textarea>
+            </label>
+            <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px">
+              <li style="display: flex; gap: 12px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #7C3AED; margin-top: 5px; flex: none"></span><div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">Moved to Interview</span><span style="font-size: 13px; color: var(--text-3)">Today, 09:12 · First interview Nov 7, 10:00</span></div></li>
+              <li style="display: flex; gap: 12px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #4F46E5; margin-top: 5px; flex: none"></span><div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">Fit analyzed: 82 / Apply</span><span style="font-size: 13px; color: var(--text-3)">Nov 1</span></div></li>
+              <li style="display: flex; gap: 12px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #2563EB; margin-top: 5px; flex: none"></span><div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">Applied with CV – Kranich Health (EN)</span><span style="font-size: 13px; color: var(--text-3)">Oct 30</span></div></li>
+              <li style="display: flex; gap: 12px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #667085; margin-top: 5px; flex: none"></span><div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 600">Saved from LinkedIn via extension</span><span style="font-size: 13px; color: var(--text-3)">Oct 28</span></div></li>
+            </ol>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{tabDetails}}" hint-placeholder-val="{{ false }}">
+          <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Applied on<input type="date" value="2026-10-30" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 8px"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Next action<input type="date" value="2026-11-07" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 8px"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Contact person<input type="text" value="Mira Hofer (Recruiter)" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 8px"></label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Contact email<input type="email" value="careers@example.com" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 8px"></label>
+          </section>
+        </sc-if>
+      </div>
+
+      <aside style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+        <section aria-labelledby="next-title" style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+          <h2 id="next-title" style="margin: 0; font-size: 15px; font-weight: 700">Next action</h2>
+          <span style="font-size: 20px; font-weight: 700; color: var(--purple-text)">Tomorrow, 10:00</span>
+          <span style="font-size: 13px; color: var(--text-3)">First interview with Mira Hofer (video call)</span>
+        </section>
+        <section aria-labelledby="quick-title" style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+          <h2 id="quick-title" style="margin: 0; font-size: 15px; font-weight: 700">Documents</h2>
+          <a href="CVEditor.dc.html" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; background: var(--bg); text-decoration: none; color: var(--text); font-size: 14px; font-weight: 500">CV – Kranich Health (EN)<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"></path></svg></a>
+          <button type="button" onClick="{{goDocs}}" style="height: 40px; border-radius: 8px; border: 1px dashed var(--border-dash); background: var(--surface); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer">Generate cover letter</button>
+        </section>
+        <section aria-labelledby="ask-title" style="background: #1E1B4B; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; color: #FFFFFF">
+          <h2 id="ask-title" style="margin: 0; font-size: 15px; font-weight: 700">Ask the assistant</h2>
+          <button type="button" style="text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--link); background: #312E81; color: #FFFFFF; font: inherit; font-size: 13px; cursor: pointer">Prepare me for tomorrow's interview</button>
+          <button type="button" style="text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--link); background: #312E81; color: #FFFFFF; font: inherit; font-size: 13px; cursor: pointer">How do I address the German C1 gap?</button>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["system","light","dark"],"default":"system"},"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: 'fit', status: 'interview', analyzing: false, credits: 24, score: 82 };
+  }
+  componentWillUnmount() { if (this.timer) clearTimeout(this.timer); }
+  renderVals() {
+    var self = this;
+    var v = this._vals();
+    var st = this.state || {};
+    var th = st.theme;
+    if (!th) { try { th = window.localStorage.getItem('ak-theme'); } catch (e) {} }
+    th = th || this.props.theme || 'system';
+    v.themeClass = 'ak-' + th;
+    var on = 'width: 32px; height: 30px; border: none; border-radius: 7px; background: var(--surface); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(16,24,40,0.15)';
+    var off = 'width: 32px; height: 30px; border: none; border-radius: 7px; background: transparent; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center';
+    function setT(x) { return function () { try { window.localStorage.setItem('ak-theme', x); } catch (e) {} self.setState({ theme: x }); }; }
+    v.thLight = th === 'light'; v.thDark = th === 'dark'; v.thSystem = th === 'system';
+    v.lightStyle = v.thLight ? on : off; v.darkStyle = v.thDark ? on : off; v.systemStyle = v.thSystem ? on : off;
+    v.setLight = setT('light'); v.setDark = setT('dark'); v.setSystem = setT('system');
+    var readMap = st.notifRead || {};
+    var base = [
+      { id: 'n0', glyph: 'L', title: 'Time to study: 25 min', sub: 'CS50P Week 3 · keep your 12-day streak', time: 'Just now', iconBg: 'var(--accent-bg)', iconColor: 'var(--accent-text)', unread0: true, href: 'Learning.dc.html' },
+      { id: 'n1', glyph: '!', title: 'Time to follow up', sub: 'Nordbau Software · no reply for 12 days', time: '2 hours ago', iconBg: 'var(--amber-bg)', iconColor: 'var(--amber-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n2', glyph: 'I', title: 'Interview tomorrow, 10:00', sub: 'Kranich Health · Senior Product Manager', time: '5 hours ago', iconBg: 'var(--purple-bg)', iconColor: 'var(--purple-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n3', glyph: '79', title: 'Fit analysis ready', sub: 'Felsberg Energy · score 79, Apply', time: 'Yesterday', iconBg: 'var(--green-bg)', iconColor: 'var(--green-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n4', glyph: 'S', title: 'Saved 9 days ago', sub: 'Viatra Mobility · apply or archive?', time: '2 days ago', iconBg: 'var(--muted)', iconColor: 'var(--text-3)', unread0: false, href: 'Applications.dc.html' }
+    ];
+    var unreadCount = 0;
+    v.notifs = base.map(function (n) {
+      var unread = n.unread0 && !readMap[n.id];
+      if (unread) unreadCount++;
+      return Object.assign({}, n, { unread: unread, rowBg: unread ? 'var(--surface-2)' : 'transparent',
+        read: function () { var m = Object.assign({}, (self.state || {}).notifRead); m[n.id] = true; self.setState({ notifRead: m }); } });
+    });
+    v.unreadCount = unreadCount; v.hasUnread = unreadCount > 0;
+    v.bellOpen = !!st.bellOpen;
+    v.toggleBell = function () { self.setState({ bellOpen: !(self.state || {}).bellOpen }); };
+    v.markAll = function () { self.setState({ notifRead: { n0: true, n1: true, n2: true, n3: true, n4: true } }); };
+    return v;
+  }
+  _vals() {
+    var self = this;
+    var tabDefs = [['overview', 'Overview'], ['fit', 'Fit analysis'], ['ready', 'Ready to apply?'], ['docs', 'Documents'], ['timeline', 'Timeline'], ['details', 'Details']];
+    var tabOn = 'height: 44px; padding: 0 14px; border: none; border-bottom: 2px solid #4F46E5; background: transparent; color: var(--accent-text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap';
+    var tabOff = 'height: 44px; padding: 0 14px; border: none; border-bottom: 2px solid transparent; background: transparent; color: var(--text-3); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap';
+    var tabs = tabDefs.map(function (d) {
+      var active = self.state.tab === d[0];
+      return { label: d[1], active: active, style: active ? tabOn : tabOff, pick: function () { self.setState({ tab: d[0] }); } };
+    });
+    var statusDefs = [
+      ['saved', 'Saved', 'var(--text-2)', 'var(--muted)'], ['applied', 'Applied', 'var(--blue-text)', 'var(--blue-bg)'],
+      ['interview', 'Interview', 'var(--purple-text)', 'var(--purple-bg)'], ['offer', 'Offer', 'var(--green-text)', 'var(--green-bg)'], ['rejected', 'Rejected', 'var(--red-text)', 'var(--red-bg)']
+    ];
+    var statuses = statusDefs.map(function (d) {
+      var active = self.state.status === d[0];
+      var style = active
+        ? 'height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid ' + d[2] + '; background: ' + d[3] + '; color: ' + d[2] + '; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer'
+        : 'height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid var(--border); background: var(--surface); color: var(--text-3); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer';
+      return { label: d[1], active: active, style: style, pick: function () { self.setState({ status: d[0] }); } };
+    });
+    var t = this.state.tab;
+    var fixed = this.state.readyFixed || {};
+    var okStyle = 'width: 28px; height: 28px; border-radius: 14px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: var(--green-bg); color: var(--green-text)';
+    var warnStyle = 'width: 28px; height: 28px; border-radius: 14px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: var(--amber-bg); color: var(--amber-text)';
+    var defs = [
+      { id: 'kw', warn: 'CV is missing 2 keywords from the posting', ok: 'CV covers the key terms', detail: '"patient experience" and "accessibility (WCAG)" appear in the posting but not in your CV.', done: 'Added to your summary and one bullet in CV v2.', fixLabel: 'Add to CV v2' },
+      { id: 'lang', warn: 'Posting is in German, your CV is in English', ok: 'Language matches', detail: 'Kranich Health writes in German. A German CV is often preferred in Austria.', done: 'German copy created: CV – Kranich Health (DE) v1.', fixLabel: 'Create German copy' },
+      { id: 'gap', warn: 'Cover letter does not address the German C1 gap', ok: 'Cover letter addresses your gaps', detail: 'The posting requires C1; your profile says B2.', done: 'Added one sentence about your ongoing C1 course.', fixLabel: 'Suggest a sentence' },
+      { id: 'who', fixed: true, ok: 'Cover letter is addressed to the right person', done: 'Kranich Health GmbH · Mira Hofer' },
+      { id: 'cliche', fixed: true, ok: 'No clichés or typos found', done: 'Checked CV and cover letter.' },
+      { id: 'len', fixed: true, ok: 'Length is right', done: 'CV 2 pages · cover letter 1 page.' }
+    ];
+    var open = 0;
+    var checks = defs.map(function (d) {
+      var isOk = d.fixed || fixed[d.id];
+      if (!isOk) open++;
+      return { icon: isOk ? '✓' : '!', iconStyle: isOk ? okStyle : warnStyle, title: isOk ? d.ok : d.warn, detail: isOk ? d.done : d.detail,
+        canFix: !isOk, fixLabel: d.fixLabel || '',
+        fix: function () { var m = Object.assign({}, self.state.readyFixed); m[d.id] = true; self.setState({ readyFixed: m }); } };
+    });
+    var badgeBase = 'font-size: 13px; font-weight: 700; border-radius: 14px; padding: 5px 12px; ';
+    var gl = this.state.gapLearn || {};
+    function addGap(k) { return function () { var m = Object.assign({}, self.state.gapLearn); m[k] = true; self.setState({ gapLearn: m }); }; }
+    return {
+      not_german: !gl.german, has_german: !!gl.german, add_german: addGap('german'),
+      not_health: !gl.health, has_health: !!gl.health, add_health: addGap('health'),
+      tabs: tabs, statuses: statuses,
+      tabReady: t === 'ready',
+      checks: checks,
+      readyLabel: open === 0 ? 'Ready to apply' : open + ' suggestions',
+      readyBadgeStyle: badgeBase + (open === 0 ? 'background: var(--green-bg); color: var(--green-text)' : 'background: var(--amber-bg); color: var(--amber-text)'),
+      rerunLabel: this.state.rerunning ? 'Checking…' : 'Run check again',
+      rerunCheck: function () { if (self.state.rerunning) return; self.setState({ rerunning: true }); self.timer2 = setTimeout(function () { self.setState({ rerunning: false }); }, 1200); },
+      markApplied: function () { self.setState({ status: 'applied', tab: 'docs' }); },
+      tabFit: t === 'fit', tabOverview: t === 'overview', tabDocs: t === 'docs', tabTimeline: t === 'timeline', tabDetails: t === 'details',
+      score: this.state.score,
+      credits: this.state.credits,
+      creditBar: 'width: ' + Math.round(this.state.credits / 30 * 100) + '%; height: 6px; border-radius: 3px; background: #4F46E5',
+      reanalyzeLabel: this.state.analyzing ? 'Analyzing…' : 'Re-analyze (2 credits)',
+      reanalyze: function () {
+        if (self.state.analyzing) return;
+        self.setState({ analyzing: true });
+        self.timer = setTimeout(function () { self.setState({ analyzing: false, credits: Math.max(0, self.state.credits - 2) }); }, 1400);
+      },
+      goDocs: function () { self.setState({ tab: 'docs' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

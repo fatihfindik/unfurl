@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unfurl – Applications</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif}
+a{color:var(--link)}a:hover{color:var(--accent-text)}
+.ak-root{color-scheme:light;--bg:#F6F7F9;--surface:#FFFFFF;--surface-2:#F9FAFB;--muted:#F2F4F7;--column:#EEF0F4;--border:#E4E7EC;--border-strong:#D0D5DD;--border-dash:#98A2B3;--text:#101828;--text-2:#344054;--text-3:#475467;--link:#4338CA;--accent-text:#3730A3;--accent-strong:#312E81;--accent-bg:#EEF0FF;--accent-bg-2:#E0E7FF;--accent-border:#C7D2FE;--blue-text:#1D4ED8;--blue-bg:#EFF4FF;--purple-text:#5B21B6;--purple-bg:#F4F0FF;--green-text:#067647;--green-bg:#ECFDF3;--red-text:#B42318;--red-bg:#FEF3F2;--amber-text:#B54708;--amber-bg:#FFFAEB;}
+.ak-root.ak-dark{color-scheme:dark;--bg:#0B0F19;--surface:#141A26;--surface-2:#182030;--muted:#1F2837;--column:#111827;--border:#283244;--border-strong:#3A4558;--border-dash:#56627A;--text:#F2F4F7;--text-2:#D0D5DD;--text-3:#A3ACBD;--link:#A5B4FC;--accent-text:#C7D2FE;--accent-strong:#E0E7FF;--accent-bg:#23264A;--accent-bg-2:#2E3270;--accent-border:#3B3F8C;--blue-text:#93C5FD;--blue-bg:rgba(59,130,246,0.18);--purple-text:#C4B5FD;--purple-bg:rgba(139,92,246,0.2);--green-text:#6EE7B7;--green-bg:rgba(16,185,129,0.18);--red-text:#FDA29B;--red-bg:rgba(240,68,56,0.18);--amber-text:#FEC84B;--amber-bg:rgba(247,144,9,0.18);}
+@media (prefers-color-scheme: dark){.ak-root.ak-system{color-scheme:dark;--bg:#0B0F19;--surface:#141A26;--surface-2:#182030;--muted:#1F2837;--column:#111827;--border:#283244;--border-strong:#3A4558;--border-dash:#56627A;--text:#F2F4F7;--text-2:#D0D5DD;--text-3:#A3ACBD;--link:#A5B4FC;--accent-text:#C7D2FE;--accent-strong:#E0E7FF;--accent-bg:#23264A;--accent-bg-2:#2E3270;--accent-border:#3B3F8C;--blue-text:#93C5FD;--blue-bg:rgba(59,130,246,0.18);--purple-text:#C4B5FD;--purple-bg:rgba(139,92,246,0.2);--green-text:#6EE7B7;--green-bg:rgba(16,185,129,0.18);--red-text:#FDA29B;--red-bg:rgba(240,68,56,0.18);--amber-text:#FEC84B;--amber-bg:rgba(247,144,9,0.18);}}
+</style>
+</helmet>
+<div class="ak-root {{themeClass}}" style="min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--bg); font-family: Inter, system-ui, sans-serif; color: var(--text)">
+
+  <nav aria-label="Main" style="flex: 1 1 220px; box-sizing: border-box; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 14px; display: flex; flex-direction: column; gap: 4px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px">
+      <div style="width: 34px; height: 34px; border-radius: 10px; background: #4F46E5; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6.5 21V5" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"></path><path d="M6.5 5.5c2.4-1.5 4.8 1.5 7.2 0s3.6-1.2 5.3-.6v8.3c-1.7-.6-2.9-.3-5.3 1.2s-4.8-1.5-7.2 0z" fill="#FFFFFF"></path><circle cx="6.5" cy="3.6" r="1.9" fill="#FDB022"></circle></svg>
+      </div>
+      <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 700; font-size: 19px; color: var(--text); letter-spacing: -0.02em">Unfurl</span>
+    </div>
+    <a href="Main.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Dashboard</a>
+    <a href="Applications.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600; color: var(--accent-text); background: var(--accent-bg)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"></rect><rect x="10" y="4" width="5" height="11" rx="1"></rect><rect x="17" y="4" width="4" height="7" rx="1"></rect></svg>Applications</a>
+    <a href="Learning.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H2z"></path><path d="M22 5h-7a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h8z"></path></svg>Learning</a>
+    <a href="Profile.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>Profile</a>
+    <a href="CVEditor.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>CVs</a>
+    <a href="CoverLetters.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>Cover letters</a>
+    <a href="Assistant.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"></path><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"></path></svg>Assistant</a>
+    <a href="Settings.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>Settings</a>
+    <div style="margin-top: 24px; padding: 14px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--text)"><span>AI credits</span><span>24 / 30</span></div>
+      <div style="height: 6px; border-radius: 3px; background: var(--border)"><div style="width: 80%; height: 6px; border-radius: 3px; background: #4F46E5"></div></div>
+      <span style="font-size: 12px; color: var(--text-3)">Resets at midnight (Vienna)</span>
+      <a href="Settings.dc.html" style="font-size: 12px; font-weight: 600; color: var(--link)">Upgrade to Pro</a>
+    </div>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+  <div style="position: relative; display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 10px 32px; background: var(--surface); border-bottom: 1px solid var(--border)">
+    <div role="group" aria-label="Color theme" style="display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--muted)">
+      <button type="button" aria-label="Light mode" title="Light" aria-pressed="{{thLight}}" onClick="{{setLight}}" style="{{lightStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+      <button type="button" aria-label="Dark mode" title="Dark" aria-pressed="{{thDark}}" onClick="{{setDark}}" style="{{darkStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></button>
+      <button type="button" aria-label="Use system setting" title="System" aria-pressed="{{thSystem}}" onClick="{{setSystem}}" style="{{systemStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg></button>
+    </div>
+    <button type="button" aria-label="Notifications" aria-expanded="{{bellOpen}}" onClick="{{toggleBell}}" style="position: relative; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      <sc-if value="{{hasUnread}}" hint-placeholder-val="{{ true }}"><span style="position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #D92D20; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{unreadCount}}</span></sc-if>
+    </button>
+    <a href="Settings.dc.html" aria-label="Account settings" style="width: 40px; height: 40px; border-radius: 20px; background: var(--accent-bg-2); color: var(--accent-text); font-size: 14px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">JN</a>
+    <sc-if value="{{bellOpen}}" hint-placeholder-val="{{ false }}">
+      <div role="dialog" aria-label="Notifications" style="position: absolute; top: 58px; right: 32px; width: 380px; max-width: calc(100% - 32px); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 16px 40px rgba(16,24,40,0.22); z-index: 30; display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px">
+          <span style="font-size: 15px; font-weight: 700; color: var(--text)">Notifications</span>
+          <button type="button" onClick="{{markAll}}" style="border: none; background: none; padding: 4px; color: var(--link); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Mark all as read</button>
+        </div>
+        <sc-for list="{{notifs}}" as="n" hint-placeholder-count="4">
+          <a href="{{n.href}}" onClick="{{n.read}}" style="display: flex; gap: 12px; padding: 12px 16px; text-decoration: none; color: var(--text); border-top: 1px solid var(--muted); background: {{n.rowBg}}">
+            <span style="width: 34px; height: 34px; border-radius: 17px; flex: none; display: flex; align-items: center; justify-content: center; background: {{n.iconBg}}; color: {{n.iconColor}}; font-size: 13px; font-weight: 700">{{n.glyph}}</span>
+            <span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 14px; font-weight: 600; color: var(--text)">{{n.title}}</span>
+              <span style="font-size: 13px; color: var(--text-3)">{{n.sub}}</span>
+              <span style="font-size: 12px; color: var(--text-3)">{{n.time}}</span>
+            </span>
+            <sc-if value="{{n.unread}}" hint-placeholder-val="{{ true }}"><span aria-label="Unread" style="width: 8px; height: 8px; border-radius: 4px; background: #4F46E5; margin-top: 6px; flex: none"></span></sc-if>
+          </a>
+        </sc-for>
+        <a href="Settings.dc.html" style="padding: 12px 16px; border-top: 1px solid var(--muted); font-size: 13px; font-weight: 600; text-align: center; text-decoration: none">Notification settings</a>
+      </div>
+    </sc-if>
+  </div>
+    <header style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; padding: 18px 32px; background: var(--surface); border-bottom: 1px solid var(--border)">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 700">Applications</h1>
+        <p style="margin: 0; font-size: 14px; color: var(--text-3)">12 applications · 2 archived</p>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+        <div role="group" aria-label="View" style="display: flex; padding: 3px; border-radius: 10px; background: var(--muted); gap: 2px">
+          <button type="button" aria-pressed="{{isBoard}}" onClick="{{showBoard}}" style="{{boardBtnStyle}}">Board</button>
+          <button type="button" aria-pressed="{{isList}}" onClick="{{showList}}" style="{{listBtnStyle}}">List</button>
+        </div>
+        <input type="search" aria-label="Search applications" placeholder="Search company or role" style="width: 220px; max-width: 100%; box-sizing: border-box; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; font: inherit; font-size: 14px; background: var(--surface)">
+        <button type="button" style="display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>Filter</button>
+        <button type="button" style="display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: none; background: #4F46E5; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Add manually</button>
+      </div>
+    </header>
+
+    <div style="padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box; width: 100%">
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 13px; color: var(--text-3)">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"></path></svg>
+        <span>Tip: drag a card to another column to change its status. Fit scores come from AI analysis.</span>
+      </div>
+
+      <sc-if value="{{isBoard}}" hint-placeholder-val="{{ true }}">
+        <div style="overflow-x: auto; padding-bottom: 8px">
+          <div style="display: flex; gap: 16px; align-items: flex-start; min-width: 1240px">
+            <sc-for list="{{columns}}" as="col" hint-placeholder-count="5">
+              <section aria-label="{{col.title}}" style="flex: 1 1 0; min-width: 232px; background: var(--column); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 2px 4px 4px">
+                  <span style="width: 8px; height: 8px; border-radius: 4px; background: {{col.dot}}"></span>
+                  <h2 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--text)">{{col.title}}</h2>
+                  <span style="font-size: 12px; font-weight: 600; color: var(--text-3); background: var(--surface); border-radius: 10px; padding: 1px 8px">{{col.count}}</span>
+                </div>
+                <sc-for list="{{col.cards}}" as="card" hint-placeholder-count="2">
+                  <a href="ApplicationDetail.dc.html" style="display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; box-shadow: 0 1px 2px rgba(16,24,40,0.05)">
+                    <div style="display: flex; justify-content: space-between; gap: 8px; align-items: flex-start">
+                      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+                        <span style="font-size: 14px; font-weight: 700">{{card.company}}</span>
+                        <span style="font-size: 13px; color: var(--text-2)">{{card.role}}</span>
+                      </div>
+                      <sc-if value="{{card.hi}}" hint-placeholder-val="{{ true }}"><span style="flex: none; font-size: 12px; font-weight: 700; color: var(--green-text); background: var(--green-bg); border-radius: 12px; padding: 3px 9px">{{card.score}}</span></sc-if>
+                      <sc-if value="{{card.mid}}" hint-placeholder-val="{{ false }}"><span style="flex: none; font-size: 12px; font-weight: 700; color: var(--amber-text); background: var(--amber-bg); border-radius: 12px; padding: 3px 9px">{{card.score}}</span></sc-if>
+                      <sc-if value="{{card.lo}}" hint-placeholder-val="{{ false }}"><span style="flex: none; font-size: 12px; font-weight: 700; color: var(--text-3); background: var(--muted); border-radius: 12px; padding: 3px 9px">{{card.score}}</span></sc-if>
+                    </div>
+                    <span style="font-size: 12px; color: var(--text-3)">{{card.meta}}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-3); border-top: 1px solid var(--muted); padding-top: 8px">
+                      <span>{{card.source}}</span>
+                      <span>{{card.updated}}</span>
+                    </div>
+                  </a>
+                </sc-for>
+              </section>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isList}}" hint-placeholder-val="{{ false }}">
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto">
+          <table style="width: 100%; min-width: 760px; border-collapse: collapse; font-size: 14px">
+            <thead>
+              <tr style="text-align: left; color: var(--text-3); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; background: var(--surface-2)">
+                <th style="padding: 12px 16px; font-weight: 600">Company and role</th>
+                <th style="padding: 12px 16px; font-weight: 600">Status</th>
+                <th style="padding: 12px 16px; font-weight: 600">Fit</th>
+                <th style="padding: 12px 16px; font-weight: 600">Location</th>
+                <th style="padding: 12px 16px; font-weight: 600">Source</th>
+                <th style="padding: 12px 16px; font-weight: 600">Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                <tr style="border-top: 1px solid var(--muted)">
+                  <td style="padding: 12px 16px"><a href="ApplicationDetail.dc.html" style="text-decoration: none; color: var(--text); display: flex; flex-direction: column"><span style="font-weight: 600">{{r.company}}</span><span style="font-size: 13px; color: var(--text-3)">{{r.role}}</span></a></td>
+                  <td style="padding: 12px 16px"><span style="font-size: 12px; font-weight: 600; border-radius: 12px; padding: 3px 10px; color: {{r.statusColor}}; background: {{r.statusBg}}">{{r.status}}</span></td>
+                  <td style="padding: 12px 16px; font-weight: 700">{{r.score}}</td>
+                  <td style="padding: 12px 16px; color: var(--text-3)">{{r.meta}}</td>
+                  <td style="padding: 12px 16px; color: var(--text-3)">{{r.source}}</td>
+                  <td style="padding: 12px 16px; color: var(--text-3)">{{r.updated}}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </sc-if>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["system","light","dark"],"default":"system"},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: 'board' };
+  }
+  renderVals() {
+    var self = this;
+    var v = this._vals();
+    var st = this.state || {};
+    var th = st.theme;
+    if (!th) { try { th = window.localStorage.getItem('ak-theme'); } catch (e) {} }
+    th = th || this.props.theme || 'system';
+    v.themeClass = 'ak-' + th;
+    var on = 'width: 32px; height: 30px; border: none; border-radius: 7px; background: var(--surface); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(16,24,40,0.15)';
+    var off = 'width: 32px; height: 30px; border: none; border-radius: 7px; background: transparent; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center';
+    function setT(x) { return function () { try { window.localStorage.setItem('ak-theme', x); } catch (e) {} self.setState({ theme: x }); }; }
+    v.thLight = th === 'light'; v.thDark = th === 'dark'; v.thSystem = th === 'system';
+    v.lightStyle = v.thLight ? on : off; v.darkStyle = v.thDark ? on : off; v.systemStyle = v.thSystem ? on : off;
+    v.setLight = setT('light'); v.setDark = setT('dark'); v.setSystem = setT('system');
+    var readMap = st.notifRead || {};
+    var base = [
+      { id: 'n0', glyph: 'L', title: 'Time to study: 25 min', sub: 'CS50P Week 3 · keep your 12-day streak', time: 'Just now', iconBg: 'var(--accent-bg)', iconColor: 'var(--accent-text)', unread0: true, href: 'Learning.dc.html' },
+      { id: 'n1', glyph: '!', title: 'Time to follow up', sub: 'Nordbau Software · no reply for 12 days', time: '2 hours ago', iconBg: 'var(--amber-bg)', iconColor: 'var(--amber-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n2', glyph: 'I', title: 'Interview tomorrow, 10:00', sub: 'Kranich Health · Senior Product Manager', time: '5 hours ago', iconBg: 'var(--purple-bg)', iconColor: 'var(--purple-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n3', glyph: '79', title: 'Fit analysis ready', sub: 'Felsberg Energy · score 79, Apply', time: 'Yesterday', iconBg: 'var(--green-bg)', iconColor: 'var(--green-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n4', glyph: 'S', title: 'Saved 9 days ago', sub: 'Viatra Mobility · apply or archive?', time: '2 days ago', iconBg: 'var(--muted)', iconColor: 'var(--text-3)', unread0: false, href: 'Applications.dc.html' }
+    ];
+    var unreadCount = 0;
+    v.notifs = base.map(function (n) {
+      var unread = n.unread0 && !readMap[n.id];
+      if (unread) unreadCount++;
+      return Object.assign({}, n, { unread: unread, rowBg: unread ? 'var(--surface-2)' : 'transparent',
+        read: function () { var m = Object.assign({}, (self.state || {}).notifRead); m[n.id] = true; self.setState({ notifRead: m }); } });
+    });
+    v.unreadCount = unreadCount; v.hasUnread = unreadCount > 0;
+    v.bellOpen = !!st.bellOpen;
+    v.toggleBell = function () { self.setState({ bellOpen: !(self.state || {}).bellOpen }); };
+    v.markAll = function () { self.setState({ notifRead: { n0: true, n1: true, n2: true, n3: true, n4: true } }); };
+    return v;
+  }
+  _vals() {
+    var self = this;
+    function card(company, role, meta, score, source, updated) {
+      return { company: company, role: role, meta: meta, score: score, source: source, updated: updated,
+        hi: score !== '–' && score >= 75, mid: score !== '–' && score >= 50 && score < 75, lo: score === '–' || score < 50 };
+    }
+    var cols = [
+      { key: 'saved', title: 'Saved', dot: '#667085', statusColor: 'var(--text-2)', statusBg: 'var(--muted)', cards: [
+        card('Viatra Mobility', 'Product Lead, Mobility', 'Vienna · Remote', 68, 'LinkedIn', '9 days ago'),
+        card('Felsberg Energy', 'Senior PM, Smart Grid', 'Munich · Hybrid', 79, 'StepStone', '3 days ago'),
+        card('Heron Travel', 'Product Manager, Booking', 'Berlin · Onsite', 42, 'LinkedIn', 'Yesterday')
+      ] },
+      { key: 'applied', title: 'Applied', dot: '#2563EB', statusColor: 'var(--blue-text)', statusBg: 'var(--blue-bg)', cards: [
+        card('Nordbau Software', 'Product Manager, Platform', 'Graz · Hybrid', 74, 'StepStone', '12 days ago'),
+        card('Brightloom', 'Group Product Manager', 'Berlin · Remote', 61, 'Company site', '5 days ago'),
+        card('Alpenwerk Robotics', 'Technical Product Manager', 'Innsbruck · Onsite', 77, 'karriere.at', '4 days ago'),
+        card('Talpa Analytics', 'Product Manager, Data', 'Vienna · Hybrid', 70, 'LinkedIn', '11 days ago')
+      ] },
+      { key: 'interview', title: 'Interview', dot: '#7C3AED', statusColor: 'var(--purple-text)', statusBg: 'var(--purple-bg)', cards: [
+        card('Kranich Health', 'Senior Product Manager', 'Vienna · Hybrid', 82, 'LinkedIn', 'Today'),
+        card('Quellwasser Fintech', 'Product Manager, Payments', 'Zurich · Hybrid', 73, 'Company site', '2 days ago')
+      ] },
+      { key: 'offer', title: 'Offer', dot: '#079455', statusColor: 'var(--green-text)', statusBg: 'var(--green-bg)', cards: [
+        card('Lumen Logistics', 'Product Owner, Fleet', 'Linz · Hybrid', 88, 'karriere.at', '2 days ago')
+      ] },
+      { key: 'rejected', title: 'Rejected', dot: '#D92D20', statusColor: 'var(--red-text)', statusBg: 'var(--red-bg)', cards: [
+        card('Orbis Insurance', 'Head of Product', 'Vienna · Onsite', 48, 'LinkedIn', '3 weeks ago'),
+        card('Stadtrad', 'Product Manager, App', 'Vienna · Hybrid', 65, 'Company site', '2 weeks ago')
+      ] }
+    ];
+    var columns = cols.map(function (c) { return Object.assign({}, c, { count: c.cards.length }); });
+    var rows = [];
+    cols.forEach(function (c) {
+      c.cards.forEach(function (k) {
+        rows.push(Object.assign({}, k, { status: c.title, statusColor: c.statusColor, statusBg: c.statusBg }));
+      });
+    });
+    var on = 'height: 34px; padding: 0 14px; border: none; border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(16,24,40,0.08)';
+    var off = 'height: 34px; padding: 0 14px; border: none; border-radius: 8px; background: transparent; color: var(--text-3); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer';
+    var isBoard = this.state.view === 'board';
+    return {
+      columns: columns, rows: rows,
+      isBoard: isBoard, isList: !isBoard,
+      boardBtnStyle: isBoard ? on : off, listBtnStyle: isBoard ? off : on,
+      showBoard: function () { self.setState({ view: 'board' }); },
+      showList: function () { self.setState({ view: 'list' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

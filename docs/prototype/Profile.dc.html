@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unfurl – Profile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;family=Source+Serif+4:wght@600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif}
+a{color:var(--link)}a:hover{color:var(--accent-text)}
+input:not([type=checkbox]):not([type=radio]),select,textarea{background-color:var(--input)}
+input[type=checkbox]:focus,input[type=radio]:focus{outline:none}
+input:not([type=checkbox]):not([type=radio]):focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #6366F1;outline-offset:0}
+.ak-root{color-scheme:light;--bg:#F6F7F9;--surface:#FFFFFF;--surface-2:#F9FAFB;--input:#FFFFFF;--muted:#F2F4F7;--column:#EEF0F4;--border:#E4E7EC;--border-strong:#D0D5DD;--border-dash:#98A2B3;--text:#101828;--text-2:#344054;--text-3:#475467;--link:#4338CA;--accent-text:#3730A3;--accent-strong:#312E81;--accent-bg:#EEF0FF;--accent-bg-2:#E0E7FF;--accent-border:#C7D2FE;--blue-text:#1D4ED8;--blue-bg:#EFF4FF;--purple-text:#5B21B6;--purple-bg:#F4F0FF;--green-text:#067647;--green-bg:#ECFDF3;--red-text:#B42318;--red-bg:#FEF3F2;--amber-text:#B54708;--amber-bg:#FFFAEB;}
+.ak-root.ak-dark{color-scheme:dark;--bg:#0B0F19;--surface:#141A26;--surface-2:#182030;--input:#1E2638;--muted:#1F2837;--column:#111827;--border:#283244;--border-strong:#3A4558;--border-dash:#56627A;--text:#F2F4F7;--text-2:#D0D5DD;--text-3:#A3ACBD;--link:#A5B4FC;--accent-text:#C7D2FE;--accent-strong:#E0E7FF;--accent-bg:#23264A;--accent-bg-2:#2E3270;--accent-border:#3B3F8C;--blue-text:#93C5FD;--blue-bg:rgba(59,130,246,0.18);--purple-text:#C4B5FD;--purple-bg:rgba(139,92,246,0.2);--green-text:#6EE7B7;--green-bg:rgba(16,185,129,0.18);--red-text:#FDA29B;--red-bg:rgba(240,68,56,0.18);--amber-text:#FEC84B;--amber-bg:rgba(247,144,9,0.18);}
+@media (prefers-color-scheme: dark){.ak-root.ak-system{color-scheme:dark;--bg:#0B0F19;--surface:#141A26;--surface-2:#182030;--input:#1E2638;--muted:#1F2837;--column:#111827;--border:#283244;--border-strong:#3A4558;--border-dash:#56627A;--text:#F2F4F7;--text-2:#D0D5DD;--text-3:#A3ACBD;--link:#A5B4FC;--accent-text:#C7D2FE;--accent-strong:#E0E7FF;--accent-bg:#23264A;--accent-bg-2:#2E3270;--accent-border:#3B3F8C;--blue-text:#93C5FD;--blue-bg:rgba(59,130,246,0.18);--purple-text:#C4B5FD;--purple-bg:rgba(139,92,246,0.2);--green-text:#6EE7B7;--green-bg:rgba(16,185,129,0.18);--red-text:#FDA29B;--red-bg:rgba(240,68,56,0.18);--amber-text:#FEC84B;--amber-bg:rgba(247,144,9,0.18);}}
+</style>
+</helmet>
+<div class="ak-root {{themeClass}}" style="min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--bg); font-family: Inter, system-ui, sans-serif; color: var(--text)">
+
+  <nav aria-label="Main" style="flex: 1 1 220px; box-sizing: border-box; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 14px; display: flex; flex-direction: column; gap: 4px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px">
+      <div style="width: 34px; height: 34px; border-radius: 10px; background: #4F46E5; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6.5 21V5" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"></path><path d="M6.5 5.5c2.4-1.5 4.8 1.5 7.2 0s3.6-1.2 5.3-.6v8.3c-1.7-.6-2.9-.3-5.3 1.2s-4.8-1.5-7.2 0z" fill="#FFFFFF"></path><circle cx="6.5" cy="3.6" r="1.9" fill="#FDB022"></circle></svg>
+      </div>
+      <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 700; font-size: 19px; color: var(--text); letter-spacing: -0.02em">Unfurl</span>
+    </div>
+    <a href="Applications.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"></rect><rect x="10" y="4" width="5" height="11" rx="1"></rect><rect x="17" y="4" width="4" height="7" rx="1"></rect></svg>Applications</a>
+    <a href="Learning.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H2z"></path><path d="M22 5h-7a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h8z"></path></svg>Learning</a>
+    <a href="Documents.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Documents</a>
+    <a href="Settings.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; color: var(--text-2)">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>Settings</a>
+    <div style="margin-top: 24px; padding: 14px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--text)"><span>AI credits</span><span>24 / 30</span></div>
+      <div style="height: 6px; border-radius: 3px; background: var(--border)"><div style="width: 80%; height: 6px; border-radius: 3px; background: #4F46E5"></div></div>
+      <span style="font-size: 12px; color: var(--text-3)">Resets at midnight (Vienna)</span>
+      <div style="display: flex; justify-content: space-between; gap: 8px"><a href="Settings.dc.html" onClick="{{goCredits}}" style="font-size: 12px; font-weight: 600; color: var(--link)">How credits work</a><a href="Settings.dc.html" onClick="{{goPlan}}" style="font-size: 12px; font-weight: 600; color: var(--link)">Upgrade</a></div>
+    </div>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+  <div style="position: relative; display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 10px 32px; background: var(--surface); border-bottom: 1px solid var(--border)">
+    <div role="group" aria-label="Color theme" style="display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--muted)">
+      <button type="button" aria-label="Light mode" title="Light" aria-pressed="{{thLight}}" onClick="{{setLight}}" style="{{lightStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+      <button type="button" aria-label="Dark mode" title="Dark" aria-pressed="{{thDark}}" onClick="{{setDark}}" style="{{darkStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></button>
+      <button type="button" aria-label="Use system setting" title="System" aria-pressed="{{thSystem}}" onClick="{{setSystem}}" style="{{systemStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg></button>
+    </div>
+    <button type="button" aria-label="Notifications" aria-expanded="{{bellOpen}}" onClick="{{toggleBell}}" style="position: relative; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      <sc-if value="{{hasUnread}}" hint-placeholder-val="{{ true }}"><span style="position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px; background: #D92D20; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{unreadCount}}</span></sc-if>
+    </button>
+    <button type="button" aria-label="Account menu" aria-expanded="{{menuOpen}}" onClick="{{toggleMenu}}" style="width: 40px; height: 40px; border-radius: 20px; border: none; background: var(--accent-bg-2); color: var(--accent-text); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center">JN</button>
+    <sc-if value="{{anyPopover}}" hint-placeholder-val="{{ false }}">
+      <button type="button" aria-label="Close menu" onClick="{{closePopovers}}" style="position: fixed; inset: 0; z-index: 25; border: none; background: transparent; cursor: default"></button>
+    </sc-if>
+    <sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+      <div role="menu" aria-label="Account" style="position: absolute; top: 58px; right: 32px; width: 240px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 16px 40px rgba(16,24,40,0.22); z-index: 30; display: flex; flex-direction: column; overflow: hidden">
+        <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--muted)"><span style="font-size: 14px; font-weight: 700; color: var(--text)">Jana Novak</span><span style="font-size: 12px; color: var(--text-3)">jana.novak@example.com</span></div>
+        <a role="menuitem" href="Profile.dc.html" onClick="{{closePopovers}}" style="padding: 11px 16px; font-size: 14px; color: var(--text); text-decoration: none">My profile</a>
+        <a role="menuitem" href="Settings.dc.html" onClick="{{closePopovers}}" style="padding: 11px 16px; font-size: 14px; color: var(--text); text-decoration: none">Settings</a>
+        <a role="menuitem" href="Login.dc.html" onClick="{{closePopovers}}" style="padding: 11px 16px; font-size: 14px; color: var(--text-3); text-decoration: none; border-top: 1px solid var(--muted)">Sign out</a>
+      </div>
+    </sc-if>
+    <sc-if value="{{bellOpen}}" hint-placeholder-val="{{ false }}">
+      <div role="dialog" aria-label="Notifications" style="position: absolute; top: 58px; right: 32px; width: 380px; max-width: calc(100% - 32px); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 16px 40px rgba(16,24,40,0.22); z-index: 30; display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px">
+          <span style="font-size: 15px; font-weight: 700; color: var(--text)">Notifications</span>
+          <button type="button" onClick="{{markAll}}" style="border: none; background: none; padding: 4px; color: var(--link); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Mark all as read</button>
+        </div>
+        <sc-for list="{{notifs}}" as="n" hint-placeholder-count="4">
+          <a href="{{n.href}}" onClick="{{n.read}}" style="display: flex; gap: 12px; padding: 12px 16px; text-decoration: none; color: var(--text); border-top: 1px solid var(--muted); background: {{n.rowBg}}">
+            <span style="width: 34px; height: 34px; border-radius: 17px; flex: none; display: flex; align-items: center; justify-content: center; background: {{n.iconBg}}; color: {{n.iconColor}}; font-size: 13px; font-weight: 700">{{n.glyph}}</span>
+            <span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 14px; font-weight: 600; color: var(--text)">{{n.title}}</span>
+              <span style="font-size: 13px; color: var(--text-3)">{{n.sub}}</span>
+              <span style="font-size: 12px; color: var(--text-3)">{{n.time}}</span>
+            </span>
+            <sc-if value="{{n.unread}}" hint-placeholder-val="{{ true }}"><span aria-label="Unread" style="width: 8px; height: 8px; border-radius: 4px; background: #4F46E5; margin-top: 6px; flex: none"></span></sc-if>
+          </a>
+        </sc-for>
+        <a href="Settings.dc.html" onClick="{{goNotifSettings}}" style="padding: 12px 16px; border-top: 1px solid var(--muted); font-size: 13px; font-weight: 600; text-align: center; text-decoration: none">Notification settings</a>
+      </div>
+    </sc-if>
+  </div>
+    <header style="display: flex; flex-direction: column; gap: 14px; padding: 16px 32px 18px; background: var(--surface); border-bottom: 1px solid var(--border)">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px">
+        <a href="Documents.dc.html" style="display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px 0 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 13px; font-weight: 600; text-decoration: none"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>Documents</a>
+        
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between">
+        <div style="display: flex; gap: 14px; align-items: center; min-width: 0"><div style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><h1 style="margin: 0; font-size: 22px; font-weight: 700">My profile</h1><p style="margin: 0; font-size: 14px; color: var(--text-3)">Your source data. Master documents and fit analysis are built from it. Copies you already sent never change.</p></div></div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center"><button type="button" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"></path></svg>Import from PDF</button><button type="button" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: none; background: #4F46E5; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none">Save changes</button></div>
+      </div>
+    </header>
+    <div style="padding: 24px 32px 40px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; box-sizing: border-box; width: 100%; max-width: 1240px">
+      <div style="flex: 2 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+      <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px"><h2 style="margin: 0; font-size: 16px; font-weight: 700">Personal info</h2></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px">
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Full name<input type="text" value="Jana Novak" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%"></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Headline<input type="text" value="Senior Product Manager" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%"></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Email<input type="email" value="jana.novak@example.com" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%"></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Phone<input type="tel" value="+43 660 000 0000" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%"></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Location<input type="text" value="Vienna, Austria" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%"></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">LinkedIn<input type="text" value="linkedin.com/in/jananovak" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%"></label>
+        </div>
+        <details style="font-size: 13px; color: var(--text-3)"><summary style="cursor: pointer; font-weight: 600; color: var(--text-2)">Optional for DACH CVs: photo, date of birth, nationality</summary><p style="margin: 8px 0 0; line-height: 1.5">These are never sent to the AI and are hidden on CVs by default.</p></details>
+      </section>
+      <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px"><h2 style="margin: 0; font-size: 16px; font-weight: 700">Summary</h2></div>
+        <textarea aria-label="Summary" rows="4" style="font: inherit; font-size: 14px; line-height: 1.55; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); resize: vertical">Product manager with 7 years in B2B SaaS and mobile. I turn field research into clear roadmaps and ship apps that non-technical users rely on every day.</textarea>
+      </section>
+      <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px"><h2 style="margin: 0; font-size: 16px; font-weight: 700">Experience</h2><button type="button" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none; height: 34px; font-size: 13px">Add experience</button></div>
+        <div style="display: flex; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 10px">
+            <span aria-hidden="true" style="color: var(--text-3); cursor: grab; padding-top: 2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle><circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg></span>
+            <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+              <div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap"><span style="font-size: 14px; font-weight: 700">Senior Product Manager · Baufeld Software</span><span style="font-size: 13px; color: var(--text-3)">2021 – present</span></div>
+              <ul style="margin: 4px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--text-2)"><li>Led the rebuild of the field app for iOS and Android with a team of 9.</li><li>Introduced weekly customer interviews that reshaped the yearly roadmap.</li><li>Owned pricing and packaging for the mid-market plan.</li></ul>
+            </div>
+            <button type="button" aria-label="Edit Senior Product Manager" style="align-self: flex-start; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg></button>
+          </div><div style="display: flex; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 10px">
+            <span aria-hidden="true" style="color: var(--text-3); cursor: grab; padding-top: 2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle><circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg></span>
+            <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+              <div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap"><span style="font-size: 14px; font-weight: 700">Product Manager · Ostwind Mobility</span><span style="font-size: 13px; color: var(--text-3)">2018 – 2021</span></div>
+              <ul style="margin: 4px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--text-2)"><li>Launched the B2B fleet dashboard from discovery to general availability.</li><li>Set up A/B testing and product analytics with the data team.</li></ul>
+            </div>
+            <button type="button" aria-label="Edit Product Manager" style="align-self: flex-start; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg></button>
+          </div><div style="display: flex; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 10px">
+            <span aria-hidden="true" style="color: var(--text-3); cursor: grab; padding-top: 2px"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle><circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg></span>
+            <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+              <div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap"><span style="font-size: 14px; font-weight: 700">Associate Product Manager · Ostwind Mobility</span><span style="font-size: 13px; color: var(--text-3)">2016 – 2018</span></div>
+              <ul style="margin: 4px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--text-2)"><li>Ran usability tests for the driver app and shipped the onboarding redesign.</li></ul>
+            </div>
+            <button type="button" aria-label="Edit Associate Product Manager" style="align-self: flex-start; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg></button>
+          </div>
+      </section>
+      <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px"><h2 style="margin: 0; font-size: 16px; font-weight: 700">Education</h2><button type="button" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none; height: 34px; font-size: 13px">Add education</button></div>
+        <div style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px; border: 1px solid var(--border); border-radius: 10px"><span style="font-size: 14px; font-weight: 700">M.Sc. Industrial Engineering · TU Wien</span><span style="font-size: 13px; color: var(--text-3)">2016 – 2018</span></div>
+      </section>
+      <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px"><h2 style="margin: 0; font-size: 16px; font-weight: 700">Certifications</h2><button type="button" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none; height: 34px; font-size: 13px">Add certification</button></div>
+        <div style="padding: 20px; border: 1px dashed var(--border-dash); border-radius: 10px; text-align: center; font-size: 14px; color: var(--text-3)">No certifications yet. Add courses or certificates that matter for your target roles.</div>
+      </section>
+      </div>
+      <div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+        <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+          <div style="display: flex; justify-content: space-between; align-items: baseline"><h2 style="margin: 0; font-size: 16px; font-weight: 700">Profile strength</h2><span style="font-size: 14px; font-weight: 700; color: var(--link)">80%</span></div>
+          <div style="height: 8px; border-radius: 4px; background: var(--accent-bg)"><div style="width: 80%; height: 8px; border-radius: 4px; background: #4F46E5"></div></div>
+          <span style="font-size: 13px; line-height: 1.5; color: var(--text-3)">Add a certification to reach 90%. A complete profile gives better fit scores and cover letters.</span>
+        </section>
+        <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700">Skills</h2>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <sc-for list="{{skills}}" as="s" hint-placeholder-count="8">
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 6px 0 12px; border-radius: 16px; background: var(--accent-bg); color: var(--accent-text); font-size: 13px; font-weight: 500">{{s.name}}<button type="button" aria-label="Remove {{s.name}}" onClick="{{s.remove}}" style="width: 22px; height: 22px; border-radius: 11px; border: none; background: transparent; color: var(--accent-text); cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></span>
+          </sc-for>
+          </div>
+          <div style="display: flex; gap: 8px">
+            <input type="text" aria-label="New skill" placeholder="Add a skill" value="{{draft}}" onChange="{{onDraft}}" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%">
+            <button type="button" onClick="{{addSkill}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none">Add</button>
+          </div>
+        </section>
+        <section style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px; gap: 6px">
+          <h2 style="margin: 0 0 6px; font-size: 16px; font-weight: 700">Languages</h2>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--muted)"><span style="font-size: 14px; font-weight: 500">English</span><select aria-label="English level" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%; width: 120px; height: 36px"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option selected>C2</option><option>Native</option></select></div><div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--muted)"><span style="font-size: 14px; font-weight: 500">German</span><select aria-label="German level" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%; width: 120px; height: 36px"><option>A1</option><option>A2</option><option>B1</option><option selected>B2</option><option>C1</option><option>C2</option><option>Native</option></select></div><div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--muted)"><span style="font-size: 14px; font-weight: 500">Czech</span><select aria-label="Czech level" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%; width: 120px; height: 36px"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option><option selected>Native</option></select></div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <button type="button" aria-label="Open assistant" aria-expanded="{{asstOpen}}" onClick="{{toggleAsst}}" style="position: fixed; right: 24px; bottom: 24px; z-index: 40; width: 56px; height: 56px; border-radius: 28px; border: none; background: #4F46E5; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 28px rgba(79,70,229,0.45)">
+    <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"></path><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"></path></svg>
+  </button>
+  <sc-if value="{{asstOpen}}" hint-placeholder-val="{{ false }}">
+    <section role="dialog" aria-label="Assistant" style="position: fixed; right: 24px; bottom: 92px; z-index: 40; width: {{asstWidth}}; max-width: calc(100vw - 48px); height: 600px; max-height: calc(100vh - 120px); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 24px 60px rgba(16,24,40,0.3); display: flex; flex-direction: column; overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border)">
+        <span style="width: 30px; height: 30px; border-radius: 15px; background: var(--accent-bg); color: var(--accent-text); display: flex; align-items: center; justify-content: center; flex: none"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"></path></svg></span>
+        <span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column"><strong style="font-size: 14px; color: var(--text)">Assistant</strong><span style="font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Context: {{asstCtx}}</span></span>
+        <button type="button" onClick="{{toggleHistory}}" aria-pressed="{{asstHistory}}" style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer">History</button>
+        <button type="button" aria-label="Expand" onClick="{{toggleWide}}" style="width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></button>
+        <button type="button" aria-label="Close assistant" onClick="{{toggleAsst}}" style="width: 30px; height: 30px; border-radius: 8px; border: none; background: transparent; color: var(--text-3); font: inherit; font-size: 18px; cursor: pointer">×</button>
+      </div>
+      <sc-if value="{{asstHistory}}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2); display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3)">Recent chats</span>
+          <span style="font-size: 13px; font-weight: 600; color: var(--accent-text)">Adjust my learning plan · today</span>
+          <span style="font-size: 13px; color: var(--text-2)">Which saved job first? · Mon</span>
+          <span style="font-size: 13px; color: var(--text-2)">Interview prep: Kranich Health · last week</span>
+        </div>
+      </sc-if>
+      <div style="flex: 1 1 auto; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 14px">
+        <sc-if value="{{asstIsPlan}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 14px">
+        <div style="align-self: flex-end; max-width: 85%; padding: 10px 12px; border-radius: 14px 14px 4px 14px; background: #4F46E5; color: #FFFFFF; font-size: 13px; line-height: 1.5">I missed yesterday. Can you fit my overdue tasks into this week? I only have 6 hours.</div>
+        <div style="align-self: flex-start; max-width: 90%; padding: 10px 12px; border-radius: 14px 14px 14px 4px; background: var(--muted); color: var(--text); font-size: 13px; line-height: 1.55">Sure. Here is what I would change. Nothing is saved until you apply it.</div>
+        <div style="border: 1px solid var(--accent-border); border-radius: 12px; overflow: hidden">
+          <div style="padding: 10px 12px; background: var(--accent-bg); font-size: 13px; font-weight: 700; color: var(--accent-text)">Proposed changes · learning plan</div>
+          <div style="padding: 4px 12px; display: flex; flex-direction: column; font-size: 12px; color: var(--text-2)">
+            <span style="padding: 7px 0; border-bottom: 1px solid var(--muted)"><b style="color: var(--blue-text)">MOVE</b> · CS50P Week 3 problem set → Thu</span>
+            <span style="padding: 7px 0; border-bottom: 1px solid var(--muted)"><b style="color: var(--blue-text)">MOVE</b> · German C1: Lesson 4 → Sat (rest day skipped)</span>
+            <span style="padding: 7px 0; border-bottom: 1px solid var(--muted)"><b style="color: var(--amber-text)">UPDATE</b> · Weekly target 8 h → 6 h (this week only)</span>
+            <span style="padding: 7px 0"><b style="color: var(--text-3)">KEEP</b> · Mock interview prep (Kranich Health) on Wed</span>
+          </div>
+          <div style="padding: 10px 12px; border-top: 1px solid var(--border); background: var(--surface-2); display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap">
+            <span style="font-size: 12px; color: var(--text-3)">This week 9.5 h → 6 h</span>
+            <sc-if value="{{planPending}}" hint-placeholder-val="{{ true }}"><span style="display: flex; gap: 6px"><button type="button" onClick="{{discardPlan}}" style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer">Discard</button><button type="button" onClick="{{applyPlan}}" style="height: 30px; padding: 0 10px; border-radius: 8px; border: none; background: #4F46E5; color: #FFFFFF; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer">Apply changes</button></span></sc-if>
+            <sc-if value="{{planApplied}}" hint-placeholder-val="{{ false }}"><span style="display: flex; gap: 10px; align-items: center; font-size: 12px"><span style="color: var(--green-text); font-weight: 700">Applied</span><a href="Learning.dc.html" style="font-weight: 600">View plan</a><button type="button" onClick="{{undoPlan}}" style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer">Undo</button></span></sc-if>
+            <sc-if value="{{planDiscarded}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: var(--text-3)">Discarded. Nothing changed.</span></sc-if>
+          </div>
+        </div>
+        </div>
+        </sc-if>
+        <sc-if value="{{asstIsApp}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 14px">
+        <div style="align-self: flex-end; max-width: 85%; padding: 10px 12px; border-radius: 14px 14px 4px 14px; background: #4F46E5; color: #FFFFFF; font-size: 13px; line-height: 1.5">Nordbau invited me to an interview on Thursday at 14:00. Please update it.</div>
+        <div style="align-self: flex-start; max-width: 90%; padding: 10px 12px; border-radius: 14px 14px 14px 4px; background: var(--muted); color: var(--text); font-size: 13px; line-height: 1.55">Done. I changed one application:</div>
+        <div style="align-self: flex-start; display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); font-size: 12px; color: var(--text-2)"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-2.5z"></path></svg>Status: Nordbau Software · Applied → Interview</div>
+        <div style="align-self: flex-start; display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); font-size: 12px; color: var(--text-2)"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-2.5z"></path></svg>Next step: Interview · Thu 13 Nov, 14:00 (video)</div>
+        <sc-if value="{{appDone}}" hint-placeholder-val="{{ true }}"><span style="display: flex; gap: 10px; align-items: center; font-size: 12px"><a href="ApplicationDetail.dc.html" style="font-weight: 600">Open Nordbau</a><button type="button" onClick="{{undoApp}}" style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer">Undo</button></span></sc-if>
+        <sc-if value="{{appUndone}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: var(--text-3)">Undone. Nordbau is back in Applied.</span></sc-if>
+        </div>
+        </sc-if>
+        <sc-if value="{{asstIsDoc}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 14px">
+        <div style="align-self: flex-end; max-width: 85%; padding: 10px 12px; border-radius: 14px 14px 4px 14px; background: #4F46E5; color: #FFFFFF; font-size: 13px; line-height: 1.5">Shorten my summary to 3 lines and mention accessibility.</div>
+        <div style="align-self: flex-start; max-width: 90%; padding: 10px 12px; border-radius: 14px 14px 14px 4px; background: var(--muted); color: var(--text); font-size: 13px; line-height: 1.55">Here is a suggestion for <b>CV · Kranich Health v1 (draft)</b>. Masters and sent versions are never changed directly.</div>
+        <div style="border: 1px solid var(--accent-border); border-radius: 12px; overflow: hidden">
+          <div style="padding: 10px 12px; background: var(--accent-bg); font-size: 13px; font-weight: 700; color: var(--accent-text)">Proposed change · Summary</div>
+          <div style="padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; line-height: 1.5">
+            <span style="color: var(--red-text); text-decoration: line-through">Product manager with 7+ years of experience in B2B SaaS, construction tech and mobile apps, who loves discovery, data and working closely with engineering teams…</span>
+            <span style="color: var(--green-text)">Senior PM, 7+ years in B2B SaaS and mobile. Shipped field apps used by 10,000+ people, with a focus on accessibility (WCAG) and continuous discovery.</span>
+          </div>
+          <div style="padding: 10px 12px; border-top: 1px solid var(--border); background: var(--surface-2); display: flex; justify-content: flex-end; gap: 6px">
+            <sc-if value="{{planPending}}" hint-placeholder-val="{{ true }}"><span style="display: flex; gap: 6px"><button type="button" onClick="{{discardPlan}}" style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer">Discard</button><button type="button" onClick="{{applyPlan}}" style="height: 30px; padding: 0 10px; border-radius: 8px; border: none; background: #4F46E5; color: #FFFFFF; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer">Apply to draft</button></span></sc-if>
+            <sc-if value="{{planApplied}}" hint-placeholder-val="{{ false }}"><span style="display: flex; gap: 10px; align-items: center; font-size: 12px"><span style="color: var(--green-text); font-weight: 700">Applied to v1 draft</span><button type="button" onClick="{{undoPlan}}" style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer">Undo</button></span></sc-if>
+            <sc-if value="{{planDiscarded}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: var(--text-3)">Discarded. Nothing changed.</span></sc-if>
+          </div>
+        </div>
+        </div>
+        </sc-if>
+        <sc-for list="{{asstExtra}}" as="m" hint-placeholder-count="0">
+          <div style="align-self: {{m.align}}; max-width: 88%; padding: 10px 12px; border-radius: 14px; background: {{m.bg}}; color: {{m.color}}; font-size: 13px; line-height: 1.55">{{m.text}}</div>
+        </sc-for>
+      </div>
+      <div style="border-top: 1px solid var(--border); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <sc-for list="{{asstChips}}" as="c" hint-placeholder-count="3"><button type="button" onClick="{{c.use}}" style="height: 28px; padding: 0 10px; border-radius: 14px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer">{{c.text}}</button></sc-for>
+        </div>
+        <div style="display: flex; gap: 6px">
+          <input type="text" aria-label="Message" placeholder="Ask about jobs, documents or your plan…" value="{{asstDraft}}" onChange="{{onAsstDraft}}" style="flex: 1 1 auto; min-width: 0; font: inherit; font-size: 13px; height: 38px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text)">
+          <button type="button" onClick="{{asstSend}}" style="height: 38px; padding: 0 14px; border-radius: 8px; border: none; background: #4F46E5; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Send</button>
+        </div>
+        <span style="font-size: 11px; color: var(--text-3)">1 AI credit per message · changes are previewed first · the assistant never deletes</span>
+      </div>
+    </section>
+  </sc-if>
+  <sc-if value="{{toastHas}}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 14px; max-width: calc(100vw - 160px); padding: 12px 16px; border-radius: 12px; background: #101828; color: #FFFFFF; font-size: 14px; box-shadow: 0 12px 32px rgba(16,24,40,0.35)">
+      <span>{{toastText}}</span>
+      <sc-if value="{{toastCanUndo}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{toastUndoFn}}" style="border: none; background: none; padding: 0; color: #FDB022; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer">Undo</button></sc-if>
+      <button type="button" aria-label="Dismiss" onClick="{{toastClose}}" style="border: none; background: none; padding: 0; color: #98A2B3; font: inherit; font-size: 16px; cursor: pointer">×</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["system","light","dark"],"default":"system"},"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { skills: ['Product discovery', 'Roadmapping', 'B2B SaaS', 'Mobile apps', 'SQL', 'A/B testing', 'Figma', 'Jira', 'Stakeholder management'], draft: '' };
+  }
+  renderVals() {
+    var self = this;
+    var v = this._vals();
+    var st = this.state || {};
+    var th = st.theme;
+    if (!th) { try { th = window.localStorage.getItem('ak-theme'); } catch (e) {} }
+    th = th || this.props.theme || 'system';
+    v.themeClass = 'ak-' + th;
+    var on = 'width: 32px; height: 30px; border: none; border-radius: 7px; background: var(--surface); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(16,24,40,0.15)';
+    var off = 'width: 32px; height: 30px; border: none; border-radius: 7px; background: transparent; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center';
+    function setT(x) { return function () { try { window.localStorage.setItem('ak-theme', x); } catch (e) {} self.setState({ theme: x }); }; }
+    v.thLight = th === 'light'; v.thDark = th === 'dark'; v.thSystem = th === 'system';
+    v.lightStyle = v.thLight ? on : off; v.darkStyle = v.thDark ? on : off; v.systemStyle = v.thSystem ? on : off;
+    v.setLight = setT('light'); v.setDark = setT('dark'); v.setSystem = setT('system');
+    function goSection(sec) { return function () { try { window.localStorage.setItem('ak-settings-section', sec); } catch (e) {} self.setState({ bellOpen: false, menuOpen: false }); }; }
+    v.goNotifSettings = goSection('notifications');
+    v.goCredits = goSection('ai');
+    v.goPlan = goSection('plan');
+    var readMap = st.notifRead || {};
+    var base = [
+      { id: 'n0', glyph: 'L', title: 'Time to study: 25 min', sub: 'CS50P Week 3 · keep your 12-day streak', time: 'Just now', iconBg: 'var(--accent-bg)', iconColor: 'var(--accent-text)', unread0: true, href: 'Learning.dc.html' },
+      { id: 'n1', glyph: '!', title: 'Time to follow up', sub: 'Nordbau Software · no reply for 12 days', time: '2 hours ago', iconBg: 'var(--amber-bg)', iconColor: 'var(--amber-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n2', glyph: 'I', title: 'Interview tomorrow, 10:00', sub: 'Quellwasser Fintech · Product Manager, Payments', time: '5 hours ago', iconBg: 'var(--purple-bg)', iconColor: 'var(--purple-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n3', glyph: '82', title: 'Fit analysis ready', sub: 'Kranich Health · score 82, Apply', time: 'Yesterday', iconBg: 'var(--green-bg)', iconColor: 'var(--green-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n4', glyph: 'S', title: 'Saved 9 days ago', sub: 'Viatra Mobility · apply or archive?', time: '2 days ago', iconBg: 'var(--muted)', iconColor: 'var(--text-3)', unread0: false, href: 'Applications.dc.html' }
+    ];
+    var unreadCount = 0;
+    v.notifs = base.map(function (n) {
+      var unread = n.unread0 && !readMap[n.id];
+      if (unread) unreadCount++;
+      return Object.assign({}, n, { unread: unread, rowBg: unread ? 'var(--surface-2)' : 'transparent',
+        read: function () { var m = Object.assign({}, (self.state || {}).notifRead); m[n.id] = true; self.setState({ notifRead: m, bellOpen: false }); } });
+    });
+    v.unreadCount = unreadCount; v.hasUnread = unreadCount > 0;
+    v.bellOpen = !!st.bellOpen;
+    v.menuOpen = !!st.menuOpen;
+    v.anyPopover = v.bellOpen || v.menuOpen;
+    v.toggleBell = function () { self.setState({ bellOpen: !(self.state || {}).bellOpen, menuOpen: false }); };
+    v.toggleMenu = function () { self.setState({ menuOpen: !(self.state || {}).menuOpen, bellOpen: false }); };
+    v.closePopovers = function () { self.setState({ bellOpen: false, menuOpen: false }); };
+    v.markAll = function () { self.setState({ notifRead: { n0: true, n1: true, n2: true, n3: true, n4: true } }); };
+    // floating assistant
+    var plan = st.asstPlan || 'pending';
+    v.asstOpen = !!st.asstOpen;
+    v.asstHistory = !!st.asstHistory;
+    v.asstWidth = st.asstWide ? '640px' : '400px';
+    v.asstCtx = v.asstCtx || 'Applications';
+    var mode = v.asstMode || 'plan';
+    v.asstIsPlan = mode === 'plan'; v.asstIsApp = mode === 'app'; v.asstIsDoc = mode === 'doc';
+    v.appDone = !st.asstAppUndone; v.appUndone = !!st.asstAppUndone;
+    v.undoApp = function () { self.setState({ asstAppUndone: true }); };
+    v.openAsst = function () { self.setState({ asstOpen: true }); };
+    v.planPending = plan === 'pending'; v.planApplied = plan === 'applied'; v.planDiscarded = plan === 'discarded';
+    v.toggleAsst = function () { self.setState({ asstOpen: !(self.state || {}).asstOpen }); };
+    v.toggleHistory = function () { self.setState({ asstHistory: !(self.state || {}).asstHistory }); };
+    v.toggleWide = function () { self.setState({ asstWide: !(self.state || {}).asstWide }); };
+    v.applyPlan = function () { self.setState({ asstPlan: 'applied' }); };
+    v.discardPlan = function () { self.setState({ asstPlan: 'discarded' }); };
+    v.undoPlan = function () { self.setState({ asstPlan: 'pending' }); };
+    v.asstDraft = st.asstDraft || '';
+    v.onAsstDraft = function (e) { self.setState({ asstDraft: e.target.value }); };
+    function ask(text) {
+      if (!text) return;
+      var ex = ((self.state || {}).asstMsgs || []).concat([{ text: text, user: true }, { text: 'This is a prototype, so the answer is a sample. In the real app I would use your profile, applications and plan to answer, and show any change as a preview first.', user: false }]);
+      self.setState({ asstMsgs: ex, asstDraft: '' });
+    }
+    v.asstSend = function () { ask((self.state || {}).asstDraft); };
+    v.asstExtra = (st.asstMsgs || []).map(function (m) {
+      return { text: m.text, align: m.user ? 'flex-end' : 'flex-start', bg: m.user ? '#4F46E5' : 'var(--muted)', color: m.user ? '#FFFFFF' : 'var(--text)' };
+    });
+    v.toastHas = !!st.toastText; v.toastText = st.toastText || ''; v.toastCanUndo = !!st.toastUndo;
+    v.toastUndoFn = function () { if (self._undo) self._undo(); self._undo = null; self.setState({ toastText: '', toastUndo: false }); };
+    v.toastClose = function () { self.setState({ toastText: '', toastUndo: false }); };
+    v.asstChips = (v.asstChipText || ['Which saved job should I apply to first?', 'Plan my week around 8 hours']).map(function (t) { return { text: t, use: function () { ask(t); } }; });
+    return v;
+  }
+  _toast(text, undo) {
+    var self = this;
+    if (this._toastTimer) clearTimeout(this._toastTimer);
+    this._undo = undo || null;
+    this.setState({ toastText: text, toastUndo: !!undo });
+    this._toastTimer = setTimeout(function () { self.setState({ toastText: '', toastUndo: false }); }, 5000);
+  }
+  _vals() {
+    var self = this;
+    var skills = this.state.skills.map(function (name, i) {
+      return { name: name, remove: function () { var s = self.state.skills.slice(); s.splice(i, 1); self.setState({ skills: s }); } };
+    });
+    return {
+      asstCtx: 'My profile',
+      skills: skills, draft: this.state.draft,
+      onDraft: function (e) { self.setState({ draft: e.target.value }); },
+      addSkill: function () { var d = (self.state.draft || '').trim(); if (!d) return; self.setState({ skills: self.state.skills.concat([d]), draft: '' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

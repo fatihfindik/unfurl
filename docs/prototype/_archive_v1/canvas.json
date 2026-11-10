@@ -1,0 +1,146 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 1180,
+      "is_interactive": true,
+      "title": "Dashboard",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "Applications.dc.html": {
+      "expand": "fill",
+      "h": 960,
+      "is_interactive": true,
+      "title": "Applications – Kanban",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Login.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Sign in / Create account",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "ApplicationDetail.dc.html": {
+      "expand": "fill",
+      "h": 1500,
+      "is_interactive": true,
+      "title": "Application detail – Fit analysis",
+      "w": 1440,
+      "x": 0,
+      "y": 1300
+    },
+    "CVEditor.dc.html": {
+      "expand": "fill",
+      "h": 1180,
+      "is_interactive": true,
+      "title": "CV editor",
+      "w": 1440,
+      "x": 1520,
+      "y": 1300
+    },
+    "Onboarding.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "is_interactive": true,
+      "title": "Onboarding",
+      "w": 1440,
+      "x": 3040,
+      "y": 1020
+    },
+    "Extension.dc.html": {
+      "h": 660,
+      "is_interactive": true,
+      "title": "Chrome extension popup",
+      "w": 400,
+      "x": 0,
+      "y": 2920
+    },
+    "Profile.dc.html": {
+      "expand": "fill",
+      "h": 1500,
+      "is_interactive": true,
+      "title": "Profile",
+      "w": 1440,
+      "x": 0,
+      "y": 3700
+    },
+    "CoverLetters.dc.html": {
+      "expand": "fill",
+      "h": 1180,
+      "is_interactive": true,
+      "title": "Cover letters",
+      "w": 1440,
+      "x": 1520,
+      "y": 3700
+    },
+    "Assistant.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "title": "AI assistant",
+      "w": 1440,
+      "x": 0,
+      "y": 5320
+    },
+    "Settings.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "is_interactive": true,
+      "title": "Settings",
+      "w": 1440,
+      "x": 1520,
+      "y": 5320
+    },
+    "Learning.dc.html": {
+      "expand": "fill",
+      "h": 1300,
+      "is_interactive": true,
+      "title": "Learning",
+      "w": 1440,
+      "x": 3040,
+      "y": 2140
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-11-06T17:45:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "flow": {
+      "size": 24,
+      "w": 460,
+      "x": 480,
+      "y": 2920,
+      "text": "Unfurl prototipi (Play ile tıklayın):\n0. Sign in → Create account → Onboarding\n1. Dashboard → Needs attention, Learning kartı, bildirim zili\n2. Applications → Board / List, karta tıkla\n3. Detay → Fit analysis, 'Ready to apply?' kontrolü, Documents (gönderilen sürüm kilitli)\n4. Learning → Today / Next 7 days / Catch-up, görevleri işaretle\n5. Assistant → 'Adjust my learning plan' → Apply / Undo\n6. CVs (Master / v1 kilitli / v2 taslak), Cover letters, Settings › Notifications (çalışma hatırlatması)\n\nSağ üst: açık / koyu / sistem teması.\nTüm şirketler ve kişi (Jana Novak) örnek veridir."
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Applications.dc.html",
+    "Login.dc.html",
+    "ApplicationDetail.dc.html",
+    "CVEditor.dc.html",
+    "Onboarding.dc.html",
+    "Learning.dc.html",
+    "Extension.dc.html",
+    "Profile.dc.html",
+    "CoverLetters.dc.html",
+    "Assistant.dc.html",
+    "Settings.dc.html"
+  ],
+  "pages": [],
+  "title": "Unfurl Prototip"
+}

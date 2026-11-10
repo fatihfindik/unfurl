@@ -1,0 +1,136 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Login.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "title": "Sign in / Create account",
+      "w": 1440,
+      "x": 0,
+      "y": 0,
+      "expand": "fill"
+    },
+    "Onboarding.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "title": "Onboarding",
+      "w": 1440,
+      "x": 1520,
+      "y": 0,
+      "expand": "fill"
+    },
+    "Applications.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "title": "Applications (home)",
+      "w": 1440,
+      "x": 3040,
+      "y": 0,
+      "expand": "fill"
+    },
+    "ApplicationDetail.dc.html": {
+      "h": 1500,
+      "is_interactive": true,
+      "title": "Application – Apply in 3 steps → Progress",
+      "w": 1440,
+      "x": 0,
+      "y": 1200,
+      "expand": "fill"
+    },
+    "Learning.dc.html": {
+      "h": 1300,
+      "is_interactive": true,
+      "title": "Learning",
+      "w": 1440,
+      "x": 1520,
+      "y": 1200,
+      "expand": "fill"
+    },
+    "Documents.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "title": "Documents (CVs + cover letters)",
+      "w": 1440,
+      "x": 3040,
+      "y": 1200,
+      "expand": "fill"
+    },
+    "CVEditor.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "title": "CV editor",
+      "w": 1440,
+      "x": 0,
+      "y": 2820,
+      "expand": "fill"
+    },
+    "CoverLetters.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "title": "Cover letter editor",
+      "w": 1440,
+      "x": 1520,
+      "y": 2820,
+      "expand": "fill"
+    },
+    "Profile.dc.html": {
+      "h": 1500,
+      "is_interactive": true,
+      "title": "My profile (avatar menu)",
+      "w": 1440,
+      "x": 3040,
+      "y": 2820,
+      "expand": "fill"
+    },
+    "Settings.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "title": "Settings",
+      "w": 1440,
+      "x": 0,
+      "y": 4440,
+      "expand": "fill"
+    },
+    "Extension.dc.html": {
+      "h": 660,
+      "is_interactive": true,
+      "title": "Chrome extension popup",
+      "w": 400,
+      "x": 1520,
+      "y": 4440
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-11-06T17:45:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "flow": {
+      "size": 24,
+      "w": 520,
+      "x": 2020,
+      "y": 4440,
+      "text": "Unfurl prototip v3 (Play ile tıklayın):\n0. Sign in → Create account → Check your inbox → Onboarding\n1. Applications: kartı Interview'a sürükle → tarih modalı. Toast + Undo, Show archived, Work mode filtresi\n2. Kranich Health → Apply: ① Should I apply? ② Prepare documents (Preview & edit = sağ panel) ③ Final check → Download → I have applied → Progress\n3. Learning → Done (n) bölümü, Catch-up'ta asistan linki\n4. Documents → CVs / Cover letters, editörlerde ← Kranich Health\n5. ✨ Assistant: Applications'ta başvuru günceller, belgelerde değişiklik önerir (Apply to draft)\n\nMenü: Applications · Learning · Documents · Settings\nTüm şirketler ve kişi (Jana Novak) örnek veridir."
+    }
+  },
+  "order": [
+    "Login.dc.html",
+    "Onboarding.dc.html",
+    "Applications.dc.html",
+    "ApplicationDetail.dc.html",
+    "Learning.dc.html",
+    "Documents.dc.html",
+    "CVEditor.dc.html",
+    "CoverLetters.dc.html",
+    "Profile.dc.html",
+    "Settings.dc.html",
+    "Extension.dc.html"
+  ],
+  "pages": [],
+  "title": "Unfurl Prototip"
+}

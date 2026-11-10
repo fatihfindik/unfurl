@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unfurl – Sign in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;family=Source+Serif+4:wght@600;700&amp;display=swap">
+<style>
+body{margin:0;font-family:Inter,system-ui,sans-serif}
+a{color:var(--link)}a:hover{color:var(--accent-text)}
+input,select,textarea{background-color:var(--input)}
+input:focus,select:focus,textarea:focus{outline:2px solid #6366F1;outline-offset:0;border-color:#6366F1}
+.ak-root{color-scheme:light;--bg:#F6F7F9;--surface:#FFFFFF;--surface-2:#F9FAFB;--input:#FFFFFF;--muted:#F2F4F7;--column:#EEF0F4;--border:#E4E7EC;--border-strong:#D0D5DD;--border-dash:#98A2B3;--text:#101828;--text-2:#344054;--text-3:#475467;--link:#4338CA;--accent-text:#3730A3;--accent-strong:#312E81;--accent-bg:#EEF0FF;--accent-bg-2:#E0E7FF;--accent-border:#C7D2FE;--blue-text:#1D4ED8;--blue-bg:#EFF4FF;--purple-text:#5B21B6;--purple-bg:#F4F0FF;--green-text:#067647;--green-bg:#ECFDF3;--red-text:#B42318;--red-bg:#FEF3F2;--amber-text:#B54708;--amber-bg:#FFFAEB;}
+.ak-root.ak-dark{color-scheme:dark;--bg:#0B0F19;--surface:#141A26;--surface-2:#182030;--input:#1E2638;--muted:#1F2837;--column:#111827;--border:#283244;--border-strong:#3A4558;--border-dash:#56627A;--text:#F2F4F7;--text-2:#D0D5DD;--text-3:#A3ACBD;--link:#A5B4FC;--accent-text:#C7D2FE;--accent-strong:#E0E7FF;--accent-bg:#23264A;--accent-bg-2:#2E3270;--accent-border:#3B3F8C;--blue-text:#93C5FD;--blue-bg:rgba(59,130,246,0.18);--purple-text:#C4B5FD;--purple-bg:rgba(139,92,246,0.2);--green-text:#6EE7B7;--green-bg:rgba(16,185,129,0.18);--red-text:#FDA29B;--red-bg:rgba(240,68,56,0.18);--amber-text:#FEC84B;--amber-bg:rgba(247,144,9,0.18);}
+@media (prefers-color-scheme: dark){.ak-root.ak-system{color-scheme:dark;--bg:#0B0F19;--surface:#141A26;--surface-2:#182030;--input:#1E2638;--muted:#1F2837;--column:#111827;--border:#283244;--border-strong:#3A4558;--border-dash:#56627A;--text:#F2F4F7;--text-2:#D0D5DD;--text-3:#A3ACBD;--link:#A5B4FC;--accent-text:#C7D2FE;--accent-strong:#E0E7FF;--accent-bg:#23264A;--accent-bg-2:#2E3270;--accent-border:#3B3F8C;--blue-text:#93C5FD;--blue-bg:rgba(59,130,246,0.18);--purple-text:#C4B5FD;--purple-bg:rgba(139,92,246,0.2);--green-text:#6EE7B7;--green-bg:rgba(16,185,129,0.18);--red-text:#FDA29B;--red-bg:rgba(240,68,56,0.18);--amber-text:#FEC84B;--amber-bg:rgba(247,144,9,0.18);}}
+</style>
+</helmet>
+<div class="ak-root {{themeClass}}" style="min-height: 100vh; background: var(--bg); font-family: Inter, system-ui, sans-serif; color: var(--text); display: flex; flex-direction: column">
+  <div style="flex: 1 1 auto; display: flex; flex-wrap: wrap; min-height: 100vh">
+    <section style="flex: 1 1 420px; box-sizing: border-box; background: #1E1B4B; color: #FFFFFF; padding: 48px; display: flex; flex-direction: column; gap: 40px; justify-content: space-between">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <div style="width: 36px; height: 36px; border-radius: 10px; background: #4F46E5; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M6.5 21V5" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"></path><path d="M6.5 5.5c2.4-1.5 4.8 1.5 7.2 0s3.6-1.2 5.3-.6v8.3c-1.7-.6-2.9-.3-5.3 1.2s-4.8-1.5-7.2 0z" fill="#FFFFFF"></path><circle cx="6.5" cy="3.6" r="1.9" fill="#FDB022"></circle></svg></div>
+        <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 700; font-size: 21px; letter-spacing: -0.02em; color: #FFFFFF">Unfurl</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 24px; max-width: 460px">
+        <h1 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 40px; line-height: 1.1; font-weight: 700">Grow while you apply.</h1>
+        <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; font-size: 16px; color: #E0E7FF">
+          <li style="display: flex; gap: 10px; align-items: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FDB022" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="m5 12 5 5 9-10"></path></svg>ATS-friendly CVs in German, English and Turkish</li>
+          <li style="display: flex; gap: 10px; align-items: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FDB022" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="m5 12 5 5 9-10"></path></svg>Save jobs from LinkedIn in one click</li>
+          <li style="display: flex; gap: 10px; align-items: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FDB022" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="m5 12 5 5 9-10"></path></svg>Know your fit before you apply</li>
+          <li style="display: flex; gap: 10px; align-items: center"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FDB022" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="m5 12 5 5 9-10"></path></svg>Turn your gaps into a learning plan</li>
+        </ul>
+      </div>
+      <span style="font-size: 13px; color: #C7D2FE">Free to use · Your data stays in the EU</span>
+    </section>
+    <section style="flex: 1 1 420px; box-sizing: border-box; background: var(--surface); padding: 32px 48px; display: flex; flex-direction: column; gap: 24px">
+      <div style="display: flex; justify-content: flex-end"><div role="group" aria-label="Color theme" style="display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--muted)">
+      <button type="button" aria-label="Light mode" title="Light" aria-pressed="{{thLight}}" onClick="{{setLight}}" style="{{lightStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></button>
+      <button type="button" aria-label="Dark mode" title="Dark" aria-pressed="{{thDark}}" onClick="{{setDark}}" style="{{darkStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg></button>
+      <button type="button" aria-label="Use system setting" title="System" aria-pressed="{{thSystem}}" onClick="{{setSystem}}" style="{{systemStyle}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg></button>
+    </div></div>
+      <div style="flex: 1 1 auto; display: flex; align-items: center; justify-content: center">
+        <div style="width: 400px; max-width: 100%; display: flex; flex-direction: column; gap: 18px">
+          <sc-if value="{{showTabs}}" hint-placeholder-val="{{ true }}"><div role="tablist" aria-label="Account" style="display: flex; padding: 4px; border-radius: 10px; background: var(--muted)">
+            <button type="button" role="tab" aria-selected="{{isLogin}}" onClick="{{showLogin}}" style="{{loginTab}}">Sign in</button>
+            <button type="button" role="tab" aria-selected="{{isRegister}}" onClick="{{showRegister}}" style="{{registerTab}}">Create account</button>
+          </div></sc-if>
+          <sc-if value="{{isLogin}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-direction: column; gap: 16px">
+              <h2 style="margin: 0; font-size: 24px; font-weight: 700">Welcome back</h2>
+              <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Email<input type="email" value="jana.novak@example.com" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%"></label>
+              <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Password<input type="password" value="" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%"></label>
+              <a href="#" style="align-self: flex-end; font-size: 13px; font-weight: 600">Forgot password?</a>
+              <a href="Applications.dc.html" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: none; background: #4F46E5; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; height: 44px">Sign in</a>
+            </div>
+          </sc-if>
+          <sc-if value="{{isRegister}}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; flex-direction: column; gap: 16px">
+              <h2 style="margin: 0; font-size: 24px; font-weight: 700">Create your free account</h2>
+              <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Full name<input type="text" value="" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%"></label>
+              <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Email<input type="email" value="" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%"></label>
+              <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-2)">Password<input type="password" style="font: inherit; font-size: 14px; font-weight: 400; height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--input); color: var(--text); box-sizing: border-box; width: 100%"><span style="font-size: 12px; font-weight: 400; color: var(--text-3)">At least 10 characters</span></label>
+              <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.5; color: var(--text-2); cursor: pointer"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #4F46E5; margin-top: 1px; flex: none">I agree to the <a href="#">privacy policy</a> and <a href="#">terms</a>.</label>
+              <button type="button" onClick="{{register}}" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: none; background: #4F46E5; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; height: 44px">Create account</button>
+              <span style="font-size: 12px; color: var(--text-3)">We will send you an email to verify your address.</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{isVerify}}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; flex-direction: column; gap: 16px; align-items: flex-start">
+              <span style="width: 52px; height: 52px; border-radius: 26px; background: var(--accent-bg); color: var(--accent-text); display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg></span>
+              <h2 style="margin: 0; font-size: 24px; font-weight: 700">Check your inbox</h2>
+              <p style="margin: 0; font-size: 15px; line-height: 1.55; color: var(--text-2)">We sent a link to <b>jana.novak@example.com</b>. Click it to verify your email. The link works for 48 hours.</p>
+              <p style="margin: 0; padding: 12px; border-radius: 10px; background: var(--surface-2); font-size: 13px; line-height: 1.5; color: var(--text-3)">You can set up your account now. AI features unlock once your email is verified.</p>
+              <a href="Onboarding.dc.html" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: none; background: #4F46E5; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; height: 44px; align-self: stretch">Continue to setup</a>
+              <button type="button" onClick="{{resend}}" style="border: none; background: none; padding: 0; color: var(--link); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">{{resendLabel}}</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px; justify-content: center; font-size: 12px"><a href="#" style="color: var(--text-3)">Privacy</a><a href="#" style="color: var(--text-3)">Terms</a><a href="#" style="color: var(--text-3)">Imprint</a></div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["system","light","dark"],"default":"system"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'login' };
+  }
+  renderVals() {
+    var self = this;
+    var v = this._vals();
+    var st = this.state || {};
+    var th = st.theme;
+    if (!th) { try { th = window.localStorage.getItem('ak-theme'); } catch (e) {} }
+    th = th || this.props.theme || 'system';
+    v.themeClass = 'ak-' + th;
+    var on = 'width: 32px; height: 30px; border: none; border-radius: 7px; background: var(--surface); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(16,24,40,0.15)';
+    var off = 'width: 32px; height: 30px; border: none; border-radius: 7px; background: transparent; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center';
+    function setT(x) { return function () { try { window.localStorage.setItem('ak-theme', x); } catch (e) {} self.setState({ theme: x }); }; }
+    v.thLight = th === 'light'; v.thDark = th === 'dark'; v.thSystem = th === 'system';
+    v.lightStyle = v.thLight ? on : off; v.darkStyle = v.thDark ? on : off; v.systemStyle = v.thSystem ? on : off;
+    v.setLight = setT('light'); v.setDark = setT('dark'); v.setSystem = setT('system');
+    function goSection(sec) { return function () { try { window.localStorage.setItem('ak-settings-section', sec); } catch (e) {} self.setState({ bellOpen: false, menuOpen: false }); }; }
+    v.goNotifSettings = goSection('notifications');
+    v.goCredits = goSection('ai');
+    v.goPlan = goSection('plan');
+    var readMap = st.notifRead || {};
+    var base = [
+      { id: 'n0', glyph: 'L', title: 'Time to study: 25 min', sub: 'CS50P Week 3 · keep your 12-day streak', time: 'Just now', iconBg: 'var(--accent-bg)', iconColor: 'var(--accent-text)', unread0: true, href: 'Learning.dc.html' },
+      { id: 'n1', glyph: '!', title: 'Time to follow up', sub: 'Nordbau Software · no reply for 12 days', time: '2 hours ago', iconBg: 'var(--amber-bg)', iconColor: 'var(--amber-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n2', glyph: 'I', title: 'Interview tomorrow, 10:00', sub: 'Quellwasser Fintech · Product Manager, Payments', time: '5 hours ago', iconBg: 'var(--purple-bg)', iconColor: 'var(--purple-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n3', glyph: '82', title: 'Fit analysis ready', sub: 'Kranich Health · score 82, Apply', time: 'Yesterday', iconBg: 'var(--green-bg)', iconColor: 'var(--green-text)', unread0: true, href: 'ApplicationDetail.dc.html' },
+      { id: 'n4', glyph: 'S', title: 'Saved 9 days ago', sub: 'Viatra Mobility · apply or archive?', time: '2 days ago', iconBg: 'var(--muted)', iconColor: 'var(--text-3)', unread0: false, href: 'Applications.dc.html' }
+    ];
+    var unreadCount = 0;
+    v.notifs = base.map(function (n) {
+      var unread = n.unread0 && !readMap[n.id];
+      if (unread) unreadCount++;
+      return Object.assign({}, n, { unread: unread, rowBg: unread ? 'var(--surface-2)' : 'transparent',
+        read: function () { var m = Object.assign({}, (self.state || {}).notifRead); m[n.id] = true; self.setState({ notifRead: m, bellOpen: false }); } });
+    });
+    v.unreadCount = unreadCount; v.hasUnread = unreadCount > 0;
+    v.bellOpen = !!st.bellOpen;
+    v.menuOpen = !!st.menuOpen;
+    v.anyPopover = v.bellOpen || v.menuOpen;
+    v.toggleBell = function () { self.setState({ bellOpen: !(self.state || {}).bellOpen, menuOpen: false }); };
+    v.toggleMenu = function () { self.setState({ menuOpen: !(self.state || {}).menuOpen, bellOpen: false }); };
+    v.closePopovers = function () { self.setState({ bellOpen: false, menuOpen: false }); };
+    v.markAll = function () { self.setState({ notifRead: { n0: true, n1: true, n2: true, n3: true, n4: true } }); };
+    // floating assistant
+    var plan = st.asstPlan || 'pending';
+    v.asstOpen = !!st.asstOpen;
+    v.asstHistory = !!st.asstHistory;
+    v.asstWidth = st.asstWide ? '640px' : '400px';
+    v.asstCtx = v.asstCtx || 'Applications';
+    v.planPending = plan === 'pending'; v.planApplied = plan === 'applied'; v.planDiscarded = plan === 'discarded';
+    v.toggleAsst = function () { self.setState({ asstOpen: !(self.state || {}).asstOpen }); };
+    v.toggleHistory = function () { self.setState({ asstHistory: !(self.state || {}).asstHistory }); };
+    v.toggleWide = function () { self.setState({ asstWide: !(self.state || {}).asstWide }); };
+    v.applyPlan = function () { self.setState({ asstPlan: 'applied' }); };
+    v.discardPlan = function () { self.setState({ asstPlan: 'discarded' }); };
+    v.undoPlan = function () { self.setState({ asstPlan: 'pending' }); };
+    v.asstDraft = st.asstDraft || '';
+    v.onAsstDraft = function (e) { self.setState({ asstDraft: e.target.value }); };
+    function ask(text) {
+      if (!text) return;
+      var ex = ((self.state || {}).asstMsgs || []).concat([{ text: text, user: true }, { text: 'This is a prototype, so the answer is a sample. In the real app I would use your profile, applications and plan to answer, and show any change as a preview first.', user: false }]);
+      self.setState({ asstMsgs: ex, asstDraft: '' });
+    }
+    v.asstSend = function () { ask((self.state || {}).asstDraft); };
+    v.asstExtra = (st.asstMsgs || []).map(function (m) {
+      return { text: m.text, align: m.user ? 'flex-end' : 'flex-start', bg: m.user ? '#4F46E5' : 'var(--muted)', color: m.user ? '#FFFFFF' : 'var(--text)' };
+    });
+    v.asstChips = (v.asstChipText || ['Which saved job should I apply to first?', 'Plan my week around 8 hours']).map(function (t) { return { text: t, use: function () { ask(t); } }; });
+    return v;
+  }
+  _vals() {
+    var self = this;
+    var on = 'flex: 1 1 0; height: 40px; border: none; border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(16,24,40,0.12)';
+    var off = 'flex: 1 1 0; height: 40px; border: none; border-radius: 8px; background: transparent; color: var(--text-3); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer';
+    var isLogin = this.state.mode === 'login';
+    var isVerify = this.state.mode === 'verify';
+    return {
+      isLogin: isLogin, isRegister: this.state.mode === 'register', isVerify: isVerify, showTabs: !isVerify,
+      register: function () { self.setState({ mode: 'verify' }); },
+      resendLabel: this.state.resent ? 'Sent again. Check your spam folder too.' : 'Resend email',
+      resend: function () { self.setState({ resent: true }); },
+      loginTab: isLogin ? on : off, registerTab: isLogin ? off : on,
+      showLogin: function () { self.setState({ mode: 'login' }); },
+      showRegister: function () { self.setState({ mode: 'register' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>
