@@ -119,3 +119,6 @@ Kaynak: `docs/plans/M0.md` §12 (açık sorular, Fatih onayı) ve Build sırası
 - **Gerekçe:** Elle kabul testinde seçili ve hover durumları karıştı; etiketli menü daha net ve üst barda daha az yer kaplar (Fatih'in kararı, issue #2).
 - **Maliyet:** Tema değiştirmek tek tık yerine iki tık.
 - **Alternatifler:** Üç butonlu grup (prototip), hover/seçili ayrımı düzeltilmiş hâliyle (`b8c5bc0`).
+
+### D-019 · `theme` cookie'sinde `Secure` bayrağı yok (güvenlik incelemesi #9, kabul)
+- **Karar:** Kabul edildi: cookie gizli bilgi taşımıyor, sunucu değeri sabit listeyle (`light`/`dark`/`system`) doğruluyor ve testler HTML enjeksiyonunu kapsıyor.

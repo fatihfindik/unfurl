@@ -953,11 +953,11 @@ Versiyon numarası `AIUsage` kaydına ve `FitAnalysis.model` yanına (`model@pro
 
 ```bash
 # App
-APP_ENV=development              # development | production
+APP_ENV=development              # Zorunlu: development | production (yoksa uygulama başlamaz)
 APP_BASE_URL=http://localhost:8000
 SECRET_KEY=change-me             # Session ve itsdangerous için (min 32 karakter)
 ENCRYPTION_KEY=                  # Fernet anahtarı: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-DEBUG=true
+DEBUG=true                       # Production'da false olmalı (değilse uygulama başlamaz)
 
 # Database
 DATABASE_URL=sqlite:///./unfurl.db

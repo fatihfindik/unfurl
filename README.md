@@ -30,6 +30,8 @@ uv run fastapi dev app/main.py   # http://localhost:8000
 ```
 The first `scripts/build_css.sh` downloads the Tailwind CLI (needs internet once).
 
+`APP_ENV` is required (`development` or `production`); the app refuses to start without it. With `APP_ENV=production` it also refuses to start when `DEBUG=true`, `SECRET_KEY` is the placeholder or shorter than 32 characters, or `ENCRYPTION_KEY` is empty. In production the API docs (`/docs`, `/redoc`, `/openapi.json`) are turned off.
+
 ### Run with PostgreSQL (Docker)
 ```bash
 cp .env.example .env             # if you haven't already

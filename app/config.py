@@ -22,7 +22,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # App
-    app_env: Literal["development", "production"] = "development"
+    # Required, no default: if a deploy forgot APP_ENV and we silently fell back to
+    # "development", every production check below would be skipped.
+    app_env: Literal["development", "production"]
     app_base_url: str = "http://localhost:8000"
     # SecretStr hides the value when printed or logged ("**********").
     secret_key: SecretStr = SecretStr(DEFAULT_SECRET_KEY)
@@ -60,10 +62,15 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
 
     @model_validator(mode="after")
-    def check_production_secrets(self) -> "Settings":
-        """Refuse to start in production with missing or placeholder secrets (SPEC §11)."""
+    def check_production_settings(self) -> "Settings":
+        """Refuse to start in production with debug on or with missing or placeholder
+        secrets (SPEC §10.1, §11)."""
         if self.app_env != "production":
             return self
+
+        # Debug mode shows a full stack trace on every server error.
+        if self.debug:
+            raise ValueError("DEBUG must be false in production.")
 
         secret_key = self.secret_key.get_secret_value()
         if secret_key == DEFAULT_SECRET_KEY or len(secret_key) < MIN_SECRET_KEY_LENGTH:

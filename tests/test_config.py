@@ -1,7 +1,9 @@
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.config import Settings
+from app.main import create_app
 
 # A valid production secret: 32+ characters, not the placeholder.
 GOOD_SECRET = "x" * 32
@@ -13,9 +15,21 @@ def make_settings(**overrides) -> Settings:
 
 
 def test_development_defaults_are_valid():
-    settings = make_settings()
+    settings = make_settings(app_env="development")
     assert settings.app_env == "development"
     assert settings.database_url.startswith("sqlite")
+
+
+def test_missing_app_env_refuses_to_start(monkeypatch):
+    # conftest.py sets APP_ENV for the whole test run; remove it for this test only.
+    monkeypatch.delenv("APP_ENV")
+    with pytest.raises(ValidationError, match="app_env"):
+        make_settings()
+
+
+def test_production_rejects_debug():
+    with pytest.raises(ValidationError, match="DEBUG"):
+        make_settings(app_env="production", debug=True, secret_key=GOOD_SECRET, encryption_key="k")
 
 
 def test_production_rejects_placeholder_secret_key():
@@ -36,6 +50,21 @@ def test_production_rejects_empty_encryption_key():
 def test_production_accepts_real_secrets():
     settings = make_settings(app_env="production", secret_key=GOOD_SECRET, encryption_key="k")
     assert settings.app_env == "production"
+
+
+API_DOCS_URLS = ["/docs", "/redoc", "/openapi.json"]
+
+
+@pytest.mark.parametrize("url", API_DOCS_URLS)
+def test_api_docs_are_shown_in_development(client, url):
+    assert client.get(url).status_code == 200
+
+
+@pytest.mark.parametrize("url", API_DOCS_URLS)
+def test_api_docs_are_hidden_in_production(url):
+    settings = make_settings(app_env="production", secret_key=GOOD_SECRET, encryption_key="k")
+    production_client = TestClient(create_app(settings))
+    assert production_client.get(url).status_code == 404
 
 
 def test_secrets_are_hidden_when_printed():
