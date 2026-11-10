@@ -11,6 +11,9 @@ __pycache__/
 # Secrets - never commit
 .env
 
+# Claude Code: personal settings and permissions (the shared .claude/agents/ is committed)
+.claude/settings.local.json
+
 # Local data
 *.db
 uploads/
