@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.1 — 2026-11-10
+> **Durum:** MVP planı, v2.1.2 — 2026-11-11
+> v2.1.2: Tema seçici üst barda tek ikon + açılır menü (Light / Dark / System, seçili olan ✓).
 > v2.1.1: Erişilebilirlik — `:focus-visible` odak halkası checkbox ve radio dahil tüm etkileşimli öğelerde görünür (Bölüm 6.0/5 ve 14).
 > v2.1: Prototip v3 kararları. Menü 4 öğeye indi (Dashboard ve Assistant sayfası kaldırıldı, Profile avatar menüsüne taşındı), başvuru detayında 3 adımlı Apply akışı ve Progress görünümü, otomatik Next step, Interview modalı, arşiv, sağdan açılan belge paneli, yüzen asistan, asistanla belge düzenleme (V1), toast + Undo, arayüz kuralları (Bölüm 6.0). Yeni: 6.13 Next step kuralları.
 > v2.0: Unfurl adı, Learning modülü, bildirimler ve çalışma hatırlatmaları, açık/koyu tema, master/versiyon belgeler, "Ready to apply?" kontrolü, V1/V2 kapsam tablosu (Bölüm 1.6). v1.1: Monetization hazırlığı (Bölüm 17).
@@ -115,7 +116,7 @@
 | İlan alma | Chrome eklentisi (kullanıcı tıklar → sayfa metni → AI ile yapılandırma). Manuel form da yedek olarak var. |
 | Veri koruma | GDPR uyumlu: hesap silme, veri dışa aktarma, gizlilik sayfası, AB bölgesinde hosting |
 | Ürün adı ve logo | Unfurl. Logo: indigo kare içinde açılan beyaz bayrak, direğin tepesinde amber nokta. |
-| Tema | Açık / koyu / sistem. Varsayılan sistem, kullanıcı sağ üstteki tema ikonundan değiştirir: ikon o anki temayı gösterir, tıklayınca Light / Dark / System menüsü açılır (seçili olanda ✓), tercih kaydedilir. Ayarlarda ayrı bir tema bölümü yok. |
+| Tema | Açık / koyu / sistem. Varsayılan sistem, kullanıcı sağ üstteki tema seçiciden değiştirir: tek ikon (o anki temanın ikonu) + açılır menü (Light / Dark / System, seçili olan ✓). Tercih kaydedilir. Ayarlarda ayrı bir tema bölümü yok. |
 | Navigasyon | Menüde 4 öğe: Applications (ana sayfa) · Learning · Documents · Settings. My profile avatar menüsünden açılır. Asistan ayrı bir sayfa değil, her sayfada yüzen bir paneldir. |
 | Başvuru akışı | Detayda iki sekme: Apply (başvurudan sonra Progress) ve Job & details. Sağda Next step, belgeler ve zaman çizelgesi paneli. |
 | Next step | Her başvurunun en fazla 1 sonraki adımı vardır. Durumdan otomatik türetilir, kullanıcı değiştirebilir (Bölüm 6.13). |
@@ -504,7 +505,7 @@ Asistan toplu değişiklik önerdiğinde değişiklikler hemen uygulanmaz, burad
 
 ## 6. Ekranlar ve Kullanıcı Akışları
 
-Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **Learning**, **Documents**, **Settings**) ve altında AI kredisi kartı ("AI credits: 24/30 today", "How credits work" ve "Upgrade" linkleri, ya da "Using your own API key"). **Üst bar (sağ üst):** tema seçici (tek ikon + açılır menü: açık / koyu / sistem), bildirim zili (okunmamış sayısı rozeti) ve avatar menüsü (My profile, Settings, Sign out). **Sağ alt köşe:** her sayfada asistan butonu (6.8). Responsive olmalı, mobilde menü üstte/akordeon olur.
+Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **Learning**, **Documents**, **Settings**) ve altında AI kredisi kartı ("AI credits: 24/30 today", "How credits work" ve "Upgrade" linkleri, ya da "Using your own API key"). **Üst bar (sağ üst):** tema seçici (tek ikon + açılır menü: Light / Dark / System, seçili olan ✓), bildirim zili (okunmamış sayısı rozeti) ve avatar menüsü (My profile, Settings, Sign out). **Sağ alt köşe:** her sayfada asistan butonu (6.8). Responsive olmalı, mobilde menü üstte/akordeon olur.
 
 ### 6.0 Arayüz kuralları (tüm ekranlar)
 1. **Kredi görünürlüğü:** AI kullanan her buton maliyetini gösterir ("Auto-fill with AI · 1 credit"). İşlem sonrası "1 credit used · 23 left today" gösterilir.
