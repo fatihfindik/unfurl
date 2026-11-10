@@ -37,6 +37,8 @@ docker compose up --build        # app + Postgres 16, http://localhost:8000
 ```
 Migrations run automatically when the app container starts. The database is kept in the `pgdata` volume; `docker compose down -v` deletes it.
 
+> **Run only one app server at a time.** The container copies the code when the image is built, so it does not see later changes; run `docker compose up --build` again after editing. If `fastapi dev` and the container both run, they share port 8000: `fastapi dev` answers on `127.0.0.1` (IPv4), the container on `::1` (IPv6), and the browser's `localhost` usually reaches the container with the old code. Stop one of them first (`docker compose stop app`, or Ctrl+C in the `fastapi dev` terminal).
+
 ## Development
 
 | Task | Command |
