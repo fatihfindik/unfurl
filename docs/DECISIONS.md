@@ -113,3 +113,9 @@ Kaynak: `docs/plans/M0.md` §12 (açık sorular, Fatih onayı) ve Build sırası
 
 ### D-017 · Etiket adı
 - **Karar:** M0 sürüm etiketi `v0.0-m0` (WORKFLOW formatı `v0.{n}-m{n}`).
+
+### D-018 · Tema seçici: tek ikon + açılır menü (SPEC §2, §6.0)
+- **Karar:** Üst bardaki üç butonlu tema grubu yerine tek ikon butonu (o anki temanın ikonu, hover'da `bg-muted`). Tıklayınca Light / Dark / System menüsü açılır; seçili satırda ✓. Erişilebilirlik: `aria-haspopup="menu"`, `role="menuitemradio"` + `aria-checked`, ↑/↓ ile gezinme, Esc ve dışarı tıklama kapatır. SPEC §2 ("tek tıkla") ve §6.0 güncellendi.
+- **Gerekçe:** Elle kabul testinde seçili ve hover durumları karıştı; etiketli menü daha net ve üst barda daha az yer kaplar (Fatih'in kararı, issue #2).
+- **Maliyet:** Tema değiştirmek tek tık yerine iki tık.
+- **Alternatifler:** Üç butonlu grup (prototip), hover/seçili ayrımı düzeltilmiş hâliyle (`b8c5bc0`).

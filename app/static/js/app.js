@@ -14,10 +14,56 @@ const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
 const TOAST_SECONDS = 5;
 
 document.addEventListener("alpine:init", () => {
-  // Light / Dark / System buttons in the top bar.
+  // Theme icon in the top bar with a Light / Dark / System menu.
   // Saves the choice in the `theme` cookie (the server reads it on the next page load)
   // and switches the class on <html> right away, without a request.
   Alpine.data("themePicker", () => ({
+    open: false,
+
+    // The menu rows, in order (used for arrow-key moves).
+    items() {
+      return Array.from(this.$root.querySelectorAll("[role=menuitemradio]"));
+    },
+
+    toggle() {
+      if (this.open) {
+        this.open = false;
+        return;
+      }
+      this.open = true;
+      // Wait until x-show has made the menu visible, then focus the chosen row
+      // (WAI-ARIA menu pattern: keyboard users land on the current value).
+      this.$nextTick(() => {
+        const checked = this.items().find((item) => item.getAttribute("aria-checked") === "true");
+        (checked || this.items()[0]).focus();
+      });
+    },
+
+    // Click outside or Tab: just close, focus stays where the user moved it.
+    close() {
+      this.open = false;
+    },
+
+    // Esc or a choice: close and put focus back on the icon button.
+    closeAndFocusButton() {
+      if (!this.open) return;
+      this.open = false;
+      this.$refs.button.focus();
+    },
+
+    focusNext() {
+      this.moveFocus(1);
+    },
+    focusPrevious() {
+      this.moveFocus(-1);
+    },
+    moveFocus(step) {
+      const items = this.items();
+      const index = items.indexOf(document.activeElement);
+      // % wraps around: down on the last row goes to the first one.
+      items[(index + step + items.length) % items.length].focus();
+    },
+
     choose(event) {
       const theme = event.currentTarget.dataset.theme;
       if (!THEMES.includes(theme)) return;
@@ -28,9 +74,11 @@ document.addEventListener("alpine:init", () => {
       THEMES.forEach((name) => html.classList.remove(`theme-${name}`));
       html.classList.add(`theme-${theme}`);
 
-      this.$root.querySelectorAll("[data-theme]").forEach((button) => {
-        button.setAttribute("aria-pressed", String(button.dataset.theme === theme));
+      this.$refs.button.dataset.current = theme;
+      this.items().forEach((item) => {
+        item.setAttribute("aria-checked", String(item.dataset.theme === theme));
       });
+      this.closeAndFocusButton();
     },
   }));
 

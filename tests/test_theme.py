@@ -7,15 +7,21 @@ def html_class(html: str) -> str:
     return re.search(r'<html lang="en" class="([^"]*)">', html).group(1)
 
 
-def pressed_buttons(html: str) -> list[str]:
-    """data-theme values of the theme buttons that are marked as active."""
-    return re.findall(r'data-theme="(\w+)"[^>]*aria-pressed="true"', html)
+def checked_items(html: str) -> list[str]:
+    """data-theme values of the theme menu rows that are marked with ✓."""
+    return re.findall(r'data-theme="(\w+)"[^>]*aria-checked="true"', html)
+
+
+def button_icon(html: str) -> str:
+    """Which theme icon the closed theme button shows (its data-current value)."""
+    return re.search(r'data-current="(\w+)"[^>]*aria-label="Color theme"', html).group(1)
 
 
 def test_no_cookie_uses_system_theme(client):
     html = client.get("/").text
     assert html_class(html) == "theme-system"
-    assert pressed_buttons(html) == ["system"]
+    assert checked_items(html) == ["system"]
+    assert button_icon(html) == "system"
 
 
 @pytest.mark.parametrize("theme", ["light", "dark", "system"])
@@ -23,7 +29,18 @@ def test_theme_cookie_is_rendered_by_the_server(client, theme):
     client.cookies.set("theme", theme)
     html = client.get("/").text
     assert html_class(html) == f"theme-{theme}"
-    assert pressed_buttons(html) == [theme]
+    assert checked_items(html) == [theme]
+    assert button_icon(html) == theme
+
+
+def test_theme_menu_has_all_three_options(client):
+    html = client.get("/").text
+    assert 'aria-haspopup="menu"' in html
+    assert re.findall(r'role="menuitemradio"[^>]*data-theme="(\w+)"', html) == [
+        "light",
+        "dark",
+        "system",
+    ]
 
 
 @pytest.mark.parametrize(

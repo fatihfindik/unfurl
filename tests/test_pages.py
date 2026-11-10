@@ -36,8 +36,9 @@ def test_sidebar_has_four_items_in_order_with_applications_current(client):
 def test_top_bar_has_theme_picker_bell_and_account_menu(client):
     html = client.get("/").text
     assert 'aria-label="Color theme"' in html
-    for label in ("Light mode", "Dark mode", "Use system setting"):
-        assert f'aria-label="{label}"' in html
+    theme_menu = html.split('id="theme-menu"', 1)[1]
+    for label in ("Light", "Dark", "System"):
+        assert label in theme_menu
     assert 'aria-label="Notifications"' in html
     assert 'aria-label="Account menu"' in html
     menu = html.split('id="account-menu"', 1)[1]

@@ -19,6 +19,8 @@
     <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>
   {%- elif name == "system" -%}
     <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg>
+  {%- elif name == "check" -%}
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg>
   {%- elif name == "bell" -%}
     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
   {%- elif name == "user" -%}
@@ -85,16 +87,36 @@
   <div class="flex min-w-0 flex-1 flex-col">
     <div class="relative flex items-center justify-end gap-2.5 border-b border-border bg-surface px-4 py-2.5 md:px-8">
 
-      {#- The look follows aria-pressed only. Selected: surface background, shadow, accent icon.
-          Hover on an unselected button only darkens the icon, so it never looks selected. -#}
-      <div role="group" aria-label="Color theme" x-data="themePicker" class="flex gap-0.5 rounded-[10px] bg-muted p-[3px]">
-        {%- for value, label, title in [("light", "Light mode", "Light"), ("dark", "Dark mode", "Dark"), ("system", "Use system setting", "System")] %}
-          <button type="button" data-theme="{{ value }}" aria-label="{{ label }}" title="{{ title }}"
-                  aria-pressed="{{ 'true' if theme == value else 'false' }}" x-on:click="choose"
-                  class="flex h-[30px] w-8 items-center justify-center rounded-[7px] text-text-3 not-aria-pressed:hover:text-text aria-pressed:bg-surface aria-pressed:text-accent-text aria-pressed:shadow-[0_1px_2px_rgba(16,24,40,0.15)]">
-            {{ icon(value) }}
-          </button>
-        {%- endfor %}
+      {#- Theme picker (SPEC §2, D-018): one icon button that opens a Light / Dark / System menu.
+          The button shows the current theme's icon: data-current on the button picks which of
+          the three icons is visible. In the menu, aria-checked marks the chosen row (✓). -#}
+      {%- set theme_options = [("light", "Light"), ("dark", "Dark"), ("system", "System")] %}
+      <div class="relative" x-data="themePicker" x-on:click.outside="close" x-on:keydown.escape="closeAndFocusButton">
+        <button type="button" x-ref="button" data-current="{{ theme }}" aria-label="Color theme" title="Color theme"
+                aria-haspopup="menu" aria-controls="theme-menu" aria-expanded="false"
+                x-bind:aria-expanded="open" x-on:click="toggle"
+                class="group flex h-10 w-10 items-center justify-center rounded-[10px] text-text-2 hover:bg-muted hover:text-text aria-expanded:bg-muted aria-expanded:text-text">
+          {#- Written out one by one: Tailwind finds class names in the source text,
+              so a class built with {{ }} would never be generated. -#}
+          <span class="hidden group-data-[current=light]:flex">{{ icon("light") }}</span>
+          <span class="hidden group-data-[current=dark]:flex">{{ icon("dark") }}</span>
+          <span class="hidden group-data-[current=system]:flex">{{ icon("system") }}</span>
+        </button>
+        {#- Shown with data-open (not x-show): x-show waits one animation frame, and the
+            menu must already be visible when toggle() focuses the chosen row. -#}
+        <div id="theme-menu" role="menu" aria-label="Color theme" x-bind:data-open="open"
+             x-on:keydown.down.prevent="focusNext" x-on:keydown.up.prevent="focusPrevious" x-on:keydown.tab="close"
+             class="absolute right-0 top-12 z-30 hidden w-44 flex-col data-[open=true]:flex rounded-xl border border-border bg-surface p-1 shadow-[0_16px_40px_rgba(16,24,40,0.22)]">
+          {%- for value, label in theme_options %}
+            <button type="button" role="menuitemradio" tabindex="-1" data-theme="{{ value }}"
+                    aria-checked="{{ 'true' if theme == value else 'false' }}" x-on:click="choose"
+                    class="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-text hover:bg-muted">
+              <span class="text-text-2">{{ icon(value) }}</span>
+              <span class="flex-1 text-left">{{ label }}</span>
+              <span class="invisible text-accent-text group-aria-checked:visible">{{ icon("check") }}</span>
+            </button>
+          {%- endfor %}
+        </div>
       </div>
 
       {#- Static in M0; the unread badge and the panel come in M11. -#}
