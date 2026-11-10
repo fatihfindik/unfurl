@@ -1,5 +1,6 @@
 import re
 
+import pytest
 from sqlmodel import text
 
 from app.db import get_session
@@ -53,6 +54,19 @@ def test_assets_come_from_our_own_origin(client):
         assert 'src="/static/' in tag
     assert '<link rel="stylesheet" href="/static/css/app.css">' in html
     assert not re.search(r'(src|href)="(https?:)?//', html)
+
+
+@pytest.mark.parametrize(
+    ("url", "section"),
+    [("/learning", "Learning"), ("/documents", "Documents"), ("/settings", "Settings")],
+)
+def test_unbuilt_sections_show_coming_soon_with_their_menu_item_current(client, url, section):
+    response = client.get(url)
+    assert response.status_code == 200
+    assert re.search(rf"<h1[^>]*>{section}</h1>", response.text)
+    assert "Coming soon." in response.text
+    current = [label for _, label, is_current in main_nav_links(response.text) if is_current]
+    assert current == [section]
 
 
 def test_unknown_page_returns_404(client):

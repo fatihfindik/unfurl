@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import applications
+from app.routers import applications, placeholders
 
 settings = get_settings()
 
@@ -19,3 +19,4 @@ app = FastAPI(title="Unfurl", debug=settings.debug)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 app.include_router(applications.router)
+app.include_router(placeholders.router)
