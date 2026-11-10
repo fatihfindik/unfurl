@@ -121,7 +121,7 @@
 
       {#- Static in M0; the unread badge and the panel come in M11. -#}
       <button type="button" aria-label="Notifications"
-              class="flex h-10 w-10 items-center justify-center rounded-[10px] border border-border bg-surface text-text-2">
+              class="flex h-10 w-10 items-center justify-center rounded-[10px] text-text-2 hover:bg-muted hover:text-text">
         {{ icon("bell") }}
       </button>
 
@@ -129,7 +129,7 @@
       <div class="relative" x-data="dropdown" x-on:click.outside="close" x-on:keydown.escape="close">
         <button type="button" aria-label="Account menu" aria-controls="account-menu" aria-expanded="false"
                 x-bind:aria-expanded="open" x-on:click="toggle"
-                class="flex h-10 w-10 items-center justify-center rounded-full bg-accent-bg-2 text-accent-text">
+                class="flex h-10 w-10 items-center justify-center rounded-full bg-accent-bg-2 text-accent-text hover:bg-accent-border aria-expanded:bg-accent-border">
           {{ icon("user") }}
         </button>
         <div id="account-menu" x-show="open" x-cloak
