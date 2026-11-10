@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1 — 2026-11-10
+> **Durum:** MVP planı, v2.1.1 — 2026-11-10
+> v2.1.1: Erişilebilirlik — `:focus-visible` odak halkası checkbox ve radio dahil tüm etkileşimli öğelerde görünür (Bölüm 6.0/5 ve 14).
 > v2.1: Prototip v3 kararları. Menü 4 öğeye indi (Dashboard ve Assistant sayfası kaldırıldı, Profile avatar menüsüne taşındı), başvuru detayında 3 adımlı Apply akışı ve Progress görünümü, otomatik Next step, Interview modalı, arşiv, sağdan açılan belge paneli, yüzen asistan, asistanla belge düzenleme (V1), toast + Undo, arayüz kuralları (Bölüm 6.0). Yeni: 6.13 Next step kuralları.
 > v2.0: Unfurl adı, Learning modülü, bildirimler ve çalışma hatırlatmaları, açık/koyu tema, master/versiyon belgeler, "Ready to apply?" kontrolü, V1/V2 kapsam tablosu (Bölüm 1.6). v1.1: Monetization hazırlığı (Bölüm 17).
 > **Prototip:** Tıklanabilir prototip `docs/prototype/` içinde. Arayüzü yaparken önce oraya bak.
@@ -510,7 +511,7 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 2. **Toast + Undo:** Geri alınabilen işlemler (durum değiştirme, arşivleme, snooze, ekleme, görev tamamlama) onay sormaz. Alt ortada 5 saniyelik bir toast gösterilir, içinde **Undo** bulunur. Onay modalı sadece geri alınamayan işlemlerde (hesap silme) kullanılır.
 3. **Başlık kalıbı:** İç sayfalar (başvuru detayı, editörler, My profile) üstte "← Üst sayfa" butonu ve başlıkla açılır. Başvuru detayında ayrıca şirket avatarı ve "‹ 1 of 10 ›" geçişi vardır. Editör bir başvurudan açıldıysa geri butonu o başvuruya döner.
 4. **Modallar ve paneller:** Kısa formlar modal, belge önizlemesi sağdan açılan panel (drawer) olarak açılır. Kullanıcı bulunduğu sayfadan kopmaz.
-5. **Form alanları:** Koyu temada input'lar zeminden açık bir tondadır (`--input`). Odak çizgisi sadece metin alanlarında ve klavye odağında (`:focus-visible`) görünür, checkbox'larda görünmez.
+5. **Form alanları:** Koyu temada input'lar zeminden açık bir tondadır (`--input`). `:focus-visible` odak halkası tüm etkileşimli öğelerde (checkbox ve radio dahil) görünür; fareyle tıklamada görünmez (bunu `:focus-visible` zaten sağlar).
 
 **Tema:** Tüm renkler CSS değişkenleriyle tanımlanır (`--bg`, `--surface`, `--text`, `--border`, durum renkleri…). `html` elemanına `theme-light`, `theme-dark` veya `theme-system` sınıfı verilir. `theme-system` için `prefers-color-scheme` medya sorgusu kullanılır. Seçim `User.theme`'e kaydedilir. Sayfa ilk yüklenirken renk "yanıp sönmesin" diye tema sınıfı sunucu tarafında basılır. CV ve mektup önizlemeleri koyu temada da **beyaz kâğıt** olarak kalır.
 
@@ -1123,7 +1124,7 @@ Her milestone sonunda: testler geçer, lint temiz, `docs/LEARNING_LOG.md` günce
 - **Renkler:** birincil indigo (`indigo-600`), başarı yeşil, uyarı amber, hata kırmızı. Durum renkleri: Saved gri, Applied mavi, Interview mor, Offer yeşil, Rejected kırmızı (soluk).
 - **Font:** Inter (gövde), Space Grotesk (logo ve büyük başlıklar), Source Serif 4 (Classic CV şablonu başlıkları).
 - **Bileşenler:** buton (primary/secondary/ghost/danger), input, select, textarea, kart, rozet, modal, toast bildirimi, boş durum, yükleniyor göstergesi (skeleton). Hepsi `templates/components/` altında Jinja macro olarak tanımlanır.
-- **Erişilebilirlik:** form etiketleri, `:focus-visible` odak halkaları (checkbox ve radio hariç), yeterli kontrast, klavye ile kullanılabilir modal ve drawer.
+- **Erişilebilirlik:** form etiketleri, `:focus-visible` odak halkaları tüm etkileşimli öğelerde (checkbox ve radio dahil; fareyle tıklamada görünmez), yeterli kontrast, klavye ile kullanılabilir modal ve drawer.
 - **Koyu tema input'ları:** `--input` değişkeni (açık temada beyaz, koyu temada `#1E2638`), zemin ve kartlardan açık ton.
 - AI içerik üreten her yerde küçük bir "✨ AI-generated – please review" notu bulunur.
 
