@@ -1,6 +1,7 @@
 {#- Base layout: sidebar (4 items), top bar (theme picker, bell, account menu), page content.
     Pages extend it and fill the `title` and `content` blocks.
     `theme` comes from app.templating.theme_context. -#}
+{%- from "components/toast.html" import toast_region -%}
 
 {%- macro icon(name) -%}
   {#- SVG icons copied from the prototype (docs/prototype/Applications.dc.html). -#}
@@ -121,6 +122,8 @@
       {% block content %}{% endblock %}
     </main>
   </div>
+
+  {{ toast_region() }}
 
 </body>
 </html>

@@ -11,6 +11,7 @@
 
 const THEMES = ["light", "dark", "system"];
 const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
+const TOAST_SECONDS = 5;
 
 document.addEventListener("alpine:init", () => {
   // Light / Dark / System buttons in the top bar.
@@ -51,4 +52,63 @@ document.addEventListener("alpine:init", () => {
       this.open = !this.open;
     },
   }));
+
+  // Toast + Undo (SPEC §6.0/2). A store is shared state any script can use:
+  //   Alpine.store("toast").show("Archived", "/applications/12/undo")
+  Alpine.store("toast", {
+    visible: false,
+    message: "",
+    undoUrl: "",
+    timer: null,
+    show(message, undoUrl = "") {
+      this.message = message;
+      this.undoUrl = undoUrl;
+      this.visible = true;
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => this.hide(), TOAST_SECONDS * 1000);
+    },
+    hide() {
+      clearTimeout(this.timer);
+      this.visible = false;
+    },
+  });
+
+  // The toast element in base.html reads the store through these getters
+  // (the CSP build of Alpine only allows simple names in HTML attributes).
+  Alpine.data("toast", () => ({
+    get visible() {
+      return Alpine.store("toast").visible;
+    },
+    get message() {
+      return Alpine.store("toast").message;
+    },
+    get canUndo() {
+      return Alpine.store("toast").undoUrl !== "";
+    },
+    undo() {
+      const store = Alpine.store("toast");
+      // htmx sends the POST with the same headers as any other htmx request.
+      htmx.ajax("POST", store.undoUrl, { swap: "none" });
+      store.hide();
+    },
+    hide() {
+      Alpine.store("toast").hide();
+    },
+  }));
+});
+
+// Modals and drawers are native <dialog> elements (templates/components/).
+// - Any element with data-dialog-open="<id>" opens that dialog.
+// - A click on the dark backdrop closes it. The dialog's content is wrapped in a
+//   div that fills it, so only a backdrop click has the <dialog> itself as target.
+// Esc, focus handling and the close button (<form method="dialog">) are built into the browser.
+document.addEventListener("click", (event) => {
+  const opener = event.target.closest("[data-dialog-open]");
+  if (opener) {
+    document.getElementById(opener.dataset.dialogOpen)?.showModal();
+    return;
+  }
+  if (event.target instanceof HTMLDialogElement && event.target.open) {
+    event.target.close();
+  }
 });

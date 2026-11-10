@@ -1,12 +1,11 @@
 {#- Shared placeholder for sections that are not built yet (see app/routers/placeholders.py). -#}
 {% extends "base.html" %}
+{% from "components/page_header.html" import page_header %}
 
 {% block title %}{{ section }}{% endblock %}
 
 {% block content %}
-  <header class="flex flex-col gap-[3px] border-b border-border bg-surface px-4 py-[18px] md:px-8">
-    <h1 class="m-0 text-[22px] font-bold">{{ section }}</h1>
-  </header>
+  {{ page_header(section) }}
   <div class="px-4 pt-5 pb-8 md:px-8">
     <p class="text-sm text-text-3">Coming soon.</p>
   </div>

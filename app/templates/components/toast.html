@@ -1,0 +1,20 @@
+{#- Toast + Undo (SPEC §6.0/2): bottom centre, closes after 5 seconds. Styles from the prototype.
+    Included once in base.html. Show it from JS with:
+      Alpine.store("toast").show("Moved to Interview", "/applications/12/undo")
+    M0 is only the skeleton; the undo endpoints and server-triggered toasts come in M4.
+-#}
+{% macro toast_region() %}
+  {#- role="status" is a polite live region: screen readers read the message when it
+      appears, without moving focus. The region is always in the page; only its content shows/hides. -#}
+  <div role="status" x-data="toast"
+       class="pointer-events-none fixed inset-x-0 bottom-7 z-[60] flex justify-center px-4">
+    <div x-show="visible" x-cloak
+         class="pointer-events-auto flex max-w-full items-center gap-3.5 rounded-xl bg-[#101828] px-4 py-3 text-sm text-white shadow-[0_12px_32px_rgba(16,24,40,0.35)]">
+      <span x-text="message"></span>
+      <button type="button" x-show="canUndo" x-on:click="undo"
+              class="text-sm font-bold text-[#FDB022]">Undo</button>
+      <button type="button" aria-label="Dismiss" x-on:click="hide"
+              class="text-base text-[#98A2B3]">×</button>
+    </div>
+  </div>
+{% endmacro %}
