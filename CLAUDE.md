@@ -1,3 +1,5 @@
+Fatih ile Türkçe konuş ve yeni kavramları kısaca Türkçe açıkla. Kod, dosya adları, commit mesajları, PR açıklamaları ve arayüz metinleri İngilizce kalsın.
+
 # Unfurl — Agent Guide
 
 Unfurl is a free web app + Chrome extension for job seekers who grow while they apply: CVs and cover letters (master + versions), application tracking, fit analysis, a Learning module (goals, resources, streaks, reminders) and an AI assistant (Claude API).
