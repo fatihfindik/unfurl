@@ -1,0 +1,29 @@
+# Files Docker does not copy into the build. Keeps the image small and secrets out of it.
+
+# Secrets and local data
+.env
+*.db
+uploads/
+
+# Local environments and caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Built inside the image (css stage)
+app/static/css/app.css
+
+# Not needed to run the app
+.git/
+.github/
+.claude/
+docs/
+tests/
+evals/
+extension/
+# Root-level only (README, CLAUDE.md). Don't change to **/*.md: the AI prompts
+# in app/ai/prompts/*.md (M5) must be in the image.
+*.md
+.DS_Store
