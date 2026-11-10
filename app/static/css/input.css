@@ -226,6 +226,11 @@
     color: var(--text);
   }
 
+  /* Alpine removes x-cloak when it starts, so closed menus don't flash while the page loads. */
+  [x-cloak] {
+    display: none !important;
+  }
+
   /* Focus ring on every interactive element, checkboxes and radios included.
      :focus-visible shows it for keyboard focus only, not on mouse click.
      Colour and width from the prototype. */

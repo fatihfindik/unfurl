@@ -1,14 +1,13 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Applications · Unfurl</title>
-</head>
-<body>
-  <main>
-    <h1>Applications</h1>
-    <p>No applications yet.</p>
-  </main>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Applications{% endblock %}
+
+{% block content %}
+  <header class="flex flex-col gap-[3px] border-b border-border bg-surface px-4 py-[18px] md:px-8">
+    <h1 class="m-0 text-[22px] font-bold">Applications</h1>
+    <p class="m-0 text-sm text-text-3">Every job you saved or applied to.</p>
+  </header>
+  <div class="px-4 pt-5 pb-8 md:px-8">
+    <p class="text-sm text-text-3">No applications yet.</p>
+  </div>
+{% endblock %}
