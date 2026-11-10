@@ -56,4 +56,8 @@ USER unfurl
 EXPOSE 8000
 
 # Bring the database schema up to date, then start the server.
-CMD ["sh", "-c", "alembic upgrade head && fastapi run app/main.py --host 0.0.0.0 --port 8000"]
+# `exec` replaces the shell with the server, so the server becomes PID 1 and gets
+# Docker's stop signal (SIGTERM) directly. Without it, sh stays PID 1, ignores the
+# signal and does not pass it on: the server keeps answering until Docker kills it
+# after 10 seconds (exit code 137) instead of shutting down cleanly.
+CMD ["sh", "-c", "alembic upgrade head && exec fastapi run app/main.py --host 0.0.0.0 --port 8000"]

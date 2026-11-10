@@ -27,7 +27,9 @@ services:
       # Overrides the SQLite URL from .env: inside compose the app talks to the db container.
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     ports:
-      - "8000:8000"
+      # 127.0.0.1: reachable only from this computer, not from others on the same
+      # Wi-Fi/LAN (the local .env has DEBUG=true, which shows stack traces).
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
