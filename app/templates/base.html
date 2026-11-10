@@ -85,11 +85,13 @@
   <div class="flex min-w-0 flex-1 flex-col">
     <div class="relative flex items-center justify-end gap-2.5 border-b border-border bg-surface px-4 py-2.5 md:px-8">
 
+      {#- The look follows aria-pressed only. Selected: surface background, shadow, accent icon.
+          Hover on an unselected button only darkens the icon, so it never looks selected. -#}
       <div role="group" aria-label="Color theme" x-data="themePicker" class="flex gap-0.5 rounded-[10px] bg-muted p-[3px]">
         {%- for value, label, title in [("light", "Light mode", "Light"), ("dark", "Dark mode", "Dark"), ("system", "Use system setting", "System")] %}
           <button type="button" data-theme="{{ value }}" aria-label="{{ label }}" title="{{ title }}"
                   aria-pressed="{{ 'true' if theme == value else 'false' }}" x-on:click="choose"
-                  class="flex h-[30px] w-8 items-center justify-center rounded-[7px] text-text-3 aria-pressed:bg-surface aria-pressed:text-text aria-pressed:shadow-[0_1px_2px_rgba(16,24,40,0.15)]">
+                  class="flex h-[30px] w-8 items-center justify-center rounded-[7px] text-text-3 not-aria-pressed:hover:text-text aria-pressed:bg-surface aria-pressed:text-accent-text aria-pressed:shadow-[0_1px_2px_rgba(16,24,40,0.15)]">
             {{ icon(value) }}
           </button>
         {%- endfor %}
