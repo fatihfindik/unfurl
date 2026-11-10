@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34" fill="none">
+  <!-- Unfurl logo (SPEC §2): white flag in an indigo square, amber dot on top of the pole.
+       Same shapes as the sidebar logo in base.html; used as the favicon. -->
+  <rect width="34" height="34" rx="10" fill="#4F46E5"/>
+  <g transform="translate(7 7) scale(0.8333)">
+    <path d="M6.5 21V5" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M6.5 5.5c2.4-1.5 4.8 1.5 7.2 0s3.6-1.2 5.3-.6v8.3c-1.7-.6-2.9-.3-5.3 1.2s-4.8-1.5-7.2 0z" fill="#FFFFFF"/>
+    <circle cx="6.5" cy="3.6" r="1.9" fill="#FDB022"/>
+  </g>
+</svg>

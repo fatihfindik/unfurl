@@ -23,6 +23,14 @@ def test_static_file_is_served(client, path):
     assert len(response.content) > 0
 
 
+def test_pages_link_the_logo_as_favicon(client):
+    html = client.get("/").text
+    assert '<link rel="icon" href="/static/img/logo.svg" type="image/svg+xml">' in html
+    response = client.get("/static/img/logo.svg")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/svg+xml")
+
+
 @pytest.mark.parametrize("name", ["htmx.min.js", "alpine.min.js"])
 def test_vendored_js_has_version_header(name):
     header = (ROOT / "app" / "static" / "js" / name).read_text()[:600]

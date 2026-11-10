@@ -45,6 +45,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} · Unfurl</title>
+  {#- With an icon link the browser no longer asks for /favicon.ico (which was a 404). -#}
+  <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/css/app.css">
   {#- htmx settings, read when htmx starts (a meta tag, so no inline script is needed):
       no eval (hx-on, hx-vars, js: values), no <script> tags run from swapped HTML,
