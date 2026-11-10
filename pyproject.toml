@@ -23,6 +23,11 @@ target-version = "py312"
 # E/F: pyflakes + pycodestyle errors, I: import sorting, B: common bugs, UP: modern syntax
 select = ["E", "F", "I", "B", "UP"]
 
+[tool.ruff.lint.isort]
+# The repo has an alembic/ folder (migrations); without this, ruff would sort the
+# alembic package as our own code instead of a third-party library.
+known-third-party = ["alembic"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Put the repo root on the import path so tests can `import app`.
