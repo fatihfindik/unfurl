@@ -25,6 +25,8 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Put the repo root on the import path so tests can `import app`.
+pythonpath = ["."]
 
 [dependency-groups]
 dev = [
