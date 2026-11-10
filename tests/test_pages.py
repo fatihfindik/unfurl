@@ -1,3 +1,4 @@
+import json
 import re
 
 import pytest
@@ -55,6 +56,16 @@ def test_assets_come_from_our_own_origin(client):
         assert 'src="/static/' in tag
     assert '<link rel="stylesheet" href="/static/css/app.css">' in html
     assert not re.search(r'(src|href)="(https?:)?//', html)
+
+
+def test_htmx_eval_scripts_and_inline_styles_are_off(client):
+    html = client.get("/").text
+    config = re.search(r"<meta name=\"htmx-config\" content='([^']*)'>", html).group(1)
+    assert json.loads(config) == {
+        "allowEval": False,
+        "allowScriptTags": False,
+        "includeIndicatorStyles": False,
+    }
 
 
 @pytest.mark.parametrize(
