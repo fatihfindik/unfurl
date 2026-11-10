@@ -1,0 +1,35 @@
+[project]
+name = "unfurl"
+version = "0.1.0"
+description = "Job search companion: CVs, cover letters, application tracking, learning and an AI assistant."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.20.1",
+    "fastapi[standard]>=0.162.3",
+    "jinja2>=3.1.6",
+    "psycopg[binary]>=3.3.8",
+    "pydantic-settings>=2.16.2",
+    "sqlmodel>=0.0.48",
+]
+
+# No [build-system]: Unfurl is an app, not a library. uv installs only the
+# dependencies and runs the code from the repo folder.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/F: pyflakes + pycodestyle errors, I: import sorting, B: common bugs, UP: modern syntax
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytailwindcss>=0.4.2",
+    "pytest>=9.2.0",
+    "ruff>=0.17.4",
+]
