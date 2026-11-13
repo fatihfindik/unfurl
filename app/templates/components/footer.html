@@ -1,0 +1,14 @@
+{#- Links to the legal pages (SPEC §6.12), shown at the bottom of every layout.
+
+    {% from "components/footer.html" import legal_links %}
+    {{ legal_links() }}
+-#}
+{% macro legal_links(class="") %}
+  <footer class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-3 {{ class }}">
+    <nav aria-label="Legal" class="flex flex-wrap gap-x-4 gap-y-1">
+      <a href="/privacy" class="text-text-3 hover:text-text">Privacy</a>
+      <a href="/terms" class="text-text-3 hover:text-text">Terms</a>
+      <a href="/imprint" class="text-text-3 hover:text-text">Imprint</a>
+    </nav>
+  </footer>
+{% endmacro %}

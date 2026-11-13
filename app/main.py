@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import Settings, get_settings
-from app.routers import applications, auth, placeholders
+from app.routers import applications, auth, legal, placeholders
 from app.security import verify_csrf
 from app.services.auth_service import LoginRequired, login_required_response
 
@@ -56,6 +56,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(applications.router)
     app.include_router(placeholders.router)
+    app.include_router(legal.router)
     return app
 
 

@@ -5,6 +5,7 @@
 {%- from "components/icons.html" import icon, logo_mark -%}
 {%- from "components/theme_picker.html" import theme_picker -%}
 {%- from "components/forms.html" import csrf_field -%}
+{%- from "components/footer.html" import legal_links -%}
 
 {#- Main menu: (label, url, icon). The order is fixed by SPEC §6. -#}
 {%- set nav_items = [
@@ -93,6 +94,7 @@
     <main class="flex min-w-0 flex-1 flex-col">
       {% block content %}{% endblock %}
     </main>
+    {{ legal_links("px-4 py-4 md:px-8") }}
   </div>
 
   {{ toast_region() }}

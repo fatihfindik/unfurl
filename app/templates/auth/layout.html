@@ -3,6 +3,7 @@
     Pages extend it, set `active_tab` ("login" or "register") and fill `title` and `form`. -#}
 {%- from "components/icons.html" import icon, logo_mark -%}
 {%- from "components/theme_picker.html" import theme_picker -%}
+{%- from "components/footer.html" import legal_links -%}
 <!doctype html>
 <html lang="en" class="theme-{{ theme }}">
 <head>
@@ -56,6 +57,7 @@
           {% block form %}{% endblock %}
         </div>
       </main>
+      {{ legal_links("justify-center") }}
     </section>
   </div>
 </body>
