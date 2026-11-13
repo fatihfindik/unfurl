@@ -57,8 +57,8 @@ def test_drawer_is_a_labelled_dialog_on_the_right():
     assert "<p>Preview</p>" in html
 
 
-def test_every_page_has_the_toast_live_region(client):
-    html = client.get("/").text
+def test_every_app_page_has_the_toast_live_region(auth_client):
+    html = auth_client.get("/").text
     assert '<div role="status" x-data="toast"' in html
     assert ">Undo</button>" in html
     assert 'aria-label="Dismiss"' in html

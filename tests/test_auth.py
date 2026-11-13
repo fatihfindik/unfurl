@@ -254,3 +254,76 @@ def test_session_ends_when_the_user_is_gone(auth_client, user, session):
     session.delete(user)
     session.commit()
     assert auth_client.get("/login", follow_redirects=False).status_code == 200
+
+
+# --- Pages that need a login (SPEC §6.1) ----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("url", "login_url"),
+    [
+        ("/", "/login"),
+        ("/learning", "/login?next=/learning"),
+        ("/documents", "/login?next=/documents"),
+        ("/settings", "/login?next=/settings"),
+        # The whole path with its query stays one `next` value.
+        ("/documents?tab=cv&page=2", "/login?next=/documents%3Ftab%3Dcv%26page%3D2"),
+    ],
+)
+def test_app_pages_send_logged_out_visitors_to_login(client, url, login_url):
+    response = client.get(url, follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == login_url
+
+
+def test_htmx_request_gets_hx_redirect_instead_of_303(client):
+    response = client.get("/settings", headers={"HX-Request": "true"}, follow_redirects=False)
+    assert response.status_code == 200
+    assert response.headers["hx-redirect"] == "/login?next=/settings"
+    assert response.text == ""
+
+
+def test_after_login_the_visitor_is_back_on_the_page_they_asked_for(client, user):
+    login_url = client.get("/documents?tab=cv&page=2", follow_redirects=False).headers["location"]
+    login_page = client.get(login_url).text
+    assert 'name="next" value="/documents?tab=cv&amp;page=2"' in login_page
+
+    response = client.post(
+        "/login",
+        data={
+            "email": USER_EMAIL,
+            "password": USER_PASSWORD,
+            "next": "/documents?tab=cv&page=2",
+            "csrf_token": csrf_token(client),
+        },
+        follow_redirects=False,
+    )
+    assert response.headers["location"] == "/documents?tab=cv&page=2"
+
+
+def test_after_logout_a_protected_page_asks_for_login_again(auth_client):
+    assert auth_client.get("/settings").status_code == 200
+    auth_client.post("/logout", data={"csrf_token": csrf_token(auth_client)})
+
+    response = auth_client.get("/settings", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login?next=/settings"
+
+
+def test_account_menu_shows_the_user_and_a_sign_out_form(auth_client, user):
+    html = auth_client.get("/").text
+    menu = html.split('id="account-menu"', 1)[1].split("</div>\n      </div>", 1)[0]
+    assert "Jana Novak" in menu
+    assert USER_EMAIL in menu
+    assert '<form method="post" action="/logout"' in menu
+    assert 'name="csrf_token"' in menu
+
+
+def test_account_menu_escapes_the_user_name(client, session):
+    from app.services.auth_service import create_user
+
+    create_user(session, email="x@example.com", password="x" * 12, full_name="<script>x</script>")
+    log_in(client, email="x@example.com", password="x" * 12)
+    html = client.get("/").text
+    assert "<script>x</script>" not in html
+    assert "&lt;script&gt;x&lt;/script&gt;" in html

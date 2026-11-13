@@ -12,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import Settings, get_settings
 from app.routers import applications, auth, placeholders
 from app.security import verify_csrf
+from app.services.auth_service import LoginRequired, login_required_response
 
 SESSION_COOKIE = "unfurl_session"
 SESSION_MAX_AGE = 14 * 24 * 60 * 60  # 14 days, in seconds (SPEC §6.1)
@@ -45,6 +46,9 @@ def create_app(settings: Settings) -> FastAPI:
         same_site="lax",
         https_only=settings.app_env == "production",
     )
+
+    # Pages that need a login raise LoginRequired; this turns it into a redirect.
+    app.add_exception_handler(LoginRequired, login_required_response)
 
     # CSS, JS, fonts and images are served from our own origin (no CDNs).
     app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")

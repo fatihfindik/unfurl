@@ -5,8 +5,10 @@ SPEC §6.1, D-021. CSRF and redirect checks live in app/security.py.
 
 import secrets
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import Depends, Request
+from fastapi.responses import RedirectResponse, Response
 from pwdlib import PasswordHash
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -118,3 +120,40 @@ def current_user(
         return None
     request.state.user = user
     return user
+
+
+class LoginRequired(Exception):
+    """Raised by require_user; the handler below sends the visitor to the login page."""
+
+    def __init__(self, next_path: str):
+        self.next_path = next_path
+
+
+def require_user(request: Request, user: Annotated[User | None, Depends(current_user)]) -> User:
+    """Dependency for pages that need a logged-in user (SPEC §6.1)."""
+    if user is None:
+        # After login, come back to the page that was asked for. Only for GET:
+        # a form sent without a session can't be replayed after login.
+        next_path = "/"
+        if request.method == "GET":
+            next_path = request.url.path
+            if request.url.query:
+                next_path += "?" + request.url.query
+        raise LoginRequired(next_path)
+    return user
+
+
+def login_required_response(request: Request, exc: LoginRequired) -> Response:
+    """Exception handler for LoginRequired: 303 to /login?next=..., or HX-Redirect for htmx.
+
+    htmx can't see a 303: the browser follows it inside the request and htmx would
+    put the login page into the middle of the current page. With the HX-Redirect
+    header htmx loads the login page as a whole page instead.
+    """
+    login_url = "/login"
+    if exc.next_path != "/":
+        # quote() also encodes "?", "&" and "=", so the whole path stays one value.
+        login_url += "?next=" + quote(exc.next_path, safe="/")
+    if request.headers.get("HX-Request") == "true":
+        return Response(status_code=200, headers={"HX-Redirect": login_url})
+    return RedirectResponse(login_url, status_code=303)

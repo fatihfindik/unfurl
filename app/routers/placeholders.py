@@ -4,12 +4,14 @@ Each route is removed when its milestone adds the real page:
 /documents (M3), /learning (M10), /settings (M11, first section: Notifications).
 """
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
+from app.services.auth_service import require_user
 from app.templating import templates
 
-router = APIRouter()
+# Every page here needs a logged-in user; without one the visitor goes to /login.
+router = APIRouter(dependencies=[Depends(require_user)])
 
 
 def coming_soon(request: Request, section: str) -> HTMLResponse:
