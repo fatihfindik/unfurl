@@ -19,6 +19,8 @@ from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 
 from app.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
+from app.models import User  # noqa: E402
+from app.models.base import utcnow  # noqa: E402
 
 
 @pytest.fixture
@@ -60,3 +62,18 @@ def client(engine) -> Iterator[TestClient]:
     app.dependency_overrides[get_session] = test_session
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def user(session) -> User:
+    """A saved user on the free plan."""
+    user = User(
+        email="jana@example.com",
+        password_hash="not-a-real-hash",
+        full_name="Jana Novak",
+        privacy_accepted_at=utcnow(),
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
