@@ -1,29 +1,29 @@
 # Unfurl — Learning Log
 
-> Her milestone sonunda 3-5 madde (WORKFLOW §6). Kendi cümlelerimle.
+> 3–5 points at the end of every milestone (WORKFLOW §6), in my own words.
 
 ---
 
-## M0 — Proje iskeleti (2026-11-10)
+## M0 — Project skeleton (2026-11-10 – 2026-11-13)
 
-**Öğrendiklerim**
-- Git akışı: Branch açıyoruz, kod yazıp kendi bilgisayarımda commit ediyoruz, push ile GitHub'a gönderiyoruz. PR açıyoruz: burada CI testleri çalışıyor ve ben review ediyorum. Sonra main'e merge ediyoruz.
-- Farklı testler farklı riskleri yakalıyor. Otomatik testler sadece yazılmış senaryoları kontrol ediyor. Bu yüzden testler geçerken bile ben UX testinde hover sorununu, Docker testinde kapanma sorununu buldum.
-- Sunucu istek bekleyen bir çağrı merkezi gibi: açıkken site var, kapanınca yok. FastAPI beyin, kararları veriyor. Veritabanı sadece veriyi tutuyor.
-- SQLite tek bir dosya, geliştirmede hızlı ama aynı anda tek yazmaya izin veriyor. Postgres ayrı bir sunucu: çok kullanıcıyı kaldırıyor ve uygulama yeniden kurulsa da veri kaybolmuyor. Bu yüzden canlıda Postgres.
-- `fastapi dev` günlük geliştirme için, hızlı. Docker canlıya benzer ortamda prova. Uygulamanın kapanma sinyalini duymadığını (exit 137) sadece Docker testi gösterdi.
+**What I learned**
+- Git flow: I create a branch, write code and commit it on my own machine, then push it to GitHub. I open a PR: CI runs the tests there and I review the changes. Then the branch is merged into main.
+- Different checks catch different risks. Automated tests only check the scenarios someone wrote. That is why, with all tests passing, I still found the hover problem in my own UX test and the shutdown problem in the Docker test.
+- The server is like a call center waiting for requests: while it runs the site exists, when it stops the site is gone. FastAPI is the brain that makes the decisions. The database only stores the data.
+- SQLite is a single file: fast for development, but only one write at a time. Postgres is a separate server: it handles many users and the data survives when the app is rebuilt. That is why production uses Postgres.
+- `fastapi dev` is for daily development and is fast. Docker is a rehearsal in a production-like setup. Only the Docker test showed that the app ignored the shutdown signal (exit 137).
 
-**Zorlandığım yerler**
-- Aynı anda çok adım ve terminal sekmesi olunca karıştı; adım adım ilerleyince düzeldi.
-- Sunucuyu Claude Code arka planda açınca değişiklikler görünmedi; neyin nerede çalıştığını anlamak zaman aldı.
-- Docker, veritabanı ve sunucu kavramları önce havada kaldı; somut örnek ve benzetmelerle oturdu.
+**What was hard**
+- Too many steps and terminal tabs at once got confusing; going one step at a time fixed it.
+- When Claude Code started the server in the background, my changes did not show up; it took time to understand what was running where.
+- Docker, databases and servers felt abstract at first; concrete examples and analogies made them click.
 
-**Bir dahakine farklı yapacağım**
-- Bir sürüm etiketini kullanmadan önce gerçekten var olduğunu kontrol etmek (ilk CI çalışması `setup-uv@v10` etiketi olmadığı için kırıldı).
-- Sunucuyu her zaman kendi terminalimde açarım: sol sekme Claude Code, sağ sekme sunucu.
-- "Devam et" yerine açık talimat veririm: "push et" / "push etme, önce göster".
-- Her oturumun başında modu kontrol ederim (manual / auto).
+**What I will do differently**
+- Check that a version tag really exists before using it (the first CI run failed because `setup-uv@v10` did not exist).
+- Always run the server in my own terminal: left tab Claude Code, right tab server.
+- Give Claude Code explicit instructions instead of "continue": "push" / "don't push, show me first".
+- Check the permission mode (manual / auto) at the start of every session.
 
-**SPEC / WORKFLOW değişikliği gerekiyor mu?**
-- SPEC: v2.1.1 (odak halkası tüm öğelerde) ve v2.1.2 (tema seçici tek ikon + dropdown). claude.ai projesindeki kopya merge'den sonra yenilenecek.
-- WORKFLOW: Hayır.
+**SPEC / WORKFLOW changes?**
+- SPEC: yes. v2.1.1 (focus ring on all interactive elements) and v2.1.2 (theme picker as a single icon + dropdown). The claude.ai project copy will be refreshed after the merge.
+- WORKFLOW: yes. The §6 learning log template is now in English.
