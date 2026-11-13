@@ -1,15 +1,20 @@
-"""FastAPI app: static files and router registration.
+"""FastAPI app: middleware, static files and router registration.
 
 Run locally with: uv run fastapi dev app/main.py
 """
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import Settings, get_settings
 from app.routers import applications, placeholders
+from app.security import verify_csrf
+
+SESSION_COOKIE = "unfurl_session"
+SESSION_MAX_AGE = 14 * 24 * 60 * 60  # 14 days, in seconds (SPEC §6.1)
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -24,6 +29,21 @@ def create_app(settings: Settings) -> FastAPI:
         docs_url="/docs" if show_api_docs else None,
         redoc_url="/redoc" if show_api_docs else None,
         openapi_url="/openapi.json" if show_api_docs else None,
+        # Runs before every route: POST/PUT/PATCH/DELETE need a valid CSRF token.
+        dependencies=[Depends(verify_csrf)],
+    )
+
+    # The session lives in a cookie signed with SECRET_KEY: the browser can read it
+    # but not change it. HttpOnly is always on (JavaScript can't read the cookie);
+    # Secure (HTTPS only) in production. SameSite=Lax: other sites can link to us,
+    # but their forms don't get the cookie on POST.
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.secret_key.get_secret_value(),
+        session_cookie=SESSION_COOKIE,
+        max_age=SESSION_MAX_AGE,
+        same_site="lax",
+        https_only=settings.app_env == "production",
     )
 
     # CSS, JS, fonts and images are served from our own origin (no CDNs).

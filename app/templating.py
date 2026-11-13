@@ -9,6 +9,8 @@ from pathlib import Path
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
+from app.security import safe_redirect_path
+
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 THEMES = ("light", "dark", "system")
@@ -32,3 +34,6 @@ def theme_context(request: Request) -> dict:
 # Autoescape is on for .html files, so user and AI text is always HTML-escaped (SPEC §10.1).
 # Context processors run for every template response and add shared variables.
 templates = Jinja2Templates(directory=TEMPLATES_DIR, context_processors=[theme_context])
+
+# Functions templates can call. safe_redirect_path keeps back_url links on this site.
+templates.env.globals["safe_redirect_path"] = safe_redirect_path
