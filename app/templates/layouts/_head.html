@@ -1,0 +1,17 @@
+{#- The shared part of <head> for every layout (app, auth, legal pages).
+    Each layout writes its own <title> and then includes this file. -#}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{#- With an icon link the browser no longer asks for /favicon.ico (which was a 404). -#}
+<link rel="icon" href="/static/img/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/css/app.css">
+{#- htmx settings, read when htmx starts (a meta tag, so no inline script is needed):
+    no eval (hx-on, hx-vars, js: values), no <script> tags run from swapped HTML,
+    and no inline <style> for .htmx-indicator (it lives in input.css). Keeps htmx
+    compatible with a strict Content-Security-Policy (SPEC §10.1, D-005). -#}
+<meta name="htmx-config" content='{"allowEval": false, "allowScriptTags": false, "includeIndicatorStyles": false}'>
+{#- All scripts from our own origin, no inline scripts. `defer` keeps the order:
+    app.js must run before alpine.min.js (see app.js). -#}
+<script src="/static/js/htmx.min.js" defer></script>
+<script src="/static/js/app.js" defer></script>
+<script src="/static/js/alpine.min.js" defer></script>

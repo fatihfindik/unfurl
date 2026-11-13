@@ -226,6 +226,33 @@
     color: var(--text);
   }
 
+  /* Text fields, selects and text areas (sizes and border from the prototype).
+     Tailwind's reset removes the browser's borders, so they are set here. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select,
+  textarea {
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  textarea {
+    height: auto;
+    padding: 10px 12px;
+  }
+  /* A field with an error (aria-invalid is set by the form macros). */
+  [aria-invalid="true"] {
+    border-color: var(--red-text);
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #4f46e5;
+  }
+
   /* Alpine removes x-cloak when it starts, so closed menus don't flash while the page loads. */
   [x-cloak] {
     display: none !important;
