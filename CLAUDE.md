@@ -33,7 +33,7 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - Migrations: `uv run alembic revision --autogenerate -m "..."` and `uv run alembic upgrade head`
 
 ## Milestone status
-- [ ] M0 Project skeleton
+- [x] M0 Project skeleton
 - [ ] M1 Authentication
 - [ ] M2 Profile
 - [ ] M3 CV builder + PDF (master / versions / locks)
