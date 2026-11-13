@@ -103,13 +103,13 @@ Her milestone için şu sırayla ilerle:
 ## 6. Retro şablonu (`docs/LEARNING_LOG.md`)
 
 ```markdown
-## M{n} — {başlık} ({tarih})
-**Öğrendiklerim**
+## M{n} — {title} ({date})
+**What I learned**
 - ...
-**Zorlandığım yerler**
+**What was hard**
 - ...
-**Bir dahakine farklı yapacağım**
+**What I will do differently**
 - ...
-**SPEC / WORKFLOW değişikliği gerekiyor mu?**
-- Evet/Hayır: ...
+**SPEC / WORKFLOW changes?**
+- Yes/No: ...
 ```
