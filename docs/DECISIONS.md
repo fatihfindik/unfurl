@@ -139,6 +139,7 @@ Kaynak: claude.ai Plan fazı (`docs/plans/M1-handoff.md`), Fatih onayı.
 - **Karar:** İmzalı oturum çerezi `session_version` taşır, `current_user` bunu DB ile karşılaştırır. Şifre değişince/sıfırlanınca değer +1 olur.
 - **Gerekçe:** İmzalı çerez sunucuda tutulmaz. Eski oturumları düşürmenin en ucuz yolu bu.
 - **Alternatifler:** Sunucu tarafı session tablosu (cihaz listesi gibi özelliklere açık, V2'de düşünülebilir).
+- **Bilinen sınır (M1a güvenlik incelemesi #1):** Logout çerezi sadece tarayıcıdan siler. Kopyalanmış bir çerez, girişten itibaren 14 gün geçerli kalır (Starlette çerezi sadece oturum değişince yeniden imzalar). M1a'da tek iptal yolu `session_version`'ı artırmaktır; M1b'de şifre değişikliği bunu yapar ve "Sign out everywhere" değerlendirilir (#9).
 
 ### D-022 · CSRF: kendi küçük çözümümüz
 - **Karar:** Oturum başına token, form alanı `csrf_token` ve HTMX için `X-CSRF-Token` header'ı. Ek kütüphane kullanılmaz. `/api/ext/*` hariç.

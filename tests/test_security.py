@@ -183,5 +183,15 @@ def test_session_cookie_is_secure_in_production():
         _env_file=None, app_env="production", secret_key="x" * 32, encryption_key="k"
     )
     header = session_cookie_header(create_app(settings))
+    # __Host- prefix: only accepted with Secure, path=/ and no Domain.
+    assert header.startswith("__Host-unfurl_session=")
     assert "secure" in header.lower()
     assert "httponly" in header.lower()
+    assert "path=/" in header.lower()
+    assert "domain=" not in header.lower()
+
+
+def test_csrf_fails_closed_for_json_bodies_on_the_real_app(auth_client):
+    # The token is only read from the header or a form field; a JSON body is rejected.
+    response = auth_client.post("/logout", json={"csrf_token": "anything"})
+    assert response.status_code == 403

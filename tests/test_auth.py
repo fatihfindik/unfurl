@@ -174,6 +174,7 @@ def test_login_email_is_case_insensitive(client, user):
         ("nobody@example.com", USER_PASSWORD),
         (USER_EMAIL, ""),
         (USER_EMAIL, "x" * (PASSWORD_MAX_LENGTH + 1)),
+        ("a" * 400 + "@example.com", USER_PASSWORD),
     ],
 )
 def test_failed_login_shows_one_general_message(client, user, email, password):
@@ -296,10 +297,33 @@ def test_app_pages_send_logged_out_visitors_to_login(client, url, login_url):
 
 
 def test_htmx_request_gets_hx_redirect_instead_of_303(client):
-    response = client.get("/settings", headers={"HX-Request": "true"}, follow_redirects=False)
+    response = client.get(
+        "/settings",
+        headers={"HX-Request": "true", "HX-Current-URL": "http://testserver/settings"},
+        follow_redirects=False,
+    )
     assert response.status_code == 200
     assert response.headers["hx-redirect"] == "/login?next=/settings"
     assert response.text == ""
+
+
+@pytest.mark.parametrize(
+    ("current_url", "login_url"),
+    [
+        # After login, back to the whole page the user was on, not the htmx fragment.
+        ("http://testserver/documents?tab=cv", "/login?next=/documents%3Ftab%3Dcv"),
+        ("http://testserver/", "/login"),
+        ("https://evil.com//evil.com", "/login"),
+        ("", "/login"),
+    ],
+)
+def test_htmx_next_comes_from_the_current_page(client, current_url, login_url):
+    headers = {"HX-Request": "true"}
+    if current_url:
+        headers["HX-Current-URL"] = current_url
+    # The fragment URL itself (/settings here) must not become `next`.
+    response = client.get("/settings", headers=headers, follow_redirects=False)
+    assert response.headers["hx-redirect"] == login_url
 
 
 def test_after_login_the_visitor_is_back_on_the_page_they_asked_for(client, user):
@@ -346,3 +370,30 @@ def test_account_menu_escapes_the_user_name(client, session):
     html = client.get("/").text
     assert "<script>x</script>" not in html
     assert "&lt;script&gt;x&lt;/script&gt;" in html
+
+
+# Pages anyone may open. Every other GET page must send logged-out visitors to /login,
+# so a new page that forgets require_user makes this test fail.
+PUBLIC_PAGES = {"/login", "/register", "/privacy", "/terms", "/imprint"}
+
+
+def test_every_page_except_the_public_ones_needs_login(client):
+    from app.main import app
+
+    # The OpenAPI schema lists every route with its methods (also routes that were
+    # added through include_router), so no page can be missed.
+    paths = app.openapi()["paths"]
+    get_pages = [path for path, methods in paths.items() if "get" in methods and "{" not in path]
+    assert "/" in get_pages and "/login" in get_pages
+    for path in get_pages:
+        if path in PUBLIC_PAGES:
+            continue
+        response = client.get(path, follow_redirects=False)
+        assert response.status_code == 303, f"{path} is open without login"
+        assert response.headers["location"].startswith("/login"), path
+
+
+def test_public_pages_list_is_up_to_date(client):
+    # If a public page is removed or renamed, the allowlist above must follow.
+    for path in PUBLIC_PAGES:
+        assert client.get(path, follow_redirects=False).status_code == 200, path

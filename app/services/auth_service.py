@@ -5,7 +5,7 @@ SPEC §6.1, D-021. CSRF and redirect checks live in app/security.py.
 
 import secrets
 from typing import Annotated
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from fastapi import Depends, Request
 from fastapi.responses import RedirectResponse, Response
@@ -16,8 +16,8 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import User
 from app.models.base import utcnow
-from app.models.user import normalize_email
-from app.security import get_csrf_token
+from app.models.user import EMAIL_MAX_LENGTH, normalize_email
+from app.security import get_csrf_token, safe_redirect_path
 
 PASSWORD_MIN_LENGTH = 10
 # An upper limit, so nobody can make the server hash a huge text (argon2 is slow on purpose).
@@ -75,6 +75,10 @@ def create_user(session: Session, *, email: str, password: str, full_name: str) 
 def authenticate(session: Session, email: str, password: str) -> User | None:
     """The user if email and password match, otherwise None (never says which one was wrong)."""
     if len(password) > PASSWORD_MAX_LENGTH:
+        return None
+    if len(email) > EMAIL_MAX_LENGTH:
+        # No account can have such an email; skip the database, but do the same work.
+        verify_password(password, _DUMMY_HASH)
         return None
     user = session.exec(select(User).where(User.email == normalize_email(email))).first()
     if user is None:
@@ -135,7 +139,14 @@ def require_user(request: Request, user: Annotated[User | None, Depends(current_
         # After login, come back to the page that was asked for. Only for GET:
         # a form sent without a session can't be replayed after login.
         next_path = "/"
-        if request.method == "GET":
+        if request.headers.get("HX-Request") == "true":
+            # An htmx request asks for a piece of a page (e.g. one card). After login
+            # the user should see the whole page they were on, which htmx sends in
+            # HX-Current-URL (a full URL; only its path and query are used).
+            current = urlsplit(request.headers.get("HX-Current-URL", ""))
+            path = current.path + ("?" + current.query if current.query else "")
+            next_path = safe_redirect_path(path)
+        elif request.method == "GET":
             next_path = request.url.path
             if request.url.query:
                 next_path += "?" + request.url.query
