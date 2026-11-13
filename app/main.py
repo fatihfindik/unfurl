@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import Settings, get_settings
-from app.routers import applications, placeholders
+from app.routers import applications, auth, placeholders
 from app.security import verify_csrf
 
 SESSION_COOKIE = "unfurl_session"
@@ -49,6 +49,7 @@ def create_app(settings: Settings) -> FastAPI:
     # CSS, JS, fonts and images are served from our own origin (no CDNs).
     app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
+    app.include_router(auth.router)
     app.include_router(applications.router)
     app.include_router(placeholders.router)
     return app

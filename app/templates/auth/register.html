@@ -1,0 +1,27 @@
+{% extends "auth/layout.html" %}
+{% from "components/forms.html" import csrf_field, text_field, checkbox_field, primary_button %}
+{% set active_tab = "register" %}
+
+{% block title %}Create account{% endblock %}
+
+{% block form %}
+  <form method="post" action="/register" class="flex flex-col gap-4" novalidate>
+    {{ csrf_field(csrf_token) }}
+    <h2 class="m-0 text-2xl font-bold">Create your free account</h2>
+
+    {%- if email_taken %}
+      {#- D-023: say it plainly. The "Forgot password?" link comes with password reset in M1b. -#}
+      <p role="alert" class="m-0 rounded-[10px] bg-red-bg px-3 py-2.5 text-sm font-medium text-red-text">
+        An account with this email already exists. <a href="/login" class="font-semibold text-red-text underline">Log in</a>
+      </p>
+    {%- endif %}
+
+    {{ text_field("full_name", "Full name", value=form.full_name, error=errors.full_name, autocomplete="name", maxlength=200) }}
+    {{ text_field("email", "Email", type="email", value=form.email, error=errors.email, autocomplete="email", maxlength=320) }}
+    {{ text_field("password", "Password", type="password", error=errors.password, hint="At least 10 characters", autocomplete="new-password", maxlength=1024) }}
+    {% call checkbox_field("privacy", "", checked=form.privacy, error=errors.privacy) %}
+      I agree to the <a href="/privacy">privacy policy</a> and <a href="/terms">terms</a>.
+    {% endcall %}
+    {{ primary_button("Create account") }}
+  </form>
+{% endblock %}

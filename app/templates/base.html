@@ -20,7 +20,8 @@
   {% include "layouts/_head.html" %}
   <title>{% block title %}{% endblock %} · Unfurl</title>
 </head>
-<body class="min-h-screen md:flex">
+{#- hx-headers: every htmx request sends the CSRF token as a header (app/security.py). -#}
+<body class="min-h-screen md:flex" hx-headers='{{ {"X-CSRF-Token": csrf_token} | tojson }}'>
 
   <nav aria-label="Main" x-data="mobileNav"
        class="flex flex-col gap-1 bg-surface border-b border-border px-3.5 py-3 md:w-[220px] md:shrink-0 md:border-b-0 md:border-r md:py-5">

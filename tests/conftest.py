@@ -20,7 +20,8 @@ from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 from app.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
-from app.models.base import utcnow  # noqa: E402
+from app.services.auth_service import create_user  # noqa: E402
+from tests.helpers import USER_EMAIL, USER_PASSWORD, log_in  # noqa: E402
 
 
 @pytest.fixture
@@ -66,14 +67,12 @@ def client(engine) -> Iterator[TestClient]:
 
 @pytest.fixture
 def user(session) -> User:
-    """A saved user on the free plan."""
-    user = User(
-        email="jana@example.com",
-        password_hash="not-a-real-hash",
-        full_name="Jana Novak",
-        privacy_accepted_at=utcnow(),
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    return user
+    """A saved user on the free plan. Logs in with USER_EMAIL / USER_PASSWORD."""
+    return create_user(session, email=USER_EMAIL, password=USER_PASSWORD, full_name="Jana Novak")
+
+
+@pytest.fixture
+def auth_client(client, user) -> TestClient:
+    """A client that is logged in as `user`."""
+    assert log_in(client).status_code == 303
+    return client
