@@ -154,3 +154,14 @@ Kaynak: claude.ai Plan fazı (`docs/plans/M1-handoff.md`), Fatih onayı.
 - **Karar:** M1a (oturum çekirdeği) ve M1b (e-posta akışları), ayrı branch, PR ve etiketlerle: `m1a-auth-core` / `v0.1a-m1a`, `m1b-auth-email` / `v0.1b-m1b`.
 - **Gerekçe:** Tek M1, WORKFLOW'daki 1-2 haftalık sınırı aşma riski taşıyordu.
 - **Alternatifler:** Tek M1.
+
+### D-025 · User tablosu sadece M1 kolonlarıyla
+- **Karar:** M1a migration'ı User'a sadece M1'in kullandığı kolonları ekler: `email`, `password_hash`, `full_name`, `is_verified`, `privacy_accepted_at`, `last_login_at`, `session_version`, `plan`, `plan_expires_at`, `created_at`, `updated_at`. Diğer §5.1 kolonları kendi milestone'larında küçük migration'larla gelir: `theme` (M4), `default_doc_language` (M3), `timezone` (M10/M11), `anthropic_api_key_encrypted` (M7), `ui_locale` (ihtiyaç olunca).
+- **Gerekçe:** Her kolon onu kullanan kodla birlikte gelir; kullanılmayan kolon olmaz.
+- **Not:** `created_at` ve `updated_at` uygulama tarafında SQLAlchemy `default` / `onupdate` ile dolar. Ham SQL ile yapılan güncellemeler `updated_at`'i değiştirmez; DB trigger'ı kullanılmaz.
+- **Alternatifler:** SPEC §5.1'in tamamını şimdi eklemek.
+
+### D-026 · `app/security.py`
+- **Karar:** CSRF (`get_csrf_token`, `verify_csrf`) ve yönlendirme güvenliği (`safe_redirect_path`) yeni `app/security.py` modülünde. SPEC §4'teki yapıya küçük bir ek.
+- **Gerekçe:** İkisi de auth'a özel değil; her form ve her `back_url` kullanır.
+- **Alternatifler:** `services/auth_service.py` içine koymak.
