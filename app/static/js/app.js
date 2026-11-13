@@ -145,6 +145,29 @@ document.addEventListener("alpine:init", () => {
   }));
 });
 
+// Form errors come from the server (components/forms.html marks the field with
+// aria-invalid and puts the message in "<field id>-error"). As soon as the user
+// changes that field, the error is out of date, so it is hidden. The form is
+// still checked again on the server when it is sent.
+document.addEventListener("input", (event) => {
+  const field = event.target;
+  if (!(field instanceof HTMLElement) || field.getAttribute("aria-invalid") !== "true") return;
+
+  field.removeAttribute("aria-invalid");
+  const errorId = `${field.id}-error`;
+  document.getElementById(errorId)?.remove();
+
+  // Screen readers should no longer read the removed message for this field.
+  const describedBy = (field.getAttribute("aria-describedby") || "")
+    .split(" ")
+    .filter((id) => id && id !== errorId);
+  if (describedBy.length) {
+    field.setAttribute("aria-describedby", describedBy.join(" "));
+  } else {
+    field.removeAttribute("aria-describedby");
+  }
+});
+
 // Modals and drawers are native <dialog> elements (templates/components/).
 // - Any element with data-dialog-open="<id>" opens that dialog.
 // - A click on the dark backdrop closes it. The dialog's content is wrapped in a

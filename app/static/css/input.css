@@ -218,6 +218,15 @@
     font-family: var(--font-sans);
   }
 
+  /* Links (prototype). Tailwind's reset makes links look like plain text; links
+     that need another colour set it with a class (e.g. text-text in menus). */
+  a {
+    color: var(--link);
+  }
+  a:hover {
+    color: var(--accent-text);
+  }
+
   /* Form fields: in dark mode they are a lighter tone than the page (--input). */
   input,
   select,

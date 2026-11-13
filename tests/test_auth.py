@@ -1,5 +1,7 @@
 """Register, log in and log out (SPEC §6.1, M1a acceptance criteria)."""
 
+import re
+
 import pytest
 from sqlmodel import select
 
@@ -47,6 +49,22 @@ def test_auth_pages_render_with_csrf_field(client, url, heading):
     assert 'aria-current="page"' in response.text  # the active tab
 
 
+def test_ui_says_sign_in_and_sign_out_never_log_in(client, user):
+    # One wording everywhere (prototype): "Sign in" / "Sign out". URLs stay /login, /logout.
+    pages = [client.get("/login").text, client.get("/register").text]
+    pages.append(register_page_with_taken_email(client))
+    log_in(client)
+    pages.append(client.get("/").text)
+    for html in pages:
+        visible_text = re.sub(r"<[^>]+>", " ", html).lower()
+        assert "log in" not in visible_text and "log out" not in visible_text
+    assert ">Sign out</button>" in pages[-1]
+
+
+def register_page_with_taken_email(client) -> str:
+    return register(client, email=USER_EMAIL).text
+
+
 def test_no_forgot_password_link_in_m1a(client):
     # It comes together with the reset page in M1b.
     for url in ("/login", "/register"):
@@ -81,6 +99,7 @@ def test_register_with_existing_email_says_so(client, user, email):
     assert response.status_code == 400
     assert "An account with this email already exists." in response.text
     assert '<a href="/login"' in response.text
+    assert ">Sign in</a>" in response.text
     assert "forgot" not in response.text.lower()
     assert logged_in_user_id(client) is None
 
