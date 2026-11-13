@@ -28,14 +28,14 @@ def test_upgrade_and_downgrade_run_cleanly(alembic_config):
     url = alembic_config.get_main_option("sqlalchemy.url")
 
     command.upgrade(alembic_config, "head")
-    assert current_revision(url) == "0001"
+    assert current_revision(url) == "0002"
 
     command.downgrade(alembic_config, "base")
     assert current_revision(url) is None
 
     # Running the chain again must also work (no leftovers from the downgrade).
     command.upgrade(alembic_config, "head")
-    assert current_revision(url) == "0001"
+    assert current_revision(url) == "0002"
 
 
 def test_models_and_migrations_are_in_sync(alembic_config):

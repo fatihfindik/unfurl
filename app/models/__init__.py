@@ -1,7 +1,4 @@
-"""SQLModel tables. Each model module is imported here so Alembic sees every table.
-
-M0 has no tables yet; User comes in M1.
-"""
+"""SQLModel tables. Each model module is imported here so Alembic sees every table."""
 
 from sqlmodel import SQLModel
 
@@ -15,3 +12,8 @@ SQLModel.metadata.naming_convention = {
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
     "pk": "pk_%(table_name)s",
 }
+
+# Imported after the naming convention is set, so the tables use it.
+from app.models.user import User  # noqa: E402
+
+__all__ = ["User"]
