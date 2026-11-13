@@ -1,0 +1,80 @@
+# CI: lint + tests on every push, plus a Docker/Postgres smoke test on pull requests to main.
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+# A new push to the same branch cancels the older, now pointless run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# The workflow only needs to read the code.
+permissions:
+  contents: read
+
+jobs:
+  lint-test:
+    # Runs on every push. For pull requests only when they come from a fork:
+    # a PR from a branch of this repo was already tested by its push, and that
+    # result shows on the PR because it is the same commit.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # setup-uv publishes only exact release tags (no moving "v10" tag).
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.7"
+          enable-cache: true
+
+      # --locked: fail if uv.lock doesn't match pyproject.toml.
+      # uv installs Python 3.12 from .python-version.
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Tests
+        run: uv run pytest
+
+  docker:
+    # Only for pull requests to main: builds the image and runs it against Postgres.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Create .env from the example
+        run: cp .env.example .env
+
+      - name: Start app + Postgres
+        run: docker compose up -d --build --wait
+
+      - name: Home page answers
+        run: curl -fsS -o /dev/null http://localhost:8000/
+
+      - name: Migrations ran on Postgres
+        run: |
+          version=$(docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select version_num from alembic_version"')
+          echo "alembic version: $version"
+          test -n "$version"
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop
+        if: always()
+        run: docker compose down -v

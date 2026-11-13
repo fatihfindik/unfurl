@@ -1,0 +1,45 @@
+# Local stack: the app + PostgreSQL 16.
+#   cp .env.example .env      (once)
+#   docker compose up --build
+# The ${...} values are read from .env by Docker Compose.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    volumes:
+      # Named volume: the data survives `docker compose down` (removed only with -v).
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # $$ = a literal $ for the shell inside the container.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  app:
+    build: .
+    env_file: .env
+    environment:
+      # Overrides the SQLite URL from .env: inside compose the app talks to the db container.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    ports:
+      # 127.0.0.1: reachable only from this computer, not from others on the same
+      # Wi-Fi/LAN (the local .env has DEBUG=true, which shows stack traces).
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # The slim image has no curl, so Python checks that the home page answers.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  pgdata:

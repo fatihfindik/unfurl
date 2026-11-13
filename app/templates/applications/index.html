@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "components/page_header.html" import page_header %}
+
+{% block title %}Applications{% endblock %}
+
+{% block content %}
+  {{ page_header("Applications", subtitle="Every job you saved or applied to.") }}
+  <div class="px-4 pt-5 pb-8 md:px-8">
+    <p class="text-sm text-text-3">No applications yet.</p>
+  </div>
+{% endblock %}
