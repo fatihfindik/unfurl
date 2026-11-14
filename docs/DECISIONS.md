@@ -200,3 +200,30 @@ Kaynak: Plan fazı, Fatih onayı.
 - **Karar:** M2a (profil bölümleri: ekle, düzenle, sil) ve M2b (sıralama, fotoğraf, profil gücü), ayrı branch, PR ve etiketlerle: `m2a-profile` / `v0.2a-m2a`, `m2b-profile-extras` / `v0.2b-m2b`. Profil gücü formülü SPEC §6.4'te (10 madde × %10). Sıralama sürükle-bırak + ↑ / ↓ butonları (erişilebilirlik).
 - **Gerekçe:** Tek M2 (6 alt tablo, satır içi düzenleme, sürükle-bırak, dosya yükleme, yüzde) WORKFLOW'daki 1-2 haftalık sınırı aşma riski taşıyordu. M2a tek başına SPEC'teki asıl kabul kriterini karşılıyor.
 - **Alternatifler:** Tek M2. Profil gücü için bölüm başına eşit puan (daha basit ama "Add 2 more skills" gibi yönlendirme yapamaz). Sadece sürükle-bırak (klavyeyle sıralama yok).
+
+### D-031 · Liste bölümleri için tek route kalıbı
+- **Karar:** Experience, Education, Skill, LanguageSkill, Certification ve Project için ayrı route'lar yerine `/profile/{section}/...` route'ları ve küçük bir `Section` dataclass'ından oluşan `SECTIONS` sözlüğü (`app/routers/profile.py`). Sözlük her bölüm için model, form şeması ve şablon adlarını tutar.
+- **Gerekçe:** Altı bölüm aynı işlemlere sahip (ekle, göster, düzenle, sil). ~30 neredeyse aynı route yerine 5 route; testler bölüm listesi üzerinden parametrize edilir.
+- **Maliyet:** Biraz soyutlama. Okunabilir kalması için dataclass alanları ve form okuma yardımcısı yorumlu.
+- **Alternatifler:** Her bölüme ayrı route'lar.
+
+### D-032 · Profil sahipliği ve `profile_service`
+- **Karar:** Alt tablolarda `user_id` yok (SPEC §5.2). Her alt kayıt sorgusu `Profile.user_id == user.id` ile join yapan `get_owned_item` yardımcısından geçer; bulunamazsa veya id sayı değilse 404. Kod `app/services/profile_service.py`'de (SPEC §4 ağacına küçük ek). Profil ilk açılışta boş oluşturulur, e-postası hesap e-postasıyla başlar (kullanıcı değiştirebilir).
+- **Gerekçe:** CLAUDE.md'deki "her sorgu `user_id` ile filtrelenir" kuralı tek bir yerde sağlanır.
+- **Alternatifler:** Alt tablolara `user_id` eklemek (tekrar eden veri). Profili kayıtta oluşturmak.
+
+### D-033 · Profil tarihleri ay hassasiyetinde
+- **Karar:** Deneyim, eğitim ve sertifika tarihleri `<input type="month">` ile alınır, DB'de ayın 1'i olarak `date` saklanır. Placeholder "YYYY-MM" ve biçim hatası mesajı var (bazı tarayıcılar alanı düz metin gösterir). "Devam ediyor" bir kutucukla seçilir; işaretliyse bitiş tarihi boş kalır.
+- **Gerekçe:** CV'lerde gün yazılmaz. SPEC'teki `date` tipi korunur.
+- **Alternatifler:** Sadece yıl. Tam tarih.
+
+### D-034 · SQLite'ta foreign key kontrolü açık (migration'lar hariç)
+- **Karar:** Uygulama engine'i ve test engine'i her bağlantıda `PRAGMA foreign_keys=ON` çalıştırır (`app/db.py`'de tek yardımcı). Listener asla `Engine` sınıfına (her engine'e) ya da `alembic/env.py`'ye eklenmez.
+- **Gerekçe:** SQLite foreign key kurallarını ve `ON DELETE CASCADE`'i varsayılan olarak uygulamaz; açınca localde ve testlerde Postgres ile aynı davranış. Migration'larda kapalı kalmalı: SQLite'ta tablo değiştiren batch migration tabloyu kopyalayıp eskisini siler, foreign key açıkken bu silme bağlı satırları da (ör. `user` değişince bütün profilleri) siler.
+- **Alternatifler:** Testleri Postgres'te çalıştırmak (CI'da yeni job). CASCADE testini M13'e bırakmak.
+
+### D-035 · M2a'da silmede Undo yok
+- **Karar:** Profil kayıtları onay sormadan silinir (SPEC §6.0/2'deki işlemler gibi), ama Undo altyapısı M4'te geldiği için M2a'da silinen kayıt geri alınamaz. M4 issue'suna "profile delete undo" maddesi eklenir. SPEC değişmez.
+- **Gerekçe:** M2a'nın kapsamı küçük kalır; M4 Undo altyapısını kurunca profil silme de ona bağlanır.
+- **Alternatifler:** M2a'da basit Undo.
+
