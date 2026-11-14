@@ -35,6 +35,7 @@ from app.models import (
 )
 from app.models.profile import LANGUAGE_LEVELS
 from app.schemas.profile import (
+    MAX_BULLETS,
     CertificationForm,
     EducationForm,
     ExperienceForm,
@@ -246,7 +247,9 @@ def form_to_dict(data: FormData, section: Section) -> dict:
     becomes a list; every other field keeps its single value."""
     values = {name: data.get(name) for name in data.keys()}
     for name in section.list_fields:
-        values[name] = data.getlist(name)
+        # One more than allowed is enough for the form to say "too many". A request
+        # with thousands of bullets is not sent back as thousands of inputs.
+        values[name] = data.getlist(name)[: MAX_BULLETS + 1]
     return values
 
 

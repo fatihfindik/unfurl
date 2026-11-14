@@ -147,6 +147,8 @@ class ExperienceForm(ProfileForm):
         # One form field per bullet; empty boxes are left out.
         if value is None:
             return []
+        if isinstance(value, str):
+            value = [value]  # a single text is one bullet, not one bullet per character
         return [line.strip() for line in value if isinstance(line, str) and line.strip()]
 
     @field_validator("bullets")
