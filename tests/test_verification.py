@@ -60,7 +60,9 @@ def test_register_sends_a_verification_email(client, outbox):
     assert len(outbox) == 1
     assert outbox[0].to == "ana@example.com"
     assert outbox[0].subject == "Verify your email for Unfurl"
-    assert "Hi Ana Silva," in outbox[0].body
+    # No name: someone registering with another person's address can't put text in it.
+    assert outbox[0].body.startswith("Hi,\n")
+    assert "Ana Silva" not in outbox[0].body
     assert link_path(outbox[0]).startswith("/verify-email?token=")
 
 
@@ -181,6 +183,11 @@ def test_token_made_for_another_purpose_is_rejected(client, user):
         {"user_id": user.id, "email": user.email}
     )
     assert client.get("/verify-email?token=" + other).status_code == 400
+
+
+def test_verify_page_sends_no_referrer(client, user):
+    for url in ("/verify-email?token=" + make_verify_token(user), "/verify-email?token=x"):
+        assert client.get(url).headers["referrer-policy"] == "no-referrer"
 
 
 def test_invalid_link_offers_resend_when_logged_in(auth_client):

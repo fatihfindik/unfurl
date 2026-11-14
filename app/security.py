@@ -3,8 +3,11 @@
 - safe_redirect_path(): only same-site paths for `next=` and `back_url` (SPEC §6.1, #4)
 - CSRF: one token per session, checked on every POST/PUT/PATCH/DELETE (SPEC §6.1, D-022)
 - Limits: login lockout, emails per address, requests per IP (SPEC §6.1, D-020)
+- Access log: tokens in URLs are hidden (CLAUDE.md: no tokens in logs)
 """
 
+import logging
+import re
 import secrets
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -251,3 +254,30 @@ limiter = Limiter(key_func=get_remote_address)
 
 def client_ip(request: Request) -> str:
     return get_remote_address(request)
+
+
+# --- Access log -------------------------------------------------------------------
+# uvicorn writes every request's path, query string included, to the "uvicorn.access"
+# log. Verify and reset links have their token there (/reset-password?token=...), and
+# a reset token in a log file would let anyone who reads the log take over the account.
+
+_TOKEN_IN_URL = re.compile(r"(token=)[^&\s]+")
+
+
+class HideTokensFilter(logging.Filter):
+    """Replaces every `token=...` value in a log line's arguments with `token=***`."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                _TOKEN_IN_URL.sub(r"\1***", arg) if isinstance(arg, str) else arg
+                for arg in record.args
+            )
+        return True  # keep the line, only changed
+
+
+def hide_tokens_in_access_log() -> None:
+    """Add HideTokensFilter to uvicorn's access log (once, even if called again)."""
+    access_log = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, HideTokensFilter) for f in access_log.filters):
+        access_log.addFilter(HideTokensFilter())

@@ -12,7 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import Settings, get_settings
 from app.routers import applications, auth, legal, placeholders
-from app.security import limiter, verify_csrf
+from app.security import hide_tokens_in_access_log, limiter, verify_csrf
 from app.services.auth_service import LoginRequired, login_required_response
 from app.templating import templates
 
@@ -66,6 +66,9 @@ def create_app(settings: Settings) -> FastAPI:
 
     # Pages that need a login raise LoginRequired; this turns it into a redirect.
     app.add_exception_handler(LoginRequired, login_required_response)
+
+    # Verify and reset tokens are in URLs; keep them out of the access log.
+    hide_tokens_in_access_log()
 
     # Requests per IP address (slowapi reads the limiter from app.state).
     app.state.limiter = limiter

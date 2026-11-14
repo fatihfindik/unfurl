@@ -80,6 +80,7 @@ async def send_email(email: Email) -> None:
             start_tls=True,  # encrypt the connection before logging in (port 587)
             timeout=SMTP_TIMEOUT_SECONDS,
         )
-    except Exception:
-        # Only the subject, not the address: logs should not hold personal data.
-        logger.exception("Could not send email: %s", email.subject)
+    except Exception as exc:
+        # Only the subject and the kind of error. No traceback and no error text: SMTP
+        # errors often contain the address, and logs should not hold personal data.
+        logger.error("Could not send email: %s (%s)", email.subject, type(exc).__name__)

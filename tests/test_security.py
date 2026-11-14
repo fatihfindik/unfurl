@@ -175,6 +175,43 @@ def test_session_cookie_flags_in_development():
     assert "secure" not in header.lower()
 
 
+def test_access_log_hides_tokens():
+    import logging
+
+    from app.main import app  # noqa: F401  (building the app adds the filter)
+
+    access_log = logging.getLogger("uvicorn.access")
+    # uvicorn logs: '%s - "%s %s HTTP/%s" %d' with (client, method, path, version, status)
+    record = access_log.makeRecord(
+        "uvicorn.access",
+        logging.INFO,
+        __file__,
+        0,
+        '%s - "%s %s HTTP/%s" %d',
+        ("127.0.0.1:5000", "GET", "/reset-password?token=abc.def-123&x=1", "1.1", 200),
+        None,
+    )
+    for log_filter in access_log.filters:
+        log_filter.filter(record)
+
+    line = record.getMessage()
+    assert "abc.def-123" not in line
+    assert "/reset-password?token=***&x=1" in line
+
+
+def test_access_log_filter_is_added_once():
+    import logging
+
+    from app.config import Settings
+    from app.main import create_app
+    from app.security import HideTokensFilter
+
+    create_app(Settings(_env_file=None, app_env="development"))
+    create_app(Settings(_env_file=None, app_env="development"))
+    filters = logging.getLogger("uvicorn.access").filters
+    assert sum(isinstance(f, HideTokensFilter) for f in filters) == 1
+
+
 def test_session_cookie_is_secure_in_production():
     from app.config import Settings
     from app.main import create_app

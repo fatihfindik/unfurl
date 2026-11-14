@@ -1,6 +1,6 @@
 Subject: Verify your email for Unfurl
 
-Hi {{ full_name }},
+Hi,
 
 Please confirm your email address for Unfurl:
 

@@ -186,6 +186,14 @@ def test_missing_or_broken_token_is_rejected(client, query):
     assert response.headers["referrer-policy"] == "no-referrer"
 
 
+def test_reset_link_for_an_old_email_address_is_rejected(client, session, user):
+    token = make_reset_token(user)
+    user.email = "new@example.com"
+    session.add(user)
+    session.commit()
+    assert client.get("/reset-password?token=" + token).status_code == 400
+
+
 def test_verify_token_is_not_a_reset_token(client, user):
     from app.services.auth_service import make_verify_token
 

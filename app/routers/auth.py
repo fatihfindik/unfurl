@@ -53,6 +53,10 @@ WAIT_MESSAGE = "Please wait a few minutes before asking for another email."
 FORGOT_MESSAGE = "If an account exists, we sent an email."
 PASSWORD_CHANGED_MESSAGE = "Your password was changed. Sign in with your new password."
 
+# Verify and reset links carry their token in the URL. "Referrer-Policy: no-referrer"
+# stops the browser from sending that URL to any other page opened from there.
+NO_REFERRER = {"Referrer-Policy": "no-referrer"}
+
 # Checks the email format (no DNS lookup), the same rules as a Pydantic EmailStr field.
 email_adapter = TypeAdapter(EmailStr)
 
@@ -67,12 +71,13 @@ def is_htmx(request: Request) -> bool:
 
 
 def send_verification_email(background_tasks: BackgroundTasks, user: User) -> None:
-    """Send the "Verify your email" link after the response is sent (D-028)."""
+    """Send the "Verify your email" link after the response is sent (D-028).
+
+    No name in this email: anyone can register with someone else's address, and the
+    name would let them put their own text into a real Unfurl email.
+    """
     email = email_service.render_email(
-        "verify_email",
-        to=user.email,
-        full_name=user.full_name,
-        path="/verify-email?token=" + make_verify_token(user),
+        "verify_email", to=user.email, path="/verify-email?token=" + make_verify_token(user)
     )
     background_tasks.add_task(email_service.send_email, email)
 
@@ -270,6 +275,7 @@ def verify_email(request: Request, session: DbSession, user: CurrentUser, token:
                 "show_resend": show_resend,
             },
             status_code=400,
+            headers=NO_REFERRER,
         )
 
     if account.is_verified:
@@ -281,13 +287,11 @@ def verify_email(request: Request, session: DbSession, user: CurrentUser, token:
         request,
         "auth/message.html",
         {"heading": heading, "text": "AI features are now unlocked.", "show_resend": False},
+        headers=NO_REFERRER,
     )
 
 
 # --- Password reset -----------------------------------------------------------------
-# The token is in the link (URL). "Referrer-Policy: no-referrer" stops the browser from
-# sending that URL to any other page opened from here.
-NO_REFERRER = {"Referrer-Policy": "no-referrer"}
 
 
 def invalid_reset_link(request: Request) -> HTMLResponse:

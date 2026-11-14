@@ -245,7 +245,9 @@ def _password_fingerprint(user: User) -> str:
 
 
 def make_reset_token(user: User) -> str:
-    data = {"user_id": user.id, "fingerprint": _password_fingerprint(user)}
+    # The email too, like the verify token: a link sent to an old address stops working
+    # once the address changes.
+    data = {"user_id": user.id, "email": user.email, "fingerprint": _password_fingerprint(user)}
     return _token_serializer(RESET_TOKEN_SALT).dumps(data)
 
 
@@ -256,7 +258,7 @@ def user_from_reset_token(session: Session, token: str) -> User | None:
         return None
     user = session.get(User, data["user_id"])
     fingerprint = data.get("fingerprint")
-    if user is None or not isinstance(fingerprint, str):
+    if user is None or user.email != data.get("email") or not isinstance(fingerprint, str):
         return None
     if not secrets.compare_digest(fingerprint, _password_fingerprint(user)):
         return None
