@@ -189,3 +189,14 @@ Kaynak: `docs/plans/M1b.md` (Design fazı), `plan-reviewer` onayı, Fatih onayı
 - **Karar:** `APP_ENV=production` iken `EMAIL_BACKEND=console` veya boş `SMTP_HOST` ile uygulama başlamaz (mevcut `SECRET_KEY` kontrolü gibi).
 - **Gerekçe:** Doğrulama ve reset e-postaları canlıda sessizce terminale düşmesin.
 - **Alternatifler:** Sadece uyarı log'u.
+
+---
+
+## M2 — Profil (2026-11-14)
+
+Kaynak: Plan fazı, Fatih onayı.
+
+### D-030 · M2 ikiye bölündü
+- **Karar:** M2a (profil bölümleri: ekle, düzenle, sil) ve M2b (sıralama, fotoğraf, profil gücü), ayrı branch, PR ve etiketlerle: `m2a-profile` / `v0.2a-m2a`, `m2b-profile-extras` / `v0.2b-m2b`. Profil gücü formülü SPEC §6.4'te (10 madde × %10). Sıralama sürükle-bırak + ↑ / ↓ butonları (erişilebilirlik).
+- **Gerekçe:** Tek M2 (6 alt tablo, satır içi düzenleme, sürükle-bırak, dosya yükleme, yüzde) WORKFLOW'daki 1-2 haftalık sınırı aşma riski taşıyordu. M2a tek başına SPEC'teki asıl kabul kriterini karşılıyor.
+- **Alternatifler:** Tek M2. Profil gücü için bölüm başına eşit puan (daha basit ama "Add 2 more skills" gibi yönlendirme yapamaz). Sadece sürükle-bırak (klavyeyle sıralama yok).

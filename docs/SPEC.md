@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.4 — 2026-11-14
+> **Durum:** MVP planı, v2.1.5 — 2026-11-14
+> v2.1.5: M2 ikiye bölündü (M2a profil bölümleri, M2b sıralama + fotoğraf + profil gücü). §6.4'e sıralama için ↑↓ butonları ve profil gücü formülü (10 madde × %10) eklendi. Karar: DECISIONS D-030.
 > v2.1.4: M1b Design kararları (§6.1). Login kilidi 5. hatadan itibaren sabit 15 dakika sürer. forgot-password'a IP başına 5/saat sınırı. Şifre sıfırlama e-postayı doğrulanmış sayar ve o e-postanın login kilidini temizler. Kararlar: DECISIONS D-027…D-029.
 > v2.1.3: M1 ikiye bölündü (M1a oturum çekirdeği, M1b e-posta akışları). §6.1'de yönlendirme güvenliği (open redirect, #4), login kilidi, oturum geçersiz kılma, tek kullanımlık reset token ve CSRF kuralları netleşti. `User.session_version` eklendi (§5.1). Kararlar: DECISIONS D-020…D-024.
 > v2.1.2: Tema seçici üst barda tek ikon + açılır menü (Light / Dark / System, seçili olan ✓).
@@ -556,9 +557,10 @@ Giriş sonrası açılan sayfa Applications'tır (ayrı bir Dashboard yok).
 - Menüde yoktur. Avatar menüsünden ve Documents sayfasındaki "Profile strength" kartından açılır. Başlıkta "← Documents".
 - Bölümler: Personal info, Summary, Experience, Education, Skills, Languages, Certifications, Projects.
 - Her bölüm HTMX ile satır içi düzenlenir (sayfa yenilenmez).
-- Deneyim, eğitim ve projeler sürükle-bırak ile sıralanabilir.
+- Deneyim, eğitim ve projeler sürükle-bırak ile sıralanabilir (SortableJS). Klavye ve ekran okuyucu kullananlar için her satırda ayrıca ↑ / ↓ butonları vardır.
 - Deneyim maddeleri (bullets) liste olarak eklenir/silinir.
 - "Import from PDF" butonu (bkz. 9.7). İçe aktarma mevcut veriyi **silmez**. Önizleme gösterilir, kullanıcı "Replace" veya "Merge" seçer.
+- **Profil gücü (Profile strength):** 10 madde, her biri %10: (1) başlık (headline), (2) özet, (3) iletişim: e-posta ve (telefon veya konum), (4) en az 1 deneyim, (5) en az 1 deneyimde en az 1 madde (bullet), (6) en az 1 eğitim, (7) en az 5 beceri, (8) en az 1 dil, (9) en az 1 sertifika, (10) en az 1 proje. Fotoğraf, doğum tarihi ve uyruk sayılmaz (isteğe bağlı). Yüzdenin altında ilk eksik madde gösterilir (ör. "Add a certification to reach 90%"). Aynı hesap Documents sayfasındaki kartta da kullanılır (M3).
 
 ### 6.5 Documents (/documents) ve CV editörü
 - Menüde tek öğe: **Documents**. İki sekme: **CVs** ve **Cover letters**. Her sekmede önce **Masters** (dil başına), altında **Copies for applications** (şirket · versiyon, "based on", rozet: Draft / Sent · locked). Sağda "Profile strength" kartı (yüzde, eksikler, "Complete my profile").
@@ -1052,10 +1054,25 @@ Her milestone sonunda: testler geçer, lint temiz, `docs/LEARNING_LOG.md` günce
 
 M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması (M4), BYOK'ta kredi düşmemesi testi (M7), gerçek yasal metinler (M13), Google ile giriş (V2).
 
-### M2 — Profil
-- Profile + alt tablolar, HTMX satır içi düzenleme, sıralama, fotoğraf yükleme (avatar menüsünden erişim)
-- Profil tamamlanma yüzdesi
-- **Kabul:** Kullanıcı tüm bölümleri ekleyip düzenleyip silebiliyor. Başka kullanıcının verisine erişim testi var.
+### M2a — Profil bölümleri
+- Profile + alt tablolar (Experience, Education, Skill, LanguageSkill, Certification, Project) + migration
+- `/profile` sayfası (avatar menüsünde "My profile"): Personal info, Summary, Experience (maddeler dahil), Education, Skills, Languages, Certifications, Projects
+- HTMX satır içi ekleme, düzenleme, silme (sayfa yenilenmez). Profil ilk açılışta boş oluşturulur.
+- Her değişiklikte `Profile.version` +1 (AI önbelleği için, 5.2)
+- **Kabul:**
+  - Kullanıcı tüm bölümleri ekleyip düzenleyip silebiliyor; deneyim maddeleri eklenip silinebiliyor.
+  - Başka kullanıcının kaydına erişim (okuma, düzenleme, silme) 404 döner. Her route için test var.
+  - Geçersiz girdi (zorunlu alan boş, çok uzun metin, bitişten sonra başlayan tarih, geçersiz dil seviyesi) formda hata mesajı gösterir.
+  - Her değişiklik `Profile.version`'ı artırır (test).
+
+### M2b — Sıralama, fotoğraf, profil gücü
+- Deneyim, eğitim ve projelerde sürükle-bırak (SortableJS) + ↑ / ↓ butonları, `sort_order` kaydı
+- Profil fotoğrafı yükleme ve silme (10.1: JPEG/PNG, max 2 MB, Pillow ile yeniden kaydedilir, EXIF temizlenir)
+- Profil gücü yüzdesi ve ilk eksik madde `/profile` sayfasında (6.4)
+- **Kabul:**
+  - Sıralama sürükle-bırak ve ↑ / ↓ ile değişiyor ve kaydediliyor. Başka kullanıcının kayıtları sıralanamıyor (404).
+  - 2 MB'tan büyük, JPEG/PNG olmayan veya uzantısı değiştirilmiş dosya reddediliyor. Kaydedilen dosyada EXIF yok (test). Fotoğrafı sadece sahibi görebiliyor. Silince dosya da siliniyor.
+  - Profil gücü 10 maddenin her biri için doğru hesaplanıyor (test).
 
 ### M3 — CV oluşturucu + PDF
 - Documents sayfası (CVs sekmesi, Masters + Copies, Profile strength kartı)

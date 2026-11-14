@@ -36,7 +36,8 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - [x] M0 Project skeleton
 - [x] M1a Authentication: session core, CSRF, redirects, entitlements
 - [x] M1b Authentication: email verification, password reset, login lockout
-- [ ] M2 Profile
+- [ ] M2a Profile: sections (add, edit, delete)
+- [ ] M2b Profile: reorder, photo, profile strength
 - [ ] M3 CV builder + PDF (master / versions / locks)
 - [ ] M4 Application tracking home (board, next step, interview, archive, toast + undo, theme)
 - [ ] M5 AI foundation + job extraction
