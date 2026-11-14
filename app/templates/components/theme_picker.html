@@ -1,0 +1,40 @@
+{#- Theme picker (SPEC §2, D-018): one icon button that opens a Light / Dark / System menu.
+    The button shows the current theme's icon: data-current on the button picks which of
+    the three icons is visible. In the menu, aria-checked marks the chosen row (✓).
+    Behaviour (open/close, arrow keys, saving the choice) is `themePicker` in app.js.
+
+    {% from "components/theme_picker.html" import theme_picker %}
+    {{ theme_picker(theme) }}
+-#}
+{%- from "components/icons.html" import icon -%}
+
+{% macro theme_picker(theme) %}
+  {%- set theme_options = [("light", "Light"), ("dark", "Dark"), ("system", "System")] %}
+  <div class="relative" x-data="themePicker" x-on:click.outside="close" x-on:keydown.escape="closeAndFocusButton">
+    <button type="button" x-ref="button" data-current="{{ theme }}" aria-label="Color theme" title="Color theme"
+            aria-haspopup="menu" aria-controls="theme-menu" aria-expanded="false"
+            x-bind:aria-expanded="open" x-on:click="toggle"
+            class="group flex h-10 w-10 items-center justify-center rounded-[10px] text-text-2 hover:bg-muted hover:text-text aria-expanded:bg-muted aria-expanded:text-text">
+      {#- Written out one by one: Tailwind finds class names in the source text,
+          so a class built with {{ }} would never be generated. -#}
+      <span class="hidden group-data-[current=light]:flex">{{ icon("light") }}</span>
+      <span class="hidden group-data-[current=dark]:flex">{{ icon("dark") }}</span>
+      <span class="hidden group-data-[current=system]:flex">{{ icon("system") }}</span>
+    </button>
+    {#- Shown with data-open (not x-show): x-show waits one animation frame, and the
+        menu must already be visible when toggle() focuses the chosen row. -#}
+    <div id="theme-menu" role="menu" aria-label="Color theme" x-bind:data-open="open"
+         x-on:keydown.down.prevent="focusNext" x-on:keydown.up.prevent="focusPrevious" x-on:keydown.tab="close"
+         class="absolute right-0 top-12 z-30 hidden w-44 flex-col data-[open=true]:flex rounded-xl border border-border bg-surface p-1 shadow-[0_16px_40px_rgba(16,24,40,0.22)]">
+      {%- for value, label in theme_options %}
+        <button type="button" role="menuitemradio" tabindex="-1" data-theme="{{ value }}"
+                aria-checked="{{ 'true' if theme == value else 'false' }}" x-on:click="choose"
+                class="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-text hover:bg-muted">
+          <span class="text-text-2">{{ icon(value) }}</span>
+          <span class="flex-1 text-left">{{ label }}</span>
+          <span class="invisible text-accent-text group-aria-checked:visible">{{ icon("check") }}</span>
+        </button>
+      {%- endfor %}
+    </div>
+  </div>
+{% endmacro %}

@@ -1,0 +1,13 @@
+{% extends "legal/layout.html" %}
+{#- Outline from SPEC §10.2. The final text needs a legal review (M13). -#}
+{% block body %}
+  <p class="m-0">This page will explain what personal data Unfurl stores, why, and what you can do with it.</p>
+  <h2 class="m-0 mt-2 text-lg font-bold text-text">What it will cover</h2>
+  <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5">
+    <li>Hosting and database in the EU.</li>
+    <li>Service providers that process data for us: hosting, email delivery and Anthropic (AI features).</li>
+    <li>Cookies: only what the app needs to work, the session cookie and your theme choice. No analytics, so no cookie banner.</li>
+    <li>Exporting your data and deleting your account from Settings.</li>
+    <li>Optional profile details (date of birth, nationality, photo) are never sent to the AI.</li>
+  </ul>
+{% endblock %}

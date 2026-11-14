@@ -1,0 +1,35 @@
+{#- Layout for the legal pages: a plain top bar (logo + theme picker), the text and the footer.
+    No sidebar, because these pages are also for visitors who are not logged in.
+    Pages extend it and fill the `body` block; the router sets `page_title`. -#}
+{%- from "components/icons.html" import logo_mark -%}
+{%- from "components/theme_picker.html" import theme_picker -%}
+{%- from "components/footer.html" import legal_links -%}
+<!doctype html>
+<html lang="en" class="theme-{{ theme }}">
+<head>
+  {% include "layouts/_head.html" %}
+  <title>{{ page_title }} · Unfurl</title>
+</head>
+<body class="flex min-h-screen flex-col bg-bg" hx-headers='{{ {"X-CSRF-Token": csrf_token} | tojson }}'>
+  <header class="flex items-center justify-between border-b border-border bg-surface px-4 py-2.5 md:px-8">
+    <a href="/" class="flex items-center gap-2.5 no-underline">
+      {{ logo_mark() }}
+      <span class="font-display text-[19px] font-bold tracking-[-0.02em] text-text">Unfurl</span>
+    </a>
+    {{ theme_picker(theme) }}
+  </header>
+
+  <main class="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-4 px-4 py-10 md:px-8">
+    <h1 class="m-0 text-[28px] font-bold">{{ page_title }}</h1>
+    {#- Placeholder until the legal review before launch (SPEC §6.12, M13). -#}
+    <p class="m-0 rounded-[10px] bg-amber-bg px-3 py-2.5 text-sm font-medium text-amber-text">
+      TODO: legal review. This is a placeholder text, not the final {{ page_title | lower }}.
+    </p>
+    <div class="flex flex-col gap-3 text-[15px] leading-relaxed text-text-2">
+      {% block body %}{% endblock %}
+    </div>
+  </main>
+
+  {{ legal_links("border-t border-border bg-surface px-4 py-4 md:px-8") }}
+</body>
+</html>

@@ -1,4 +1,6 @@
 {#- Page title bar (SPEC §6.0/3). Inner pages pass back_url/back_label to show "← Parent".
+    back_url goes through safe_redirect_path, so a link built from request data
+    can never point to another site or to javascript: (SPEC §6.1).
 
     {% from "components/page_header.html" import page_header %}
     {{ page_header("My profile", back_url="/", back_label="Applications") }}
@@ -6,7 +8,7 @@
 {% macro page_header(title, subtitle=None, back_url=None, back_label=None) %}
   <header class="flex flex-col gap-[3px] border-b border-border bg-surface px-4 py-[18px] md:px-8">
     {%- if back_url %}
-      <a href="{{ back_url }}" class="mb-1 self-start text-sm font-semibold text-link no-underline hover:underline">← {{ back_label or "Back" }}</a>
+      <a href="{{ safe_redirect_path(back_url) }}" class="mb-1 self-start text-sm font-semibold text-link no-underline hover:underline">← {{ back_label or "Back" }}</a>
     {%- endif %}
     <h1 class="m-0 text-[22px] font-bold">{{ title }}</h1>
     {%- if subtitle %}

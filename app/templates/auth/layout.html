@@ -1,0 +1,64 @@
+{#- Layout for Sign in / Create account (docs/prototype/Login.dc.html).
+    Left: the indigo intro panel (large screens only). Right: theme picker and the form.
+    Pages extend it, set `active_tab` ("login" or "register") and fill `title` and `form`. -#}
+{%- from "components/icons.html" import icon, logo_mark -%}
+{%- from "components/theme_picker.html" import theme_picker -%}
+{%- from "components/footer.html" import legal_links -%}
+<!doctype html>
+<html lang="en" class="theme-{{ theme }}">
+<head>
+  {% include "layouts/_head.html" %}
+  <title>{% block title %}{% endblock %} · Unfurl</title>
+</head>
+<body class="min-h-screen bg-bg" hx-headers='{{ {"X-CSRF-Token": csrf_token} | tojson }}'>
+  <div class="flex min-h-screen">
+
+    {#- The intro panel keeps the same colours in light and dark theme (prototype). -#}
+    <section class="hidden flex-1 flex-col justify-between gap-10 bg-[#1E1B4B] p-12 text-white lg:flex">
+      <a href="/login" class="flex items-center gap-2.5 text-white no-underline">
+        {{ logo_mark("h-9 w-9") }}
+        <span class="font-display text-[21px] font-bold tracking-[-0.02em]">Unfurl</span>
+      </a>
+      <div class="flex max-w-[460px] flex-col gap-6">
+        <h1 class="m-0 font-display text-[40px] leading-[1.1] font-bold">Grow while you apply.</h1>
+        <ul class="m-0 flex list-none flex-col gap-3.5 p-0 text-base text-[#E0E7FF]">
+          {%- for point in [
+            "ATS-friendly CVs in German, English and Turkish",
+            "Save jobs from LinkedIn in one click",
+            "Know your fit before you apply",
+            "Turn your gaps into a learning plan",
+          ] %}
+            <li class="flex items-center gap-2.5">{{ icon("check") }}{{ point }}</li>
+          {%- endfor %}
+        </ul>
+      </div>
+      <span class="text-[13px] text-[#C7D2FE]">Free to use · Your data stays in the EU</span>
+    </section>
+
+    <section class="flex flex-1 flex-col gap-6 bg-surface px-4 py-8 md:px-12">
+      <div class="flex items-center justify-between lg:justify-end">
+        {#- On small screens the intro panel is hidden, so the logo sits here. -#}
+        <a href="/login" class="flex items-center gap-2.5 no-underline lg:hidden">
+          {{ logo_mark() }}
+          <span class="font-display text-[19px] font-bold tracking-[-0.02em] text-text">Unfurl</span>
+        </a>
+        {{ theme_picker(theme) }}
+      </div>
+
+      <main class="flex flex-1 items-center justify-center">
+        <div class="flex w-full max-w-[400px] flex-col gap-[18px]">
+          {#- Two links styled as tabs: each form has its own address (/login, /register). -#}
+          <nav aria-label="Account" class="flex rounded-[10px] bg-muted p-1">
+            {%- for tab, url, label in [("login", "/login", "Sign in"), ("register", "/register", "Create account")] %}
+              <a href="{{ url }}"{% if active_tab == tab %} aria-current="page"{% endif %}
+                 class="flex-1 rounded-[7px] py-2 text-center text-sm font-semibold no-underline {{ 'bg-surface text-text shadow-[0_1px_2px_rgba(16,24,40,0.15)]' if active_tab == tab else 'text-text-3 hover:text-text' }}">{{ label }}</a>
+            {%- endfor %}
+          </nav>
+          {% block form %}{% endblock %}
+        </div>
+      </main>
+      {{ legal_links("justify-center") }}
+    </section>
+  </div>
+</body>
+</html>

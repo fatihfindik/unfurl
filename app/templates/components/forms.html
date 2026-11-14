@@ -1,0 +1,64 @@
+{#- Form building blocks. Labels, hints and errors are linked to the field for
+    screen readers (aria-describedby, aria-invalid). Look from docs/prototype/Login.dc.html.
+
+    {% from "components/forms.html" import csrf_field, text_field, checkbox_field, primary_button %}
+    <form method="post" action="/login">
+      {{ csrf_field(csrf_token) }}
+      {{ text_field("email", "Email", type="email", value=email, error=errors.email, autocomplete="email") }}
+      {{ primary_button("Sign in") }}
+    </form>
+-#}
+
+{#- Hidden CSRF token: every POST form needs it (app/security.py). -#}
+{% macro csrf_field(token) %}
+  <input type="hidden" name="csrf_token" value="{{ token }}">
+{% endmacro %}
+
+{% macro text_field(name, label, type="text", value="", error=None, hint=None, autocomplete=None, required=True, maxlength=None) %}
+  {%- set field_id = "field-" ~ name %}
+  {%- set described_by = [] %}
+  {%- if hint %}{% set _ = described_by.append(field_id ~ "-hint") %}{% endif %}
+  {%- if error %}{% set _ = described_by.append(field_id ~ "-error") %}{% endif %}
+  <div class="flex flex-col gap-1.5">
+    <label for="{{ field_id }}" class="text-[13px] font-semibold text-text-2">{{ label }}</label>
+    <input id="{{ field_id }}" name="{{ name }}" type="{{ type }}" class="w-full"
+           {%- if type != "password" and value %} value="{{ value }}"{% endif %}
+           {%- if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}
+           {%- if maxlength %} maxlength="{{ maxlength }}"{% endif %}
+           {%- if required %} required{% endif %}
+           {%- if error %} aria-invalid="true"{% endif %}
+           {%- if described_by %} aria-describedby="{{ described_by | join(' ') }}"{% endif %}>
+    {%- if hint %}
+      <span id="{{ field_id }}-hint" class="text-xs text-text-3">{{ hint }}</span>
+    {%- endif %}
+    {%- if error %}
+      <span id="{{ field_id }}-error" class="text-xs font-medium text-red-text">{{ error }}</span>
+    {%- endif %}
+  </div>
+{% endmacro %}
+
+{#- A checkbox with its label text next to it. `label` is plain text (escaped).
+    For a label with links, use {% call %} and write the HTML in the template:
+      {% call checkbox_field("privacy", "") %}I agree to the <a href="/privacy">privacy policy</a>.{% endcall %} -#}
+{% macro checkbox_field(name, label, checked=False, error=None, required=True) %}
+  {%- set field_id = "field-" ~ name %}
+  <div class="flex flex-col gap-1.5">
+    <label for="{{ field_id }}" class="flex cursor-pointer items-start gap-2.5 text-[13px] leading-normal text-text-2">
+      <input id="{{ field_id }}" name="{{ name }}" type="checkbox" value="yes" class="mt-px shrink-0"
+             {%- if checked %} checked{% endif %}
+             {%- if required %} required{% endif %}
+             {%- if error %} aria-invalid="true" aria-describedby="{{ field_id }}-error"{% endif %}>
+      <span>{{ caller() if caller is defined else label }}</span>
+    </label>
+    {%- if error %}
+      <span id="{{ field_id }}-error" class="text-xs font-medium text-red-text">{{ error }}</span>
+    {%- endif %}
+  </div>
+{% endmacro %}
+
+{% macro primary_button(label, type="submit") %}
+  <button type="{{ type }}"
+          class="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]">
+    {{ label }}
+  </button>
+{% endmacro %}

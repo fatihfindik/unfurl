@@ -16,16 +16,16 @@ def main_nav_links(html: str) -> list[tuple[str, str, bool]]:
     return [(url, label, bool(current)) for url, current, label in links]
 
 
-def test_home_shows_empty_applications_page(client):
-    response = client.get("/")
+def test_home_shows_empty_applications_page(auth_client):
+    response = auth_client.get("/")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
     assert re.search(r"<h1[^>]*>Applications</h1>", response.text)
     assert "No applications yet." in response.text
 
 
-def test_sidebar_has_four_items_in_order_with_applications_current(client):
-    links = main_nav_links(client.get("/").text)
+def test_sidebar_has_four_items_in_order_with_applications_current(auth_client):
+    links = main_nav_links(auth_client.get("/").text)
     assert links == [
         ("/", "Applications", True),
         ("/learning", "Learning", False),
@@ -34,8 +34,8 @@ def test_sidebar_has_four_items_in_order_with_applications_current(client):
     ]
 
 
-def test_top_bar_has_theme_picker_bell_and_account_menu(client):
-    html = client.get("/").text
+def test_top_bar_has_theme_picker_bell_and_account_menu(auth_client):
+    html = auth_client.get("/").text
     assert 'aria-label="Color theme"' in html
     theme_menu = html.split('id="theme-menu"', 1)[1]
     for label in ("Light", "Dark", "System"):
@@ -47,8 +47,8 @@ def test_top_bar_has_theme_picker_bell_and_account_menu(client):
         assert item in menu
 
 
-def test_assets_come_from_our_own_origin(client):
-    html = client.get("/").text
+def test_assets_come_from_our_own_origin(auth_client):
+    html = auth_client.get("/").text
     scripts = re.findall(r"<script\b[^>]*>", html)
     assert scripts, "expected script tags"
     # Every script has a /static src: no CDNs and no inline scripts (SPEC §10.1).
@@ -58,8 +58,8 @@ def test_assets_come_from_our_own_origin(client):
     assert not re.search(r'(src|href)="(https?:)?//', html)
 
 
-def test_htmx_eval_scripts_and_inline_styles_are_off(client):
-    html = client.get("/").text
+def test_htmx_eval_scripts_and_inline_styles_are_off(auth_client):
+    html = auth_client.get("/").text
     config = re.search(r"<meta name=\"htmx-config\" content='([^']*)'>", html).group(1)
     assert json.loads(config) == {
         "allowEval": False,
@@ -72,8 +72,8 @@ def test_htmx_eval_scripts_and_inline_styles_are_off(client):
     ("url", "section"),
     [("/learning", "Learning"), ("/documents", "Documents"), ("/settings", "Settings")],
 )
-def test_unbuilt_sections_show_coming_soon_with_their_menu_item_current(client, url, section):
-    response = client.get(url)
+def test_unbuilt_sections_show_coming_soon_with_their_menu_item_current(auth_client, url, section):
+    response = auth_client.get(url)
     assert response.status_code == 200
     assert re.search(rf"<h1[^>]*>{section}</h1>", response.text)
     assert "Coming soon." in response.text
@@ -81,8 +81,8 @@ def test_unbuilt_sections_show_coming_soon_with_their_menu_item_current(client, 
     assert current == [section]
 
 
-def test_unknown_page_returns_404(client):
-    assert client.get("/does-not-exist").status_code == 404
+def test_unknown_page_returns_404(auth_client):
+    assert auth_client.get("/does-not-exist").status_code == 404
 
 
 def test_get_session_can_query_the_database():

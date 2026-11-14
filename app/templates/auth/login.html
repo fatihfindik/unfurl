@@ -1,0 +1,23 @@
+{% extends "auth/layout.html" %}
+{% from "components/forms.html" import csrf_field, text_field, primary_button %}
+{% set active_tab = "login" %}
+
+{% block title %}Sign in{% endblock %}
+
+{% block form %}
+  <form method="post" action="/login" class="flex flex-col gap-4" novalidate>
+    {{ csrf_field(csrf_token) }}
+    {#- Where to go after login; checked again on the server (safe_redirect_path). -#}
+    <input type="hidden" name="next" value="{{ next }}">
+    <h2 class="m-0 text-2xl font-bold">Welcome back</h2>
+
+    {%- if error %}
+      <p role="alert" class="m-0 rounded-[10px] bg-red-bg px-3 py-2.5 text-sm font-medium text-red-text">{{ error }}</p>
+    {%- endif %}
+
+    {{ text_field("email", "Email", type="email", value=email, autocomplete="email") }}
+    {{ text_field("password", "Password", type="password", autocomplete="current-password") }}
+    {#- "Forgot password?" comes with password reset in M1b. -#}
+    {{ primary_button("Sign in") }}
+  </form>
+{% endblock %}

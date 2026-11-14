@@ -122,3 +122,47 @@ Kaynak: `docs/plans/M0.md` §12 (açık sorular, Fatih onayı) ve Build sırası
 
 ### D-019 · `theme` cookie'sinde `Secure` bayrağı yok (güvenlik incelemesi #9, kabul)
 - **Karar:** Kabul edildi: cookie gizli bilgi taşımıyor, sunucu değeri sabit listeyle (`light`/`dark`/`system`) doğruluyor ve testler HTML enjeksiyonunu kapsıyor.
+
+---
+
+## M1 — Kimlik doğrulama (2026-11-13)
+
+Kaynak: claude.ai Plan fazı (`docs/plans/M1-handoff.md`), Fatih onayı.
+
+### D-020 · Login kilidi sayacı bellekte
+- **Karar:** Başarısız login sayacı process belleğinde tutulur (anahtar IP + e-posta, 15 dk pencere). slowapi genel limitleri de bellek backend'iyle çalışır.
+- **Gerekçe:** Tek instance (APScheduler da bunu varsayıyor), ek altyapı gerekmiyor.
+- **Maliyet:** Restart sayaçları sıfırlar. Birden fazla instance'a geçilirse DB veya Redis'e taşınmalı.
+- **Alternatifler:** DB tablosu (kalıcı ama her login'de yazma), Redis (yeni servis).
+
+### D-021 · Oturum geçersiz kılma: `User.session_version`
+- **Karar:** İmzalı oturum çerezi `session_version` taşır, `current_user` bunu DB ile karşılaştırır. Şifre değişince/sıfırlanınca değer +1 olur.
+- **Gerekçe:** İmzalı çerez sunucuda tutulmaz. Eski oturumları düşürmenin en ucuz yolu bu.
+- **Alternatifler:** Sunucu tarafı session tablosu (cihaz listesi gibi özelliklere açık, V2'de düşünülebilir).
+- **Bilinen sınır (M1a güvenlik incelemesi #1):** Logout çerezi sadece tarayıcıdan siler. Kopyalanmış bir çerez, girişten itibaren 14 gün geçerli kalır (Starlette çerezi sadece oturum değişince yeniden imzalar). M1a'da tek iptal yolu `session_version`'ı artırmaktır; M1b'de şifre değişikliği bunu yapar ve "Sign out everywhere" değerlendirilir (#9).
+
+### D-022 · CSRF: kendi küçük çözümümüz
+- **Karar:** Oturum başına token, form alanı `csrf_token` ve HTMX için `X-CSRF-Token` header'ı. Ek kütüphane kullanılmaz. `/api/ext/*` hariç.
+- **Gerekçe:** SPEC §3'te CSRF kütüphanesi yok. İhtiyaç küçük ve öğretici.
+- **Alternatifler:** starlette-csrf, fastapi-csrf-protect.
+
+### D-023 · Kayıtta mevcut e-posta açıkça söylenir
+- **Karar:** Register'da "An account with this email already exists." gösterilir. forgot-password numaralandırmaya kapalı kalır.
+- **Gerekçe:** UX kazancı bu üründeki numaralandırma riskinden büyük. Register zaten rate limit'li.
+- **Alternatifler:** Her durumda "Check your inbox" deyip mevcut hesaba bilgi e-postası göndermek (daha güvenli ama kafa karıştırıcı).
+
+### D-024 · M1 ikiye bölündü
+- **Karar:** M1a (oturum çekirdeği) ve M1b (e-posta akışları), ayrı branch, PR ve etiketlerle: `m1a-auth-core` / `v0.1a-m1a`, `m1b-auth-email` / `v0.1b-m1b`.
+- **Gerekçe:** Tek M1, WORKFLOW'daki 1-2 haftalık sınırı aşma riski taşıyordu.
+- **Alternatifler:** Tek M1.
+
+### D-025 · User tablosu sadece M1 kolonlarıyla
+- **Karar:** M1a migration'ı User'a sadece M1'in kullandığı kolonları ekler: `email`, `password_hash`, `full_name`, `is_verified`, `privacy_accepted_at`, `last_login_at`, `session_version`, `plan`, `plan_expires_at`, `created_at`, `updated_at`. Diğer §5.1 kolonları kendi milestone'larında küçük migration'larla gelir: `theme` (M4), `default_doc_language` (M3), `timezone` (M10/M11), `anthropic_api_key_encrypted` (M7), `ui_locale` (ihtiyaç olunca).
+- **Gerekçe:** Her kolon onu kullanan kodla birlikte gelir; kullanılmayan kolon olmaz.
+- **Not:** `created_at` ve `updated_at` uygulama tarafında SQLAlchemy `default` / `onupdate` ile dolar. Ham SQL ile yapılan güncellemeler `updated_at`'i değiştirmez; DB trigger'ı kullanılmaz.
+- **Alternatifler:** SPEC §5.1'in tamamını şimdi eklemek.
+
+### D-026 · `app/security.py`
+- **Karar:** CSRF (`get_csrf_token`, `verify_csrf`) ve yönlendirme güvenliği (`safe_redirect_path`) yeni `app/security.py` modülünde. SPEC §4'teki yapıya küçük bir ek.
+- **Gerekçe:** İkisi de auth'a özel değil; her form ve her `back_url` kullanır.
+- **Alternatifler:** `services/auth_service.py` içine koymak.

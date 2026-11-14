@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.2 — 2026-11-11
+> **Durum:** MVP planı, v2.1.3 — 2026-11-13
+> v2.1.3: M1 ikiye bölündü (M1a oturum çekirdeği, M1b e-posta akışları). §6.1'de yönlendirme güvenliği (open redirect, #4), login kilidi, oturum geçersiz kılma, tek kullanımlık reset token ve CSRF kuralları netleşti. `User.session_version` eklendi (§5.1). Kararlar: DECISIONS D-020…D-024.
 > v2.1.2: Tema seçici üst barda tek ikon + açılır menü (Light / Dark / System, seçili olan ✓).
 > v2.1.1: Erişilebilirlik — `:focus-visible` odak halkası checkbox ve radio dahil tüm etkileşimli öğelerde görünür (Bölüm 6.0/5 ve 14).
 > v2.1: Prototip v3 kararları. Menü 4 öğeye indi (Dashboard ve Assistant sayfası kaldırıldı, Profile avatar menüsüne taşındı), başvuru detayında 3 adımlı Apply akışı ve Progress görünümü, otomatik Next step, Interview modalı, arşiv, sağdan açılan belge paneli, yüzen asistan, asistanla belge düzenleme (V1), toast + Undo, arayüz kuralları (Bölüm 6.0). Yeni: 6.13 Next step kuralları.
@@ -302,6 +303,7 @@ Tüm tablolarda: `id` (int, PK), `created_at`, `updated_at` (UTC). Kullanıcıya
 | default_doc_language | enum: de/en/tr | |
 | anthropic_api_key_encrypted | str, nullable | Fernet ile şifreli BYOK anahtarı |
 | last_login_at | datetime, nullable | |
+| session_version | int | Varsayılan 0. Şifre değişince/sıfırlanınca +1. Oturum çerezindeki değerle eşleşmeyen oturum geçersizdir. |
 | privacy_accepted_at | datetime | Kayıtta gizlilik onayı |
 | theme | enum system/light/dark | Varsayılan `system` |
 | timezone | str | Varsayılan `Europe/Vienna`. Hatırlatmalar bu saate göre gönderilir. |
@@ -526,6 +528,14 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 - **/forgot-password** ve **/reset-password?token=...:** 1 saat geçerli. Kayıtlı olmayan e-posta için de aynı mesaj gösterilir ("If an account exists, we sent an email").
 - Oturum çerezi: HTTP-only, `Secure` (canlıda), `SameSite=Lax`, 14 gün.
 - Formlar CSRF token içerir. HTMX istekleri `X-CSRF-Token` header'ı gönderir.
+- **CSRF ayrıntısı:** Token oturum başına üretilir. Formlarda gizli `csrf_token` alanı, HTMX'te `base.html`'deki `hx-headers` ile `X-CSRF-Token` gönderilir. Tüm POST/PUT/PATCH/DELETE istekleri kontrol edilir, hatada 403 döner. `/api/ext/*` hariçtir (token ile doğrulanır, M6).
+- **Yönlendirme güvenliği:** `next=` ve `back_url` yalnızca `/` ile başlayan göreli yolları kabul eder. `//`, `/\`, şema (`https:`, `javascript:`) veya host içeren değerler `/`'e düşer. Tüm yönlendirmeler tek bir `safe_redirect_path()` yardımcısından geçer.
+- **Giriş gerektiren sayfalar:** Oturumsuz GET isteği `303 → /login?next=<path>` alır. HTMX isteklerinde 303 yerine `HX-Redirect` header'ı döner.
+- **Login kilidi:** Aynı IP + e-posta çifti için 15 dakika içinde 5 başarısız denemede 15 dakikalık kilit uygulanır ("Too many attempts. Try again in 15 minutes."). Sayaç bellekte tutulur (D-020). Ayrıca slowapi IP başına genel sınır koyar: login 10/dk, register 5/saat. forgot-password ve resend-verification aynı e-posta için 3/saat.
+- **Oturum geçersiz kılma:** Oturum çerezi `user_id` ve `session_version` taşır. `current_user` ikisini DB ile karşılaştırır. Şifre sıfırlanınca veya değişince açık oturumların hepsi düşer (D-021).
+- **Token'lar:** Reset token `password_hash`'ten türetilen bir parmak izi içerir, şifre değişince geçersiz olur (tek kullanımlık). Verify token idempotenttir: zaten doğrulanmış kullanıcı "Email already verified" görür.
+- **Kayıtta mevcut e-posta:** "An account with this email already exists." mesajı login ve forgot-password linkleriyle gösterilir (D-023). forgot-password numaralandırmaya kapalı kalır.
+- **Doğrulanmamış kullanıcı:** Kayıttan sonra otomatik giriş yapılır ve "Check your inbox" açılır. "Continue to setup" M9'a kadar `/` sayfasına gider. `base.html`'de sarı bant ve "Resend email" butonu gösterilir. `require_verified` dependency'si 403 döner, AI endpoint'leri bunu M7'den itibaren kullanır.
 
 ### 6.2 Onboarding (ilk giriş)
 3 adımlı sihirbaz (atlanabilir):
@@ -1011,12 +1021,34 @@ Her milestone sonunda: testler geçer, lint temiz, `docs/LEARNING_LOG.md` günce
 - `CLAUDE.md`, `README.md` (kurulum adımları), `.env.example`
 - **Kabul:** `uv run fastapi dev app/main.py` ile boş Applications sayfası açılıyor. `docker compose up` ile Postgres üzerinde çalışıyor. CI yeşil.
 
-### M1 — Kimlik doğrulama
-- Register, login, logout, e-posta doğrulama, şifremi unuttum, şifre sıfırlama
-- CSRF, rate limit, oturum middleware'i, `current_user` dependency'si, giriş gerektiren sayfalar için yönlendirme
-- E-posta servisi (console + SMTP)
-- `User.plan` ve `plan_expires_at` alanları, `app/billing/plans.py` ve `app/billing/entitlements.py` (bkz. Bölüm 17.2)
-- **Kabul:** Tüm akışlar çalışıyor. Yeni kullanıcı `free` planla başlıyor. `pro` planı süresi geçmiş kullanıcı `free` sayılıyor (test var). Testler: başarılı/başarısız login, süresi dolmuş token, doğrulanmamış kullanıcı, rate limit.
+### M1a — Oturum çekirdeği
+- User modeli + migration (`plan`, `plan_expires_at`, `session_version` dahil)
+- Register, login, logout (POST), oturum middleware'i, `current_user` / `require_user` dependency'leri, giriş gerektiren sayfalar için yönlendirme (HTMX dahil)
+- `safe_redirect_path()`, `next=` ve `back_url`'e uygulanması (issue #4)
+- CSRF (form + HTMX header)
+- `app/billing/plans.py`, `entitlements.py`, `billing_service.set_plan()`, `python -m app.billing.grant` CLI, plan değişikliği logu (bkz. Bölüm 17.2)
+- `/privacy`, `/terms`, `/imprint` yer tutucu sayfaları (6.12)
+- **Kabul:**
+  - Register → otomatik giriş → `/`. Yeni kullanıcının `effective_plan`'i `free`.
+  - Başarılı ve başarısız login (genel hata mesajı). Logout sonrası korumalı sayfa `/login?next=...`'e gider.
+  - `next=` testleri: `//evil.com`, `https://evil.com`, `/\evil.com`, `javascript:alert(1)` → `/`. `/applications` korunur.
+  - CSRF token'sız POST 403 alır, header'lı HTMX isteği geçer.
+  - Süresi geçmiş `pro` → `free` (test). `can()` ve `limit()` testleri. Grant CLI `pro` verir ve log yazar.
+  - Mevcut e-postayla kayıt doğru mesajı gösterir.
+
+### M1b — E-posta akışları
+- E-posta servisi: `EMAIL_BACKEND=console|smtp` (aiosmtplib). Testlerde bellekte outbox fixture'ı kullanılır.
+- E-posta doğrulama (48 saat), "Check your inbox" ekranı, resend, doğrulanmamış kullanıcı bandı, `require_verified`
+- Forgot / reset password (1 saat, tek kullanımlık), reset sonrası `session_version` +1
+- Login kilidi (IP + e-posta) ve slowapi limitleri
+- **Kabul:**
+  - Kayıt doğrulama e-postası gönderir (outbox testi). Link doğrular, ikinci tıklama "already verified" gösterir. Süresi dolmuş token reddedilir (freezegun).
+  - forgot-password kayıtlı ve kayıtsız e-posta için aynı mesajı verir. Reset çalışır. Aynı token ikinci kez reddedilir. Reset sonrası eski oturum düşer.
+  - 5 başarısız login sonrası 6. deneme kilitlenir, 15 dk sonra açılır (freezegun). Başka bir e-posta etkilenmez.
+  - Doğrulanmamış kullanıcı `require_verified` korumalı test endpoint'inden 403 alır.
+  - Console backend'de e-posta terminale yazılır (Fatih elle dener).
+
+M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması (M4), BYOK'ta kredi düşmemesi testi (M7), gerçek yasal metinler (M13), Google ile giriş (V2).
 
 ### M2 — Profil
 - Profile + alt tablolar, HTMX satır içi düzenleme, sıralama, fotoğraf yükleme (avatar menüsünden erişim)

@@ -34,7 +34,8 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 
 ## Milestone status
 - [x] M0 Project skeleton
-- [ ] M1 Authentication
+- [x] M1a Authentication: session core, CSRF, redirects, entitlements
+- [ ] M1b Authentication: email verification, password reset, login lockout
 - [ ] M2 Profile
 - [ ] M3 CV builder + PDF (master / versions / locks)
 - [ ] M4 Application tracking home (board, next step, interview, archive, toast + undo, theme)

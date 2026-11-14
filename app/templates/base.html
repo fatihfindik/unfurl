@@ -2,33 +2,10 @@
     Pages extend it and fill the `title` and `content` blocks.
     `theme` comes from app.templating.theme_context. -#}
 {%- from "components/toast.html" import toast_region -%}
-
-{%- macro icon(name) -%}
-  {#- SVG icons copied from the prototype (docs/prototype/Applications.dc.html). -#}
-  {%- if name == "applications" -%}
-    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"></rect><rect x="10" y="4" width="5" height="11" rx="1"></rect><rect x="17" y="4" width="4" height="7" rx="1"></rect></svg>
-  {%- elif name == "learning" -%}
-    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H2z"></path><path d="M22 5h-7a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h8z"></path></svg>
-  {%- elif name == "documents" -%}
-    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>
-  {%- elif name == "settings" -%}
-    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>
-  {%- elif name == "light" -%}
-    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
-  {%- elif name == "dark" -%}
-    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>
-  {%- elif name == "system" -%}
-    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg>
-  {%- elif name == "check" -%}
-    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg>
-  {%- elif name == "bell" -%}
-    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
-  {%- elif name == "user" -%}
-    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>
-  {%- elif name == "menu" -%}
-    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
-  {%- endif -%}
-{%- endmacro -%}
+{%- from "components/icons.html" import icon, logo_mark -%}
+{%- from "components/theme_picker.html" import theme_picker -%}
+{%- from "components/forms.html" import csrf_field -%}
+{%- from "components/footer.html" import legal_links -%}
 
 {#- Main menu: (label, url, icon). The order is fixed by SPEC §6. -#}
 {%- set nav_items = [
@@ -42,32 +19,17 @@
 <!doctype html>
 <html lang="en" class="theme-{{ theme }}">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% include "layouts/_head.html" %}
   <title>{% block title %}{% endblock %} · Unfurl</title>
-  {#- With an icon link the browser no longer asks for /favicon.ico (which was a 404). -#}
-  <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/css/app.css">
-  {#- htmx settings, read when htmx starts (a meta tag, so no inline script is needed):
-      no eval (hx-on, hx-vars, js: values), no <script> tags run from swapped HTML,
-      and no inline <style> for .htmx-indicator (it lives in input.css). Keeps htmx
-      compatible with a strict Content-Security-Policy (SPEC §10.1, D-005). -#}
-  <meta name="htmx-config" content='{"allowEval": false, "allowScriptTags": false, "includeIndicatorStyles": false}'>
-  {#- All scripts from our own origin, no inline scripts. `defer` keeps the order:
-      app.js must run before alpine.min.js (see app.js). -#}
-  <script src="/static/js/htmx.min.js" defer></script>
-  <script src="/static/js/app.js" defer></script>
-  <script src="/static/js/alpine.min.js" defer></script>
 </head>
-<body class="min-h-screen md:flex">
+{#- hx-headers: every htmx request sends the CSRF token as a header (app/security.py). -#}
+<body class="min-h-screen md:flex" hx-headers='{{ {"X-CSRF-Token": csrf_token} | tojson }}'>
 
   <nav aria-label="Main" x-data="mobileNav"
        class="flex flex-col gap-1 bg-surface border-b border-border px-3.5 py-3 md:w-[220px] md:shrink-0 md:border-b-0 md:border-r md:py-5">
     <div class="flex items-center justify-between gap-2.5 px-2.5 md:pb-5">
       <a href="/" class="flex items-center gap-2.5 no-underline">
-        <span class="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-[#4F46E5]">
-          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6.5 21V5" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"></path><path d="M6.5 5.5c2.4-1.5 4.8 1.5 7.2 0s3.6-1.2 5.3-.6v8.3c-1.7-.6-2.9-.3-5.3 1.2s-4.8-1.5-7.2 0z" fill="#FFFFFF"></path><circle cx="6.5" cy="3.6" r="1.9" fill="#FDB022"></circle></svg>
-        </span>
+        {{ logo_mark() }}
         <span class="font-display text-[19px] font-bold tracking-[-0.02em] text-text">Unfurl</span>
       </a>
       {#- Mobile only: shows/hides the menu links (accordion). -#}
@@ -94,37 +56,7 @@
   <div class="flex min-w-0 flex-1 flex-col">
     <div class="relative flex items-center justify-end gap-2.5 border-b border-border bg-surface px-4 py-2.5 md:px-8">
 
-      {#- Theme picker (SPEC §2, D-018): one icon button that opens a Light / Dark / System menu.
-          The button shows the current theme's icon: data-current on the button picks which of
-          the three icons is visible. In the menu, aria-checked marks the chosen row (✓). -#}
-      {%- set theme_options = [("light", "Light"), ("dark", "Dark"), ("system", "System")] %}
-      <div class="relative" x-data="themePicker" x-on:click.outside="close" x-on:keydown.escape="closeAndFocusButton">
-        <button type="button" x-ref="button" data-current="{{ theme }}" aria-label="Color theme" title="Color theme"
-                aria-haspopup="menu" aria-controls="theme-menu" aria-expanded="false"
-                x-bind:aria-expanded="open" x-on:click="toggle"
-                class="group flex h-10 w-10 items-center justify-center rounded-[10px] text-text-2 hover:bg-muted hover:text-text aria-expanded:bg-muted aria-expanded:text-text">
-          {#- Written out one by one: Tailwind finds class names in the source text,
-              so a class built with {{ }} would never be generated. -#}
-          <span class="hidden group-data-[current=light]:flex">{{ icon("light") }}</span>
-          <span class="hidden group-data-[current=dark]:flex">{{ icon("dark") }}</span>
-          <span class="hidden group-data-[current=system]:flex">{{ icon("system") }}</span>
-        </button>
-        {#- Shown with data-open (not x-show): x-show waits one animation frame, and the
-            menu must already be visible when toggle() focuses the chosen row. -#}
-        <div id="theme-menu" role="menu" aria-label="Color theme" x-bind:data-open="open"
-             x-on:keydown.down.prevent="focusNext" x-on:keydown.up.prevent="focusPrevious" x-on:keydown.tab="close"
-             class="absolute right-0 top-12 z-30 hidden w-44 flex-col data-[open=true]:flex rounded-xl border border-border bg-surface p-1 shadow-[0_16px_40px_rgba(16,24,40,0.22)]">
-          {%- for value, label in theme_options %}
-            <button type="button" role="menuitemradio" tabindex="-1" data-theme="{{ value }}"
-                    aria-checked="{{ 'true' if theme == value else 'false' }}" x-on:click="choose"
-                    class="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-text hover:bg-muted">
-              <span class="text-text-2">{{ icon(value) }}</span>
-              <span class="flex-1 text-left">{{ label }}</span>
-              <span class="invisible text-accent-text group-aria-checked:visible">{{ icon("check") }}</span>
-            </button>
-          {%- endfor %}
-        </div>
-      </div>
+      {{ theme_picker(theme) }}
 
       {#- Static in M0; the unread badge and the panel come in M11. -#}
       <button type="button" aria-label="Notifications"
@@ -141,10 +73,20 @@
         </button>
         <div id="account-menu" x-show="open" x-cloak
              class="absolute right-0 top-12 z-30 flex w-60 flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-[0_16px_40px_rgba(16,24,40,0.22)]">
-          {#- My profile (M2) and Sign out (M1) are not built yet. -#}
+          {%- if current_user %}
+            <div class="border-b border-muted px-4 py-3">
+              <p class="m-0 truncate text-sm font-semibold text-text">{{ current_user.full_name }}</p>
+              <p class="m-0 truncate text-xs text-text-3">{{ current_user.email }}</p>
+            </div>
+          {%- endif %}
+          {#- My profile comes in M2. -#}
           <span aria-disabled="true" class="px-4 py-[11px] text-sm text-text-3">My profile</span>
           <a href="/settings" class="px-4 py-[11px] text-sm text-text no-underline hover:bg-muted">Settings</a>
-          <span aria-disabled="true" class="border-t border-muted px-4 py-[11px] text-sm text-text-3">Sign out</span>
+          {#- Log out is a POST with the CSRF token, never a link (SPEC §6.1). -#}
+          <form method="post" action="/logout" class="m-0 border-t border-muted">
+            {{ csrf_field(csrf_token) }}
+            <button type="submit" class="w-full px-4 py-[11px] text-left text-sm text-text hover:bg-muted">Sign out</button>
+          </form>
         </div>
       </div>
     </div>
@@ -152,6 +94,7 @@
     <main class="flex min-w-0 flex-1 flex-col">
       {% block content %}{% endblock %}
     </main>
+    {{ legal_links("px-4 py-4 md:px-8") }}
   </div>
 
   {{ toast_region() }}
