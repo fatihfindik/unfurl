@@ -16,7 +16,7 @@ M{n} — {title} · closes #{issue}
 - [ ] `security-reviewer` run, findings fixed or turned into issues
 - [ ] `CLAUDE.md` milestone checklist updated
 - [ ] `docs/LEARNING_LOG.md` updated
-- [ ] If SPEC.md or WORKFLOW.md changed: claude.ai project copy replaced
+- [ ] If SPEC.md or WORKFLOW.md changed: claude.ai project copy replaced at commit time (WORKFLOW §2)
 
 ## Decisions and assumptions
 <!-- Anything added to docs/DECISIONS.md in this PR -->
