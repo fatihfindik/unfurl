@@ -4,14 +4,20 @@ from pydantic import ValidationError
 
 from app.config import Settings
 from app.main import create_app
+from tests.helpers import PRODUCTION_SETTINGS
 
 # A valid production secret: 32+ characters, not the placeholder.
-GOOD_SECRET = "x" * 32
+GOOD_SECRET = PRODUCTION_SETTINGS["secret_key"]
 
 
 def make_settings(**overrides) -> Settings:
     # _env_file=None: ignore the developer's local .env so tests are repeatable.
     return Settings(_env_file=None, **overrides)
+
+
+def make_production_settings(**overrides) -> Settings:
+    """Valid production settings, with some values changed."""
+    return make_settings(**{**PRODUCTION_SETTINGS, **overrides})
 
 
 def test_development_defaults_are_valid():
@@ -29,26 +35,36 @@ def test_missing_app_env_refuses_to_start(monkeypatch):
 
 def test_production_rejects_debug():
     with pytest.raises(ValidationError, match="DEBUG"):
-        make_settings(app_env="production", debug=True, secret_key=GOOD_SECRET, encryption_key="k")
+        make_production_settings(debug=True)
 
 
 def test_production_rejects_placeholder_secret_key():
     with pytest.raises(ValidationError, match="SECRET_KEY"):
-        make_settings(app_env="production", secret_key="change-me", encryption_key="k")
+        make_production_settings(secret_key="change-me")
 
 
 def test_production_rejects_short_secret_key():
     with pytest.raises(ValidationError, match="SECRET_KEY"):
-        make_settings(app_env="production", secret_key="too-short", encryption_key="k")
+        make_production_settings(secret_key="too-short")
 
 
 def test_production_rejects_empty_encryption_key():
     with pytest.raises(ValidationError, match="ENCRYPTION_KEY"):
-        make_settings(app_env="production", secret_key=GOOD_SECRET, encryption_key="")
+        make_production_settings(encryption_key="")
 
 
-def test_production_accepts_real_secrets():
-    settings = make_settings(app_env="production", secret_key=GOOD_SECRET, encryption_key="k")
+def test_production_rejects_console_email_backend():
+    with pytest.raises(ValidationError, match="EMAIL_BACKEND"):
+        make_production_settings(email_backend="console")
+
+
+def test_production_rejects_empty_smtp_host():
+    with pytest.raises(ValidationError, match="SMTP_HOST"):
+        make_production_settings(smtp_host="")
+
+
+def test_production_accepts_real_secrets_and_smtp():
+    settings = make_production_settings()
     assert settings.app_env == "production"
 
 
@@ -62,7 +78,7 @@ def test_api_docs_are_shown_in_development(client, url):
 
 @pytest.mark.parametrize("url", API_DOCS_URLS)
 def test_api_docs_are_hidden_in_production(url):
-    settings = make_settings(app_env="production", secret_key=GOOD_SECRET, encryption_key="k")
+    settings = make_production_settings()
     production_client = TestClient(create_app(settings))
     assert production_client.get(url).status_code == 404
 

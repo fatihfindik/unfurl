@@ -7,6 +7,16 @@ from fastapi.testclient import TestClient
 USER_EMAIL = "jana@example.com"
 USER_PASSWORD = "correct horse battery"
 
+# The smallest set of settings a production app starts with
+# (see Settings.check_production_settings).
+PRODUCTION_SETTINGS = {
+    "app_env": "production",
+    "secret_key": "x" * 32,
+    "encryption_key": "k",
+    "email_backend": "smtp",
+    "smtp_host": "smtp.example.com",
+}
+
 
 def csrf_token(client: TestClient) -> str:
     """The CSRF token of the client's session.

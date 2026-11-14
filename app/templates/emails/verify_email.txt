@@ -1,0 +1,11 @@
+Subject: Verify your email for Unfurl
+
+Hi {{ full_name }},
+
+Please confirm your email address for Unfurl:
+
+{{ base_url }}{{ path }}
+
+The link works for 48 hours. If you didn't create an Unfurl account, you can ignore this email.
+
+Unfurl

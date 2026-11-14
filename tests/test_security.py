@@ -178,10 +178,9 @@ def test_session_cookie_flags_in_development():
 def test_session_cookie_is_secure_in_production():
     from app.config import Settings
     from app.main import create_app
+    from tests.helpers import PRODUCTION_SETTINGS
 
-    settings = Settings(
-        _env_file=None, app_env="production", secret_key="x" * 32, encryption_key="k"
-    )
+    settings = Settings(_env_file=None, **PRODUCTION_SETTINGS)
     header = session_cookie_header(create_app(settings))
     # __Host- prefix: only accepted with Secure, path=/ and no Domain.
     assert header.startswith("__Host-unfurl_session=")
