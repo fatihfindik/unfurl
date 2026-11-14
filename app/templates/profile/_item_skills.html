@@ -1,0 +1,10 @@
+{#- A skill is a chip (prototype): click the name to edit, × to delete. -#}
+<li id="profile-skills-{{ item.id }}" class="flex items-center gap-1 rounded-full bg-muted py-1 pr-1 pl-3 text-sm">
+  <button type="button" class="font-medium text-text hover:underline"
+          hx-get="/profile/skills/{{ item.id }}/edit" hx-target="closest li" hx-swap="outerHTML">
+    {{ item.name }}{% if item.level %}<span class="ml-1 text-xs text-text-3">{{ item.level }}/5</span>{% endif %}<span class="sr-only"> (edit)</span>
+  </button>
+  <button type="button" aria-label="Delete {{ item.name }}"
+          class="flex h-6 w-6 items-center justify-center rounded-full text-text-3 hover:bg-border hover:text-text"
+          hx-delete="/profile/skills/{{ item.id }}" hx-target="#profile-skills" hx-swap="outerHTML">×</button>
+</li>

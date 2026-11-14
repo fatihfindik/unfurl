@@ -1,0 +1,11 @@
+{%- from "profile/_macros.html" import item_form with context -%}
+{%- from "components/forms.html" import text_field -%}
+{%- set prefix = "certifications-" ~ (item.id if item else "new") -%}
+{% call item_form(section, item, errors) %}
+  {{ text_field("name", "Name", value=values.name, error=errors.name, maxlength=200, id_prefix=prefix, placeholder="Certified Scrum Product Owner") }}
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ text_field("issuer", "Issuer", value=values.issuer, error=errors.issuer, maxlength=200, required=False, id_prefix=prefix) }}
+    {{ text_field("date", "Date", type="month", value=values.date, error=errors.date, required=False, id_prefix=prefix, placeholder="YYYY-MM") }}
+  </div>
+  {{ text_field("url", "Link", type="url", value=values.url, error=errors.url, maxlength=500, required=False, id_prefix=prefix, placeholder="https://") }}
+{% endcall %}

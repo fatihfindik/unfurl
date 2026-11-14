@@ -1,0 +1,7 @@
+{%- from "profile/_macros.html" import item_form with context -%}
+{%- from "components/forms.html" import text_field, select_field -%}
+{%- set prefix = "languages-" ~ (item.id if item else "new") -%}
+{% call item_form(section, item, errors) %}
+  {{ text_field("language", "Language", value=values.language, error=errors.language, maxlength=200, id_prefix=prefix, placeholder="German") }}
+  {{ select_field("level", "Level", language_levels, value=values.level, error=errors.level, placeholder="Choose…", id_prefix=prefix) }}
+{% endcall %}

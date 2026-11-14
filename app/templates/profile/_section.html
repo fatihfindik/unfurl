@@ -1,0 +1,31 @@
+{#- One list section (Skills, Projects, ...), shared by all of them (D-031).
+    Context: section (app/routers/profile.py Section), items, new_form ({"values",
+    "errors"} while the add form is open, else None). Add, delete and the add form's
+    Cancel all replace this whole element. -#}
+{%- from "components/forms.html" import secondary_button -%}
+{%- set chips = section.key == "skills" -%}
+<section id="profile-{{ section.key }}" aria-labelledby="profile-{{ section.key }}-title"
+         class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+  <div class="flex items-center justify-between gap-3">
+    <h2 id="profile-{{ section.key }}-title" class="m-0 text-base font-bold">{{ section.title }}</h2>
+    {%- if not new_form %}
+      {{ secondary_button("Add " ~ section.noun, hx_get="/profile/" ~ section.key ~ "/new", hx_target="#profile-" ~ section.key) }}
+    {%- endif %}
+  </div>
+
+  {%- if items %}
+    <ul class="m-0 flex list-none p-0 {{ 'flex-wrap gap-2' if chips else 'flex-col divide-y divide-border' }}">
+      {%- for item in items %}
+        {% include section.item_template %}
+      {%- endfor %}
+    </ul>
+  {%- elif not new_form %}
+    <p class="m-0 text-sm text-text-3">{{ section.empty_text }}</p>
+  {%- endif %}
+
+  {%- if new_form %}
+    {%- with item=None, values=new_form["values"], errors=new_form["errors"] %}
+      {% include section.form_template %}
+    {%- endwith %}
+  {%- endif %}
+</section>

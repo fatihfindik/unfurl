@@ -42,8 +42,8 @@
 {#- A checkbox with its label text next to it. `label` is plain text (escaped).
     For a label with links, use {% call %} and write the HTML in the template:
       {% call checkbox_field("privacy", "") %}I agree to the <a href="/privacy">privacy policy</a>.{% endcall %} -#}
-{% macro checkbox_field(name, label, checked=False, error=None, required=True) %}
-  {%- set field_id = "field-" ~ name %}
+{% macro checkbox_field(name, label, checked=False, error=None, required=True, id_prefix="field") %}
+  {%- set field_id = id_prefix ~ "-" ~ name %}
   <div class="flex flex-col gap-1.5">
     <label for="{{ field_id }}" class="flex cursor-pointer items-start gap-2.5 text-[13px] leading-normal text-text-2">
       <input id="{{ field_id }}" name="{{ name }}" type="checkbox" value="yes" class="mt-px shrink-0"
@@ -52,6 +52,25 @@
              {%- if error %} aria-invalid="true" aria-describedby="{{ field_id }}-error"{% endif %}>
       <span>{{ caller() if caller is defined else label }}</span>
     </label>
+    {%- if error %}
+      <span id="{{ field_id }}-error" class="text-xs font-medium text-red-text">{{ error }}</span>
+    {%- endif %}
+  </div>
+{% endmacro %}
+
+{#- A dropdown. `options` is a list of (value, label) pairs; `placeholder` adds an
+    empty first choice ("Choose…") that counts as "not filled in". -#}
+{% macro select_field(name, label, options, value="", error=None, placeholder=None, id_prefix="field") %}
+  {%- set field_id = id_prefix ~ "-" ~ name %}
+  <div class="flex flex-col gap-1.5">
+    <label for="{{ field_id }}" class="text-[13px] font-semibold text-text-2">{{ label }}</label>
+    <select id="{{ field_id }}" name="{{ name }}" class="w-full"
+            {%- if error %} aria-invalid="true" aria-describedby="{{ field_id }}-error"{% endif %}>
+      {%- if placeholder %}<option value="">{{ placeholder }}</option>{% endif %}
+      {%- for option_value, option_label in options %}
+        <option value="{{ option_value }}"{% if option_value | string == value | string %} selected{% endif %}>{{ option_label }}</option>
+      {%- endfor %}
+    </select>
     {%- if error %}
       <span id="{{ field_id }}-error" class="text-xs font-medium text-red-text">{{ error }}</span>
     {%- endif %}
