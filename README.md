@@ -2,7 +2,7 @@
 
 **Grow while you apply.** A free web app + Chrome extension for job seekers: build ATS-friendly CVs and cover letters (DE / EN / TR), save job postings with one click, see how well you fit, check your documents before you apply, and turn skill gaps into a learning plan you actually keep, with an AI assistant powered by Claude.
 
-> Status: specification v2.1.3 and clickable prototype done; M0 (project skeleton) done; M1a (sign in, sessions, plans) in progress.
+> Status: specification v2.1.4 and clickable prototype done; M0 (project skeleton) and M1a (sign in, sessions, plans) done; M1b (email verification, password reset, login lockout) in progress.
 
 - Specification: [`docs/SPEC.md`](docs/SPEC.md)
 - Prototype (design reference): [`docs/prototype/`](docs/prototype/)
@@ -30,9 +30,9 @@ uv run fastapi dev app/main.py   # http://localhost:8000
 ```
 The first `scripts/build_css.sh` downloads the Tailwind CLI (needs internet once).
 
-Open http://localhost:8000: every app page needs an account, so you land on **Sign in**. Use **Create account** to make your first user (any email works locally; there is no email sending yet). After pulling new code, run `uv run alembic upgrade head` again if there are new migrations.
+Open http://localhost:8000: every app page needs an account, so you land on **Sign in**. Use **Create account** to make your first user (any email works locally). Emails are not sent locally: with `EMAIL_BACKEND=console` they are printed in the `fastapi dev` terminal, so copy the verification or reset link from there. After pulling new code, run `uv run alembic upgrade head` again if there are new migrations.
 
-`APP_ENV` is required (`development` or `production`); the app refuses to start without it. With `APP_ENV=production` it also refuses to start when `DEBUG=true`, `SECRET_KEY` is the placeholder or shorter than 32 characters, or `ENCRYPTION_KEY` is empty. In production the API docs (`/docs`, `/redoc`, `/openapi.json`) are turned off.
+`APP_ENV` is required (`development` or `production`); the app refuses to start without it. With `APP_ENV=production` it also refuses to start when `DEBUG=true`, `SECRET_KEY` is the placeholder or shorter than 32 characters, `ENCRYPTION_KEY` is empty, `EMAIL_BACKEND` is not `smtp` or `SMTP_HOST` is empty. In production the API docs (`/docs`, `/redoc`, `/openapi.json`) are turned off.
 
 ### Run with PostgreSQL (Docker)
 ```bash
@@ -57,3 +57,8 @@ Migrations run automatically when the app container starts. The database is kept
 | Give a user the Pro plan by hand (testing) | `uv run python -m app.billing.grant --email you@example.com --plan pro --days 90` |
 
 CI (GitHub Actions) runs lint and tests on every push, and a Docker + Postgres check on pull requests to `main`.
+
+### Emails and limits
+- **Emails** (verification, password reset) are sent after the response, in the background. `EMAIL_BACKEND=console` prints them in the terminal; `EMAIL_BACKEND=smtp` sends them with the `SMTP_*` settings (STARTTLS, usually port 587). Sending errors are logged as `unfurl.email`, without the address. Tests never send email: they use the `outbox` fixture.
+- **Limits** (SPEC §6.1): 5 failed sign-ins for the same IP + email lock that pair for 15 minutes; at most 3 verification or reset emails per address per hour; per IP: sign in 10/minute, create account 5/hour, forgot password 5/hour. They live in memory: restarting the server clears them, and they only work with one app process.
+- **Behind a proxy** (deploy, M13) the app sees the proxy's IP address unless uvicorn runs with `--proxy-headers` and `--forwarded-allow-ips`; otherwise all users share one IP limit.
