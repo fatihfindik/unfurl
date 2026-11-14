@@ -161,7 +161,9 @@ def test_missing_or_broken_token_is_rejected(client, query):
 
 def test_changed_token_is_rejected(client, user):
     token = make_verify_token(user)
-    changed = token[:-1] + ("A" if token[-1] != "A" else "B")
+    # Change a character in the middle of the signature. (The last base64 character
+    # partly holds padding bits, so changing it can decode to the same bytes.)
+    changed = token[:-5] + ("A" if token[-5] != "A" else "B") + token[-4:]
     assert client.get("/verify-email?token=" + changed).status_code == 400
 
 
