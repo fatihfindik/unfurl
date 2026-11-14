@@ -21,9 +21,18 @@ from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 from app.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
+from app.security import email_limiter, limiter, login_lockout  # noqa: E402
 from app.services import email_service  # noqa: E402
 from app.services.auth_service import create_user  # noqa: E402
 from tests.helpers import USER_EMAIL, USER_PASSWORD, log_in  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def reset_limits():
+    """Limits live in memory for the whole test run; start every test with none used."""
+    login_lockout.reset()
+    email_limiter.reset()
+    limiter.reset()
 
 
 @pytest.fixture

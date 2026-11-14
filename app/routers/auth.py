@@ -1,6 +1,7 @@
 """Register, log in, log out, email verification and password reset (SPEC §6.1).
 
-The login lockout comes later in M1b.
+Limits (SPEC §6.1, D-020): login lockout per IP + email, emails per address,
+and requests per IP address (slowapi decorators, under the route decorator).
 """
 
 from typing import Annotated
@@ -14,7 +15,7 @@ from app.db import get_session
 from app.models import User
 from app.models.base import utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
-from app.security import safe_redirect_path
+from app.security import client_ip, email_limiter, limiter, login_lockout, safe_redirect_path
 from app.services import email_service
 from app.services.auth_service import (
     PASSWORD_MAX_LENGTH,
@@ -45,7 +46,9 @@ FormText = Annotated[str, Form()]
 
 FULL_NAME_MAX_LENGTH = 200
 LOGIN_ERROR = "Invalid email or password."
+LOCKED_ERROR = "Too many attempts. Try again in 15 minutes."
 RESENT_MESSAGE = "Sent again. Check your spam folder too."
+WAIT_MESSAGE = "Please wait a few minutes before asking for another email."
 # The same answer whether the email has an account or not (no account guessing).
 FORGOT_MESSAGE = "If an account exists, we sent an email."
 PASSWORD_CHANGED_MESSAGE = "Your password was changed. Sign in with your new password."
@@ -93,6 +96,7 @@ def login_page(request: Request, user: CurrentUser, next: str = "", reset: str =
 
 
 @router.post("/login", response_class=HTMLResponse)
+@limiter.limit("10/minute")
 def login(
     request: Request,
     session: DbSession,
@@ -100,8 +104,19 @@ def login(
     password: FormText = "",
     next: FormText = "",
 ):
+    ip = client_ip(request)
+    if login_lockout.is_locked(ip, email):
+        # While locked, the password is not even checked (also the right one).
+        return templates.TemplateResponse(
+            request,
+            "auth/login.html",
+            {"next": safe_redirect_path(next), "email": email, "error": LOCKED_ERROR},
+            status_code=429,
+        )
+
     user = authenticate(session, email, password)
     if user is None:
+        login_lockout.record_failure(ip, email)
         # One message for every failure: it never tells whether the email has an account.
         return templates.TemplateResponse(
             request,
@@ -110,6 +125,7 @@ def login(
             status_code=400,
         )
 
+    login_lockout.clear(ip, email)
     user.last_login_at = utcnow()
     session.add(user)
     session.commit()
@@ -159,6 +175,7 @@ def register_page(request: Request, user: CurrentUser):
 
 
 @router.post("/register", response_class=HTMLResponse)
+@limiter.limit("5/hour")
 def register(
     request: Request,
     session: DbSession,
@@ -211,12 +228,23 @@ def check_inbox(request: Request, user: RequiredUser, resent: str = ""):
 
 @router.post("/resend-verification", response_class=HTMLResponse)
 def resend_verification(request: Request, user: RequiredUser, background_tasks: BackgroundTasks):
-    if not user.is_verified:
+    allowed = user.is_verified or email_limiter.allow(user.email)
+    if allowed and not user.is_verified:
         send_verification_email(background_tasks, user)
+    message = RESENT_MESSAGE if allowed else WAIT_MESSAGE
+
     if is_htmx(request):
         # Only the button is replaced, by this message (banner and Check your inbox page).
+        # Always 200: htmx does not put 4xx responses into the page.
         return templates.TemplateResponse(
-            request, "components/resend_result.html", {"message": RESENT_MESSAGE}
+            request, "components/resend_result.html", {"message": message}
+        )
+    if not allowed:
+        return templates.TemplateResponse(
+            request,
+            "auth/check_inbox.html",
+            {"email": user.email, "message": message},
+            status_code=429,
         )
     return redirect("/check-inbox?resent=1")
 
@@ -283,6 +311,7 @@ def forgot_password_page(request: Request):
 
 
 @router.post("/forgot-password", response_class=HTMLResponse)
+@limiter.limit("5/hour")
 def forgot_password(
     request: Request,
     session: DbSession,
@@ -302,7 +331,8 @@ def forgot_password(
     user = None
     if len(email) <= EMAIL_MAX_LENGTH:
         user = session.exec(select(User).where(User.email == normalize_email(email))).first()
-    if user is not None:
+    # Over the per-address limit, nothing is sent, but the answer stays the same.
+    if user is not None and email_limiter.allow(user.email):
         reset_email = email_service.render_email(
             "reset_password",
             to=user.email,
@@ -345,6 +375,7 @@ def reset_password_submit(
 
     # All sessions of this user end, this browser's too; they sign in with the new password.
     reset_password(session, user, password)
+    login_lockout.clear_email(user.email)
     end_session(request)
     return redirect("/login?reset=1")
 
