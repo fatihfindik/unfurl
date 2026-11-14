@@ -27,3 +27,38 @@
 **SPEC / WORKFLOW changes?**
 - SPEC: yes. v2.1.1 (focus ring on all interactive elements) and v2.1.2 (theme picker as a single icon + dropdown). The claude.ai project copy will be refreshed after the merge.
 - WORKFLOW: yes. The §6 learning log template is now in English.
+
+## M1a — Auth core (2026-11-13 – )
+
+**What I learned**
+- A spec that looks clear is not always ready. A second review found 8 open
+  questions in M1 (open redirect, login lockout, session invalidation…).
+  The one who writes the plan should not be the only one who checks it.
+- The repo is the single source of truth. The claude.ai copy of SPEC is only
+  a mirror: changes are committed in the repo first, then the copy is refreshed.
+- Each document answers one question: SPEC = what, DECISIONS = why,
+  plans/M{n}.md = how (for one milestone).
+- Security is mostly small details: resetting the session on login (session
+  fixation), allowing only local paths in `next=` (open redirect), a max
+  password length, and the same response time for unknown emails.
+- A subagent is just a markdown file in `.claude/agents/`. The description
+  says when it is used, the tools say what it may touch.
+
+**What was hard**
+- It was not clear what to do in claude.ai and what in Claude Code; I lost
+  time passing screenshots between them.
+- Long plans in the terminal are hard to read in full.
+- The subagent idea felt complicated when it came at the end of a long session.
+
+**What I will do differently**
+- Code and commits in Claude Code; claude.ai only for decisions, summaries
+  and this log.
+- Plans are reviewed by a `plan-reviewer` subagent before I approve them.
+  I read its report and answer its questions instead of scrolling the
+  whole plan in the terminal.
+- Even in auto mode, ask Claude Code to stop before every commit.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.3 (M1 split into M1a/M1b, auth rules in §6.1, `session_version`).
+- WORKFLOW: yes, to do in the retro: new roles (§1, §4) and the
+  `plan-reviewer` subagent.

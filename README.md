@@ -2,7 +2,7 @@
 
 **Grow while you apply.** A free web app + Chrome extension for job seekers: build ATS-friendly CVs and cover letters (DE / EN / TR), save job postings with one click, see how well you fit, check your documents before you apply, and turn skill gaps into a learning plan you actually keep, with an AI assistant powered by Claude.
 
-> Status: specification v2.1.2 and clickable prototype done; M0 (project skeleton) in progress.
+> Status: specification v2.1.3 and clickable prototype done; M0 (project skeleton) done; M1a (sign in, sessions, plans) in progress.
 
 - Specification: [`docs/SPEC.md`](docs/SPEC.md)
 - Prototype (design reference): [`docs/prototype/`](docs/prototype/)
@@ -30,6 +30,8 @@ uv run fastapi dev app/main.py   # http://localhost:8000
 ```
 The first `scripts/build_css.sh` downloads the Tailwind CLI (needs internet once).
 
+Open http://localhost:8000: every app page needs an account, so you land on **Sign in**. Use **Create account** to make your first user (any email works locally; there is no email sending yet). After pulling new code, run `uv run alembic upgrade head` again if there are new migrations.
+
 `APP_ENV` is required (`development` or `production`); the app refuses to start without it. With `APP_ENV=production` it also refuses to start when `DEBUG=true`, `SECRET_KEY` is the placeholder or shorter than 32 characters, or `ENCRYPTION_KEY` is empty. In production the API docs (`/docs`, `/redoc`, `/openapi.json`) are turned off.
 
 ### Run with PostgreSQL (Docker)
@@ -52,5 +54,6 @@ Migrations run automatically when the app container starts. The database is kept
 | Fix formatting | `uv run ruff format .` |
 | New migration after a model change | `uv run alembic revision --autogenerate -m "add user table"` |
 | Apply migrations | `uv run alembic upgrade head` |
+| Give a user the Pro plan by hand (testing) | `uv run python -m app.billing.grant --email you@example.com --plan pro --days 90` |
 
 CI (GitHub Actions) runs lint and tests on every push, and a Docker + Postgres check on pull requests to `main`.
