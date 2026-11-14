@@ -4,7 +4,7 @@ Fatih ile Türkçe konuş ve yeni kavramları kısaca Türkçe açıkla. Kod, do
 
 Unfurl is a free web app + Chrome extension for job seekers who grow while they apply: CVs and cover letters (master + versions), application tracking, fit analysis, a Learning module (goals, resources, streaks, reminders) and an AI assistant (Claude API).
 
-**The full specification is in `docs/SPEC.md` (v2.1.2). It is the single source of truth. Read it before planning any work.**
+**The full specification is in `docs/SPEC.md`. It is the single source of truth. Read it before planning any work.**
 The clickable prototype in `docs/prototype/` is the design reference for layout, copy and interactions (SPEC wins if they conflict).
 **How we work (iterative SDLC, roles, Definition of Ready/Done, git rules) is in `docs/WORKFLOW.md`. Follow it for every milestone.**
 
