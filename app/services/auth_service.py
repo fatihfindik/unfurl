@@ -1,9 +1,10 @@
 """Accounts and sessions: password hashing, register, login, logout, current user,
-email verification tokens.
+email verification and password reset tokens.
 
 SPEC §6.1, D-021, D-027. CSRF and redirect checks live in app/security.py.
 """
 
+import hashlib
 import secrets
 from typing import Annotated
 from urllib.parse import quote, urlsplit
@@ -42,6 +43,8 @@ SESSION_VERSION = "session_version"
 # one purpose is rejected everywhere else.
 VERIFY_TOKEN_SALT = "verify-email"
 VERIFY_TOKEN_MAX_AGE = 48 * 60 * 60  # 48 hours, in seconds (SPEC §6.1)
+RESET_TOKEN_SALT = "reset-password"
+RESET_TOKEN_MAX_AGE = 60 * 60  # 1 hour (SPEC §6.1)
 # Our tokens are about 100 characters. Longer ones are rejected before any work.
 TOKEN_MAX_LENGTH = 512
 
@@ -229,3 +232,44 @@ def require_verified(user: Annotated[User, Depends(require_user)]) -> User:
     if not user.is_verified:
         raise HTTPException(status_code=403, detail="Please verify your email first.")
     return user
+
+
+# --- Password reset (SPEC §6.1, D-027) --------------------------------------------------
+
+
+def _password_fingerprint(user: User) -> str:
+    """A short summary of the password hash. It changes whenever the password changes,
+    so a reset link stops working once it has been used (single use, no database table).
+    The hash itself never goes into the link."""
+    return hashlib.sha256(user.password_hash.encode()).hexdigest()[:16]
+
+
+def make_reset_token(user: User) -> str:
+    data = {"user_id": user.id, "fingerprint": _password_fingerprint(user)}
+    return _token_serializer(RESET_TOKEN_SALT).dumps(data)
+
+
+def user_from_reset_token(session: Session, token: str) -> User | None:
+    """The user a reset link belongs to, or None if the link is invalid, too old or used."""
+    data = _read_token(token, RESET_TOKEN_SALT, RESET_TOKEN_MAX_AGE)
+    if data is None or not isinstance(data.get("user_id"), int):
+        return None
+    user = session.get(User, data["user_id"])
+    fingerprint = data.get("fingerprint")
+    if user is None or not isinstance(fingerprint, str):
+        return None
+    if not secrets.compare_digest(fingerprint, _password_fingerprint(user)):
+        return None
+    return user
+
+
+def reset_password(session: Session, user: User, new_password: str) -> None:
+    """Set a new password and log the user out everywhere (D-021).
+
+    Opening the link proved the user owns the email, so it counts as verified too.
+    """
+    user.password_hash = hash_password(new_password)
+    user.session_version += 1
+    user.is_verified = True
+    session.add(user)
+    session.commit()
