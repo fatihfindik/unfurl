@@ -168,6 +168,12 @@ document.addEventListener("input", (event) => {
   }
 });
 
+// An htmx request that fails (403 when the CSRF token is out of date, 500 on a server
+// error) changes nothing on the page. Without this the user would see no reaction at all.
+document.addEventListener("htmx:responseError", () => {
+  Alpine.store("toast").show("Something went wrong. Please reload the page.");
+});
+
 // Modals and drawers are native <dialog> elements (templates/components/).
 // - Any element with data-dialog-open="<id>" opens that dialog.
 // - A click on the dark backdrop closes it. The dialog's content is wrapped in a

@@ -34,7 +34,7 @@ from app.services.auth_service import (
     user_from_reset_token,
     user_from_verify_token,
 )
-from app.templating import templates
+from app.templating import is_htmx, templates
 
 router = APIRouter()
 
@@ -64,10 +64,6 @@ email_adapter = TypeAdapter(EmailStr)
 def redirect(url: str) -> RedirectResponse:
     # 303 "See Other": after a POST, the browser loads the next page with GET.
     return RedirectResponse(url, status_code=303)
-
-
-def is_htmx(request: Request) -> bool:
-    return request.headers.get("HX-Request") == "true"
 
 
 def send_verification_email(background_tasks: BackgroundTasks, user: User) -> None:

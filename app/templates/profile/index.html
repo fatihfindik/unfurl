@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "components/page_header.html" import page_header %}
+
+{% block title %}My profile{% endblock %}
+
+{#- docs/prototype/Profile.dc.html. Each section is its own htmx fragment
+    (profile/_*.html): Edit loads its form, Save swaps the section back in. -#}
+{% block content %}
+  {{ page_header(
+       "My profile",
+       subtitle="Your source data. Master documents and fit analysis are built from it. Copies you already sent never change.",
+       back_url="/documents",
+       back_label="Documents",
+     ) }}
+  <div class="grid gap-5 px-4 pt-5 pb-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <div class="flex min-w-0 flex-col gap-5">
+      {% include "profile/_personal.html" %}
+      {% include "profile/_summary.html" %}
+    </div>
+    {#- Right column: Skills and Languages (M2a step 4), Profile strength (M2b). -#}
+    <div class="flex min-w-0 flex-col gap-5"></div>
+  </div>
+{% endblock %}

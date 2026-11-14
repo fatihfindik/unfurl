@@ -48,5 +48,11 @@ templates = Jinja2Templates(
     directory=TEMPLATES_DIR, context_processors=[theme_context, request_context]
 )
 
+
+def is_htmx(request: Request) -> bool:
+    """True for requests sent by htmx (they want a piece of a page, not a whole page)."""
+    return request.headers.get("HX-Request") == "true"
+
+
 # Functions templates can call. safe_redirect_path keeps back_url links on this site.
 templates.env.globals["safe_redirect_path"] = safe_redirect_path

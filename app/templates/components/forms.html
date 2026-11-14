@@ -14,8 +14,9 @@
   <input type="hidden" name="csrf_token" value="{{ token }}">
 {% endmacro %}
 
-{% macro text_field(name, label, type="text", value="", error=None, hint=None, autocomplete=None, required=True, maxlength=None) %}
-  {%- set field_id = "field-" ~ name %}
+{#- `id_prefix` keeps ids unique when several forms are on one page (e.g. /profile). -#}
+{% macro text_field(name, label, type="text", value="", error=None, hint=None, autocomplete=None, required=True, maxlength=None, id_prefix="field", placeholder=None) %}
+  {%- set field_id = id_prefix ~ "-" ~ name %}
   {%- set described_by = [] %}
   {%- if hint %}{% set _ = described_by.append(field_id ~ "-hint") %}{% endif %}
   {%- if error %}{% set _ = described_by.append(field_id ~ "-error") %}{% endif %}
@@ -25,6 +26,7 @@
            {%- if type != "password" and value %} value="{{ value }}"{% endif %}
            {%- if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}
            {%- if maxlength %} maxlength="{{ maxlength }}"{% endif %}
+           {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}
            {%- if required %} required{% endif %}
            {%- if error %} aria-invalid="true"{% endif %}
            {%- if described_by %} aria-describedby="{{ described_by | join(' ') }}"{% endif %}>
@@ -54,6 +56,36 @@
       <span id="{{ field_id }}-error" class="text-xs font-medium text-red-text">{{ error }}</span>
     {%- endif %}
   </div>
+{% endmacro %}
+
+{% macro textarea_field(name, label, value="", error=None, hint=None, maxlength=None, rows=4, id_prefix="field") %}
+  {%- set field_id = id_prefix ~ "-" ~ name %}
+  {%- set described_by = [] %}
+  {%- if hint %}{% set _ = described_by.append(field_id ~ "-hint") %}{% endif %}
+  {%- if error %}{% set _ = described_by.append(field_id ~ "-error") %}{% endif %}
+  <div class="flex flex-col gap-1.5">
+    <label for="{{ field_id }}" class="text-[13px] font-semibold text-text-2">{{ label }}</label>
+    <textarea id="{{ field_id }}" name="{{ name }}" rows="{{ rows }}" class="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
+              {%- if maxlength %} maxlength="{{ maxlength }}"{% endif %}
+              {%- if error %} aria-invalid="true"{% endif %}
+              {%- if described_by %} aria-describedby="{{ described_by | join(' ') }}"{% endif %}>{{ value or "" }}</textarea>
+    {%- if hint %}
+      <span id="{{ field_id }}-hint" class="text-xs text-text-3">{{ hint }}</span>
+    {%- endif %}
+    {%- if error %}
+      <span id="{{ field_id }}-error" class="text-xs font-medium text-red-text">{{ error }}</span>
+    {%- endif %}
+  </div>
+{% endmacro %}
+
+{#- A plain button for Cancel, Edit and similar actions. With hx_get it loads a piece
+    of HTML (htmx) into hx_target, e.g. the edit form of a profile section. -#}
+{% macro secondary_button(label, type="button", hx_get=None, hx_target=None, hx_swap="outerHTML") %}
+  <button type="{{ type }}"
+          {%- if hx_get %} hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap }}"{% endif %}
+          class="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">
+    {{ label }}
+  </button>
 {% endmacro %}
 
 {% macro primary_button(label, type="submit") %}
