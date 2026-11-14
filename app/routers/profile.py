@@ -23,10 +23,21 @@ from sqlmodel import Session, SQLModel
 from starlette.datastructures import FormData
 
 from app.db import get_session
-from app.models import Certification, LanguageSkill, Profile, Project, Skill, User
+from app.models import (
+    Certification,
+    Education,
+    Experience,
+    LanguageSkill,
+    Profile,
+    Project,
+    Skill,
+    User,
+)
 from app.models.profile import LANGUAGE_LEVELS
 from app.schemas.profile import (
     CertificationForm,
+    EducationForm,
+    ExperienceForm,
     LanguageForm,
     PersonalInfoForm,
     ProjectForm,
@@ -172,6 +183,23 @@ SECTIONS = {
     section.key: section
     for section in [
         Section(
+            "experience",
+            "Experience",
+            "experience",
+            Experience,
+            ExperienceForm,
+            "No experience yet. Add your jobs, newest first.",
+            list_fields=("bullets",),
+        ),
+        Section(
+            "education",
+            "Education",
+            "education",
+            Education,
+            EducationForm,
+            "No education yet.",
+        ),
+        Section(
             "certifications",
             "Certifications",
             "certification",
@@ -195,7 +223,7 @@ SECTIONS = {
 }
 
 # Where each section sits on the page (docs/prototype/Profile.dc.html).
-MAIN_COLUMN = ["certifications", "projects"]
+MAIN_COLUMN = ["experience", "education", "certifications", "projects"]
 SIDE_COLUMN = ["skills", "languages"]
 
 TOO_MANY_ITEMS = "You can add up to 50 entries here. Delete one to add another."
@@ -230,6 +258,9 @@ def item_values(item: SQLModel, section: Section) -> dict:
         if isinstance(value, dt.date):
             value = value.strftime("%Y-%m")
         values[name] = "" if value is None else value
+    if "ongoing" in section.form.model_fields:
+        # No end date means "still there" (D-033).
+        values["ongoing"] = item.end_date is None
     return values
 
 

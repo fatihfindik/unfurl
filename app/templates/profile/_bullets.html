@@ -1,0 +1,24 @@
+{#- Experience bullets (SPEC §6.4): a list of inputs with "Add bullet" and ×.
+    Behaviour in app.js (bulletList). Context: values.bullets, errors.bullets. -#}
+{%- macro bullet_row(value="") -%}
+  <li class="flex items-center gap-2">
+    <input name="bullets" value="{{ value }}" maxlength="300" class="w-full" aria-label="Bullet"
+           placeholder="Led the rebuild of the field app with a team of 9.">
+    <button type="button" x-on:click="remove" aria-label="Remove bullet"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-text-3 hover:bg-muted hover:text-text">×</button>
+  </li>
+{%- endmacro -%}
+<fieldset x-data="bulletList" class="m-0 flex flex-col gap-2 border-0 p-0"
+          {%- if errors.bullets %} aria-describedby="{{ prefix }}-bullets-error"{% endif %}>
+  <legend class="mb-1.5 text-[13px] font-semibold text-text-2">Bullets</legend>
+  <ul x-ref="list" class="m-0 flex list-none flex-col gap-2 p-0">
+    {%- for bullet in values.bullets or [] %}
+      {{ bullet_row(bullet) }}
+    {%- endfor %}
+  </ul>
+  <template x-ref="template">{{ bullet_row() }}</template>
+  <button type="button" x-on:click="add" class="self-start text-sm font-semibold text-link hover:underline">+ Add bullet</button>
+  {%- if errors.bullets %}
+    <span id="{{ prefix }}-bullets-error" class="text-xs font-medium text-red-text">{{ errors.bullets }}</span>
+  {%- endif %}
+</fieldset>

@@ -4,10 +4,20 @@ The general test in test_auth.py only checks GET pages without "{" in the path, 
 every profile route is listed here explicitly.
 """
 
+from datetime import date
+
 import pytest
 from sqlmodel import select
 
-from app.models import Certification, LanguageSkill, Profile, Project, Skill
+from app.models import (
+    Certification,
+    Education,
+    Experience,
+    LanguageSkill,
+    Profile,
+    Project,
+    Skill,
+)
 from app.routers.profile import SECTIONS
 from app.services.auth_service import create_user
 from tests.helpers import csrf_token
@@ -56,12 +66,20 @@ def test_logged_out_htmx_requests_get_hx_redirect(client, method, url):
 # each answers 404 (the same as for an id that doesn't exist) and B's data stays.
 
 ROWS = {
+    "experience": lambda pid: Experience(
+        profile_id=pid, company="B's company", title="B", start_date=date(2020, 1, 1)
+    ),
+    "education": lambda pid: Education(
+        profile_id=pid, institution="B's university", start_date=date(2015, 1, 1)
+    ),
     "skills": lambda pid: Skill(profile_id=pid, name="B's skill"),
     "languages": lambda pid: LanguageSkill(profile_id=pid, language="B's language", level="B2"),
     "certifications": lambda pid: Certification(profile_id=pid, name="B's certificate"),
     "projects": lambda pid: Project(profile_id=pid, name="B's project"),
 }
 CHANGE = {
+    "experience": {"title": "Taken", "company": "Taken", "start_date": "2020-01"},
+    "education": {"institution": "Taken", "start_date": "2015-01"},
     "skills": {"name": "Taken"},
     "languages": {"language": "Taken", "level": "A1"},
     "certifications": {"name": "Taken"},

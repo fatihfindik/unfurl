@@ -1,9 +1,12 @@
 """Profile list sections: add, edit, delete, errors (SPEC §6.4, M2a, D-031)."""
 
+import re
+from datetime import date
+
 import pytest
 from sqlmodel import select
 
-from app.models import Certification, LanguageSkill, Profile, Project, Skill
+from app.models import Certification, Education, Experience, LanguageSkill, Profile, Project, Skill
 from app.services.profile_service import MAX_ITEMS_PER_SECTION
 from tests.helpers import csrf_token
 
@@ -11,6 +14,33 @@ HTMX = {"HX-Request": "true"}
 
 # For each section: the table, a valid new row, a change, and text the page shows.
 SECTIONS = {
+    "experience": (
+        Experience,
+        {
+            "title": "Product Manager",
+            "company": "Ostwind",
+            "start_date": "2018-04",
+            "end_date": "2021-02",
+        },
+        {"title": "Senior PM", "company": "Ostwind", "start_date": "2018-04", "ongoing": "yes"},
+        "04/2018 – present",
+    ),
+    "education": (
+        Education,
+        {
+            "institution": "TU Wien",
+            "degree": "M.Sc.",
+            "start_date": "2016-10",
+            "end_date": "2018-06",
+        },
+        {
+            "institution": "TU Wien",
+            "degree": "M.Sc.",
+            "field": "Industrial Engineering",
+            "start_date": "2016-10",
+        },
+        "M.Sc., Industrial Engineering · TU Wien",
+    ),
     "skills": (Skill, {"name": "SQL", "level": "4"}, {"name": "PostgreSQL"}, "PostgreSQL"),
     "languages": (
         LanguageSkill,
@@ -33,6 +63,8 @@ SECTIONS = {
 }
 # A required field left empty, per section.
 REQUIRED_FIELD = {
+    "experience": "title",
+    "education": "institution",
     "skills": "name",
     "languages": "language",
     "certifications": "name",
@@ -65,10 +97,20 @@ def profile_client(auth_client):
     return auth_client
 
 
-def test_page_shows_every_section_with_its_empty_text(profile_client):
+def test_page_shows_all_8_sections(profile_client):
     html = profile_client.get("/profile").text
-    for heading in ("Skills", "Languages", "Certifications", "Projects"):
+    for heading in (
+        "Personal info",
+        "Summary",
+        "Experience",
+        "Education",
+        "Skills",
+        "Languages",
+        "Certifications",
+        "Projects",
+    ):
         assert f">{heading}</h2>" in html
+    assert "No experience yet." in html
     assert "No certifications yet." in html
 
 
@@ -131,6 +173,22 @@ def test_missing_required_field_keeps_the_add_form_open(profile_client, session,
             "Enter a full link starting with https://.",
         ),
         ("projects", {"name": "x" * 201}, "Use at most 200 characters."),
+        (
+            "experience",
+            {"title": "PM", "company": "X", "start_date": "2021-03", "end_date": "2020-01"},
+            "The end date must be after the start date.",
+        ),
+        (
+            "experience",
+            {"title": "PM", "company": "X", "start_date": "03/2021"},
+            "Use the format YYYY-MM.",
+        ),
+        ("experience", {"title": "PM", "company": "X"}, "This field is required."),
+        (
+            "education",
+            {"institution": "TU", "start_date": "2018-01", "end_date": "2016-01"},
+            "The end date must be after the start date.",
+        ),
     ],
 )
 def test_invalid_input_shows_a_message(profile_client, session, key, data, message):
@@ -197,3 +255,72 @@ def test_unknown_section_is_404(profile_client, url):
 def test_section_fragments_need_htmx(profile_client):
     response = profile_client.get("/profile/skills/new", follow_redirects=False)
     assert response.headers["location"] == "/profile"
+
+
+# --- Experience bullets and dates -------------------------------------------------
+
+EXPERIENCE = {"title": "PM", "company": "Ostwind", "start_date": "2018-04"}
+
+
+def test_bullets_are_saved_in_order_and_empty_ones_dropped(profile_client, session):
+    data = EXPERIENCE | {"bullets": ["Launched the dashboard", "", "  Set up A/B testing  "]}
+    response = htmx_send(profile_client, "POST", "/profile/experience", data)
+
+    [experience] = rows(session, Experience)
+    assert experience.bullets == ["Launched the dashboard", "Set up A/B testing"]
+    assert "<li>Launched the dashboard</li>" in response.text
+
+
+def test_edit_form_shows_the_saved_bullets_and_a_way_to_add_more(profile_client, session):
+    htmx_send(
+        profile_client, "POST", "/profile/experience", EXPERIENCE | {"bullets": ["One", "Two"]}
+    )
+    [experience] = rows(session, Experience)
+    html = htmx_get(profile_client, f"/profile/experience/{experience.id}/edit").text
+
+    assert 'x-data="bulletList"' in html
+    assert html.count('name="bullets"') == 3  # 2 saved + the empty row in <template>
+    assert 'value="One"' in html and 'value="Two"' in html
+    assert "+ Add bullet" in html
+
+
+def test_removing_a_bullet(profile_client, session):
+    htmx_send(
+        profile_client, "POST", "/profile/experience", EXPERIENCE | {"bullets": ["One", "Two"]}
+    )
+    [experience] = rows(session, Experience)
+    # The browser sends only the rows that are left.
+    url = f"/profile/experience/{experience.id}"
+    htmx_send(profile_client, "POST", url, EXPERIENCE | {"bullets": ["Two"]})
+    assert rows(session, Experience)[0].bullets == ["Two"]
+
+
+def test_21_bullets_are_rejected(profile_client, session):
+    data = EXPERIENCE | {"bullets": [f"Bullet {i}" for i in range(21)]}
+    response = htmx_send(profile_client, "POST", "/profile/experience", data)
+    assert "Use at most 20 bullets." in response.text
+    assert 'value="Bullet 20"' in response.text  # what the user typed stays in the form
+    assert rows(session, Experience) == []
+
+
+def test_ongoing_saves_no_end_date_and_shows_present(profile_client, session):
+    data = EXPERIENCE | {"end_date": "2020-01", "ongoing": "yes"}
+    response = htmx_send(profile_client, "POST", "/profile/experience", data)
+
+    assert rows(session, Experience)[0].end_date is None
+    assert "04/2018 – present" in response.text
+
+
+def test_edit_form_ticks_ongoing_for_a_current_job(profile_client, session):
+    htmx_send(profile_client, "POST", "/profile/experience", EXPERIENCE | {"ongoing": "yes"})
+    [experience] = rows(session, Experience)
+    html = htmx_get(profile_client, f"/profile/experience/{experience.id}/edit").text
+    assert 'value="2018-04"' in html
+    assert re.search(r'name="ongoing"[^>]*checked', html)
+
+
+def test_month_is_stored_as_the_first_day(profile_client, session):
+    htmx_send(profile_client, "POST", "/profile/experience", EXPERIENCE | {"end_date": "2021-02"})
+    experience = rows(session, Experience)[0]
+    assert experience.start_date == date(2018, 4, 1)
+    assert experience.end_date == date(2021, 2, 1)
