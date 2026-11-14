@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.3 — 2026-11-13
+> **Durum:** MVP planı, v2.1.4 — 2026-11-14
+> v2.1.4: M1b Design kararları (§6.1). Login kilidi 5. hatadan itibaren sabit 15 dakika sürer. forgot-password'a IP başına 5/saat sınırı. Şifre sıfırlama e-postayı doğrulanmış sayar ve o e-postanın login kilidini temizler. Kararlar: DECISIONS D-027…D-029.
 > v2.1.3: M1 ikiye bölündü (M1a oturum çekirdeği, M1b e-posta akışları). §6.1'de yönlendirme güvenliği (open redirect, #4), login kilidi, oturum geçersiz kılma, tek kullanımlık reset token ve CSRF kuralları netleşti. `User.session_version` eklendi (§5.1). Kararlar: DECISIONS D-020…D-024.
 > v2.1.2: Tema seçici üst barda tek ikon + açılır menü (Light / Dark / System, seçili olan ✓).
 > v2.1.1: Erişilebilirlik — `:focus-visible` odak halkası checkbox ve radio dahil tüm etkileşimli öğelerde görünür (Bölüm 6.0/5 ve 14).
@@ -531,9 +532,10 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 - **CSRF ayrıntısı:** Token oturum başına üretilir. Formlarda gizli `csrf_token` alanı, HTMX'te `base.html`'deki `hx-headers` ile `X-CSRF-Token` gönderilir. Tüm POST/PUT/PATCH/DELETE istekleri kontrol edilir, hatada 403 döner. `/api/ext/*` hariçtir (token ile doğrulanır, M6).
 - **Yönlendirme güvenliği:** `next=` ve `back_url` yalnızca `/` ile başlayan göreli yolları kabul eder. `//`, `/\`, şema (`https:`, `javascript:`) veya host içeren değerler `/`'e düşer. Tüm yönlendirmeler tek bir `safe_redirect_path()` yardımcısından geçer.
 - **Giriş gerektiren sayfalar:** Oturumsuz GET isteği `303 → /login?next=<path>` alır. HTMX isteklerinde 303 yerine `HX-Redirect` header'ı döner.
-- **Login kilidi:** Aynı IP + e-posta çifti için 15 dakika içinde 5 başarısız denemede 15 dakikalık kilit uygulanır ("Too many attempts. Try again in 15 minutes."). Sayaç bellekte tutulur (D-020). Ayrıca slowapi IP başına genel sınır koyar: login 10/dk, register 5/saat. forgot-password ve resend-verification aynı e-posta için 3/saat.
+- **Login kilidi:** Aynı IP + e-posta çifti için 15 dakika içinde 5 başarısız denemede 15 dakikalık kilit uygulanır ("Too many attempts. Try again in 15 minutes."). Kilit 5. hatadan itibaren sabit 15 dakika sürer; eski hatalar pencereden çıksa da erken açılmaz. Sayaç bellekte tutulur (D-020). Ayrıca slowapi IP başına genel sınır koyar: login 10/dk, register 5/saat, forgot-password 5/saat. forgot-password ve resend-verification aynı e-posta için 3/saat.
 - **Oturum geçersiz kılma:** Oturum çerezi `user_id` ve `session_version` taşır. `current_user` ikisini DB ile karşılaştırır. Şifre sıfırlanınca veya değişince açık oturumların hepsi düşer (D-021).
-- **Token'lar:** Reset token `password_hash`'ten türetilen bir parmak izi içerir, şifre değişince geçersiz olur (tek kullanımlık). Verify token idempotenttir: zaten doğrulanmış kullanıcı "Email already verified" görür.
+- **Token'lar:** Reset token `password_hash`'ten türetilen bir parmak izi içerir, şifre değişince geçersiz olur (tek kullanımlık). Verify token idempotenttir: zaten doğrulanmış kullanıcı "Email already verified" görür. Token'lar imzalıdır, DB'de tutulmaz (D-027).
+- **Şifre sıfırlama sonrası:** Reset e-posta sahipliğini kanıtladığı için kullanıcı doğrulanmış sayılır (`is_verified=True`) ve o e-postanın login kilidi kayıtları silinir. Otomatik giriş yapılmaz: kullanıcı `/login`'e yönlendirilir ("Your password was changed. Sign in with your new password.").
 - **Kayıtta mevcut e-posta:** "An account with this email already exists." mesajı login ve forgot-password linkleriyle gösterilir (D-023). forgot-password numaralandırmaya kapalı kalır.
 - **Doğrulanmamış kullanıcı:** Kayıttan sonra otomatik giriş yapılır ve "Check your inbox" açılır. "Continue to setup" M9'a kadar `/` sayfasına gider. `base.html`'de sarı bant ve "Resend email" butonu gösterilir. `require_verified` dependency'si 403 döner, AI endpoint'leri bunu M7'den itibaren kullanır.
 
