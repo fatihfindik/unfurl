@@ -14,6 +14,24 @@ SQLModel.metadata.naming_convention = {
 }
 
 # Imported after the naming convention is set, so the tables use it.
+from app.models.profile import (  # noqa: E402
+    Certification,
+    Education,
+    Experience,
+    LanguageSkill,
+    Profile,
+    Project,
+    Skill,
+)
 from app.models.user import User  # noqa: E402
 
-__all__ = ["User"]
+__all__ = [
+    "Certification",
+    "Education",
+    "Experience",
+    "LanguageSkill",
+    "Profile",
+    "Project",
+    "Skill",
+    "User",
+]
