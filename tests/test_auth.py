@@ -74,11 +74,11 @@ def test_no_forgot_password_link_in_m1a(client):
 # --- Register ---------------------------------------------------------------------------
 
 
-def test_register_logs_in_and_goes_home_on_the_free_plan(client, session):
+def test_register_logs_in_and_shows_check_your_inbox_on_the_free_plan(client, session):
     response = register(client)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/"
+    assert response.headers["location"] == "/check-inbox"
     user = session.exec(select(User).where(User.email == "ana@example.com")).one()
     assert user.full_name == "Ana Silva"
     assert user.privacy_accepted_at is not None
@@ -374,7 +374,7 @@ def test_account_menu_escapes_the_user_name(client, session):
 
 # Pages anyone may open. Every other GET page must send logged-out visitors to /login,
 # so a new page that forgets require_user makes this test fail.
-PUBLIC_PAGES = {"/login", "/register", "/privacy", "/terms", "/imprint"}
+PUBLIC_PAGES = {"/login", "/register", "/privacy", "/terms", "/imprint", "/verify-email"}
 
 
 def test_every_page_except_the_public_ones_needs_login(client):
@@ -395,5 +395,8 @@ def test_every_page_except_the_public_ones_needs_login(client):
 
 def test_public_pages_list_is_up_to_date(client):
     # If a public page is removed or renamed, the allowlist above must follow.
+    # Not "== 200": link pages like /verify-email answer 400 without a token.
     for path in PUBLIC_PAGES:
-        assert client.get(path, follow_redirects=False).status_code == 200, path
+        response = client.get(path, follow_redirects=False)
+        assert response.status_code != 404, path
+        assert response.status_code != 303, path

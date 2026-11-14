@@ -1,0 +1,12 @@
+{#- "Resend email" for the verification link (SPEC §6.1). With htmx, the server
+    answers with components/resend_result.html, which replaces this form. Without
+    JavaScript it is a normal POST that goes back to /check-inbox. -#}
+{% from "components/forms.html" import csrf_field %}
+
+{% macro resend_button(csrf_token, button_class="") %}
+  <form method="post" action="/resend-verification" class="m-0"
+        hx-post="/resend-verification" hx-target="this" hx-swap="outerHTML">
+    {{ csrf_field(csrf_token) }}
+    <button type="submit" class="{{ button_class }}">Resend email</button>
+  </form>
+{% endmacro %}

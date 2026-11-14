@@ -1,18 +1,21 @@
-"""Accounts and sessions: password hashing, register, login, logout, current user.
+"""Accounts and sessions: password hashing, register, login, logout, current user,
+email verification tokens.
 
-SPEC §6.1, D-021. CSRF and redirect checks live in app/security.py.
+SPEC §6.1, D-021, D-027. CSRF and redirect checks live in app/security.py.
 """
 
 import secrets
 from typing import Annotated
 from urllib.parse import quote, urlsplit
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
+from itsdangerous import BadSignature, URLSafeTimedSerializer
 from pwdlib import PasswordHash
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from app.config import get_settings
 from app.db import get_session
 from app.models import User
 from app.models.base import utcnow
@@ -34,6 +37,13 @@ _DUMMY_HASH = password_hasher.hash(secrets.token_urlsafe(16))
 # Keys in the signed session cookie (D-021).
 SESSION_USER_ID = "user_id"
 SESSION_VERSION = "session_version"
+
+# Email links (D-027). Each kind of token has its own "salt", so a token made for
+# one purpose is rejected everywhere else.
+VERIFY_TOKEN_SALT = "verify-email"
+VERIFY_TOKEN_MAX_AGE = 48 * 60 * 60  # 48 hours, in seconds (SPEC §6.1)
+# Our tokens are about 100 characters. Longer ones are rejected before any work.
+TOKEN_MAX_LENGTH = 512
 
 
 class EmailTaken(Exception):
@@ -168,3 +178,54 @@ def login_required_response(request: Request, exc: LoginRequired) -> Response:
     if request.headers.get("HX-Request") == "true":
         return Response(status_code=200, headers={"HX-Redirect": login_url})
     return RedirectResponse(login_url, status_code=303)
+
+
+# --- Email verification (SPEC §6.1, D-027) ----------------------------------------------
+# A token is the data plus a signature made with SECRET_KEY and the time it was made.
+# Anyone can read the data (it is only base64), but nobody can change it or make a new
+# token without the key. So the database doesn't need to store tokens.
+
+
+def _token_serializer(salt: str) -> URLSafeTimedSerializer:
+    return URLSafeTimedSerializer(get_settings().secret_key.get_secret_value(), salt=salt)
+
+
+def _read_token(token: str, salt: str, max_age: int) -> dict | None:
+    """The token's data, or None if it is missing, too long, changed or too old."""
+    if not token or len(token) > TOKEN_MAX_LENGTH:
+        return None
+    try:
+        # Too old raises SignatureExpired, which is a kind of BadSignature.
+        data = _token_serializer(salt).loads(token, max_age=max_age)
+    except BadSignature:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def make_verify_token(user: User) -> str:
+    # The email is in the token too: if the address ever changes, old links stop working.
+    return _token_serializer(VERIFY_TOKEN_SALT).dumps({"user_id": user.id, "email": user.email})
+
+
+def user_from_verify_token(session: Session, token: str) -> User | None:
+    """The user a verification link belongs to, or None if the link is not valid."""
+    data = _read_token(token, VERIFY_TOKEN_SALT, VERIFY_TOKEN_MAX_AGE)
+    if data is None or not isinstance(data.get("user_id"), int):
+        return None
+    user = session.get(User, data["user_id"])
+    if user is None or user.email != data.get("email"):
+        return None
+    return user
+
+
+def mark_verified(session: Session, user: User) -> None:
+    user.is_verified = True
+    session.add(user)
+    session.commit()
+
+
+def require_verified(user: Annotated[User, Depends(require_user)]) -> User:
+    """Dependency for features that need a verified email (AI features from M7, SPEC §6.1)."""
+    if not user.is_verified:
+        raise HTTPException(status_code=403, detail="Please verify your email first.")
+    return user

@@ -1,6 +1,7 @@
 {#- Layout for Sign in / Create account (docs/prototype/Login.dc.html).
     Left: the indigo intro panel (large screens only). Right: theme picker and the form.
-    Pages extend it, set `active_tab` ("login" or "register") and fill `title` and `form`. -#}
+    Pages extend it, set `active_tab` ("login" or "register") and fill `title` and `form`.
+    Pages without `active_tab` (Check your inbox, reset password, messages) show no tabs. -#}
 {%- from "components/icons.html" import icon, logo_mark -%}
 {%- from "components/theme_picker.html" import theme_picker -%}
 {%- from "components/footer.html" import legal_links -%}
@@ -47,6 +48,7 @@
 
       <main class="flex flex-1 items-center justify-center">
         <div class="flex w-full max-w-[400px] flex-col gap-[18px]">
+          {%- if active_tab is defined %}
           {#- Two links styled as tabs: each form has its own address (/login, /register). -#}
           <nav aria-label="Account" class="flex rounded-[10px] bg-muted p-1">
             {%- for tab, url, label in [("login", "/login", "Sign in"), ("register", "/register", "Create account")] %}
@@ -54,6 +56,7 @@
                  class="flex-1 rounded-[7px] py-2 text-center text-sm font-semibold no-underline {{ 'bg-surface text-text shadow-[0_1px_2px_rgba(16,24,40,0.15)]' if active_tab == tab else 'text-text-3 hover:text-text' }}">{{ label }}</a>
             {%- endfor %}
           </nav>
+          {%- endif %}
           {% block form %}{% endblock %}
         </div>
       </main>
