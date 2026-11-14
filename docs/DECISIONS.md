@@ -139,7 +139,7 @@ Kaynak: claude.ai Plan fazı (`docs/plans/M1-handoff.md`), Fatih onayı.
 - **Karar:** İmzalı oturum çerezi `session_version` taşır, `current_user` bunu DB ile karşılaştırır. Şifre değişince/sıfırlanınca değer +1 olur.
 - **Gerekçe:** İmzalı çerez sunucuda tutulmaz. Eski oturumları düşürmenin en ucuz yolu bu.
 - **Alternatifler:** Sunucu tarafı session tablosu (cihaz listesi gibi özelliklere açık, V2'de düşünülebilir).
-- **Bilinen sınır (M1a güvenlik incelemesi #1):** Logout çerezi sadece tarayıcıdan siler. Kopyalanmış bir çerez, girişten itibaren 14 gün geçerli kalır (Starlette çerezi sadece oturum değişince yeniden imzalar). M1a'da tek iptal yolu `session_version`'ı artırmaktır; M1b'de şifre değişikliği bunu yapar ve "Sign out everywhere" değerlendirilir (#9).
+- **Bilinen sınır (M1a güvenlik incelemesi #1):** Logout çerezi sadece tarayıcıdan siler. Kopyalanmış bir çerez, girişten itibaren 14 gün geçerli kalır (Starlette çerezi sadece oturum değişince yeniden imzalar). M1a'da tek iptal yolu `session_version`'ı artırmaktır; M1b'de şifre sıfırlama bunu yapar. "Sign out everywhere" M1b Plan fazında değerlendirildi ve V2'ye ertelendi (#14): reset sonrası oturum düşürme asıl riski (çalınan şifre) kapsıyor, butonun yeri henüz olmayan Settings sayfası.
 
 ### D-022 · CSRF: kendi küçük çözümümüz
 - **Karar:** Oturum başına token, form alanı `csrf_token` ve HTMX için `X-CSRF-Token` header'ı. Ek kütüphane kullanılmaz. `/api/ext/*` hariç.
@@ -166,3 +166,26 @@ Kaynak: claude.ai Plan fazı (`docs/plans/M1-handoff.md`), Fatih onayı.
 - **Karar:** CSRF (`get_csrf_token`, `verify_csrf`) ve yönlendirme güvenliği (`safe_redirect_path`) yeni `app/security.py` modülünde. SPEC §4'teki yapıya küçük bir ek.
 - **Gerekçe:** İkisi de auth'a özel değil; her form ve her `back_url` kullanır.
 - **Alternatifler:** `services/auth_service.py` içine koymak.
+
+---
+
+## M1b — E-posta akışları (2026-11-14)
+
+Kaynak: `docs/plans/M1b.md` (Design fazı), `plan-reviewer` onayı, Fatih onayı.
+
+### D-027 · Token'lar durumsuz ve imzalı
+- **Karar:** Doğrulama ve reset token'ları `itsdangerous.URLSafeTimedSerializer` ile imzalanır, DB'de token tablosu yok. Süre `max_age` ile kontrol edilir (48 saat / 1 saat). Her amaç ayrı `salt` kullanır, böylece verify token'ı reset için kullanılamaz. Reset token'ı `password_hash`'ten türetilen kısa bir parmak izi taşır; şifre değişince geçersiz olur (tek kullanımlık, SPEC §6.1). 512 karakterden uzun token okunmadan reddedilir.
+- **Gerekçe:** Migration ve süresi dolan kayıtları temizleme işi gerekmez. `itsdangerous` zaten kurulu (M1a).
+- **Maliyet:** Verilmiş bir token tek tek iptal edilemez; süresi dolana kadar geçerlidir (reset token'ı şifre değişince düşer).
+- **Alternatifler:** Token tablosu (iptal edilebilir, kullanım kaydı tutulur).
+
+### D-028 · E-postalar arka planda gönderilir
+- **Karar:** Route'lar e-postayı FastAPI `BackgroundTasks` ile yanıttan sonra gönderir. Gönderim hataları `email_service.send_email` içinde yakalanır ve `unfurl.email` log'una yazılır. E-posta metinleri düz metin Jinja şablonlarıdır: `app/templates/emails/*.txt` (SPEC §4 ağacına küçük ek).
+- **Gerekçe:** SMTP yavaşlığı sayfayı bekletmez. forgot-password'da kayıtlı ve kayıtsız e-posta için yanıt süresi farkı oluşmaz (numaralandırmaya kapalı).
+- **Maliyet:** Gönderim hatası kullanıcıya gösterilmez; kullanıcı "Resend email" ile tekrar dener.
+- **Alternatifler:** Yanıttan önce senkron gönderim, iş kuyruğu (yeni altyapı).
+
+### D-029 · Production'da e-posta ayarı zorunlu
+- **Karar:** `APP_ENV=production` iken `EMAIL_BACKEND=console` veya boş `SMTP_HOST` ile uygulama başlamaz (mevcut `SECRET_KEY` kontrolü gibi).
+- **Gerekçe:** Doğrulama ve reset e-postaları canlıda sessizce terminale düşmesin.
+- **Alternatifler:** Sadece uyarı log'u.

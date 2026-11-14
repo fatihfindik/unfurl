@@ -13,11 +13,13 @@
 
     {%- if error %}
       <p role="alert" class="m-0 rounded-[10px] bg-red-bg px-3 py-2.5 text-sm font-medium text-red-text">{{ error }}</p>
+    {%- elif notice %}
+      <p role="status" class="m-0 rounded-[10px] bg-green-bg px-3 py-2.5 text-sm font-medium text-green-text">{{ notice }}</p>
     {%- endif %}
 
     {{ text_field("email", "Email", type="email", value=email, autocomplete="email") }}
     {{ text_field("password", "Password", type="password", autocomplete="current-password") }}
-    {#- "Forgot password?" comes with password reset in M1b. -#}
+    <a href="/forgot-password" class="self-end text-[13px] font-semibold">Forgot password?</a>
     {{ primary_button("Sign in") }}
   </form>
 {% endblock %}

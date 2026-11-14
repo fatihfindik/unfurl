@@ -1,0 +1,19 @@
+{% extends "auth/layout.html" %}
+{% from "components/resend.html" import resend_button %}
+
+{#- One page for short results: email verified, already verified, invalid link.
+    Optional `action_url` / `action_label` for the button (default: Go to Unfurl). -#}
+{% block title %}{{ heading }}{% endblock %}
+
+{% block form %}
+  <div class="flex flex-col gap-4">
+    <h2 class="m-0 text-2xl font-bold">{{ heading }}</h2>
+    <p class="m-0 text-[15px] leading-[1.55] text-text-2">{{ text }}</p>
+    {%- if show_resend %}
+      {{ resend_button(csrf_token, "inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]") }}
+    {%- else %}
+      {#- Logged out, / sends the visitor to the sign-in page. -#}
+      <a href="{{ action_url | default('/') }}" class="inline-flex h-11 items-center justify-center rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white no-underline hover:bg-[#4338CA]">{{ action_label | default("Go to Unfurl") }}</a>
+    {%- endif %}
+  </div>
+{% endblock %}

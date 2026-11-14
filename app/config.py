@@ -80,6 +80,12 @@ class Settings(BaseSettings):
             )
         if not self.encryption_key.get_secret_value():
             raise ValueError("ENCRYPTION_KEY must be set in production.")
+
+        # Verification and reset emails must really be sent, not printed (D-029).
+        if self.email_backend != "smtp":
+            raise ValueError("EMAIL_BACKEND must be smtp in production.")
+        if not self.smtp_host:
+            raise ValueError("SMTP_HOST must be set in production.")
         return self
 
 

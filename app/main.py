@@ -5,14 +5,16 @@ Run locally with: uv run fastapi dev app/main.py
 
 from pathlib import Path
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
+from slowapi.errors import RateLimitExceeded
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import Settings, get_settings
 from app.routers import applications, auth, legal, placeholders
-from app.security import verify_csrf
+from app.security import hide_tokens_in_access_log, limiter, verify_csrf
 from app.services.auth_service import LoginRequired, login_required_response
+from app.templating import templates
 
 SESSION_COOKIE = "unfurl_session"
 # In production the cookie name starts with "__Host-": browsers then accept it only
@@ -20,6 +22,16 @@ SESSION_COOKIE = "unfurl_session"
 # cookie for us ("cookie tossing"). Locally there is no HTTPS, so the plain name is used.
 SESSION_COOKIE_PRODUCTION = "__Host-unfurl_session"
 SESSION_MAX_AGE = 14 * 24 * 60 * 60  # 14 days, in seconds (SPEC §6.1)
+
+
+def rate_limit_response(request: Request, exc: RateLimitExceeded):
+    """Too many requests from one IP address (slowapi limits in app/routers/auth.py)."""
+    return templates.TemplateResponse(
+        request,
+        "auth/message.html",
+        {"heading": "Too many requests", "text": "Please wait a few minutes and try again."},
+        status_code=429,
+    )
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -54,6 +66,13 @@ def create_app(settings: Settings) -> FastAPI:
 
     # Pages that need a login raise LoginRequired; this turns it into a redirect.
     app.add_exception_handler(LoginRequired, login_required_response)
+
+    # Verify and reset tokens are in URLs; keep them out of the access log.
+    hide_tokens_in_access_log()
+
+    # Requests per IP address (slowapi reads the limiter from app.state).
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, rate_limit_response)
 
     # CSS, JS, fonts and images are served from our own origin (no CDNs).
     app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")

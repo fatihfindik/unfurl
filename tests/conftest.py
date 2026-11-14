@@ -9,6 +9,7 @@ import os
 os.environ["APP_ENV"] = "development"
 os.environ["DATABASE_URL"] = "sqlite://"  # in-memory SQLite, nothing written to disk
 os.environ["SCHEDULER_ENABLED"] = "false"
+os.environ["EMAIL_BACKEND"] = "console"  # never SMTP from tests, whatever .env says
 
 from collections.abc import Iterator  # noqa: E402
 
@@ -20,8 +21,18 @@ from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 from app.db import get_session  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
+from app.security import email_limiter, limiter, login_lockout  # noqa: E402
+from app.services import email_service  # noqa: E402
 from app.services.auth_service import create_user  # noqa: E402
 from tests.helpers import USER_EMAIL, USER_PASSWORD, log_in  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def reset_limits():
+    """Limits live in memory for the whole test run; start every test with none used."""
+    login_lockout.reset()
+    email_limiter.reset()
+    limiter.reset()
 
 
 @pytest.fixture
@@ -76,3 +87,20 @@ def auth_client(client, user) -> TestClient:
     """A client that is logged in as `user`."""
     assert log_in(client).status_code == 303
     return client
+
+
+@pytest.fixture
+def outbox(monkeypatch) -> list[email_service.Email]:
+    """Catch emails instead of sending them. Returns the list of "sent" emails.
+
+    Routes call email_service.send_email, so replacing it on the module is enough.
+    TestClient runs background tasks before it returns the response, so the list
+    is already filled when the test checks it.
+    """
+    sent: list[email_service.Email] = []
+
+    async def fake_send_email(email: email_service.Email) -> None:
+        sent.append(email)
+
+    monkeypatch.setattr(email_service, "send_email", fake_send_email)
+    return sent

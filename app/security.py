@@ -2,12 +2,24 @@
 
 - safe_redirect_path(): only same-site paths for `next=` and `back_url` (SPEC §6.1, #4)
 - CSRF: one token per session, checked on every POST/PUT/PATCH/DELETE (SPEC §6.1, D-022)
+- Limits: login lockout, emails per address, requests per IP (SPEC §6.1, D-020)
+- Access log: tokens in URLs are hidden (CLAUDE.md: no tokens in logs)
 """
 
+import logging
+import re
 import secrets
+from collections import OrderedDict
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from urllib.parse import unquote, urlsplit
 
 from fastapi import HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+from app.models.base import utcnow
+from app.models.user import EMAIL_MAX_LENGTH, normalize_email
 
 # --- Redirects ------------------------------------------------------------------
 
@@ -93,3 +105,179 @@ def _tokens_match(sent: str, expected: str) -> bool:
     # compare_digest takes the same time whether the first or the last character is
     # wrong, so the token can't be guessed character by character from response times.
     return secrets.compare_digest(sent.encode(), expected.encode())
+
+
+# --- Limits (SPEC §6.1, D-020) ----------------------------------------------------
+# Kept in memory: a restart clears them and they only work with one app process
+# (D-020). Each store keeps at most MAX_TRACKED_KEYS entries, so someone who tries
+# thousands of different emails can't fill the server's memory.
+
+MAX_TRACKED_KEYS = 10_000
+
+
+def _email_key(email: str) -> str | None:
+    """The email as a counter key, or None for values no account can have."""
+    email = normalize_email(email)
+    if not email or len(email) > EMAIL_MAX_LENGTH:
+        return None
+    return email
+
+
+def _drop_oldest(entries: OrderedDict) -> None:
+    while len(entries) > MAX_TRACKED_KEYS:
+        entries.popitem(last=False)  # the key that was changed least recently
+
+
+# Both stores below keep their keys ordered from least to most recently changed
+# (move_to_end on every change). An entry that changed earlier also runs out earlier,
+# so cleaning up only looks at the oldest entries and stops at the first one still in
+# use: fast, even with thousands of keys.
+
+
+@dataclass
+class _LockoutEntry:
+    failures: list[datetime] = field(default_factory=list)
+    locked_until: datetime | None = None
+
+    def refresh(self, now: datetime, window: timedelta) -> None:
+        """Forget an ended lock and failures older than the window."""
+        if self.locked_until is not None and self.locked_until <= now:
+            self.locked_until = None
+        self.failures = [t for t in self.failures if now - t < window]
+
+    def is_empty(self) -> bool:
+        return self.locked_until is None and not self.failures
+
+
+class LoginLockout:
+    """5 failed logins for the same IP + email within 15 minutes lock that pair
+    for 15 minutes, counted from the 5th failure (SPEC §6.1)."""
+
+    MAX_FAILURES = 5
+    WINDOW = timedelta(minutes=15)
+    LOCK_TIME = timedelta(minutes=15)
+
+    def __init__(self) -> None:
+        self._entries: OrderedDict[tuple[str, str], _LockoutEntry] = OrderedDict()
+
+    def _prune(self, now: datetime) -> None:
+        while self._entries:
+            key, entry = next(iter(self._entries.items()))  # the oldest
+            entry.refresh(now, self.WINDOW)
+            if not entry.is_empty():
+                break
+            del self._entries[key]
+
+    def is_locked(self, ip: str, email: str) -> bool:
+        now = utcnow()
+        self._prune(now)
+        entry = self._entries.get((ip, _email_key(email)))
+        if entry is None:
+            return False
+        entry.refresh(now, self.WINDOW)
+        return entry.locked_until is not None
+
+    def record_failure(self, ip: str, email: str) -> None:
+        email_key = _email_key(email)
+        if email_key is None:
+            return
+        now = utcnow()
+        self._prune(now)
+        entry = self._entries.setdefault((ip, email_key), _LockoutEntry())
+        entry.refresh(now, self.WINDOW)
+        entry.failures.append(now)
+        if len(entry.failures) >= self.MAX_FAILURES:
+            # A fixed lock time: it doesn't end early when old failures leave the window.
+            entry.locked_until = now + self.LOCK_TIME
+            entry.failures = []
+        self._entries.move_to_end((ip, email_key))
+        _drop_oldest(self._entries)
+
+    def clear(self, ip: str, email: str) -> None:
+        """After a successful login."""
+        self._entries.pop((ip, _email_key(email)), None)
+
+    def clear_email(self, email: str) -> None:
+        """After a password reset: the owner proved who they are, on any IP."""
+        email_key = _email_key(email)
+        for key in [key for key in self._entries if key[1] == email_key]:
+            del self._entries[key]
+
+    def reset(self) -> None:
+        self._entries.clear()
+
+
+class EmailLimiter:
+    """At most 3 emails per address per hour (forgot-password, resend; SPEC §6.1)."""
+
+    MAX_EMAILS = 3
+    WINDOW = timedelta(hours=1)
+
+    def __init__(self) -> None:
+        self._sent: OrderedDict[str, list[datetime]] = OrderedDict()
+
+    def _recent(self, email_key: str, now: datetime) -> list[datetime]:
+        return [t for t in self._sent.get(email_key, []) if now - t < self.WINDOW]
+
+    def allow(self, email: str) -> bool:
+        """True (and counted) if another email may be sent to this address now."""
+        email_key = _email_key(email)
+        if email_key is None:
+            return False
+        now = utcnow()
+        while self._sent:
+            key = next(iter(self._sent))  # the oldest
+            if self._recent(key, now):
+                break
+            del self._sent[key]
+
+        sent = self._recent(email_key, now)
+        if len(sent) >= self.MAX_EMAILS:
+            return False
+        self._sent[email_key] = [*sent, now]
+        self._sent.move_to_end(email_key)
+        _drop_oldest(self._sent)
+        return True
+
+    def reset(self) -> None:
+        self._sent.clear()
+
+
+login_lockout = LoginLockout()
+email_limiter = EmailLimiter()
+
+# Requests per IP address (slowapi). Routes use it as a decorator, for example
+# @limiter.limit("10/minute"); the route must have a `request: Request` parameter.
+# Behind a proxy, the real IP needs uvicorn's --proxy-headers (deploy, M13).
+limiter = Limiter(key_func=get_remote_address)
+
+
+def client_ip(request: Request) -> str:
+    return get_remote_address(request)
+
+
+# --- Access log -------------------------------------------------------------------
+# uvicorn writes every request's path, query string included, to the "uvicorn.access"
+# log. Verify and reset links have their token there (/reset-password?token=...), and
+# a reset token in a log file would let anyone who reads the log take over the account.
+
+_TOKEN_IN_URL = re.compile(r"(token=)[^&\s]+")
+
+
+class HideTokensFilter(logging.Filter):
+    """Replaces every `token=...` value in a log line's arguments with `token=***`."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                _TOKEN_IN_URL.sub(r"\1***", arg) if isinstance(arg, str) else arg
+                for arg in record.args
+            )
+        return True  # keep the line, only changed
+
+
+def hide_tokens_in_access_log() -> None:
+    """Add HideTokensFilter to uvicorn's access log (once, even if called again)."""
+    access_log = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, HideTokensFilter) for f in access_log.filters):
+        access_log.addFilter(HideTokensFilter())

@@ -62,3 +62,42 @@
 - SPEC: yes, v2.1.3 (M1 split into M1a/M1b, auth rules in §6.1, `session_version`).
 - WORKFLOW: yes, to do in the retro: new roles (§1, §4) and the
   `plan-reviewer` subagent.
+
+## M1b — Auth email flows (2026-11-14)
+
+**What I learned**
+- A link can carry its own proof. Verify and reset tokens are signed with the
+  secret key: anyone can read them, nobody can change or forge them, so the
+  database doesn't store them. A different "salt" per purpose means a verify
+  link can never reset a password.
+- A reset link can be single use without a table: it carries a fingerprint of
+  the current password hash, so it stops working the moment the password changes.
+- Security can depend on timing. Sending the email after the response means
+  "forgot password" takes the same time for known and unknown emails, so nobody
+  can find out which emails have an account.
+- Reviews catch what the author can't see. `plan-reviewer` found that my lockout
+  could end after 1 minute instead of 15 (before any code was written);
+  `security-reviewer` found reset tokens in the server log. Its first fix would
+  not have worked, so a reviewer's suggestion needs checking too.
+- Tests can fake the outside world: monkeypatch swaps the email sender for a
+  list (`outbox`), freezegun moves the clock 48 hours forward, and an autouse
+  fixture resets the in-memory counters before every test.
+
+**What was hard**
+- Many new security ideas at once (tokens, salt, enumeration, lockout). I needed
+  them explained from the beginning before I could follow the decisions.
+- It was not always clear why a step was needed (updating the README, how much
+  of the manual test to do).
+- Many approval stops in one session.
+
+**What I will do differently**
+- Ask for a short plain-language explanation of the new ideas at the start of
+  the milestone, not at the end.
+- Keep the manual test short: look at the screens and the main flow; the
+  automated tests cover the rules.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.4 (§6.1: fixed 15-minute lock, forgot-password limit per IP,
+  after a reset the email counts as verified and the lockout is cleared).
+- WORKFLOW: maybe, to discuss in the retro: define the manual acceptance test
+  as a short check of screens and main flows.

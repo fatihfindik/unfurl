@@ -92,6 +92,9 @@
     </div>
 
     <main class="flex min-w-0 flex-1 flex-col">
+      {%- if current_user and not current_user.is_verified %}
+        {% include "components/verify_banner.html" %}
+      {%- endif %}
       {% block content %}{% endblock %}
     </main>
     {{ legal_links("px-4 py-4 md:px-8") }}

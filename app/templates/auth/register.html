@@ -10,9 +10,10 @@
     <h2 class="m-0 text-2xl font-bold">Create your free account</h2>
 
     {%- if email_taken %}
-      {#- D-023: say it plainly. The "Forgot password?" link comes with password reset in M1b. -#}
+      {#- D-023: say it plainly, with Sign in and Forgot password links. -#}
       <p role="alert" class="m-0 rounded-[10px] bg-red-bg px-3 py-2.5 text-sm font-medium text-red-text">
         An account with this email already exists. <a href="/login" class="font-semibold text-red-text underline">Sign in</a>
+        or <a href="/forgot-password" class="font-semibold text-red-text underline">reset your password</a>.
       </p>
     {%- endif %}
 
