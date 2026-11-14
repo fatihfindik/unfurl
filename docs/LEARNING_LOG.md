@@ -28,7 +28,7 @@
 - SPEC: yes. v2.1.1 (focus ring on all interactive elements) and v2.1.2 (theme picker as a single icon + dropdown). The claude.ai project copy will be refreshed after the merge.
 - WORKFLOW: yes. The §6 learning log template is now in English.
 
-## M1a — Auth core (2026-11-13 – )
+## M1a — Auth core (2026-11-13 – 2026-11-14)
 
 **What I learned**
 - A spec that looks clear is not always ready. A second review found 8 open
