@@ -60,7 +60,7 @@
     and, after a move, focus = (row id, direction). -#}
 {% macro item_actions(section, item, label) %}
   {%- set url = "/profile/" ~ section.key ~ "/" ~ item.id %}
-  <div class="flex shrink-0 items-center gap-3 text-sm font-semibold">
+  <div class="flex shrink-0 items-center gap-1 text-sm font-semibold">
     {%- if section.sortable and not (is_first and is_last) %}
       {#- After a move the focus goes back to the pressed button. If that button is now
           turned off (the row reached the top or bottom), it goes to the other one. -#}
@@ -70,14 +70,18 @@
       {#- Shown only while the row is hovered or has keyboard focus, so mouse users see
           a clean row (they drag the grip). opacity, not display: none, so Tab still
           reaches the buttons and shows them. Touch screens can't hover: always shown. -#}
-      <div class="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+      <div class="mr-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
         {{ move_button(url, section, "up", label, is_first, pressed == "up") }}
         {{ move_button(url, section, "down", label, is_last, pressed == "down") }}
       </div>
     {%- endif %}
-    <button type="button" class="text-link hover:underline"
-            hx-get="{{ url }}/edit" hx-target="closest li" hx-swap="outerHTML">Edit<span class="sr-only"> {{ label }}</span></button>
-    <button type="button" class="text-red-text hover:underline"
-            hx-delete="{{ url }}" hx-target="#profile-{{ section.key }}" hx-swap="outerHTML">Delete<span class="sr-only"> {{ label }}</span></button>
+    {#- Icon buttons (pencil, trash). Screen readers read the hidden text ("Edit Senior
+        PM at Acme"); `title` shows a tooltip for mouse users. -#}
+    <button type="button" title="Edit"
+            class="inline-flex size-7 items-center justify-center rounded-md text-text-2 hover:bg-muted hover:text-text"
+            hx-get="{{ url }}/edit" hx-target="closest li" hx-swap="outerHTML">{{ icon("edit") }}<span class="sr-only">Edit {{ label }}</span></button>
+    <button type="button" title="Delete"
+            class="inline-flex size-7 items-center justify-center rounded-md text-red-text hover:bg-red-bg"
+            hx-delete="{{ url }}" hx-target="#profile-{{ section.key }}" hx-swap="outerHTML">{{ icon("trash") }}<span class="sr-only">Delete {{ label }}</span></button>
   </div>
 {% endmacro %}

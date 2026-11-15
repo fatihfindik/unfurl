@@ -107,6 +107,17 @@
   </button>
 {% endmacro %}
 
+{#- A square button with only an icon, for the card headings ("+" to add, pencil to
+    edit). The heading next to it says what it is about; `label` is read by screen
+    readers ("Add education") and shown as a tooltip. hx_get works as in secondary_button. -#}
+{% macro icon_button(icon_name, label, hx_get, hx_target, hx_swap="outerHTML") %}
+  {%- from "components/icons.html" import icon %}
+  <button type="button" title="{{ label }}" hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="{{ hx_swap }}"
+          class="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border-strong bg-surface text-text hover:bg-muted">
+    {{ icon(icon_name) }}<span class="sr-only">{{ label }}</span>
+  </button>
+{% endmacro %}
+
 {#- size="lg" for full-width auth forms; size="sm" sits next to a secondary_button
     (Save + Cancel) and has the same height. -#}
 {% macro primary_button(label, type="submit", size="lg") %}

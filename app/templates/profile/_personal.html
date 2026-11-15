@@ -1,4 +1,4 @@
-{%- from "components/forms.html" import secondary_button -%}
+{%- from "components/forms.html" import icon_button -%}
 {%- from "components/icons.html" import icon -%}
 {#- Personal info, read view, like a business card (D-041): photo, name and headline,
     then only the contact details that are filled in, then a short hint for the empty
@@ -23,7 +23,7 @@
          class="flex flex-col gap-4 rounded-xl border border-border bg-surface p-5">
   <div class="flex items-center justify-between gap-3">
     <h2 id="profile-personal-title" class="m-0 text-base font-bold">Personal info</h2>
-    {{ secondary_button("Edit", hx_get="/profile/personal/edit", hx_target="#profile-personal") }}
+    {{ icon_button("edit", "Edit personal info", hx_get="/profile/personal/edit", hx_target="#profile-personal") }}
   </div>
 
   <div class="flex items-start gap-4">
