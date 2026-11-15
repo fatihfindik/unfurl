@@ -26,10 +26,17 @@ SESSION_MAX_AGE = 14 * 24 * 60 * 60  # 14 days, in seconds (SPEC §6.1)
 
 def rate_limit_response(request: Request, exc: RateLimitExceeded):
     """Too many requests from one IP address (slowapi limits in app/routers/auth.py)."""
+    # exc.detail is the limit that was hit, e.g. "10 per 1 minute" (login) or
+    # "5 per 1 hour" (register, forgot password). Every try counts, also the ones
+    # with a form error, so for the hourly limits the wait can be up to an hour.
+    if "hour" in exc.detail:
+        text = "Please try again in an hour."
+    else:
+        text = "Please wait a few minutes and try again."
     return templates.TemplateResponse(
         request,
         "auth/message.html",
-        {"heading": "Too many requests", "text": "Please wait a few minutes and try again."},
+        {"heading": "Too many requests", "text": text},
         status_code=429,
     )
 
