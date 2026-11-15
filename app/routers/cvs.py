@@ -4,6 +4,7 @@ The rules for masters, versions and locks are in app/services/document_service.p
 the routes here only read forms, call the service and pick the template.
 """
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -18,11 +19,13 @@ from app.models import CVDocument, User
 from app.models.cv import CV_LANGUAGES, CV_TEMPLATES
 from app.schemas.cv import CV_SECTIONS, LANGUAGE_NAMES, CVContent, CVEditForm, NewCVForm
 from app.schemas.profile import form_errors
+from app.security import limiter
 from app.services import document_service, pdf_service, profile_service
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
 
 router = APIRouter(dependencies=[Depends(require_user)])
+logger = logging.getLogger("unfurl.cvs")
 
 DbSession = Annotated[Session, Depends(get_session)]
 RequiredUser = Annotated[User, Depends(require_user)]
@@ -283,3 +286,28 @@ def cv_delete(request: Request, session: DbSession, user: RequiredUser, cv_id: s
             request, f"This master has {exc.copies} {word}. Delete the {word} first."
         )
     return go_to(request, "/documents")
+
+
+# --- PDF (D-057) ------------------------------------------------------------------
+
+
+@router.get("/cvs/{cv_id}/pdf")
+@limiter.limit("20/minute")  # making a PDF takes CPU time
+def cv_pdf(request: Request, session: DbSession, user: RequiredUser, cv_id: str):
+    """Download the CV as PDF. Locked copies too: that is the CV that was sent."""
+    cv = document_service.get_owned_cv(session, user, cv_id)
+    try:
+        pdf = pdf_service.render_cv_pdf(cv)
+    except pdf_service.PDFError as exc:
+        # Only the kind of error goes to the log, never the CV's content.
+        logger.warning("CV PDF failed (cv %s): %s", cv.id, exc)
+        context = {"cv": cv}
+        return templates.TemplateResponse(request, "cvs/pdf_error.html", context, status_code=503)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": pdf_service.content_disposition(cv),
+            "Cache-Control": "private, no-store",
+        },
+    )

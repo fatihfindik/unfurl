@@ -56,6 +56,9 @@
           "Duplicate" comes back with M4 (copy for another application); without
           applications it would do the same as "Save as new version" (D-050). -#}
       {%- set icon_button_class = "inline-flex size-9 items-center justify-center rounded-lg border border-border-strong bg-surface text-text hover:bg-muted" %}
+      {#- A link, so it works without JavaScript too; app.js first saves a pending
+          edit, so the PDF has the latest text (D-057). -#}
+      <a href="/cvs/{{ cv.id }}/pdf" data-tooltip="Download PDF" data-cv-download class="{{ icon_button_class }} no-underline">{{ icon("download") }}<span class="sr-only">Download PDF</span></a>
       {%- if not cv.is_locked %}
         <button type="button" data-tooltip="Save as new version" class="{{ icon_button_class }}"
                 hx-post="/cvs/{{ cv.id }}/versions" hx-target="#cv-action-message">{{ icon("new-version") }}<span class="sr-only">Save as new version</span></button>

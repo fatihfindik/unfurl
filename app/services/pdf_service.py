@@ -9,9 +9,11 @@ system library, and the rest of the app (and most tests) don't.
 """
 
 import os
+import re
 import sys
+import unicodedata
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from urllib.request import url2pathname
 
 from app.i18n.document_labels import labels
@@ -112,3 +114,41 @@ def render_cv_pdf(cv: CVDocument) -> bytes:
         return html.write_pdf()
     except Exception as exc:  # Pango missing, broken CSS, …: never a 500 with details
         raise PDFError(type(exc).__name__) from exc
+
+
+# --- File name (D-057) --------------------------------------------------------------
+
+# Letters that NFKD can't turn into plain ASCII (ı has no "i + accent" form).
+_ASCII_LETTERS = str.maketrans(
+    {"ı": "i", "İ": "I", "ß": "ss", "ğ": "g", "Ğ": "G", "ø": "o", "Ø": "O"}
+)
+_NOT_SAFE = re.compile(r"[^A-Za-z0-9_-]+")
+MAX_NAME = 80
+
+
+def pdf_filename(cv: CVDocument) -> tuple[str, str]:
+    """The download name, from the name on the CV (so a sent CV keeps the name it
+    was sent with): ("CV_Fatih_Findik_en.pdf", "CV_Fatih_Fındık_en.pdf").
+
+    The first is plain ASCII for old browsers; the second keeps the real letters
+    (sent as filename*=UTF-8''…). Only letters, digits, "_" and "-" survive, so
+    quotes, slashes, ";" or line breaks in a name can't break the header.
+    The company name comes in M4.
+    """
+    name = CVContent.model_validate(cv.content).personal.full_name or ""
+    ascii_name = unicodedata.normalize("NFKD", name.translate(_ASCII_LETTERS))
+    ascii_name = ascii_name.encode("ascii", "ignore").decode()
+    ascii_name = _NOT_SAFE.sub("_", ascii_name).strip("_")[:MAX_NAME]
+    real_name = re.sub(r"[^\w-]+", "_", name).strip("_")[:MAX_NAME]
+    language = cv.language if cv.language.isalpha() else "cv"
+
+    def file(part: str) -> str:
+        return f"CV_{part}_{language}.pdf" if part else f"CV_{language}.pdf"
+
+    return file(ascii_name), file(real_name)
+
+
+def content_disposition(cv: CVDocument) -> str:
+    """The Content-Disposition header for downloading the PDF (RFC 6266)."""
+    ascii_name, real_name = pdf_filename(cv)
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(real_name, safe='')}"

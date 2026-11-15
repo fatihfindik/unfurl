@@ -96,7 +96,7 @@ def test_editor_shows_form_and_preview(auth_client, copy):
 def test_later_buttons_are_not_shown_yet(auth_client, copy):
     page = auth_client.get(f"/cvs/{copy.id}").text
 
-    for later in ["Tailor to a job", "Edit with assistant", "Download PDF"]:
+    for later in ["Tailor to a job", "Edit with assistant"]:  # Download PDF is here since M3b
         assert later not in page
 
 
