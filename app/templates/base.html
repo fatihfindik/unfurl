@@ -96,7 +96,8 @@
       {%- endif %}
       {% block content %}{% endblock %}
     </main>
-    {{ legal_links("px-4 py-4 md:px-8") }}
+    {#- Bottom right on app pages (issue #25); auth and legal pages keep their own place. -#}
+    {{ legal_links("justify-end px-4 py-4 md:px-8") }}
   </div>
 
   {{ toast_region() }}

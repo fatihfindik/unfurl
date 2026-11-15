@@ -44,3 +44,9 @@ def test_register_consent_links_point_to_real_pages(client):
     for url in ("/privacy", "/terms"):
         assert f'<a href="{url}">' in html
         assert client.get(url).status_code == 200
+
+
+def test_app_pages_put_the_legal_links_bottom_right(auth_client):
+    html = auth_client.get("/").text
+    footer = html[html.index("<footer") :]
+    assert "justify-end" in footer[: footer.index(">")]

@@ -259,6 +259,6 @@ Kaynak: Design fazı (`docs/plans/M2b.md`), `plan-reviewer`, Fatih onayı.
 - **Alternatifler:** Her yanıta out-of-band (`hx-swap-oob`) kart eklemek.
 
 ### D-041 · Personal info kartı yeniden tasarımı M2b'de
-- **Karar:** Fotoğraf Personal info kartına girdiği için kartın görünümü M2b'de yenilenir: ad + headline büyük, fotoğraf solda, dolu iletişim bilgileri tek satırda ikonlarla, boş alanlar yerine kısa ipucu, DACH bilgileri soluk satırda. Düzenleme formu değişmez. SPEC §6.4 görünümü tanımlamadığı için SPEC değişmez. Uygulama footer'ının yeri ayrı issue.
+- **Karar:** Fotoğraf Personal info kartına girdiği için kartın görünümü M2b'de yenilenir: ad + headline büyük, fotoğraf solda, dolu iletişim bilgileri tek satırda ikonlarla, boş alanlar yerine kısa ipucu, DACH bilgileri soluk satırda. Düzenleme formu değişmez. SPEC §6.4 görünümü tanımlamadığı için SPEC değişmez. Uygulama footer'ı ilk önce ayrı issue'ya (#25) bırakılmıştı; değişiklik tek satır çıkınca M2b'de yapıldı (linkler sağ altta, Fatih, 2026-11-15).
 - **Gerekçe:** M2a manuel testinde kart uzun bulundu (10 satır, çoğu "Not added"); aynı kart, aynı test turu (Fatih, 2026-11-15).
 - **Alternatifler:** Tasarımı ayrı bir işe bırakmak.
