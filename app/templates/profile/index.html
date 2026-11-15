@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "components/page_header.html" import page_header %}
+
+{% block title %}My profile{% endblock %}
+
+{#- docs/prototype/Profile.dc.html. Each section is its own htmx fragment
+    (profile/_*.html): Edit loads its form, Save swaps the section back in. -#}
+{% block content %}
+  {{ page_header(
+       "My profile",
+       subtitle="Your source data. Master documents and fit analysis are built from it. Copies you already sent never change.",
+       back_url="/documents",
+       back_label="Documents",
+     ) }}
+  {#- max-w-[1240px] as in the prototype, so the page does not stretch on wide screens. -#}
+  <div class="grid max-w-[1240px] gap-5 px-4 pt-5 pb-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <div class="flex min-w-0 flex-col gap-5">
+      {% include "profile/_personal.html" %}
+      {% include "profile/_summary.html" %}
+      {%- for context in main_sections %}
+        {%- with section=context.section, items=context["items"], new_form=None,
+                 language_levels=context.language_levels, skill_levels=context.skill_levels %}
+          {% include "profile/_section.html" %}
+        {%- endwith %}
+      {%- endfor %}
+    </div>
+    {#- Right column; Profile strength comes here in M2b. -#}
+    <div class="flex min-w-0 flex-col gap-5">
+      {%- for context in side_sections %}
+        {%- with section=context.section, items=context["items"], new_form=None,
+                 language_levels=context.language_levels, skill_levels=context.skill_levels %}
+          {% include "profile/_section.html" %}
+        {%- endwith %}
+      {%- endfor %}
+    </div>
+  </div>
+{% endblock %}

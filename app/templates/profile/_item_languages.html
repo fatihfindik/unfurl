@@ -1,0 +1,6 @@
+{%- from "profile/_macros.html" import item_actions with context -%}
+<li id="profile-languages-{{ item.id }}" class="flex items-center justify-between gap-3 py-2.5">
+  <span class="text-sm"><span class="font-semibold">{{ item.language }}</span>
+    <span class="ml-1 text-text-3">{{ "Native" if item.level == "native" else item.level }}</span></span>
+  {{ item_actions(section, item, item.language) }}
+</li>

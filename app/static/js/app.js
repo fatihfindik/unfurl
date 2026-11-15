@@ -121,6 +121,21 @@ document.addEventListener("alpine:init", () => {
     },
   });
 
+  // Experience bullets on /profile: one input per bullet (all named "bullets").
+  // The server renders the saved bullets; "Add bullet" copies the empty row from the
+  // <template>, × removes a row. Empty rows are ignored by the server.
+  // (The CSP build can't pass data into x-data, so the rows start in the HTML.)
+  Alpine.data("bulletList", () => ({
+    add() {
+      const row = this.$refs.template.content.firstElementChild.cloneNode(true);
+      this.$refs.list.appendChild(row);
+      row.querySelector("input")?.focus();
+    },
+    remove(event) {
+      event.target.closest("li")?.remove();
+    },
+  }));
+
   // The toast element in base.html reads the store through these getters
   // (the CSP build of Alpine only allows simple names in HTML attributes).
   Alpine.data("toast", () => ({
@@ -166,6 +181,12 @@ document.addEventListener("input", (event) => {
   } else {
     field.removeAttribute("aria-describedby");
   }
+});
+
+// An htmx request that fails (403 when the CSRF token is out of date, 500 on a server
+// error) changes nothing on the page. Without this the user would see no reaction at all.
+document.addEventListener("htmx:responseError", () => {
+  Alpine.store("toast").show("Something went wrong. Please reload the page.");
 });
 
 // Modals and drawers are native <dialog> elements (templates/components/).

@@ -1,2 +1,11 @@
-{#- Replaces the "Resend email" button after an htmx resend (see components/resend.html). -#}
-<p role="status" class="m-0 text-sm font-medium">{{ message }}</p>
+{#- Replaces the "Resend email" button after a resend (see components/resend.html).
+    `sent` is True when the email went out: a green badge with a check mark, so it
+    does not look like the button it replaces. Otherwise (rate limit) plain text. -#}
+{%- from "components/icons.html" import icon %}
+{%- if sent %}
+  <p role="status" class="m-0 inline-flex items-center gap-1.5 rounded-full bg-green-bg px-2.5 py-0.5 text-sm font-medium text-green-text">
+    {{ icon("check") }}{{ message }}
+  </p>
+{%- else %}
+  <p role="status" class="m-0 text-sm font-medium">{{ message }}</p>
+{%- endif %}

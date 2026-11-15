@@ -1,0 +1,15 @@
+{%- from "profile/_macros.html" import item_form with context -%}
+{%- from "components/forms.html" import text_field, textarea_field, checkbox_field -%}
+{%- set prefix = "education-" ~ (item.id if item else "new") -%}
+{% call item_form(section, item, errors) %}
+  {{ text_field("institution", "School or university", value=values.institution, error=errors.institution, maxlength=200, id_prefix=prefix, placeholder="TU Wien") }}
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ text_field("degree", "Degree", value=values.degree, error=errors.degree, maxlength=200, required=False, id_prefix=prefix, placeholder="M.Sc.") }}
+    {{ text_field("field", "Field of study", value=values.field, error=errors.field, maxlength=200, required=False, id_prefix=prefix, placeholder="Industrial Engineering") }}
+    {{ text_field("start_date", "Start", type="month", value=values.start_date, error=errors.start_date, id_prefix=prefix, placeholder="YYYY-MM") }}
+    {{ text_field("end_date", "End", type="month", value=values.end_date, error=errors.end_date, required=False, id_prefix=prefix, placeholder="YYYY-MM") }}
+  </div>
+  {{ checkbox_field("ongoing", "I am still studying here", checked=values.ongoing in (True, "yes", "on"), required=False, id_prefix=prefix) }}
+  {{ text_field("location", "Location", value=values.location, error=errors.location, maxlength=200, required=False, id_prefix=prefix) }}
+  {{ textarea_field("description", "Description", value=values.description, error=errors.description, maxlength=5000, rows=3, id_prefix=prefix) }}
+{% endcall %}

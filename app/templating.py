@@ -48,5 +48,17 @@ templates = Jinja2Templates(
     directory=TEMPLATES_DIR, context_processors=[theme_context, request_context]
 )
 
+
+def month_year(value) -> str:
+    """A profile date as CVs show it: 1 March 2021 -> "03/2021" (D-033)."""
+    return value.strftime("%m/%Y") if value else ""
+
+
+def is_htmx(request: Request) -> bool:
+    """True for requests sent by htmx (they want a piece of a page, not a whole page)."""
+    return request.headers.get("HX-Request") == "true"
+
+
 # Functions templates can call. safe_redirect_path keeps back_url links on this site.
 templates.env.globals["safe_redirect_path"] = safe_redirect_path
+templates.env.filters["month_year"] = month_year

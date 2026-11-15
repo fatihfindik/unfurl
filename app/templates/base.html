@@ -79,8 +79,7 @@
               <p class="m-0 truncate text-xs text-text-3">{{ current_user.email }}</p>
             </div>
           {%- endif %}
-          {#- My profile comes in M2. -#}
-          <span aria-disabled="true" class="px-4 py-[11px] text-sm text-text-3">My profile</span>
+          <a href="/profile" class="px-4 py-[11px] text-sm text-text no-underline hover:bg-muted">My profile</a>
           <a href="/settings" class="px-4 py-[11px] text-sm text-text no-underline hover:bg-muted">Settings</a>
           {#- Log out is a POST with the CSRF token, never a link (SPEC §6.1). -#}
           <form method="post" action="/logout" class="m-0 border-t border-muted">

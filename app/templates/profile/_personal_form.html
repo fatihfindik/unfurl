@@ -1,0 +1,33 @@
+{%- from "components/forms.html" import csrf_field, text_field, primary_button, secondary_button -%}
+{#- Personal info, edit form. `values` holds the text to show, `errors` one message per field. -#}
+<section id="profile-personal" aria-labelledby="profile-personal-title"
+         class="flex flex-col gap-4 rounded-xl border border-border bg-surface p-5">
+  <h2 id="profile-personal-title" class="m-0 text-base font-bold">Personal info</h2>
+  <form hx-post="/profile/personal" hx-target="#profile-personal" hx-swap="outerHTML"
+        class="m-0 flex flex-col gap-4" novalidate>
+    {{ csrf_field(csrf_token) }}
+    <div class="grid gap-4 sm:grid-cols-2">
+      {{ text_field("full_name", "Full name", value=values.full_name, error=errors.full_name, autocomplete="name", maxlength=200, id_prefix="personal") }}
+      {{ text_field("headline", "Headline", value=values.headline, error=errors.headline, maxlength=200, required=False, id_prefix="personal", placeholder="Senior Product Manager") }}
+      {{ text_field("email", "Email", type="email", value=values.email, error=errors.email, autocomplete="email", maxlength=320, required=False, id_prefix="personal") }}
+      {{ text_field("phone", "Phone", type="tel", value=values.phone, error=errors.phone, autocomplete="tel", maxlength=200, required=False, id_prefix="personal") }}
+      {{ text_field("location", "Location", value=values.location, error=errors.location, maxlength=200, required=False, id_prefix="personal", placeholder="Vienna, Austria") }}
+      {{ text_field("website", "Website", type="url", value=values.website, error=errors.website, maxlength=500, required=False, id_prefix="personal", placeholder="https://") }}
+      {{ text_field("linkedin_url", "LinkedIn", type="url", value=values.linkedin_url, error=errors.linkedin_url, maxlength=500, required=False, id_prefix="personal", placeholder="https://www.linkedin.com/in/…") }}
+      {{ text_field("github_url", "GitHub", type="url", value=values.github_url, error=errors.github_url, maxlength=500, required=False, id_prefix="personal", placeholder="https://github.com/…") }}
+    </div>
+    {#- Open by itself when one of these fields has an error. -#}
+    <details class="rounded-lg border border-border p-3"{% if errors.date_of_birth or errors.nationality or values.date_of_birth or values.nationality %} open{% endif %}>
+      <summary class="cursor-pointer text-sm font-semibold text-text-2">Optional for DACH CVs: date of birth, nationality</summary>
+      <p class="mt-2 mb-3 text-xs text-text-3">These are never sent to the AI and are hidden on CVs by default.</p>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {{ text_field("date_of_birth", "Date of birth", type="date", value=values.date_of_birth, error=errors.date_of_birth, required=False, id_prefix="personal", placeholder="YYYY-MM-DD") }}
+        {{ text_field("nationality", "Nationality", value=values.nationality, error=errors.nationality, maxlength=200, required=False, id_prefix="personal") }}
+      </div>
+    </details>
+    <div class="flex gap-2">
+      {{ primary_button("Save", size="sm") }}
+      {{ secondary_button("Cancel", hx_get="/profile/personal", hx_target="#profile-personal") }}
+    </div>
+  </form>
+</section>

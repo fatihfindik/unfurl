@@ -138,6 +138,7 @@ def test_login_allows_10_requests_per_minute_per_ip(client):
     response = fail(client, email="user10@example.com")
     assert response.status_code == 429
     assert "Too many requests" in response.text
+    assert "a few minutes" in response.text
 
 
 def test_register_allows_5_requests_per_hour_per_ip(client):
@@ -147,4 +148,6 @@ def test_register_allows_5_requests_per_hour_per_ip(client):
 
     for i in range(5):
         assert register(i).status_code == 400  # invalid form, but it counts
-    assert register(5).status_code == 429
+    response = register(5)
+    assert response.status_code == 429
+    assert "try again in an hour" in response.text

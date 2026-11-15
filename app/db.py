@@ -5,9 +5,30 @@ The schema is managed only by Alembic migrations; this module never creates tabl
 
 from collections.abc import Iterator
 
+from sqlalchemy import Engine, event
 from sqlmodel import Session, create_engine
 
 from app.config import get_settings
+
+
+def enable_sqlite_foreign_keys(engine: Engine) -> None:
+    """Make SQLite check foreign keys and run ON DELETE CASCADE, like Postgres (D-034).
+
+    SQLite skips both unless every new connection runs `PRAGMA foreign_keys=ON`.
+    Only call this for the app engine and the test engine, never for Alembic
+    (alembic/env.py) and never on the Engine class itself: SQLite migrations rebuild
+    a table by copying it and dropping the old one, and with foreign keys on that
+    drop would also delete every row that points to it (e.g. all profiles).
+    """
+    if engine.dialect.name != "sqlite":
+        return
+
+    @event.listens_for(engine, "connect")
+    def turn_on_foreign_keys(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
 
 settings = get_settings()
 
@@ -16,6 +37,7 @@ settings = get_settings()
 connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
 
 engine = create_engine(settings.database_url, connect_args=connect_args)
+enable_sqlite_foreign_keys(engine)
 
 
 def get_session() -> Iterator[Session]:

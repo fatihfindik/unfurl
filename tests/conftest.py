@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 
-from app.db import get_session  # noqa: E402
+from app.db import enable_sqlite_foreign_keys, get_session  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
 from app.security import email_limiter, limiter, login_lockout  # noqa: E402
@@ -48,6 +48,7 @@ def engine():
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
+    enable_sqlite_foreign_keys(engine)  # like the app (D-034)
     SQLModel.metadata.create_all(engine)
     yield engine
     engine.dispose()

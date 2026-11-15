@@ -1,0 +1,8 @@
+{%- from "profile/_macros.html" import item_form with context -%}
+{%- from "components/forms.html" import text_field, textarea_field -%}
+{%- set prefix = "projects-" ~ (item.id if item else "new") -%}
+{% call item_form(section, item, errors) %}
+  {{ text_field("name", "Name", value=values.name, error=errors.name, maxlength=200, id_prefix=prefix) }}
+  {{ text_field("url", "Link", type="url", value=values.url, error=errors.url, maxlength=500, required=False, id_prefix=prefix, placeholder="https://") }}
+  {{ textarea_field("description", "Description", value=values.description, error=errors.description, maxlength=5000, rows=3, id_prefix=prefix) }}
+{% endcall %}

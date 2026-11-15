@@ -42,6 +42,7 @@ def test_fourth_resend_with_htmx_shows_the_message_with_200(auth_client, outbox)
     response = resend(auth_client, htmx=True)
     assert response.status_code == 200
     assert WAIT_MESSAGE in response.text
+    assert "bg-green-bg" not in response.text  # nothing was sent, so no success badge
     assert len(outbox) == 3
 
 

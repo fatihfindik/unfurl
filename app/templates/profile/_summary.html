@@ -1,0 +1,14 @@
+{%- from "components/forms.html" import secondary_button -%}
+<section id="profile-summary" aria-labelledby="profile-summary-title"
+         class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+  <div class="flex items-center justify-between gap-3">
+    <h2 id="profile-summary-title" class="m-0 text-base font-bold">Summary</h2>
+    {{ secondary_button("Edit", hx_get="/profile/summary/edit", hx_target="#profile-summary") }}
+  </div>
+  {%- if profile.summary %}
+    {#- whitespace-pre-line keeps the user's line breaks; the text itself is escaped. -#}
+    <p class="m-0 whitespace-pre-line text-sm leading-relaxed text-text-2">{{ profile.summary }}</p>
+  {%- else %}
+    <p class="m-0 text-sm text-text-3">Add 2–3 sentences about your experience and what you are looking for.</p>
+  {%- endif %}
+</section>

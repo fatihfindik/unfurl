@@ -1,0 +1,8 @@
+{%- from "profile/_macros.html" import item_form with context -%}
+{%- from "components/forms.html" import text_field, select_field -%}
+{%- set prefix = "skills-" ~ (item.id if item else "new") -%}
+{% call item_form(section, item, errors) %}
+  {{ text_field("name", "Skill", value=values.name, error=errors.name, maxlength=200, id_prefix=prefix, placeholder="Product discovery") }}
+  {{ text_field("category", "Category", value=values.category, error=errors.category, maxlength=200, required=False, id_prefix=prefix, placeholder="Tools") }}
+  {{ select_field("level", "Level", skill_levels, value=values.level, error=errors.level, placeholder="No level", id_prefix=prefix) }}
+{% endcall %}

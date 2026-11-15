@@ -1,0 +1,30 @@
+{%- from "components/forms.html" import secondary_button -%}
+{#- Personal info, read view. The name is the account's name (User.full_name). -#}
+{%- set rows = [
+  ("Full name", user.full_name),
+  ("Headline", profile.headline),
+  ("Email", profile.email),
+  ("Phone", profile.phone),
+  ("Location", profile.location),
+  ("Website", profile.website),
+  ("LinkedIn", profile.linkedin_url),
+  ("GitHub", profile.github_url),
+  ("Date of birth", profile.date_of_birth.isoformat() if profile.date_of_birth else None),
+  ("Nationality", profile.nationality),
+] -%}
+<section id="profile-personal" aria-labelledby="profile-personal-title"
+         class="flex flex-col gap-4 rounded-xl border border-border bg-surface p-5">
+  <div class="flex items-center justify-between gap-3">
+    <h2 id="profile-personal-title" class="m-0 text-base font-bold">Personal info</h2>
+    {{ secondary_button("Edit", hx_get="/profile/personal/edit", hx_target="#profile-personal") }}
+  </div>
+  <dl class="m-0 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+    {%- for label, value in rows %}
+      <div class="flex min-w-0 flex-col gap-0.5">
+        <dt class="text-xs font-semibold text-text-3">{{ label }}</dt>
+        {#- Links are shown as text, never as clickable href (they are user input). -#}
+        <dd class="m-0 break-words text-sm {{ 'text-text' if value else 'text-text-3' }}">{{ value or "Not added" }}</dd>
+      </div>
+    {%- endfor %}
+  </dl>
+</section>
