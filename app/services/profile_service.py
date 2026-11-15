@@ -137,6 +137,39 @@ def delete_item(session: Session, item: SQLModel) -> None:
     session.commit()
 
 
+def _write_order(session: Session, items: list) -> None:
+    """Number the rows 1, 2, 3, ... in the given order (not committed yet)."""
+    for number, row in enumerate(items, start=1):
+        row.sort_order = number
+        session.add(row)
+
+
+def move_item(
+    session: Session, profile: Profile, model: type[SQLModel], item: SQLModel, direction: str
+) -> bool:
+    """Move a row one place up or down (the ↑ / ↓ buttons, SPEC §6.4).
+
+    Returns False when nothing changed: the first row can't go up, the last row
+    can't go down, and an unknown direction is ignored. Then the version stays the same.
+    """
+    if direction not in ("up", "down"):
+        return False
+    items = list_items(session, profile, model)
+    index = next(i for i, row in enumerate(items) if row.id == item.id)
+    other = index - 1 if direction == "up" else index + 1
+    if not 0 <= other < len(items):
+        return False
+
+    # Swap the two rows in the list, then number the whole list again. Swapping only
+    # their sort_order would do nothing if two rows had the same number (two rows
+    # added at the same moment can get the same max + 1).
+    items[index], items[other] = items[other], items[index]
+    _write_order(session, items)
+    _touch(session, profile.id)
+    session.commit()
+    return True
+
+
 def update_personal_info(
     session: Session, user: User, profile: Profile, form: PersonalInfoForm
 ) -> None:

@@ -193,6 +193,7 @@ class Section:
     form: type[BaseModel]  # the form check (app/schemas/profile.py)
     empty_text: str  # shown when the section has no rows yet
     list_fields: tuple[str, ...] = ()  # form fields sent several times (e.g. bullets)
+    sortable: bool = False  # the user can change the order (↑ / ↓, drag and drop)
 
     @property
     def item_template(self) -> str:
@@ -214,6 +215,7 @@ SECTIONS = {
             ExperienceForm,
             "No experience yet. Add your jobs, newest first.",
             list_fields=("bullets",),
+            sortable=True,
         ),
         Section(
             "education",
@@ -222,6 +224,7 @@ SECTIONS = {
             Education,
             EducationForm,
             "No education yet.",
+            sortable=True,
         ),
         Section(
             "certifications",
@@ -238,6 +241,7 @@ SECTIONS = {
             Project,
             ProjectForm,
             "No projects yet. Side projects and open source work show what you can build.",
+            sortable=True,
         ),
         Section("skills", "Skills", "skill", Skill, SkillForm, "No skills yet."),
         Section(
@@ -300,6 +304,18 @@ def section_context(session: Session, profile: Profile, section: Section, new_fo
         "language_levels": LANGUAGE_LEVEL_CHOICES,
         "skill_levels": SKILL_LEVEL_CHOICES,
     }
+
+
+def row_context(session: Session, user: User, section: Section, item) -> dict:
+    """item_context for a row shown on its own (after Save or Cancel): it also says
+    whether the row is first or last, so the right ↑ / ↓ button is turned off."""
+    context = item_context(section, item)
+    if section.sortable:
+        profile = profile_service.get_or_create_profile(session, user)
+        ids = [row.id for row in profile_service.list_items(session, profile, section.model)]
+        context["is_first"] = ids[0] == item.id
+        context["is_last"] = ids[-1] == item.id
+    return context
 
 
 def item_context(section: Section, item, values=None, errors=None) -> dict:
@@ -369,7 +385,7 @@ def item_view(
 ):
     section = get_section(section_key)
     item = profile_service.get_owned_item(session, user, section.model, item_id)
-    return fragment(request, section.item_template, item_context(section, item))
+    return fragment(request, section.item_template, row_context(session, user, section, item))
 
 
 @router.get("/profile/{section_key}/{item_id}/edit", response_class=HTMLResponse)
@@ -401,7 +417,8 @@ def item_save(
         )
 
     profile_service.update_item(session, item, form.model_dump(exclude={"ongoing"}))
-    return changed(fragment(request, section.item_template, item_context(section, item)))
+    context = row_context(session, user, section, item)
+    return changed(fragment(request, section.item_template, context))
 
 
 @router.delete("/profile/{section_key}/{item_id}", response_class=HTMLResponse)
@@ -416,3 +433,29 @@ def item_delete(
     # "No ... yet" text comes back when the last row is gone.
     context = section_context(session, profile, section)
     return changed(fragment(request, "profile/_section.html", context))
+
+
+@router.post("/profile/{section_key}/{item_id}/move", response_class=HTMLResponse)
+def item_move(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    section_key: str,
+    item_id: str,
+    data: SubmittedForm,
+):
+    """↑ / ↓: move a row one place (experience, education, projects only)."""
+    section = get_section(section_key)
+    if not section.sortable:
+        raise HTTPException(status_code=404)
+    item = profile_service.get_owned_item(session, user, section.model, item_id)
+    profile = profile_service.get_or_create_profile(session, user)
+    direction = data.get("direction")
+    moved = profile_service.move_item(session, profile, section.model, item, direction)
+
+    # The whole section comes back in the new order. `focus` puts the keyboard focus
+    # back on the button that was pressed (htmx focuses the autofocus element).
+    context = section_context(session, profile, section)
+    context["focus"] = (item.id, direction)
+    response = fragment(request, "profile/_section.html", context)
+    return changed(response) if moved else response

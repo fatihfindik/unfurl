@@ -32,11 +32,36 @@
   {%- if item %}</li>{% else %}</div>{% endif %}
 {% endmacro %}
 
-{#- Edit and Delete for one row. `label` names the row for screen readers
-    ("Delete Certified Scrum Product Owner"). Delete has no Undo until M4 (D-035). -#}
+{#- ↑ / ↓ for one row (SPEC §6.4: the keyboard way to reorder). The whole section
+    comes back in the new order. -#}
+{% macro move_button(url, section, direction, label, disabled, focus) %}
+  <button type="button" {% if disabled %}disabled{% endif %} {% if focus %}autofocus{% endif %}
+          hx-post="{{ url }}/move" hx-vals='{"direction": "{{ direction }}"}'
+          hx-target="#profile-{{ section.key }}" hx-swap="outerHTML"
+          class="inline-flex size-7 items-center justify-center rounded-md border border-border-strong text-text-2 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">
+    <span aria-hidden="true">{{ "↑" if direction == "up" else "↓" }}</span>
+    <span class="sr-only">Move {{ label }} {{ direction }}</span>
+  </button>
+{% endmacro %}
+
+{#- Edit and Delete for one row (plus ↑ / ↓ in sortable sections). `label` names the
+    row for screen readers ("Delete Certified Scrum Product Owner"). Delete has no Undo
+    until M4 (D-035). Context: is_first / is_last (from _section.html or row_context)
+    and, after a move, focus = (row id, direction). -#}
 {% macro item_actions(section, item, label) %}
   {%- set url = "/profile/" ~ section.key ~ "/" ~ item.id %}
-  <div class="flex shrink-0 gap-3 text-sm font-semibold">
+  <div class="flex shrink-0 items-center gap-3 text-sm font-semibold">
+    {%- if section.sortable and not (is_first and is_last) %}
+      {#- After a move the focus goes back to the pressed button. If that button is now
+          turned off (the row reached the top or bottom), it goes to the other one. -#}
+      {%- set pressed = focus[1] if (focus and focus[0] == item.id) else None %}
+      {%- if pressed == "up" and is_first %}{% set pressed = "down" %}{% endif %}
+      {%- if pressed == "down" and is_last %}{% set pressed = "up" %}{% endif %}
+      <div class="flex gap-1">
+        {{ move_button(url, section, "up", label, is_first, pressed == "up") }}
+        {{ move_button(url, section, "down", label, is_last, pressed == "down") }}
+      </div>
+    {%- endif %}
     <button type="button" class="text-link hover:underline"
             hx-get="{{ url }}/edit" hx-target="closest li" hx-swap="outerHTML">Edit<span class="sr-only"> {{ label }}</span></button>
     <button type="button" class="text-red-text hover:underline"
