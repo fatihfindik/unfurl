@@ -6,7 +6,7 @@ the routes here only read forms, call the service and pick the template.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
 from sqlmodel import Session
@@ -14,9 +14,9 @@ from starlette.datastructures import FormData
 
 from app.billing.entitlements import allowed_templates
 from app.db import get_session
-from app.models import User
+from app.models import CVDocument, User
 from app.models.cv import CV_LANGUAGES
-from app.schemas.cv import LANGUAGE_NAMES, NewCVForm
+from app.schemas.cv import CV_SECTIONS, LANGUAGE_NAMES, CVContent, CVEditForm, NewCVForm
 from app.schemas.profile import form_errors
 from app.services import document_service, profile_service
 from app.services.auth_service import require_user
@@ -99,9 +99,7 @@ def cv_create(request: Request, session: DbSession, user: RequiredUser, data: Su
         cv = document_service.create_cv(session, user, form.title, form.language, form.template)
     except document_service.TooManyDocuments:
         return new_cv_form(request, user, values, {"form": TOO_MANY_CVS})
-    # Step 4 of the plan opens the editor (/cvs/{id}); until then, back to the list.
-    del cv
-    return go_to(request, "/documents")
+    return go_to(request, f"/cvs/{cv.id}")
 
 
 def new_cv_form(request: Request, user: User, values: dict, errors: dict) -> HTMLResponse:
@@ -114,3 +112,104 @@ def go_to(request: Request, url: str) -> Response:
     if is_htmx(request):
         return Response(status_code=200, headers={"HX-Redirect": url})
     return RedirectResponse(url, status_code=303)
+
+
+# --- Editor -----------------------------------------------------------------------
+
+SECTION_NAMES = {
+    "summary": "Summary",
+    "experience": "Experience",
+    "education": "Education",
+    "skills": "Skills",
+    "languages": "Languages",
+    "certifications": "Certifications",
+    "projects": "Projects",
+}
+# A master opens read-only; "Edit master" (after a confirmation) reloads the editor
+# with this in the URL, and the form then sends edit_master=confirmed (D-048).
+MASTER_UNLOCKED = "confirmed"
+
+
+def editor_context(
+    cv: CVDocument, *, master_unlocked: bool, errors=None, master: CVDocument | None = None
+) -> dict:
+    content = CVContent.model_validate(cv.content)
+    return {
+        "cv": cv,
+        "master": master,  # for the band "Copy based on …"
+        "content": content,
+        "errors": errors or {},
+        "language_names": LANGUAGE_NAMES,
+        "template_names": TEMPLATE_NAMES,
+        "section_names": SECTION_NAMES,
+        "sections": CV_SECTIONS,
+        "master_unlocked": master_unlocked,
+        # The form can be changed: never when locked, a master only after unlocking.
+        "editable": not cv.is_locked and (not cv.is_master or master_unlocked),
+    }
+
+
+@router.get("/cvs/{cv_id}", response_class=HTMLResponse)
+def cv_editor(
+    request: Request, session: DbSession, user: RequiredUser, cv_id: str, edit_master: str = ""
+):
+    cv = document_service.get_owned_cv(session, user, cv_id)
+    unlocked = cv.is_master and edit_master == MASTER_UNLOCKED
+    master = None
+    if cv.parent_id is not None:
+        master = document_service.get_owned_cv(session, user, cv.parent_id)
+    context = editor_context(cv, master_unlocked=unlocked, master=master)
+    return templates.TemplateResponse(request, "cvs/editor.html", context)
+
+
+@router.post("/cvs/{cv_id}", response_class=HTMLResponse)
+def cv_save(
+    request: Request, session: DbSession, user: RequiredUser, cv_id: str, data: SubmittedForm
+):
+    """Autosave from the editor form (htmx, 500 ms after the last change). Answers with
+    the new preview; form errors come back next to the form and nothing is saved."""
+    cv = document_service.get_owned_cv(session, user, cv_id)
+    unlocked = data.get("edit_master") == MASTER_UNLOCKED
+    values = {
+        "title": data.get("title"),
+        "headline": data.get("headline"),
+        "summary": data.get("summary"),
+        "visible_sections": data.getlist("visible_sections"),
+        "bullets": data.getlist("bullets"),  # at most MAX_BULLET_KEYS (checked by the form)
+    }
+    saved_content = CVContent.model_validate(cv.content)
+    errors = {}
+    try:
+        form = CVEditForm.model_validate(values)
+    except ValidationError as exc:
+        # One bad text field must not block the other changes (e.g. an empty title
+        # while a section is switched off): that field keeps its saved value, the
+        # rest is saved, and the message says what wasn't.
+        errors = form_errors(exc)
+        saved = {
+            "title": cv.title,
+            "headline": saved_content.personal.headline,
+            "summary": saved_content.summary,
+        }
+        for name in errors:
+            if name in saved:
+                values[name] = saved[name]
+        try:
+            form = CVEditForm.model_validate(values)
+        except ValidationError:
+            # Sections or bullets that aren't on the page: a hand-made request.
+            context = editor_context(cv, master_unlocked=unlocked, errors=errors)
+            context["nothing_saved"] = True
+            return templates.TemplateResponse(request, "cvs/_preview.html", context)
+
+    content = form.apply_to(saved_content)
+    try:
+        document_service.update_content(
+            session, cv, title=form.title, content=content, master_unlocked=unlocked
+        )
+    except (document_service.DocumentLocked, document_service.MasterNotUnlocked):
+        # The page shows a locked document or a closed master read-only, so this only
+        # happens with an old tab or a hand-made request: nothing is changed.
+        raise HTTPException(status_code=409) from None
+    context = editor_context(cv, master_unlocked=unlocked, errors=errors)
+    return templates.TemplateResponse(request, "cvs/_preview.html", context)

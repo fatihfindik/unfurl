@@ -1,0 +1,103 @@
+{#- The CV itself, "Classic" template (SPEC §6.5, D-044). Used by the editor's live
+    preview now and by the PDF in M3b, so both look the same. Context: content
+    (app.schemas.cv.CVContent).
+
+    ATS rules (SPEC §6.5): real text, no tables for layout, standard headings, no
+    icon fonts. No inline style= or <style>: all styling is in
+    static/css/cv_classic.css, under .cv-paper (a strict CSP comes in M13).
+    Headings are English for now; DE/TR labels come with M3b (document_labels.py). -#}
+{%- set hidden = content.hidden_sections -%}
+{%- set p = content.personal -%}
+{%- set contacts = [p.location, p.email, p.phone, p.linkedin_url, p.github_url, p.website] | select | list -%}
+<article class="cv-paper cv-classic" aria-label="CV preview">
+  <header class="cv-head">
+    <h1 class="cv-name">{{ p.full_name }}</h1>
+    {%- if p.headline %}<p class="cv-headline">{{ p.headline }}</p>{% endif %}
+    {%- if contacts %}<p class="cv-contacts">{{ contacts | join(" · ") }}</p>{% endif %}
+  </header>
+
+  {%- if content.summary and "summary" not in hidden %}
+    <section class="cv-section">
+      <h2>Summary</h2>
+      <p class="cv-text">{{ content.summary }}</p>
+    </section>
+  {%- endif %}
+
+  {%- if content.experience and "experience" not in hidden %}
+    <section class="cv-section">
+      <h2>Experience</h2>
+      {%- for job in content.experience %}
+        <div class="cv-entry">
+          <p class="cv-entry-head">
+            <span class="cv-entry-title">{{ job.title }} · {{ job.company }}</span>
+            <span class="cv-dates">{{ job.start_date | month_year }} – {{ job.end_date | month_year if job.end_date else "present" }}</span>
+          </p>
+          {%- if job.location %}<p class="cv-meta">{{ job.location }}</p>{% endif %}
+          {%- if job.description %}<p class="cv-text">{{ job.description }}</p>{% endif %}
+          {%- set shown = job.bullets | selectattr("selected") | list %}
+          {%- if shown %}
+            <ul class="cv-bullets">
+              {%- for bullet in shown %}<li>{{ bullet.text }}</li>{% endfor %}
+            </ul>
+          {%- endif %}
+        </div>
+      {%- endfor %}
+    </section>
+  {%- endif %}
+
+  {%- if content.education and "education" not in hidden %}
+    <section class="cv-section">
+      <h2>Education</h2>
+      {%- for school in content.education %}
+        {%- set degree = [school.degree, school.field] | select | join(", ") %}
+        <div class="cv-entry">
+          <p class="cv-entry-head">
+            <span class="cv-entry-title">{% if degree %}{{ degree }} · {% endif %}{{ school.institution }}</span>
+            <span class="cv-dates">{{ school.start_date | month_year }} – {{ school.end_date | month_year if school.end_date else "present" }}</span>
+          </p>
+          {%- if school.description %}<p class="cv-text">{{ school.description }}</p>{% endif %}
+        </div>
+      {%- endfor %}
+    </section>
+  {%- endif %}
+
+  {%- if content.skills and "skills" not in hidden %}
+    <section class="cv-section">
+      <h2>Skills</h2>
+      <p class="cv-text">{{ content.skills | map(attribute="name") | join(" · ") }}</p>
+    </section>
+  {%- endif %}
+
+  {%- if content.languages and "languages" not in hidden %}
+    <section class="cv-section">
+      <h2>Languages</h2>
+      <p class="cv-text">
+        {%- for item in content.languages %}{{ item.language }} ({{ "Native" if item.level == "native" else item.level }}){% if not loop.last %} · {% endif %}{% endfor -%}
+      </p>
+    </section>
+  {%- endif %}
+
+  {%- if content.certifications and "certifications" not in hidden %}
+    <section class="cv-section">
+      <h2>Certifications</h2>
+      <ul class="cv-list">
+        {%- for cert in content.certifications %}
+          <li>{{ cert.name }}{% if cert.issuer %} · {{ cert.issuer }}{% endif %}{% if cert.date %} · {{ cert.date | month_year }}{% endif %}</li>
+        {%- endfor %}
+      </ul>
+    </section>
+  {%- endif %}
+
+  {%- if content.projects and "projects" not in hidden %}
+    <section class="cv-section">
+      <h2>Projects</h2>
+      {%- for project in content.projects %}
+        <div class="cv-entry">
+          <p class="cv-entry-title">{{ project.name }}</p>
+          {%- if project.description %}<p class="cv-text">{{ project.description }}</p>{% endif %}
+          {%- if project.url %}<p class="cv-meta">{{ project.url }}</p>{% endif %}
+        </div>
+      {%- endfor %}
+    </section>
+  {%- endif %}
+</article>

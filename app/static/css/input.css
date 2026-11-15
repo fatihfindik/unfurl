@@ -254,6 +254,17 @@
   [aria-invalid="true"] {
     border-color: var(--red-text);
   }
+  /* Fields that can't be changed (e.g. a locked CV): faded, with a "not allowed"
+     pointer, so they don't look like normal fields. */
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  fieldset:disabled label {
+    cursor: not-allowed;
+  }
 
   input[type="checkbox"],
   input[type="radio"] {

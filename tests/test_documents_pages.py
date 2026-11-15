@@ -85,8 +85,8 @@ def test_new_cv_creates_a_master_and_goes_on(auth_client, session):
     response = post_new_cv(auth_client)
 
     assert response.status_code == 200
-    assert response.headers["HX-Redirect"] == "/documents"  # the editor comes in step 4
     cv = session.exec(select(CVDocument)).one()
+    assert response.headers["HX-Redirect"] == f"/cvs/{cv.id}"  # the editor opens
     assert cv.is_master and cv.title == "Master CV (EN)" and cv.language == "en"
 
 

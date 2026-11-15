@@ -8,11 +8,12 @@ and `schema_version` tells which shape a stored CV was written in.
 """
 
 import datetime as dt
+import re
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.models.cv import CV_LANGUAGES
-from app.models.profile import SHORT_TEXT
+from app.models.profile import LONG_TEXT, SHORT_TEXT
 from app.schemas.profile import ProfileForm
 
 # The sections a user can hide on a CV (the name and contact lines are always shown).
@@ -124,3 +125,47 @@ class NewCVForm(ProfileForm):
         if value not in CV_LANGUAGES:
             raise ValueError("Choose a language.")
         return value
+
+
+# Bullet checkboxes send "<experience position>-<bullet position>", e.g. "0-2".
+_BULLET_KEY = re.compile(r"\d{1,2}-\d{1,2}")
+MAX_BULLET_KEYS = 50 * 20  # 50 experiences × 20 bullets (the profile limits)
+
+
+class CVEditForm(ProfileForm):
+    """The editor form (D-049): title, headline, summary, which sections and which
+    experience bullets are shown. Everything else comes from the profile."""
+
+    title: str = Field(max_length=SHORT_TEXT)
+    headline: str | None = Field(default=None, max_length=SHORT_TEXT)
+    summary: str | None = Field(default=None, max_length=LONG_TEXT)
+    visible_sections: list[str] = Field(default_factory=list)  # ticked "Sections" boxes
+    bullets: list[str] = Field(default_factory=list, max_length=MAX_BULLET_KEYS)
+
+    @field_validator("visible_sections")
+    @classmethod
+    def known_sections(cls, value: list[str]) -> list[str]:
+        if any(name not in CV_SECTIONS for name in value):
+            raise ValueError("Choose sections from the list.")
+        return value
+
+    @field_validator("bullets")
+    @classmethod
+    def bullet_keys(cls, value: list[str]) -> list[str]:
+        if any(not _BULLET_KEY.fullmatch(key) for key in value):
+            raise ValueError("Choose bullets from the list.")
+        return value
+
+    def apply_to(self, content: CVContent) -> CVContent:
+        """A copy of `content` with this form's changes."""
+        changed = content.model_copy(deep=True)
+        changed.personal.headline = self.headline
+        changed.summary = self.summary
+        changed.hidden_sections = [
+            name for name in CV_SECTIONS if name not in self.visible_sections
+        ]
+        ticked = set(self.bullets)
+        for i, job in enumerate(changed.experience):
+            for j, bullet in enumerate(job.bullets):
+                bullet.selected = f"{i}-{j}" in ticked
+        return changed

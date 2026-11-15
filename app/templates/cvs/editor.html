@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/modal.html" import modal %}
+
+{% block head_extra %}<link rel="stylesheet" href="/static/css/cv_classic.css">{% endblock %}
+{% block title %}{{ cv.title }}{% endblock %}
+
+{#- CV editor (SPEC §6.5, docs/prototype/CVEditor.dc.html): form on the left, live
+    preview on the right. Masters open read-only (D-048), locked copies stay
+    read-only. -#}
+{% block content %}
+  {{ page_header(cv.title, back_url="/documents", back_label="Documents") }}
+  <div class="flex flex-col gap-4 px-4 pt-5 pb-8 md:px-8 max-w-[1400px]">
+    <div class="flex flex-wrap items-center gap-2 text-sm">
+      {%- if cv.is_master %}
+        <span class="rounded-full bg-accent-bg px-2 py-0.5 text-xs font-semibold text-accent-text">Master</span>
+      {%- elif cv.is_locked %}
+        <span class="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-text-2">Sent · locked</span>
+      {%- else %}
+        <span class="rounded-full bg-blue-bg px-2 py-0.5 text-xs font-semibold text-blue-text">Draft · v{{ cv.version }}</span>
+      {%- endif %}
+      <span class="text-text-3">{{ language_names.get(cv.language, cv.language) }} · {{ template_names.get(cv.template, cv.template) }} template</span>
+    </div>
+
+    {#- Information band (SPEC §6.5): what this document is and what changing it does. -#}
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm">
+      {%- if cv.is_master and master_unlocked %}
+        <p class="m-0">You are editing your master CV. Changes only affect new copies, not existing ones.</p>
+        <a href="/cvs/{{ cv.id }}" class="font-semibold text-link no-underline hover:underline">Done editing</a>
+      {%- elif cv.is_master %}
+        <p class="m-0">This is your master CV ({{ language_names.get(cv.language, cv.language) }}). New copies start from it.</p>
+        <button type="button" data-dialog-open="edit-master"
+                class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 font-semibold hover:bg-muted">Edit master</button>
+      {%- elif cv.is_locked %}
+        <p class="m-0">Sent · locked. You can't change a sent CV. Duplicate it as a new version to make changes.</p>
+      {%- else %}
+        <p class="m-0">Copy{% if master %} based on {{ master.title }}{% endif %}. Your master CV stays unchanged.</p>
+      {%- endif %}
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-[minmax(320px,420px)_minmax(0,1fr)] lg:items-start">
+      <div class="rounded-xl border border-border bg-surface p-5">
+        {% include "cvs/_form.html" %}
+      </div>
+      <div class="flex min-w-0 flex-col gap-2">
+        <p class="m-0 text-xs font-semibold uppercase tracking-wide text-text-3">Live preview · A4</p>
+        <div id="cv-preview" class="overflow-x-auto rounded-xl bg-muted p-3 md:p-6">
+          {% include "pdf/cv_classic.html" %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {%- if cv.is_master and not master_unlocked %}
+    {% call modal("edit-master", "Edit your master CV?") %}
+      <p class="m-0 text-sm text-text-2">Changes only affect new copies, not the copies you already have. Copies for applications start from the master.</p>
+      <div class="flex justify-end gap-2">
+        <form method="dialog" class="m-0"><button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold hover:bg-muted">Cancel</button></form>
+        <a href="/cvs/{{ cv.id }}?edit_master=confirmed"
+           class="inline-flex h-9 items-center rounded-lg bg-[#4F46E5] px-3 text-sm font-semibold text-white no-underline hover:bg-[#4338CA]">Edit master</a>
+      </div>
+    {% endcall %}
+  {%- endif %}
+{% endblock %}
