@@ -1,0 +1,24 @@
+/* "Modern" CV (SPEC §6.5): sans-serif throughout, a thin indigo accent under the
+   name and on the section headings. Still one column with real text (ATS).
+   Layout: cv_base.css (D-054). */
+
+.cv-modern .cv-head {
+  border-bottom: 2px solid #4338ca;
+}
+
+.cv-modern .cv-name {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.cv-modern .cv-headline {
+  color: #4338ca;
+  font-weight: 600;
+}
+
+.cv-modern h2 {
+  color: #4338ca;
+  font-size: 14px;
+  border-bottom-color: #c7d2fe;
+}

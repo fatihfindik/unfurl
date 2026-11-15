@@ -15,10 +15,10 @@ from starlette.datastructures import FormData
 from app.billing.entitlements import allowed_templates
 from app.db import get_session
 from app.models import CVDocument, User
-from app.models.cv import CV_LANGUAGES
+from app.models.cv import CV_LANGUAGES, CV_TEMPLATES
 from app.schemas.cv import CV_SECTIONS, LANGUAGE_NAMES, CVContent, CVEditForm, NewCVForm
 from app.schemas.profile import form_errors
-from app.services import document_service, profile_service
+from app.services import document_service, pdf_service, profile_service
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
 
@@ -27,8 +27,9 @@ router = APIRouter(dependencies=[Depends(require_user)])
 DbSession = Annotated[Session, Depends(get_session)]
 RequiredUser = Annotated[User, Depends(require_user)]
 
-# Templates that can be shown so far. M3b adds "modern" and "compact" (#28).
-BUILT_TEMPLATES = ("classic",)
+# Templates that are built (all three since M3b); the plan decides which a user
+# may pick (entitlements, CLAUDE.md).
+BUILT_TEMPLATES = CV_TEMPLATES
 TEMPLATE_NAMES = {"classic": "Classic", "modern": "Modern", "compact": "Compact"}
 TOO_MANY_CVS = (
     f"You can have up to {document_service.MAX_CVS_PER_USER} CVs. Delete one to add another."
@@ -133,11 +134,9 @@ MASTER_UNLOCKED = "confirmed"
 def editor_context(
     cv: CVDocument, *, master_unlocked: bool, errors=None, master: CVDocument | None = None
 ) -> dict:
-    content = CVContent.model_validate(cv.content)
-    return {
-        "cv": cv,
+    # cv, content, labels and cv_template for the preview (the same as the PDF).
+    return pdf_service.cv_context(cv) | {
         "master": master,  # for the band "Copy based on …"
-        "content": content,
         "errors": errors or {},
         "language_names": LANGUAGE_NAMES,
         "template_names": TEMPLATE_NAMES,

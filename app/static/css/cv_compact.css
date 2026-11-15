@@ -1,0 +1,40 @@
+/* "Compact" CV (SPEC §6.5): smaller type and tighter spacing, to fit more on one
+   page. Same structure and real text as the others (ATS). Layout: cv_base.css (D-054). */
+
+.cv-compact {
+  font-size: 11.5px;
+  line-height: 1.38;
+}
+
+.cv-compact .cv-head {
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.cv-compact .cv-name {
+  font-size: 21px;
+}
+
+.cv-compact .cv-headline {
+  font-size: 12.5px;
+}
+
+.cv-compact .cv-section {
+  margin-top: 9px;
+}
+
+.cv-compact h2 {
+  margin-bottom: 3px;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cv-compact .cv-entry {
+  margin-top: 5px;
+}
+
+.cv-compact .cv-bullets,
+.cv-compact .cv-list {
+  margin-top: 2px;
+}

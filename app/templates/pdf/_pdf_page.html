@@ -1,15 +1,17 @@
 {#- A whole HTML page around the CV, only for the PDF (D-054). WeasyPrint reads the
     stylesheets from static/ (base_url in pdf_service); nothing else can be loaded
-    (D-059). Context: cv (CVDocument), content (CVContent). -#}
+    (D-059). Context: pdf_service.cv_context (cv, content, labels, cv_template,
+    cv_stylesheet). -#}
 <!doctype html>
 <html lang="{{ cv.language }}">
 <head>
   <meta charset="utf-8">
   <title>{{ content.personal.full_name }}</title>
-  <link rel="stylesheet" href="css/cv_classic.css">
+  <link rel="stylesheet" href="css/cv_base.css">
+  <link rel="stylesheet" href="{{ cv_stylesheet }}">
   <link rel="stylesheet" href="css/cv_print.css">
 </head>
 <body>
-  {% include "pdf/cv_classic.html" %}
+  {% include cv_template %}
 </body>
 </html>

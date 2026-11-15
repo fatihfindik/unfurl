@@ -96,7 +96,6 @@ def test_new_cv_creates_a_master_and_goes_on(auth_client, session):
         ({"title": "   "}, "title", "This field is required."),
         ({"title": "x" * 201}, "title", "Use at most 200 characters."),
         ({"language": "fr"}, "language", "Choose a language."),
-        ({"template": "modern"}, "template", "Choose a template."),  # not built until M3b
         ({"template": "fancy"}, "template", "Choose a template."),
     ],
 )

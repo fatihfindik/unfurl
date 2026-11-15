@@ -14,7 +14,9 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 from urllib.request import url2pathname
 
+from app.i18n.document_labels import labels
 from app.models import CVDocument
+from app.models.cv import CV_TEMPLATES
 from app.schemas.cv import CVContent
 from app.templating import TEMPLATES_DIR, templates
 
@@ -71,11 +73,29 @@ def _fetcher_class():
     return SafeURLFetcher
 
 
+def template_name(cv: CVDocument) -> str:
+    """The CV's template, or "classic" for anything unknown (the name comes from the
+    database and is used in a template path, so it is checked against the list)."""
+    return cv.template if cv.template in CV_TEMPLATES else "classic"
+
+
+def cv_context(cv: CVDocument) -> dict:
+    """What the CV templates need: the content, the words in the CV's language and
+    the template file (pdf/cv_<template>.html)."""
+    return {
+        "cv": cv,
+        "content": CVContent.model_validate(cv.content),
+        "labels": labels(cv.language),
+        "cv_template": f"pdf/cv_{template_name(cv)}.html",
+        "cv_stylesheet": f"css/cv_{template_name(cv)}.css",
+    }
+
+
 def render_cv_html(cv: CVDocument, *, for_pdf: bool) -> str:
     """The CV as a full HTML page for WeasyPrint (for_pdf) or the preview piece."""
-    content = CVContent.model_validate(cv.content)
-    template = "pdf/_pdf_page.html" if for_pdf else "pdf/cv_classic.html"
-    return templates.get_template(template).render(cv=cv, content=content, for_pdf=for_pdf)
+    context = cv_context(cv)
+    template = "pdf/_pdf_page.html" if for_pdf else context["cv_template"]
+    return templates.get_template(template).render(**context, for_pdf=for_pdf)
 
 
 def render_cv_pdf(cv: CVDocument) -> bytes:

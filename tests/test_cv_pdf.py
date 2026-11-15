@@ -60,9 +60,11 @@ def sample_content(**changes) -> CVContent:
     return content.model_copy(update=changes)
 
 
-def make_cv(language="en", content=None) -> CVDocument:
+def make_cv(language="en", content=None, template="classic") -> CVDocument:
     content = content or sample_content()
-    return CVDocument(user_id=1, title="CV", language=language, content=content.to_json())
+    return CVDocument(
+        user_id=1, title="CV", language=language, template=template, content=content.to_json()
+    )
 
 
 def read(pdf: bytes) -> PdfReader:
@@ -118,6 +120,14 @@ def test_our_fonts_are_embedded_including_the_extended_letters(pdf):
     assert "Inter" in names
     assert "Source-Serif-4" in names or "SourceSerif4" in names
     assert "Ext" in names
+
+
+def test_bullets_are_read_with_their_lines(pdf):
+    # An ATS reads the text layer: each "•" must come right before its line, not as
+    # a block of lone markers at the end of the page.
+    lines = [line.strip() for line in text_of(pdf).splitlines()]
+    assert "•" not in lines
+    assert any(line.startswith("•") and "Shipped feature 0.0" in line for line in lines)
 
 
 def test_turkish_and_german_letters_are_in_the_text(pdf):
@@ -206,3 +216,71 @@ def test_a_blocked_resource_does_not_stop_the_pdf(monkeypatch):
     monkeypatch.setattr(pdf_service, "render_cv_html", with_remote_image)
 
     assert pdf_service.render_cv_pdf(make_cv()).startswith(b"%PDF")
+
+
+# --- 3 templates × 3 languages (the M3b acceptance criterion) ---------------------
+
+HEADINGS = {
+    "en": ["SUMMARY", "EXPERIENCE", "EDUCATION", "Skills"],
+    "de": ["Profil", "Berufserfahrung", "Ausbildung", "Kenntnisse"],
+    "tr": ["Özet", "İş Deneyimi", "Eğitim", "Yetenekler"],
+}
+PRESENT = {"en": "present", "de": "heute", "tr": "devam ediyor"}
+
+
+def folded(text: str) -> str:
+    """Text for comparing without caring about capitals. Turkish "İ" in lower case
+    is "i" plus a combining dot (U+0307); the dot is dropped so "İŞ" matches "iş"."""
+    return text.casefold().replace("\u0307", "")
+
+
+NATIVE = {"en": "Native", "de": "Muttersprache", "tr": "Ana dil"}
+
+
+@pytest.mark.parametrize("template", ["classic", "modern", "compact"])
+@pytest.mark.parametrize("language", ["en", "de", "tr"])
+def test_every_template_in_every_language(template, language):
+    pdf = pdf_service.render_cv_pdf(make_cv(language=language, template=template))
+    reader = read(pdf)
+    text = folded(text_of(pdf))
+
+    assert pdf.startswith(b"%PDF")
+    assert 1 <= len(reader.pages) <= 2
+    assert all(
+        (round(float(page.mediabox.width)), round(float(page.mediabox.height))) == A4
+        for page in reader.pages
+    )
+    for heading in HEADINGS[language]:
+        assert folded(heading) in text  # some templates write headings in capitals
+    assert folded(PRESENT[language]) in text
+    assert folded(NATIVE[language]) in text
+    assert "fatih fındık" in text and "shipped feature 3.3" in text
+    assert "Ext" in " ".join(font_names(pdf))  # the Turkish letters use the real font
+
+
+def test_each_template_has_its_own_look():
+    pages = {
+        name: pdf_service.render_cv_html(make_cv(template=name), for_pdf=True)
+        for name in ["classic", "modern", "compact"]
+    }
+    for name, html in pages.items():
+        assert f'class="cv-paper cv-{name}"' in html
+        assert f'href="css/cv_{name}.css"' in html
+        assert 'href="css/cv_base.css"' in html
+
+
+def test_an_unknown_template_falls_back_to_classic():
+    # The name is used in a template path, so only known names are used.
+    html = pdf_service.render_cv_html(make_cv(template="../../secret"), for_pdf=True)
+
+    assert 'class="cv-paper cv-classic"' in html
+    assert "secret" not in html
+
+
+def test_compact_is_shorter_than_classic():
+    long_content = sample_content()
+    long_content.experience = long_content.experience * 2
+    classic = read(pdf_service.render_cv_pdf(make_cv(content=long_content)))
+    compact = read(pdf_service.render_cv_pdf(make_cv(content=long_content, template="compact")))
+
+    assert len(compact.pages) <= len(classic.pages)

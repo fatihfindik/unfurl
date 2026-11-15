@@ -18,6 +18,9 @@ from app.models.profile import SHORT_TEXT
 # Stored as text, not as database enums (like User.plan, D-025).
 CV_LANGUAGES = ("de", "en", "tr")
 CV_STATUSES = ("draft", "locked")
+# The templates that exist (SPEC §6.5). Which ones a user may pick is decided by
+# their plan (app.billing.entitlements.allowed_templates, CLAUDE.md).
+CV_TEMPLATES = ("classic", "modern", "compact")
 DEFAULT_TEMPLATE = "classic"
 
 

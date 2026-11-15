@@ -3,7 +3,13 @@
 {% from "components/modal.html" import modal %}
 {% from "components/icons.html" import icon %}
 
-{% block head_extra %}<link rel="stylesheet" href="/static/css/cv_classic.css">{% endblock %}
+{#- All three template stylesheets: switching the template only changes a class. -#}
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/cv_base.css">
+  <link rel="stylesheet" href="/static/css/cv_classic.css">
+  <link rel="stylesheet" href="/static/css/cv_modern.css">
+  <link rel="stylesheet" href="/static/css/cv_compact.css">
+{% endblock %}
 {% block title %}{{ cv.title }}{% endblock %}
 
 {#- CV editor (SPEC §6.5, docs/prototype/CVEditor.dc.html): form on the left, live
@@ -91,7 +97,7 @@
       <div class="flex min-w-0 flex-col gap-2">
         <p class="m-0 text-xs font-semibold uppercase tracking-wide text-text-3">Live preview · A4</p>
         <div id="cv-preview" class="overflow-x-auto rounded-xl bg-muted p-3 md:p-6">
-          {% include "pdf/cv_classic.html" %}
+          {% include cv_template %}
         </div>
       </div>
     </div>
