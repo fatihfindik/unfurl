@@ -363,3 +363,35 @@ def test_list_shows_only_the_users_own_cvs_masters_first(session, user, profile)
 
     assert [cv.id for cv in listed] == [german.id, master.id, copy.id]
     assert len(session.exec(select(CVDocument)).all()) == 4
+
+
+def test_version_numbers_and_copy_counts_only_look_at_the_owner(session, user, profile):
+    # Rows of another user under the same parent id can't shift the numbers
+    # (CLAUDE.md: every query on user data filters by user_id).
+    master = new_cv(session, user)
+    other = create_user(session, email="other@example.com", password="x" * 12, full_name="O")
+    session.add(
+        CVDocument(
+            user_id=other.id, title="Odd", language="en", content={}, parent_id=master.id, version=7
+        )
+    )
+    session.commit()
+
+    copy = new_cv(session, user)
+
+    assert copy.version == 1
+    assert docs.copy_count(session, master) == 1
+
+
+def test_a_failed_master_insert_that_is_not_the_race_is_not_hidden(
+    session, user, profile, monkeypatch
+):
+    from sqlalchemy.exc import IntegrityError
+
+    def failing_commit():
+        raise IntegrityError("INSERT", {}, Exception("disk full"))
+
+    monkeypatch.setattr(session, "commit", failing_commit)
+
+    with pytest.raises(IntegrityError):
+        new_cv(session, user)

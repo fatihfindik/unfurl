@@ -191,7 +191,11 @@ def versions_in_lineage(session: Session, user: User, cv: CVDocument) -> list[CV
 
 
 def copy_count(session: Session, master: CVDocument) -> int:
-    return session.exec(select(func.count()).where(CVDocument.parent_id == master.id)).one()
+    return session.exec(
+        select(func.count()).where(
+            CVDocument.parent_id == master.id, CVDocument.user_id == master.user_id
+        )
+    ).one()
 
 
 # --- Creating -----------------------------------------------------------------------
@@ -203,10 +207,12 @@ def _check_room(session: Session, user: User) -> None:
         raise TooManyDocuments
 
 
-def _next_version(session: Session, master_id: int | None) -> int:
+def _next_version(session: Session, user_id: int, master_id: int | None) -> int:
     """The next free number under a master: the highest one + 1 (D-045)."""
     highest = session.exec(
-        select(func.max(CVDocument.version)).where(CVDocument.parent_id == master_id)
+        select(func.max(CVDocument.version)).where(
+            CVDocument.parent_id == master_id, CVDocument.user_id == user_id
+        )
     ).one()
     return (highest or 0) + 1
 
@@ -215,7 +221,7 @@ def _save_copy(session: Session, copy: CVDocument) -> CVDocument:
     """Save a new copy with the next version number. If another request took the same
     number at the same moment, the unique index refuses it; try once more."""
     for attempt in range(2):
-        copy.version = _next_version(session, copy.parent_id)
+        copy.version = _next_version(session, copy.user_id, copy.parent_id)
         session.add(copy)
         try:
             session.commit()
@@ -255,6 +261,8 @@ def create_cv(session: Session, user: User, title: str, language: str, template:
             # Two "New CV" clicks at the same moment: the other one became the master.
             session.rollback()
             master = current_master(session, user, language)
+            if master is None:
+                raise  # some other database error, not the race: don't hide it
 
     return _save_copy(session, _stamped(CVDocument(**fields, parent_id=master.id)))
 
@@ -319,7 +327,11 @@ def duplicate(session: Session, user: User, source: CVDocument) -> CVDocument:
 
 def _ensure_changeable(cv: CVDocument, master_unlocked: bool) -> None:
     """The rules for changing a document in place (CLAUDE.md, D-048):
-    a locked document never changes; a master only after the user unlocked it."""
+    a locked document never changes; a master only after the user unlocked it.
+
+    `master_unlocked` means: the user clicked "Edit master" and confirmed in the
+    editor. Only the editor routes may pass True. The assistant (M12) and any other
+    automatic caller must never pass it: they create a new draft instead (SPEC §9.8)."""
     if cv.is_locked:
         raise DocumentLocked
     if cv.is_master and not master_unlocked:
