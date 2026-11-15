@@ -20,6 +20,7 @@ from app.i18n.document_labels import full_date, labels
 from app.models import CVDocument
 from app.models.cv import CV_TEMPLATES
 from app.schemas.cv import CVContent
+from app.schemas.profile import check_url
 from app.templating import TEMPLATES_DIR, templates
 
 STATIC_DIR = TEMPLATES_DIR.parent / "static"
@@ -81,6 +82,19 @@ def template_name(cv: CVDocument) -> str:
     return cv.template if cv.template in CV_TEMPLATES else "classic"
 
 
+def is_link(value: str | None) -> bool:
+    """True if a CV value may become a clickable link in the PDF (#23, D-056): only
+    http(s), checked again here with the same rule as the profile form, because the
+    value comes from stored JSON and a link's target is what a reader clicks."""
+    if not value:
+        return False
+    try:
+        check_url(value)
+    except ValueError:
+        return False
+    return True
+
+
 def cv_context(cv: CVDocument) -> dict:
     """What the CV templates need: the content, the words in the CV's language and
     the template file (pdf/cv_<template>.html)."""
@@ -89,6 +103,7 @@ def cv_context(cv: CVDocument) -> dict:
         "content": CVContent.model_validate(cv.content),
         "labels": labels(cv.language),
         "full_date": full_date,  # date of birth written the CV language's way
+        "is_link": is_link,
         "cv_template": f"pdf/cv_{template_name(cv)}.html",
         "cv_stylesheet": f"css/cv_{template_name(cv)}.css",
     }

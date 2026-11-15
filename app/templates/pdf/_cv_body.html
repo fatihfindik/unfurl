@@ -9,7 +9,14 @@
     icon fonts. No inline style= or <style> (a strict CSP comes in M13). -#}
 {%- set hidden = content.hidden_sections -%}
 {%- set p = content.personal -%}
-{%- set contacts = [p.location, p.email, p.phone, p.linkedin_url, p.github_url, p.website] | select | list -%}
+{#- Links (#23, D-056): clickable only in the PDF and only for http(s) (is_link checks
+    again); the preview shows them as text, so a click doesn't leave the app. The
+    address is always visible as text too, so an ATS can read it. -#}
+{%- macro link(url) -%}
+  {%- if for_pdf and is_link(url) %}<a href="{{ url }}">{{ url }}</a>{% else %}{{ url }}{% endif -%}
+{%- endmacro -%}
+{%- set contacts = [p.location, p.email, p.phone] | select | list -%}
+{%- set links = [p.linkedin_url, p.github_url, p.website] | select | list -%}
 <article class="cv-paper {{ template_class }}" aria-label="CV preview">
   <header class="cv-head">
     {#- The photo only when "Show photo" is on (D-052). The PDF gets it inline (the only
@@ -21,7 +28,12 @@
     {%- endif %}
     <h1 class="cv-name">{{ p.full_name }}</h1>
     {%- if p.headline %}<p class="cv-headline">{{ p.headline }}</p>{% endif %}
-    {%- if contacts %}<p class="cv-contacts">{{ contacts | join(" · ") }}</p>{% endif %}
+    {%- if contacts or links %}
+      <p class="cv-contacts">
+        {%- for item in contacts %}{{ item }}{% if not loop.last or links %} · {% endif %}{% endfor -%}
+        {%- for url in links %}{{ link(url) }}{% if not loop.last %} · {% endif %}{% endfor -%}
+      </p>
+    {%- endif %}
     {#- Only when their box is on (D-053); the CV holds them only then. -#}
     {%- set private = [] %}
     {%- if cv.show_birth_date and p.date_of_birth %}{% set _ = private.append(labels.date_of_birth ~ ": " ~ full_date(p.date_of_birth, cv.language)) %}{% endif %}
@@ -95,7 +107,7 @@
       <h2>{{ labels.certifications }}</h2>
       <ul class="cv-list">
         {%- for cert in content.certifications %}
-          <li>{{ cert.name }}{% if cert.issuer %} · {{ cert.issuer }}{% endif %}{% if cert.date %} · {{ cert.date | month_year }}{% endif %}</li>
+          <li>{{ cert.name }}{% if cert.issuer %} · {{ cert.issuer }}{% endif %}{% if cert.date %} · {{ cert.date | month_year }}{% endif %}{% if cert.url %} · {{ link(cert.url) }}{% endif %}</li>
         {%- endfor %}
       </ul>
     </section>
@@ -108,7 +120,7 @@
         <div class="cv-entry">
           <p class="cv-entry-title">{{ project.name }}</p>
           {%- if project.description %}<p class="cv-text">{{ project.description }}</p>{% endif %}
-          {%- if project.url %}<p class="cv-meta">{{ project.url }}</p>{% endif %}
+          {%- if project.url %}<p class="cv-meta">{{ link(project.url) }}</p>{% endif %}
         </div>
       {%- endfor %}
     </section>

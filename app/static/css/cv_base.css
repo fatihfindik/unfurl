@@ -141,3 +141,9 @@
     padding: 24px 20px;
   }
 }
+
+/* Links in the PDF (#23): clickable, but they look like the text around them. */
+.cv-paper a {
+  color: inherit;
+  text-decoration: none;
+}
