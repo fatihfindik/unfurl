@@ -67,7 +67,9 @@ SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 # The Chrome extension API is protected by its own API tokens instead (M6).
 CSRF_EXEMPT_PREFIXES = ("/api/ext/",)
 
-FORM_CONTENT_TYPES = ("application/x-www-form-urlencoded", "multipart/form-data")
+# Normal (non-htmx) forms send the token as a form field in this format. File uploads
+# (multipart/form-data) only come from htmx, which always sends the header.
+URLENCODED_FORM = "application/x-www-form-urlencoded"
 
 
 def get_csrf_token(request: Request) -> str:
@@ -90,11 +92,14 @@ async def verify_csrf(request: Request) -> None:
         return
 
     sent = request.headers.get(CSRF_HEADER)
-    if not sent and request.headers.get("content-type", "").startswith(FORM_CONTENT_TYPES):
+    if not sent and request.headers.get("content-type", "").startswith(URLENCODED_FORM):
         # Starlette keeps the parsed form on the request, so the route's own
         # Form(...) parameters still get the same data afterwards.
         form = await request.form()
         sent = form.get(CSRF_FORM_FIELD)
+    # A file upload (multipart) without the header is refused without reading it:
+    # parsing it would write the whole body to disk first, even for a logged-out
+    # sender, which defeats the size check of the photo upload (M2b security review).
 
     expected = request.session.get(CSRF_SESSION_KEY)
     if not expected or not isinstance(sent, str) or not _tokens_match(sent, expected):
