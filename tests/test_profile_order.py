@@ -284,3 +284,13 @@ def test_a_single_row_has_no_grip(auth_client, session, user):
     make_rows(session, user, Project, SORTABLE["projects"][1], count=1)
 
     assert "data-sort-handle" not in auth_client.get("/profile").text
+
+
+def test_move_buttons_show_on_hover_and_keyboard_focus(auth_client, session, user):
+    make_rows(session, user, Project, SORTABLE["projects"][1], count=2)
+
+    page = auth_client.get("/profile").text
+
+    # Hidden with opacity (still reachable with Tab), shown on hover / focus / touch.
+    assert "group-hover:opacity-100 group-focus-within:opacity-100" in page
+    assert 'class="group flex items-start' in page

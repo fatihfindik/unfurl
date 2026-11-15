@@ -67,7 +67,10 @@
       {%- set pressed = focus[1] if (focus and focus[0] == item.id) else None %}
       {%- if pressed == "up" and is_first %}{% set pressed = "down" %}{% endif %}
       {%- if pressed == "down" and is_last %}{% set pressed = "up" %}{% endif %}
-      <div class="flex gap-1">
+      {#- Shown only while the row is hovered or has keyboard focus, so mouse users see
+          a clean row (they drag the grip). opacity, not display: none, so Tab still
+          reaches the buttons and shows them. Touch screens can't hover: always shown. -#}
+      <div class="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100">
         {{ move_button(url, section, "up", label, is_first, pressed == "up") }}
         {{ move_button(url, section, "down", label, is_last, pressed == "down") }}
       </div>
