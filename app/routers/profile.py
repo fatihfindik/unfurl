@@ -72,6 +72,13 @@ def fragment(request: Request, template: str, context: dict) -> HTMLResponse:
     return templates.TemplateResponse(request, template, context)
 
 
+def changed(response):
+    """Mark a response that changed the profile. htmx fires the "profile-changed" event
+    on the page, and the Profile strength card reloads itself (D-040)."""
+    response.headers["HX-Trigger"] = "profile-changed"
+    return response
+
+
 # --- The page ---------------------------------------------------------------------
 
 
@@ -84,8 +91,24 @@ def profile_page(request: Request, session: DbSession, user: RequiredUser):
     return templates.TemplateResponse(
         request,
         "profile/index.html",
-        {"profile": profile, "user": user, "main_sections": main, "side_sections": side},
+        {
+            "profile": profile,
+            "user": user,
+            "strength": profile_service.profile_strength(session, profile),
+            "main_sections": main,
+            "side_sections": side,
+        },
     )
+
+
+# --- Profile strength (SPEC §6.4) -------------------------------------------------
+
+
+@router.get("/profile/strength", response_class=HTMLResponse)
+def strength_view(request: Request, session: DbSession, user: RequiredUser):
+    profile = profile_service.get_or_create_profile(session, user)
+    strength = profile_service.profile_strength(session, profile)
+    return fragment(request, "profile/_strength.html", {"strength": strength})
 
 
 # --- Personal info ----------------------------------------------------------------
@@ -124,7 +147,7 @@ def personal_save(request: Request, session: DbSession, user: RequiredUser, data
         return fragment(request, "profile/_personal_form.html", context)
 
     profile_service.update_personal_info(session, user, profile, form)
-    return fragment(request, "profile/_personal.html", {"profile": profile, "user": user})
+    return changed(fragment(request, "profile/_personal.html", {"profile": profile, "user": user}))
 
 
 # --- Summary ----------------------------------------------------------------------
@@ -153,7 +176,7 @@ def summary_save(request: Request, session: DbSession, user: RequiredUser, data:
         return fragment(request, "profile/_summary_form.html", context)
 
     profile_service.update_summary(session, profile, form)
-    return fragment(request, "profile/_summary.html", {"profile": profile})
+    return changed(fragment(request, "profile/_summary.html", {"profile": profile}))
 
 
 # --- List sections (D-031) --------------------------------------------------------
@@ -291,8 +314,8 @@ def item_context(section: Section, item, values=None, errors=None) -> dict:
 
 
 # The order of the routes matters: FastAPI uses the first route whose path matches.
-# The fixed paths (/profile/personal, /profile/summary) are defined above, so
-# "personal" is never read as a section; "/new" comes before "/{item_id}", so "new"
+# The fixed paths (/profile/personal, /profile/summary, /profile/strength) are defined
+# above, so "personal" is never read as a section; "/new" comes before "/{item_id}", so "new"
 # is never read as an id.
 
 
@@ -336,7 +359,8 @@ def section_add(
         )
 
     # The whole section comes back: the new row is in the list and the form is closed.
-    return fragment(request, "profile/_section.html", section_context(session, profile, section))
+    context = section_context(session, profile, section)
+    return changed(fragment(request, "profile/_section.html", context))
 
 
 @router.get("/profile/{section_key}/{item_id}", response_class=HTMLResponse)
@@ -377,7 +401,7 @@ def item_save(
         )
 
     profile_service.update_item(session, item, form.model_dump(exclude={"ongoing"}))
-    return fragment(request, section.item_template, item_context(section, item))
+    return changed(fragment(request, section.item_template, item_context(section, item)))
 
 
 @router.delete("/profile/{section_key}/{item_id}", response_class=HTMLResponse)
@@ -390,4 +414,5 @@ def item_delete(
     profile = profile_service.get_or_create_profile(session, user)
     # The whole section (status 200, not 204: htmx does not swap on 204), so the
     # "No ... yet" text comes back when the last row is gone.
-    return fragment(request, "profile/_section.html", section_context(session, profile, section))
+    context = section_context(session, profile, section)
+    return changed(fragment(request, "profile/_section.html", context))

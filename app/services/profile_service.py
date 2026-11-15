@@ -8,12 +8,23 @@ Every change also raises `Profile.version` by 1 (`_touch`), so cached AI results
 tell that the profile changed (SPEC §5.2).
 """
 
+from dataclasses import dataclass
+
 from fastapi import HTTPException
 from sqlalchemy import func, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, select
 
-from app.models import Profile, User
+from app.models import (
+    Certification,
+    Education,
+    Experience,
+    LanguageSkill,
+    Profile,
+    Project,
+    Skill,
+    User,
+)
 from app.schemas.profile import PersonalInfoForm, SummaryForm
 
 MAX_ITEMS_PER_SECTION = 50
@@ -144,3 +155,44 @@ def update_summary(session: Session, profile: Profile, form: SummaryForm) -> Non
     _touch(session, profile.id)
     session.commit()
     session.refresh(profile)
+
+
+# --- Profile strength (SPEC §6.4) -------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Strength:
+    percent: int  # 0, 10, ..., 100
+    hint: str | None  # what to add next, e.g. "Add a project to reach 100%."; None at 100%
+
+
+def _count(session: Session, profile: Profile, model: type[SQLModel]) -> int:
+    return session.exec(select(func.count()).where(model.profile_id == profile.id)).one()
+
+
+def profile_strength(session: Session, profile: Profile) -> Strength:
+    """How complete the profile is: 10 items, 10% each, in the order of SPEC §6.4.
+
+    The hint names the first missing item. Photo, date of birth and nationality don't
+    count (they are optional). Also used by the Documents card in M3.
+    """
+    experiences = list_items(session, profile, Experience)
+    checks = [
+        (bool(profile.headline), "Add a headline"),
+        (bool(profile.summary), "Add a summary"),
+        (
+            bool(profile.email) and bool(profile.phone or profile.location),
+            "Add your email and a phone number or location",
+        ),
+        (len(experiences) >= 1, "Add an experience"),
+        (any(experience.bullets for experience in experiences), "Add a bullet to an experience"),
+        (_count(session, profile, Education) >= 1, "Add an education"),
+        (_count(session, profile, Skill) >= 5, "Add at least 5 skills"),
+        (_count(session, profile, LanguageSkill) >= 1, "Add a language"),
+        (_count(session, profile, Certification) >= 1, "Add a certification"),
+        (_count(session, profile, Project) >= 1, "Add a project"),
+    ]
+    percent = 10 * sum(1 for done, _ in checks if done)
+    missing = [action for done, action in checks if not done]
+    hint = f"{missing[0]} to reach {percent + 10}%." if missing else None
+    return Strength(percent=percent, hint=hint)

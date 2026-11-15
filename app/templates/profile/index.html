@@ -24,8 +24,9 @@
         {%- endwith %}
       {%- endfor %}
     </div>
-    {#- Right column; Profile strength comes here in M2b. -#}
+    {#- Right column: Profile strength, then Skills and Languages (prototype). -#}
     <div class="flex min-w-0 flex-col gap-5">
+      {% include "profile/_strength.html" %}
       {%- for context in side_sections %}
         {%- with section=context.section, items=context["items"], new_form=None,
                  language_levels=context.language_levels, skill_levels=context.skill_levels %}
