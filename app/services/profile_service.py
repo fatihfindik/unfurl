@@ -170,6 +170,29 @@ def move_item(
     return True
 
 
+def reorder_items(
+    session: Session, profile: Profile, model: type[SQLModel], ids: list[int]
+) -> bool:
+    """Save a new order for a whole section (drag and drop, SPEC §6.4).
+
+    `ids` is the full list of the section's row ids in the new order. An id that is not
+    one of the user's rows (another user's, or one that doesn't exist) is a 404 and
+    nothing changes. If the list doesn't match the rows (one missing or twice: the page
+    was out of date) or the order is the same, nothing changes and False is returned.
+    """
+    items = list_items(session, profile, model)
+    by_id = {row.id: row for row in items}
+    if any(item_id not in by_id for item_id in ids):
+        raise HTTPException(status_code=404)
+    if sorted(ids) != sorted(by_id) or ids == [row.id for row in items]:
+        return False
+
+    _write_order(session, [by_id[item_id] for item_id in ids])
+    _touch(session, profile.id)
+    session.commit()
+    return True
+
+
 def update_personal_info(
     session: Session, user: User, profile: Profile, form: PersonalInfoForm
 ) -> None:

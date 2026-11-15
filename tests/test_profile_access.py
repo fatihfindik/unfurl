@@ -43,6 +43,7 @@ for key in SECTIONS:
         ("POST", f"/profile/{key}/1"),
         ("DELETE", f"/profile/{key}/1"),
         ("POST", f"/profile/{key}/1/move"),
+        ("POST", f"/profile/{key}/order"),
     ]
 
 

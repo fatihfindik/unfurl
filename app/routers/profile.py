@@ -379,6 +379,33 @@ def section_add(
     return changed(fragment(request, "profile/_section.html", context))
 
 
+# Before the /{item_id} routes, so "order" is never read as a row id.
+@router.post("/profile/{section_key}/order", response_class=HTMLResponse)
+def section_order(
+    request: Request, session: DbSession, user: RequiredUser, section_key: str, data: SubmittedForm
+):
+    """Drag and drop: save the new order of a whole section (app.js, initSortable)."""
+    section = get_section(section_key)
+    if not section.sortable:
+        raise HTTPException(status_code=404)
+    profile = profile_service.get_or_create_profile(session, user)
+
+    raw_ids = data.getlist("ids")
+    moved = False
+    # More ids than a section can have, or something that isn't an id: the request
+    # didn't come from our page, so it changes nothing (the section comes back as it is).
+    if len(raw_ids) <= profile_service.MAX_ITEMS_PER_SECTION and all(
+        value.isascii() and value.isdigit() for value in raw_ids
+    ):
+        ids = [int(value) for value in raw_ids]
+        moved = profile_service.reorder_items(session, profile, section.model, ids)
+
+    response = fragment(
+        request, "profile/_section.html", section_context(session, profile, section)
+    )
+    return changed(response) if moved else response
+
+
 @router.get("/profile/{section_key}/{item_id}", response_class=HTMLResponse)
 def item_view(
     request: Request, session: DbSession, user: RequiredUser, section_key: str, item_id: str

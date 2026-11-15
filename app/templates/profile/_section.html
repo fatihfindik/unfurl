@@ -14,7 +14,11 @@
   </div>
 
   {%- if items %}
-    <ul class="m-0 flex list-none p-0 {{ 'flex-wrap gap-2' if chips else 'flex-col divide-y divide-border' }}">
+    {#- data-sort-*: drag and drop (app.js, initSortable) sends the new order to
+        data-sort-url and puts the answer in data-sort-target. -#}
+    <ul class="m-0 flex list-none p-0 {{ 'flex-wrap gap-2' if chips else 'flex-col divide-y divide-border' }}"
+        {%- if section.sortable %} data-sort-url="/profile/{{ section.key }}/order"
+        data-sort-reload="/profile/{{ section.key }}" data-sort-target="#profile-{{ section.key }}"{% endif %}>
       {%- for item in items %}
         {#- is_first / is_last turn off the ↑ / ↓ button that can't move the row. -#}
         {%- with is_first=loop.first, is_last=loop.last %}

@@ -1,6 +1,7 @@
 {#- Shared pieces of the list sections. Import "with context" (the form needs csrf_token):
     {% from "profile/_macros.html" import item_form, item_actions with context %} -#}
 {%- from "components/forms.html" import csrf_field, primary_button, secondary_button -%}
+{%- from "components/icons.html" import icon -%}
 
 {#- The add / edit form around a section's fields (the fields come from `caller()`).
     Edit (item set): replaces the row (<li>) and comes back as the row.
@@ -30,6 +31,15 @@
       </div>
     </form>
   {%- if item %}</li>{% else %}</div>{% endif %}
+{% endmacro %}
+
+{#- The drag handle at the start of a sortable row (docs/prototype/Profile.dc.html).
+    Only the handle starts a drag (app.js, initSortable), so text can still be selected.
+    Hidden from screen readers: keyboard and screen reader users use ↑ / ↓. -#}
+{% macro drag_handle(section) %}
+  {%- if section.sortable and not (is_first and is_last) %}
+    <span data-sort-handle aria-hidden="true" class="shrink-0 cursor-grab pt-0.5 text-text-3">{{ icon("grip") }}</span>
+  {%- endif %}
 {% endmacro %}
 
 {#- ↑ / ↓ for one row (SPEC §6.4: the keyboard way to reorder). The whole section

@@ -180,3 +180,107 @@ def test_no_rows_are_lost_or_added(auth_client, session, user):
     session.expire_all()  # read the rows again from the database
     numbers = [row.sort_order for row in session.exec(select(Project))]
     assert sorted(numbers) == [1, 2, 3]
+
+
+# --- Drag and drop: the whole new order ---------------------------------------------
+
+
+def send_order(client, key, ids):
+    return htmx_send(client, "POST", f"/profile/{key}/order", {"ids": [str(i) for i in ids]})
+
+
+@pytest.mark.parametrize("key", SORTABLE)
+def test_drag_and_drop_saves_the_new_order(auth_client, session, user, key):
+    model, data = SORTABLE[key]
+    a, b, c = make_rows(session, user, model, data)
+    before = version(session, user)
+
+    response = send_order(auth_client, key, [c.id, a.id, b.id])
+
+    assert response.status_code == 200
+    assert response.headers["HX-Trigger"] == "profile-changed"
+    assert order(session, user, model) == [c.id, a.id, b.id]
+    assert version(session, user) == before + 1
+
+
+def test_the_same_order_changes_nothing(auth_client, session, user):
+    rows = make_rows(session, user, Project, SORTABLE["projects"][1])
+    before = version(session, user)
+
+    response = send_order(auth_client, "projects", [row.id for row in rows])
+
+    assert "HX-Trigger" not in response.headers
+    assert version(session, user) == before
+
+
+@pytest.mark.parametrize(
+    "make_ids",
+    [
+        lambda a, b, c: [a, b],  # one row missing: the page was out of date
+        lambda a, b, c: [a, a, b, c],  # one row twice
+        lambda a, b, c: ["abc", a, b],  # not an id
+        lambda a, b, c: ["-1", a, b],
+        lambda a, b, c: [a] * 51,  # more ids than a section can have
+    ],
+)
+def test_wrong_lists_change_nothing(auth_client, session, user, make_ids):
+    a, b, c = make_rows(session, user, Project, SORTABLE["projects"][1])
+    before = order(session, user, Project)
+
+    response = send_order(auth_client, "projects", make_ids(a.id, b.id, c.id))
+
+    assert response.status_code == 200
+    assert order(session, user, Project) == before
+    # The section comes back in the stored order, so the screen is right again.
+    assert response.text.index(f"profile-projects-{a.id}") < response.text.index(
+        f"profile-projects-{c.id}"
+    )
+
+
+def test_another_users_id_in_the_list_is_404(auth_client, session, user):
+    mine = make_rows(session, user, Project, SORTABLE["projects"][1], count=2)
+    other = create_user(session, email="other@example.com", password="x" * 12, full_name="O")
+    theirs = make_rows(session, other, Project, SORTABLE["projects"][1], count=2)
+    my_before, their_before = order(session, user, Project), order(session, other, Project)
+
+    ids = [theirs[0].id, mine[1].id, mine[0].id, theirs[1].id]
+    assert send_order(auth_client, "projects", ids).status_code == 404
+
+    assert order(session, user, Project) == my_before
+    assert order(session, other, Project) == their_before
+
+
+def test_an_id_that_does_not_exist_is_404(auth_client, session, user):
+    a, b = make_rows(session, user, Project, SORTABLE["projects"][1], count=2)
+
+    assert send_order(auth_client, "projects", [b.id, a.id, 999999]).status_code == 404
+
+
+@pytest.mark.parametrize("key", ["skills", "languages", "certifications"])
+def test_other_sections_have_no_drag_and_drop(auth_client, session, user, key):
+    assert send_order(auth_client, key, []).status_code == 404
+
+
+def test_order_is_not_read_as_a_row_id(auth_client, session, user):
+    make_rows(session, user, Project, SORTABLE["projects"][1], count=2)
+
+    # GET /profile/projects/order is the item route with "order" as id: 404, not a crash.
+    assert htmx_send(auth_client, "GET", "/profile/projects/order").status_code == 404
+
+
+def test_sortable_lists_have_drag_and_drop_data(auth_client, session, user):
+    make_rows(session, user, Project, SORTABLE["projects"][1], count=2)
+    make_rows(session, user, Skill, lambda n: {"name": f"S{n}"}, count=2)
+
+    page = auth_client.get("/profile").text
+
+    assert 'data-sort-url="/profile/projects/order"' in page
+    assert 'data-sort-url="/profile/skills/order"' not in page
+    assert page.count("data-sort-handle") == 2  # one grip per project row
+    assert '<script src="/static/js/sortable.min.js" defer></script>' in page
+
+
+def test_a_single_row_has_no_grip(auth_client, session, user):
+    make_rows(session, user, Project, SORTABLE["projects"][1], count=1)
+
+    assert "data-sort-handle" not in auth_client.get("/profile").text

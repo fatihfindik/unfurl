@@ -1,7 +1,8 @@
-{%- from "profile/_macros.html" import item_actions with context -%}
+{%- from "profile/_macros.html" import drag_handle, item_actions with context -%}
 {%- set degree = [item.degree, item.field] | select | join(", ") -%}
 <li id="profile-education-{{ item.id }}" class="flex items-start justify-between gap-3 py-3">
-  <div class="flex min-w-0 flex-col gap-1">
+  {{ drag_handle(section) }}
+  <div class="flex min-w-0 flex-1 flex-col gap-1">
     <span class="text-sm font-semibold">{% if degree %}{{ degree }} · {% endif %}{{ item.institution }}</span>
     <span class="text-sm text-text-3">
       {{- item.start_date | month_year }} – {{ item.end_date | month_year if item.end_date else "present" }}
