@@ -301,3 +301,34 @@ Kaynak: Design fazı (`docs/plans/M3a.md`), `plan-reviewer`, Fatih onayı.
 - **Karar:** M3a editöründe "Duplicate" butonu ve "All documents" linki gösterilmez; M4'te gelir (Duplicate = başka bir başvuru için kopya, "All documents" = editör bir başvurudan açıldığında). Servisteki `duplicate()` kalır, başlıkta "(copy)" bir kez yazılır. Hiç düzenlenmemiş bir taslaktan (oluşturulduğundan beri `updated_at == created_at`) "Save as new version" yeni versiyon oluşturmaz ve "Nothing changed since this version…" der; kilitli belgeden "Duplicate as new version" her zaman çalışır. Editör eylemleri ikon butonları (ipucu + ekran okuyucu adı); Documents listesinde her taslak satırında onaylı Delete. İkon butonlarının adı hover ve klavye odağında hemen görünür (`data-tooltip`, input.css). Sayfa genişliği tek yerde (`page_width`: 1240 px, editör 1600 px); sayfalar sola yaslı kalır (ortalama denendi, Fatih beğenmedi; sağ taraf ileride doldurulabilir).
 - **Gerekçe:** Fatih'in elle testi (2026-11-15): aynı içerikle v8…v13 ve "(copy) (copy) (copy)" oluştu; başvuru yokken iki buton aynı işi yapıyordu; geniş ekranda sağ taraf boş kalıyordu; tarayıcının `title` ipucu geç çıkıyordu.
 - **Alternatifler:** İki butonu da göstermek. Değişmemiş taslağı içerik karşılaştırmasıyla bulmak (kopyanın kaynağı kayıtlı olmadığı için güvenilmez). Sayfaları tam genişlikte göstermek (uzun satırlar okunaksız) veya ortalamak.
+
+## M3b — CV PDF (2026-11-15)
+
+Kaynak: Design fazı (`docs/plans/M3b.md`), `plan-reviewer`, Fatih onayı.
+
+### D-051 · WeasyPrint ve sistem kütüphaneleri
+- **Karar:** `uv add weasyprint` (sürüm `uv.lock`'ta). Dockerfile runtime aşamasına `apt-get install --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0`, sonra `/var/lib/apt/lists` silinir (D-014'ün uygulanması); CI'da `apt-get update` ve aynı paketler. Lokal: `brew install pango` (README). PDF testleri Pango yoksa başarısız olur, atlanmaz (sessizce atlanan test güvence vermez).
+
+### D-052 · CV fotoğrafı belgenin içinde saklanır
+- **Karar:** Fotoğraf CV'ye sadece kullanıcı o CV'de "Show photo"yu açtığında kopyalanır (veri minimizasyonu, SPEC §10.2): profil fotoğrafı 400 px'e küçültülür, saydamlık beyazla doldurulur ve her zaman JPEG, kalite 85 olarak base64 halinde `CVContent.personal.photo` alanına yazılır (~20–50 KB; test < 80 KB). Kutu kapatılınca fotoğraf içerikten silinir; "Refresh from profile" kutu açıksa güncel fotoğrafı alır. Kilitli CV gönderildiği fotoğrafı korur, kopyalar fotoğrafı içerikle taşır, yetim dosya olmaz, hesap silinince satırla gider. Profil fotoğrafı silinince taslaklar kendi kopyasını Refresh'e kadar korur. Sınırlar şemada: `photo` base64 deseni ve en fazla 200 KB metin, `photo_type: Literal["image/jpeg"]`; uymayan içerik reddedilir (test). Önizlemede `GET /cvs/{id}/photo` (sadece sahibi, `data:` URI yok, M13 CSP'si), PDF'te `data:` URI (D-059'un izin verdiği kaynak). Alternatifler: CV başına dosya kopyası; profil dosyasına referans (kilitli CV'nin fotoğrafı değişir); her snapshot'ta kopyalamak (gösterilmeyen fotoğrafı da saklar).
+
+### D-053 · Doğum tarihi ve uyruk snapshot'ta, gösterim kutularla
+- **Karar:** `CVContent.personal.date_of_birth`, `nationality` snapshot ve Refresh'te kopyalanır (profil zaten saklıyor); CV'de sadece "Show date of birth" ve ayrı "Show nationality" kutusu açıksa görünür, ikisi de varsayılan kapalı. Uyruk kutusu için `CVDocument.show_nationality` kolonu (küçük migration `0006`). AI'a giden içerikten (M7+) fotoğraf, doğum tarihi ve uyruk çıkarılır (SPEC §9.1, §10.2); `CVContent.without_private()` şimdiden eklenir ve test edilir.
+
+### D-054 · Tek CV gövdesi, şablon başına CSS (D-044'ü günceller)
+- **Karar:** `pdf/_cv_body.html` CV'nin yapısını bir kez çizer; `pdf/cv_classic.html`, `cv_modern.html`, `cv_compact.html` (SPEC §4 ağacı) sadece şablon sınıfını verip gövdeyi çağırır. Stil `static/css/cv_classic.css`, `cv_modern.css`, `cv_compact.css` (`.cv-paper` altında). PDF için ek `cv_print.css`: `@page` A4 ve kenar boşlukları, gölge/min-height kapalı, `@font-face` ile `static/fonts` (Inter, Source Serif 4; latin ve latin-ext `unicode-range` ile). `cv-entry-head` (başlık + tarih aynı satırda) WeasyPrint'te de çalışan basit bir düzenle. Önizleme ve PDF aynı HTML'i kullanır.
+
+### D-055 · Bölüm başlıkları ve küçük metinler `app/i18n/document_labels.py`'de
+- **Karar:** dil → {Summary, Experience, Education, Skills, Languages, Certifications, Projects, "present", "Native", "Date of birth", "Nationality"}. DE: Profil, Berufserfahrung, Ausbildung, Kenntnisse, Sprachen, Zertifikate, Projekte, "heute", "Muttersprache", "Geburtsdatum", "Staatsangehörigkeit". TR: Özet, İş Deneyimi, Eğitim, Yetenekler, Diller, Sertifikalar, Projeler, "devam ediyor", "Ana dil", "Doğum tarihi", "Uyruk". Doğum tarihi biçimi: DE ve TR `01.03.1990`, EN `1 March 1990`; ay/yıl her dilde `03/2021`. Önizleme de bu başlıkları kullanır.
+
+### D-056 · PDF'te linkler (#23)
+- **Karar:** Sadece PDF'te `<a href>` olur, şema profildeki `check_url` (`app/schemas/profile.py`) ile tekrar kontrol edilir (yalnız `http`/`https`, aksi halde düz metin); önizlemede düz metin kalır (tıklayınca uygulamadan çıkılmasın). Linkler metin olarak da görünür (ATS URL'yi okur).
+
+### D-057 · PDF indirme
+- **Karar:** `GET /cvs/{id}/pdf` (sahibi; kilitli belge de indirilebilir). `Content-Type: application/pdf`, `Cache-Control: private, no-store`. Rate limit: slowapi `20/minute` (IP başına). Dosya adı CV'deki (snapshot) addan, kilitli CV gönderildiği adla iner: `CV_{Ad_Soyad}_{lang}.pdf` (şirket M4'te). ASCII yedek: önce ı→i, İ→I, ß→ss, ğ→g gibi küçük bir eşleme, sonra NFKD ve aksan silme; sadece `[A-Za-z0-9_-]`, boşluk `_`, en fazla 80 karakter; ad boşsa `CV_{lang}.pdf`; `filename*=UTF-8''` için `quote(safe="")` (RFC 6266). WeasyPrint hata verirse 503 ve küçük bir HTML hata sayfası ("We couldn't create the PDF. Please try again." + editöre dön linki); log'a sadece hata türü yazılır, CV içeriği asla. "Download PDF" bekleyen otomatik kaydetme bittikten sonra indirir (Adım 3'te tarayıcıda doğrulanır).
+
+### D-058 · pypdf geliştirme bağımlılığı (şimdilik)
+- **Karar:** Testlerde PDF'in metnini, sayfa sayısını, A4 boyutunu ve gömülü fontlarını okumak için `uv add --dev pypdf`. SPEC §3'te var; M9'da (CV içe aktarma) ana bağımlılığa taşınır.
+
+### D-059 · WeasyPrint sadece izinli kaynakları okur
+- **Karar:** `render_cv_pdf` kendi `url_fetcher`'ını verir: yalnız `data:image/jpeg;base64,…` (CV fotoğrafı) ve `app/static/css` ile `app/static/fonts` içinde kalan `file://` yolları (resolve sonrası kontrol); `http(s)://`, diğer `file://` yolları ve her şey reddedilir. Kullanıcı verisi bugün `src`/`url()`'e girmiyor; bu katman ileride bir hata olursa da sunucunun yerel dosya veya ağ okumasını engeller (SPEC §10.1, derinlemesine savunma). Test: `http://…` ve `file:///etc/passwd` reddedilir.
