@@ -9,7 +9,11 @@ and `schema_version` tells which shape a stored CV was written in.
 
 import datetime as dt
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.models.cv import CV_LANGUAGES
+from app.models.profile import SHORT_TEXT
+from app.schemas.profile import ProfileForm
 
 # The sections a user can hide on a CV (the name and contact lines are always shown).
 CV_SECTIONS = (
@@ -100,3 +104,23 @@ class CVContent(BaseModel):
     def to_json(self) -> dict:
         """For CVDocument.content (dates become "2021-03-01" text)."""
         return self.model_dump(mode="json")
+
+
+# --- Forms --------------------------------------------------------------------------
+# Checked like the profile forms: text is stripped, empty counts as missing, and
+# form_errors() (app/schemas/profile.py) turns problems into short messages.
+
+LANGUAGE_NAMES = {"en": "English", "de": "German", "tr": "Turkish"}
+
+
+class NewCVForm(ProfileForm):
+    title: str = Field(max_length=SHORT_TEXT)
+    language: str
+    template: str  # checked against the user's plan in the router (entitlements)
+
+    @field_validator("language")
+    @classmethod
+    def known_language(cls, value: str) -> str:
+        if value not in CV_LANGUAGES:
+            raise ValueError("Choose a language.")
+        return value

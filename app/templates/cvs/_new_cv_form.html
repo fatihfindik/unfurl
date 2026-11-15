@@ -1,0 +1,15 @@
+{#- The "New CV" form inside the modal (documents.html). htmx sends it; errors come
+    back as this form, a new CV opens the next page (HX-Redirect). Context: values,
+    errors, language_choices, template_choices. -#}
+{%- from "components/forms.html" import text_field, select_field, primary_button -%}
+<form id="new-cv-form" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/cvs" hx-target="this" hx-swap="outerHTML">
+  {%- if errors.form %}
+    <p role="alert" class="m-0 rounded-[10px] bg-red-bg px-3 py-2.5 text-sm font-medium text-red-text">{{ errors.form }}</p>
+  {%- endif %}
+  <p class="m-0 text-sm text-text-3">The CV starts as a copy of your profile. Changes to the CV don't change your profile.</p>
+  {{ text_field("title", "Title", value=values.title or "", error=errors.title, maxlength=200, id_prefix="new-cv", placeholder="e.g. Master CV (EN)") }}
+  {{ select_field("language", "Document language", language_choices, value=values.language, error=errors.language, id_prefix="new-cv") }}
+  {{ select_field("template", "Template", template_choices, value=values.template, error=errors.template, id_prefix="new-cv") }}
+  <div class="flex justify-end">{{ primary_button("Create CV", size="sm") }}</div>
+</form>

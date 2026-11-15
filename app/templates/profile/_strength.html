@@ -19,4 +19,8 @@
       Your profile is complete.
     {%- endif %}
   </p>
+  {#- On the Documents page (SPEC §6.5); on /profile itself the link isn't needed. -#}
+  {%- if show_profile_link %}
+    <a href="/profile" class="self-start text-sm font-semibold text-link no-underline hover:underline">Complete my profile</a>
+  {%- endif %}
 </section>
