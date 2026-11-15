@@ -1,30 +1,66 @@
-{%- from "components/forms.html" import secondary_button -%}
-{#- Personal info, read view. The name is the account's name (User.full_name). -#}
-{%- set rows = [
-  ("Full name", user.full_name),
-  ("Headline", profile.headline),
-  ("Email", profile.email),
-  ("Phone", profile.phone),
-  ("Location", profile.location),
-  ("Website", profile.website),
-  ("LinkedIn", profile.linkedin_url),
-  ("GitHub", profile.github_url),
-  ("Date of birth", profile.date_of_birth.isoformat() if profile.date_of_birth else None),
-  ("Nationality", profile.nationality),
+{%- from "components/forms.html" import icon_button -%}
+{%- from "components/icons.html" import icon -%}
+{#- Personal info, read view, like a business card (D-041): photo, name and headline,
+    then only the contact details that are filled in, then a short hint for the empty
+    ones. Date of birth and nationality sit in a muted line at the bottom (DACH CVs).
+    The name is the account's name (User.full_name). Links are shown as text, never as
+    a clickable href (they are user input). -#}
+{%- set contacts = [
+  ("mail", "Email", profile.email),
+  ("phone", "Phone", profile.phone),
+  ("location", "Location", profile.location),
+  ("link", "LinkedIn", profile.linkedin_url),
+  ("link", "GitHub", profile.github_url),
+  ("link", "Website", profile.website),
 ] -%}
+{%- set missing = contacts | rejectattr(2) | map(attribute=1) | list -%}
+{#- Date of birth as DACH CVs write it: 01.05.1995. -#}
+{%- set dach = [
+  ("Date of birth", profile.date_of_birth.strftime("%d.%m.%Y") if profile.date_of_birth else None),
+  ("Nationality", profile.nationality),
+] | selectattr(1) | list -%}
 <section id="profile-personal" aria-labelledby="profile-personal-title"
          class="flex flex-col gap-4 rounded-xl border border-border bg-surface p-5">
   <div class="flex items-center justify-between gap-3">
     <h2 id="profile-personal-title" class="m-0 text-base font-bold">Personal info</h2>
-    {{ secondary_button("Edit", hx_get="/profile/personal/edit", hx_target="#profile-personal") }}
+    {{ icon_button("edit", "Edit personal info", hx_get="/profile/personal/edit", hx_target="#profile-personal") }}
   </div>
-  <dl class="m-0 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-    {%- for label, value in rows %}
-      <div class="flex min-w-0 flex-col gap-0.5">
-        <dt class="text-xs font-semibold text-text-3">{{ label }}</dt>
-        {#- Links are shown as text, never as clickable href (they are user input). -#}
-        <dd class="m-0 break-words text-sm {{ 'text-text' if value else 'text-text-3' }}">{{ value or "Not added" }}</dd>
+
+  <div class="flex items-start gap-4">
+    {%- with photo_error=None %}{% include "profile/_photo.html" %}{% endwith %}
+
+    <div class="flex min-w-0 flex-1 flex-col gap-2">
+      <div class="flex flex-col gap-0.5">
+        <p class="m-0 break-words text-xl font-bold">{{ user.full_name }}</p>
+        {%- if profile.headline %}
+          <p class="m-0 break-words text-sm text-text-2">{{ profile.headline }}</p>
+        {%- else %}
+          <p class="m-0 text-sm text-text-3">No headline yet</p>
+        {%- endif %}
       </div>
-    {%- endfor %}
-  </dl>
+
+      {%- if missing | length < contacts | length %}
+        <ul class="m-0 flex list-none flex-wrap gap-x-4 gap-y-1.5 p-0 text-sm text-text-2">
+          {%- for icon_name, label, value in contacts if value %}
+            <li class="flex min-w-0 items-center gap-1.5">
+              <span class="shrink-0 text-text-3">{{ icon(icon_name) }}</span>
+              <span class="sr-only">{{ label }}:</span>
+              <span class="break-all">{{ value }}</span>
+            </li>
+          {%- endfor %}
+        </ul>
+      {%- endif %}
+
+      {%- if missing %}
+        <p class="m-0 text-xs text-text-3">Not added yet: {{ missing | join(", ") }}. Use Edit to add them.</p>
+      {%- endif %}
+
+      {%- if dach %}
+        <p class="m-0 text-xs text-text-3">
+          {%- for label, value in dach %}{{ label }}: {{ value }}{% if not loop.last %} · {% endif %}{% endfor %}
+ (hidden on CVs by default)
+        </p>
+      {%- endif %}
+    </div>
+  </div>
 </section>

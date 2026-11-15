@@ -1,0 +1,22 @@
+{#- Profile strength card (SPEC §6.4, docs/prototype/Profile.dc.html). Context: strength
+    (profile_service.Strength). It reloads itself when a save on the page changes the
+    profile: the server answers with the "profile-changed" event (HX-Trigger, D-040). -#}
+<section id="profile-strength" aria-labelledby="profile-strength-title"
+         hx-get="/profile/strength" hx-trigger="profile-changed from:body" hx-swap="outerHTML"
+         class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+  <div class="flex items-center justify-between gap-3">
+    <h2 id="profile-strength-title" class="m-0 text-base font-bold">Profile strength</h2>
+    <span class="text-base font-bold">{{ strength.percent }}%</span>
+  </div>
+  {#- A native <progress> bar: screen readers read the value, and no inline style is
+      needed for the width (a strict CSP comes in M13). -#}
+  <progress value="{{ strength.percent }}" max="100" aria-labelledby="profile-strength-title"
+            class="h-2 w-full appearance-none overflow-hidden rounded-full bg-muted [&::-moz-progress-bar]:bg-[#4F46E5] [&::-webkit-progress-bar]:bg-muted [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-[#4F46E5]"></progress>
+  <p class="m-0 text-sm text-text-2">
+    {%- if strength.hint %}
+      {{ strength.hint }} A complete profile gives better fit scores and cover letters.
+    {%- else %}
+      Your profile is complete.
+    {%- endif %}
+  </p>
+</section>

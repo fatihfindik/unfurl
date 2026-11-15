@@ -39,6 +39,9 @@ class Profile(SQLModel, table=True):
     # Optional for DACH CVs; never sent to the AI (SPEC §8.4, §10.2).
     date_of_birth: dt.date | None = None
     nationality: str | None = Field(default=None, max_length=SHORT_TEXT)
+    # Optional photo (DACH CVs). Path inside UPLOAD_DIR, e.g. "photos/3f9c...e1.jpg";
+    # the file name is random, never the user's (app/services/photo_service.py, D-038).
+    photo_path: str | None = Field(default=None, max_length=SHORT_TEXT)
 
     # Goes up by 1 on every change, so cached AI results (fit analysis) know the
     # profile changed (SPEC §5.2, §7).

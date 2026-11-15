@@ -124,6 +124,36 @@ def test_form_field_token_passes_and_form_data_still_reaches_the_route(csrf_clie
     assert response.json() == {"name": "Jana"}
 
 
+def test_upload_without_the_header_is_refused_without_reading_it(csrf_client, monkeypatch):
+    token = fetch_token(csrf_client)
+    parsed = []
+    real_form = Request.form
+
+    def watched_form(self, *args, **kwargs):
+        parsed.append(self.url.path)
+        return real_form(self, *args, **kwargs)
+
+    monkeypatch.setattr(Request, "form", watched_form)
+
+    # The token is in the form, but file uploads only count with the htmx header.
+    # /htmx has no Form(...) parameters, like the photo upload route: FastAPI would
+    # read the body of a route with Form(...) parameters before any dependency runs.
+    response = csrf_client.post(
+        "/htmx", data={"csrf_token": token}, files={"f": ("a.txt", b"x" * 5000)}
+    )
+
+    assert response.status_code == 403
+    assert parsed == []  # the body was never parsed
+
+
+def test_upload_with_the_header_passes(csrf_client):
+    token = fetch_token(csrf_client)
+    response = csrf_client.post(
+        "/form", data={"name": "Jana"}, files={"f": ("a.txt", b"x")}, headers={CSRF_HEADER: token}
+    )
+    assert response.status_code == 200
+
+
 def test_htmx_header_token_passes(csrf_client):
     token = fetch_token(csrf_client)
     response = csrf_client.post("/htmx", headers={CSRF_HEADER: token, "HX-Request": "true"})

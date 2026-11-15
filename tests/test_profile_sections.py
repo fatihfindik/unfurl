@@ -324,3 +324,31 @@ def test_month_is_stored_as_the_first_day(profile_client, session):
     experience = rows(session, Experience)[0]
     assert experience.start_date == date(2018, 4, 1)
     assert experience.end_date == date(2021, 2, 1)
+
+
+def test_row_actions_are_icon_buttons_with_names(profile_client):
+    htmx_send(profile_client, "POST", "/profile/certifications", {"name": "AWS Cloud"})
+
+    page = profile_client.get("/profile").text
+
+    # Pencil and trash icons; screen readers hear which row, mouse users get a tooltip.
+    assert '<span class="sr-only">Edit AWS Cloud</span>' in page
+    assert '<span class="sr-only">Delete AWS Cloud</span>' in page
+    assert 'title="Edit"' in page and 'title="Delete"' in page
+
+
+def test_card_headings_use_plus_and_pencil_buttons(profile_client):
+    page = profile_client.get("/profile").text
+
+    for name in [
+        "Add experience",
+        "Add education",
+        "Add skill",
+        "Add language",
+        "Add certification",
+        "Add project",
+        "Edit personal info",
+        "Edit summary",
+    ]:
+        assert f'title="{name}"' in page
+        assert f'<span class="sr-only">{name}</span>' in page

@@ -30,6 +30,7 @@ Kaynak: `docs/plans/M0.md` §12 (açık sorular, Fatih onayı) ve Build sırası
   | Tailwind CLI | v4.3.5 | `scripts/build_css.sh` |
   | htmx | 2.0.11 | `app/static/js/htmx.min.js` başlığı (+ sha256) |
   | @alpinejs/csp | 3.17.5 | `app/static/js/alpine.min.js` başlığı (+ sha256) |
+  | SortableJS | 1.15.6 | `app/static/js/sortable.min.js` başlığı (+ sha256), D-037 |
   | Inter / Space Grotesk / Source Serif 4 | Fontsource variable 5.3.0 / 5.3.0 / 5.3.1 | bu tablo |
   | Docker imajları | `python:3.12-slim-bookworm`, `postgres:16` | Dockerfile, docker-compose.yml |
   | GitHub Actions | `actions/checkout@v7`, `astral-sh/setup-uv@v10.3.3` | `.github/workflows/ci.yml` |
@@ -227,3 +228,37 @@ Kaynak: Plan fazı, Fatih onayı.
 - **Gerekçe:** M2a'nın kapsamı küçük kalır; M4 Undo altyapısını kurunca profil silme de ona bağlanır.
 - **Alternatifler:** M2a'da basit Undo.
 
+
+## M2b — Sıralama, fotoğraf, profil gücü (2026-11-15)
+
+Kaynak: Design fazı (`docs/plans/M2b.md`), `plan-reviewer`, Fatih onayı.
+
+### D-036 · Pillow bağımlılığı
+- **Karar:** Profil fotoğrafları için `pillow` eklenir (sürüm `uv.lock`'ta).
+- **Gerekçe:** SPEC §10.1 fotoğrafın Pillow ile yeniden kaydedilmesini ve EXIF'in silinmesini istiyor, ama §3 tablosunda Pillow yok (D-002). Biçimi dosya adından değil içerikten okumak, EXIF'i atmak ve yeniden kaydetmek için gerekli.
+- **Alternatifler:** Yok; SPEC Pillow'u adıyla istiyor.
+
+### D-037 · SortableJS vendored
+- **Karar:** SortableJS 1.15.6, htmx ve Alpine gibi `app/static/js/sortable.min.js` olarak repoya eklenir; başlıkta paket, sürüm, kaynak URL, lisans (MIT) ve sha256 (D-003).
+- **Gerekçe:** §3'te sürükle-bırak için SortableJS seçili. CDN yok: script'ler sadece kendi origin'imizden (§10.1).
+- **Alternatifler:** HTML5 sürükle-bırak API'si ile kendi kodumuz (mobilde zayıf).
+
+### D-038 · Fotoğraf saklama ve sunma
+- **Karar:** Dosya `UPLOAD_DIR/photos/<secrets.token_hex(16)>.jpg|png` olarak saklanır; kullanıcının dosya adı hiç kullanılmaz, DB'de sadece göreli yol (`Profile.photo_path`). Sunma `GET /profile/photo` ile, sadece giriş yapmış kullanıcının kendi fotoğrafı (URL'de id yok). `FileResponse`, `Cache-Control: private, no-cache`, `X-Content-Type-Options: nosniff`; şablon `?v={profile.version}` ile önbelleği atlar. Yükleme ve silme `Profile.version`'ı artırır. Docker'da `uploads` named volume; klasör imajda `unfurl` kullanıcısına ait.
+- **Gerekçe:** §10.1: fotoğrafı sadece sahibi görebilir. Statik klasör herkese açık olurdu. Rastgele ad, dosya adı üzerinden yol saldırısını (path traversal) imkânsız kılar.
+- **Alternatifler:** `/static/uploads` (herkese açık). Fotoğrafı DB'de saklamak (DB büyür, yedekleme ağırlaşır).
+
+### D-039 · Fotoğraf yükleme kuralları
+- **Karar:** `Content-Length` yoksa veya 2 MB + 64 KB'tan büyükse, form okunmadan reddedilir (route'a özel dependency, M2a'daki `SubmittedForm` kullanılmaz). Okunan dosya 2 MB'tan büyükse reddedilir. Uzantı `.jpg/.jpeg/.png` ve içerik JPEG veya PNG olmalı; ikisi tutmazsa (içi PNG, adı `.jpg`) kabul edilir ve içeriğin uzantısıyla kaydedilir. 25 milyon pikselden büyük görsel `load()`'dan önce reddedilir. Kaydederken EXIF yönü uygulanır, kip çevrilir (JPEG → RGB, PNG → RGB/RGBA), uzun kenar ≤ 800 px, `exif`/`pnginfo`/`icc_profile` olmadan kaydedilir.
+- **Gerekçe:** Güvenliği içerik kontrolü ve yeniden kaydetme sağlar; SPEC'teki "uzantısı değiştirilmiş dosya reddedilir" kuralının amacı resim olmayan dosyayı durdurmak, bu yine reddedilir. Uzantısı tutmayan gerçek fotoğrafı reddetmek kullanıcıyı şaşırtır, güvenlik kazandırmaz (Fatih, 2026-11-15). 800 px CV fotoğrafı için yeterli, disk ve PDF küçük kalır. Pillow'un kendi piksel sınırı 1–2 kat arasında sadece uyarı verir.
+- **Alternatifler:** Uzantı ve içerik tutmazsa reddetmek. Orijinal boyutu saklamak.
+
+### D-040 · Profil gücü kartı htmx olayıyla yenilenir
+- **Karar:** Profili değiştiren her yanıt `HX-Trigger: profile-changed` gönderir; kart `hx-trigger="profile-changed from:body"` ile `GET /profile/strength`'i yeniden ister. Hesap `profile_service.profile_strength()`'te (M3'teki Documents kartı da kullanır).
+- **Gerekçe:** Tek yerde değişiklik; her parça şablonuna kart eklemek gerekmez.
+- **Alternatifler:** Her yanıta out-of-band (`hx-swap-oob`) kart eklemek.
+
+### D-041 · Personal info kartı yeniden tasarımı M2b'de
+- **Karar:** Fotoğraf Personal info kartına girdiği için kartın görünümü M2b'de yenilenir: ad + headline büyük, fotoğraf solda, dolu iletişim bilgileri tek satırda ikonlarla, boş alanlar yerine kısa ipucu, DACH bilgileri soluk satırda. Düzenleme formu değişmez. SPEC §6.4 görünümü tanımlamadığı için SPEC değişmez. Uygulama footer'ı ilk önce ayrı issue'ya (#25) bırakılmıştı; değişiklik tek satır çıkınca M2b'de yapıldı (linkler sağ altta, Fatih, 2026-11-15).
+- **Gerekçe:** M2a manuel testinde kart uzun bulundu (10 satır, çoğu "Not added"); aynı kart, aynı test turu (Fatih, 2026-11-15).
+- **Alternatifler:** Tasarımı ayrı bir işe bırakmak.

@@ -1,9 +1,9 @@
-{%- from "components/forms.html" import secondary_button -%}
+{%- from "components/forms.html" import icon_button -%}
 <section id="profile-summary" aria-labelledby="profile-summary-title"
          class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
   <div class="flex items-center justify-between gap-3">
     <h2 id="profile-summary-title" class="m-0 text-base font-bold">Summary</h2>
-    {{ secondary_button("Edit", hx_get="/profile/summary/edit", hx_target="#profile-summary") }}
+    {{ icon_button("edit", "Edit summary", hx_get="/profile/summary/edit", hx_target="#profile-summary") }}
   </div>
   {%- if profile.summary %}
     {#- whitespace-pre-line keeps the user's line breaks; the text itself is escaped. -#}

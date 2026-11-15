@@ -189,6 +189,52 @@ document.addEventListener("htmx:responseError", () => {
   Alpine.store("toast").show("Something went wrong. Please reload the page.");
 });
 
+// Drag and drop for the sortable profile lists (experience, education, projects;
+// SPEC §6.4). The <ul> has data-sort-url (where the new order goes), data-sort-target
+// (the section the answer replaces) and data-sort-reload (the section's own URL).
+// Only the grip (data-sort-handle) starts a drag; rows in edit mode have no grip.
+// The server answers with the whole section in the saved order, so what the user
+// sees is always what is stored. ↑ / ↓ buttons do the same for keyboard users.
+function initSortable(root) {
+  root.querySelectorAll("[data-sort-url]").forEach((list) => {
+    if (list.dataset.sortReady) return; // already set up
+    list.dataset.sortReady = "true";
+    Sortable.create(list, {
+      handle: "[data-sort-handle]",
+      animation: 150,
+      onEnd(event) {
+        if (event.oldIndex === event.newIndex) return;
+        // Row ids from the <li id="profile-<section>-<id>"> elements, in the new order.
+        const ids = [...list.children].map((row) => row.id.split("-").pop());
+        // `source: list` makes htmx send the same headers as any other htmx request
+        // (the CSRF token from <body hx-headers>).
+        htmx.ajax("POST", list.dataset.sortUrl, {
+          source: list,
+          target: list.dataset.sortTarget,
+          swap: "outerHTML",
+          values: { ids },
+        });
+      },
+    });
+  });
+}
+
+// htmx.onLoad runs for the first page and for every piece of HTML htmx puts in,
+// so lists that come back after a save or a move get drag and drop again.
+htmx.onLoad(initSortable);
+
+// If saving the order fails (e.g. a row was deleted in another tab), the dragged
+// order on screen is wrong. Load the section again so it shows the stored order.
+document.addEventListener("htmx:responseError", (event) => {
+  const list = event.detail.elt;
+  if (!list?.dataset?.sortReload) return;
+  htmx.ajax("GET", list.dataset.sortReload, {
+    source: list,
+    target: list.dataset.sortTarget,
+    swap: "outerHTML",
+  });
+});
+
 // Modals and drawers are native <dialog> elements (templates/components/).
 // - Any element with data-dialog-open="<id>" opens that dialog.
 // - A click on the dark backdrop closes it. The dialog's content is wrapped in a
