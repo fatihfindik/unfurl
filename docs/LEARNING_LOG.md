@@ -140,3 +140,41 @@
 - SPEC: no. Personal info redesign and footer position go to M2b (#21).
 - WORKFLOW: maybe, to discuss in the retro: the manual acceptance test should be a
   short, ordered checklist with test accounts and known limits listed first.
+
+## M2b — Profile order, photo and strength (2026-11-15)
+
+**What I learned**
+- An uploaded file is never stored as it came. Pillow reads what the file really is
+  (the name can lie), checks the size and the pixel count before decoding (a small
+  file can claim a huge image), and draws the pixels into a brand-new image, so no
+  EXIF, GPS or other metadata survives. The file gets a random name, and the photo is
+  served only to its owner, through a URL without an id.
+- When code runs matters as much as what it does. FastAPI reads a request body before
+  the dependencies run if the route has `Form(...)` parameters, and our CSRF check
+  read file uploads before refusing them. The security review found this; now a file
+  upload without the htmx header is refused without being read.
+- Drag and drop needs a keyboard way too. The ↑ / ↓ buttons are hidden with opacity
+  (not removed), so mouse users see a clean row and keyboard users still reach them
+  with Tab; htmx puts the focus back with `autofocus` after the swap.
+- One small event can keep the page in sync: every save answers with
+  `HX-Trigger: profile-changed`, and the Profile strength card reloads itself.
+- Reviews at both ends pay off. `plan-reviewer` found two blockers before any code
+  (the size check would run too late, the Docker volume would not be writable), and
+  `security-reviewer` found five more things after the code was written.
+
+**What was hard**
+- Many small UI decisions came up while testing (arrows, icons, the footer, the
+  Personal info card), on top of the planned work.
+- Some behaviour can only be checked in a real browser (drag and drop, file picker),
+  because the automated tests don't run JavaScript.
+
+**What I will do differently**
+- Look at the prototype and decide the icons and button style during Design, so
+  fewer UI changes come up in the middle of Build.
+- Try the JavaScript parts in the browser right after each step, not at the end.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: no. New decisions D-036…D-041 in DECISIONS (Pillow, SortableJS, photo storage
+  and upload rules, strength card refresh, Personal info card redesign).
+- WORKFLOW: maybe, to discuss in the retro: add "icons and button style" to the
+  Design checklist for screens with many actions.
