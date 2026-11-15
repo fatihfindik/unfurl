@@ -101,3 +101,42 @@
   after a reset the email counts as verified and the lockout is cleared).
 - WORKFLOW: maybe, to discuss in the retro: define the manual acceptance test
   as a short check of screens and main flows.
+
+## M2a — Profile sections (2026-11-15)
+
+**What I learned**
+- One route pattern can serve many similar things. Six list sections (experience,
+  education, skills, languages, certifications, projects) share five routes
+  `/profile/{section}/...` and a small `SECTIONS` table (D-031), instead of about
+  30 almost identical routes. The tests loop over the same table.
+- Ownership can be checked through a join. Profile rows have no `user_id`; every
+  lookup joins to `Profile` and filters by `Profile.user_id` (`get_owned_item`,
+  D-032). Someone else's row, a missing row and a bad id all give the same 404.
+- SQLite ignores foreign keys unless you turn them on per connection
+  (`PRAGMA foreign_keys=ON`, D-034). But not in migrations: a batch migration
+  copies and drops a table, and with foreign keys on, that drop would delete the
+  linked rows too.
+- htmx does not put 4xx answers into the page, so form errors come back with 200
+  and the error message; tests check the message and that the database did not
+  change, not the status code.
+- A manual test finds what automated tests can't: the page had no max width,
+  Save and Cancel had different heights, and the "Resend email" button didn't
+  look like a button. All tests were green, but the screens still needed work.
+
+**What was hard**
+- The manual test checklist was long; I got lost in it and asked for it several
+  times. Rate limits (register 5 per hour) blocked me in the middle of testing.
+- Browser differences: Safari's AutoFill icon and "Save password" popup looked
+  like app bugs, DevTools had to be turned on in Safari, and `localhost` and
+  `127.0.0.1` keep separate cookies.
+
+**What I will do differently**
+- Get a short manual checklist per milestone (screens and main flow), in the
+  order I will click through it, and say up front which limits can block me.
+- Use Chrome and `localhost:8000` for testing.
+- Compare the screens with the prototype before the PR, not only the features.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: no. Personal info redesign and footer position go to M2b (#21).
+- WORKFLOW: maybe, to discuss in the retro: the manual acceptance test should be a
+  short, ordered checklist with test accounts and known limits listed first.
