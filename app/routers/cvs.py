@@ -135,7 +135,12 @@ MASTER_UNLOCKED = "confirmed"
 
 
 def editor_context(
-    cv: CVDocument, *, master_unlocked: bool, errors=None, master: CVDocument | None = None
+    cv: CVDocument,
+    *,
+    master_unlocked: bool,
+    errors=None,
+    master: CVDocument | None = None,
+    template_choices: list | None = None,
 ) -> dict:
     # cv, content, labels and cv_template for the preview (the same as the PDF).
     return pdf_service.cv_context(cv) | {
@@ -146,6 +151,7 @@ def editor_context(
         "section_names": SECTION_NAMES,
         "sections": CV_SECTIONS,
         "master_unlocked": master_unlocked,
+        "template_choices": template_choices or [],
         # The form can be changed: never when locked, a master only after unlocking.
         "editable": not cv.is_locked and (not cv.is_master or master_unlocked),
     }
@@ -160,7 +166,9 @@ def cv_editor(
     master = None
     if cv.parent_id is not None:
         master = document_service.get_owned_cv(session, user, cv.parent_id)
-    context = editor_context(cv, master_unlocked=unlocked, master=master)
+    context = editor_context(
+        cv, master_unlocked=unlocked, master=master, template_choices=template_choices(user)
+    )
     # The version picker: the master and every copy under it.
     context["versions"] = document_service.versions_in_lineage(session, user, cv)
     return templates.TemplateResponse(request, "cvs/editor.html", context)
@@ -183,13 +191,19 @@ def cv_save(
     }
     saved_content = CVContent.model_validate(cv.content)
     errors = {}
+    # The template must be one the user's plan allows (entitlements, CLAUDE.md);
+    # otherwise the CV keeps its template and the rest is still saved.
+    template = data.get("template") or cv.template
+    if template not in dict(template_choices(user)):
+        errors["template"] = "Choose a template."
+        template = cv.template
     try:
         form = CVEditForm.model_validate(values)
     except ValidationError as exc:
         # One bad text field must not block the other changes (e.g. an empty title
         # while a section is switched off): that field keeps its saved value, the
         # rest is saved, and the message says what wasn't.
-        errors = form_errors(exc)
+        errors |= form_errors(exc)
         saved = {
             "title": cv.title,
             "headline": saved_content.personal.headline,
@@ -209,7 +223,12 @@ def cv_save(
     content = form.apply_to(saved_content)
     try:
         document_service.update_content(
-            session, cv, title=form.title, content=content, master_unlocked=unlocked
+            session,
+            cv,
+            title=form.title,
+            content=content,
+            template=template,
+            master_unlocked=unlocked,
         )
     except (document_service.DocumentLocked, document_service.MasterNotUnlocked):
         # The page shows a locked document or a closed master read-only, so this only

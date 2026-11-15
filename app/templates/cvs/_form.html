@@ -2,7 +2,7 @@
     typing; the answer is the new preview (_preview.html). hx-sync: a newer save
     replaces one still on its way, so the last change wins.
     Read-only (disabled fieldset) for a locked copy and a master that wasn't unlocked. -#}
-{%- from "components/forms.html" import text_field, textarea_field -%}
+{%- from "components/forms.html" import select_field, text_field, textarea_field -%}
 <form id="cv-form" class="m-0 flex flex-col gap-4" novalidate
       hx-post="/cvs/{{ cv.id }}" hx-trigger="input delay:500ms" hx-sync="this:replace"
       hx-target="#cv-preview" hx-swap="innerHTML">
@@ -18,6 +18,8 @@
   <fieldset class="m-0 flex flex-col gap-4 border-0 p-0" {% if not editable %}disabled{% endif %}>
     <legend class="sr-only">CV content</legend>
     {{ text_field("title", "Title", value=cv.title, maxlength=200, id_prefix="cv") }}
+    {#- The preview switches at once: all three stylesheets are on the page (D-054). -#}
+    {{ select_field("template", "Template", template_choices, value=cv.template, id_prefix="cv") }}
     {{ text_field("headline", "Headline", value=content.personal.headline or "", required=False, maxlength=200, id_prefix="cv") }}
     {{ textarea_field("summary", "Summary", value=content.summary or "", maxlength=5000, rows=5, id_prefix="cv") }}
 

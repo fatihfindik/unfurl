@@ -344,12 +344,16 @@ def update_content(
     *,
     title: str,
     content: CVContent,
+    template: str | None = None,
     master_unlocked: bool = False,
 ) -> CVDocument:
     """Save the editor's changes. Only this document changes: never the profile,
-    never the master of a copy, never the copies of a master."""
+    never the master of a copy, never the copies of a master. `template` must already
+    be checked against the user's plan (the router does it, entitlements)."""
     _ensure_changeable(cv, master_unlocked)
     cv.title = title
+    if template is not None:
+        cv.template = template
     cv.content = content.to_json()  # a new dict, so SQLAlchemy sees the change
     session.add(cv)
     session.commit()
