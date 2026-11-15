@@ -159,6 +159,8 @@ def cv_editor(
     if cv.parent_id is not None:
         master = document_service.get_owned_cv(session, user, cv.parent_id)
     context = editor_context(cv, master_unlocked=unlocked, master=master)
+    # The version picker: the master and every copy under it.
+    context["versions"] = document_service.versions_in_lineage(session, user, cv)
     return templates.TemplateResponse(request, "cvs/editor.html", context)
 
 
@@ -213,3 +215,72 @@ def cv_save(
         raise HTTPException(status_code=409) from None
     context = editor_context(cv, master_unlocked=unlocked, errors=errors)
     return templates.TemplateResponse(request, "cvs/_preview.html", context)
+
+
+# --- Versions, refresh, delete ----------------------------------------------------
+# The buttons send htmx requests. Success opens the next page (HX-Redirect); a
+# message that can't be helped (e.g. the 100-CV limit) goes into #cv-action-message.
+
+
+def action_message(request: Request, text: str) -> HTMLResponse:
+    return templates.TemplateResponse(request, "cvs/_action_message.html", {"text": text})
+
+
+@router.post("/cvs/{cv_id}/versions", response_class=HTMLResponse)
+def cv_new_version(request: Request, session: DbSession, user: RequiredUser, cv_id: str):
+    """Save as new version (draft) and Duplicate as new version (locked copy)."""
+    cv = document_service.get_owned_cv(session, user, cv_id)
+    try:
+        new = document_service.save_as_new_version(session, user, cv)
+    except document_service.TooManyDocuments:
+        return action_message(request, TOO_MANY_CVS)
+    except document_service.NothingChanged:
+        return action_message(
+            request,
+            "Nothing changed since this version. Make a change first, "
+            "then save it as a new version.",
+        )
+    return go_to(request, f"/cvs/{new.id}")
+
+
+@router.post("/cvs/{cv_id}/duplicate", response_class=HTMLResponse)
+def cv_duplicate(request: Request, session: DbSession, user: RequiredUser, cv_id: str):
+    cv = document_service.get_owned_cv(session, user, cv_id)
+    try:
+        new = document_service.duplicate(session, user, cv)
+    except document_service.TooManyDocuments:
+        return action_message(request, TOO_MANY_CVS)
+    return go_to(request, f"/cvs/{new.id}")
+
+
+@router.post("/cvs/{cv_id}/refresh", response_class=HTMLResponse)
+def cv_refresh(
+    request: Request, session: DbSession, user: RequiredUser, cv_id: str, data: SubmittedForm
+):
+    """Refresh from profile, after the confirmation modal. A master only when it was
+    unlocked (D-048); a locked copy never."""
+    cv = document_service.get_owned_cv(session, user, cv_id)
+    unlocked = data.get("edit_master") == MASTER_UNLOCKED
+    try:
+        document_service.refresh_from_profile(session, user, cv, master_unlocked=unlocked)
+    except (document_service.DocumentLocked, document_service.MasterNotUnlocked):
+        raise HTTPException(status_code=409) from None
+    suffix = f"?edit_master={MASTER_UNLOCKED}" if unlocked else ""
+    return go_to(request, f"/cvs/{cv.id}{suffix}")
+
+
+@router.delete("/cvs/{cv_id}", response_class=HTMLResponse)
+def cv_delete(request: Request, session: DbSession, user: RequiredUser, cv_id: str):
+    """Delete, after the confirmation modal (D-046). Locked copies never; a master
+    only when it has no copies (D-047)."""
+    cv = document_service.get_owned_cv(session, user, cv_id)
+    try:
+        document_service.delete_cv(session, cv)
+    except document_service.DocumentLocked:
+        raise HTTPException(status_code=409) from None
+    except document_service.MasterHasCopies as exc:
+        word = "copy" if exc.copies == 1 else "copies"
+        return action_message(
+            request, f"This master has {exc.copies} {word}. Delete the {word} first."
+        )
+    return go_to(request, "/documents")

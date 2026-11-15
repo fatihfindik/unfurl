@@ -19,7 +19,7 @@ from app.models import (
     Skill,
     User,
 )
-from app.models.base import utcnow
+from app.models.base import as_utc, utcnow
 from app.models.profile import SHORT_TEXT
 from app.schemas.cv import (
     CVBullet,
@@ -56,6 +56,10 @@ class MasterHasCopies(Exception):
 
 class TooManyDocuments(Exception):
     """The user already has MAX_CVS_PER_USER documents."""
+
+
+class NothingChanged(Exception):
+    """A new version would be the same as the draft it comes from."""
 
 
 def snapshot_from_profile(session: Session, user: User) -> tuple[CVContent, int]:
@@ -241,7 +245,7 @@ def create_cv(session: Session, user: User, title: str, language: str, template:
 
     master = current_master(session, user, language)
     if master is None:
-        cv = CVDocument(**fields, is_master=True, version=0)
+        cv = _stamped(CVDocument(**fields, is_master=True, version=0))
         session.add(cv)
         try:
             session.commit()
@@ -252,21 +256,23 @@ def create_cv(session: Session, user: User, title: str, language: str, template:
             session.rollback()
             master = current_master(session, user, language)
 
-    return _save_copy(session, CVDocument(**fields, parent_id=master.id))
+    return _save_copy(session, _stamped(CVDocument(**fields, parent_id=master.id)))
 
 
 def _copy_of(source: CVDocument, title: str) -> CVDocument:
     """A new draft with the same content and settings as `source`, under its master."""
-    return CVDocument(
-        user_id=source.user_id,
-        title=title,
-        language=source.language,
-        template=source.template,
-        content=dict(source.content),
-        show_photo=source.show_photo,
-        show_birth_date=source.show_birth_date,
-        source_profile_version=source.source_profile_version,
-        parent_id=source.id if source.is_master else source.parent_id,
+    return _stamped(
+        CVDocument(
+            user_id=source.user_id,
+            title=title,
+            language=source.language,
+            template=source.template,
+            content=dict(source.content),
+            show_photo=source.show_photo,
+            show_birth_date=source.show_birth_date,
+            source_profile_version=source.source_profile_version,
+            parent_id=source.id if source.is_master else source.parent_id,
+        )
     )
 
 
@@ -274,15 +280,37 @@ def save_as_new_version(session: Session, user: User, source: CVDocument) -> CVD
     """For "Save as new version" (draft) and "Duplicate as new version" (locked): the
     same content as the next version under the same master. Works on locked documents too:
     that is how a sent CV is changed (into a new draft)."""
+    # A draft that was never edited would only give an identical copy (Fatih's test:
+    # v8, v9, v10 all the same). A locked copy is different: its new draft is where
+    # the changes go, so it is always allowed.
+    if not source.is_locked and not source.is_master and never_edited(source):
+        raise NothingChanged
     _check_room(session, user)
     return _save_copy(session, _copy_of(source, source.title))
+
+
+def never_edited(cv: CVDocument) -> bool:
+    """True while a document is exactly as it was created. New documents get the same
+    created_at and updated_at (_stamped); any save moves updated_at."""
+    return as_utc(cv.updated_at) == as_utc(cv.created_at)
+
+
+def _stamped(cv: CVDocument) -> CVDocument:
+    """Give a new document one moment for created_at and updated_at (see never_edited)."""
+    now = utcnow()
+    cv.created_at = now
+    cv.updated_at = now
+    return cv
 
 
 def duplicate(session: Session, user: User, source: CVDocument) -> CVDocument:
     """For "Duplicate": the same content as a separate copy, titled "… (copy)"."""
     _check_room(session, user)
-    # Shortened first if needed, so "… (copy)" still fits the 200-character title.
-    title = f"{source.title[: SHORT_TEXT - len(' (copy)')]} (copy)"
+    # "… (copy)" once, not "… (copy) (copy)"; shortened if needed to fit 200 characters.
+    if source.title.endswith(" (copy)"):
+        title = source.title
+    else:
+        title = f"{source.title[: SHORT_TEXT - len(' (copy)')]} (copy)"
     return _save_copy(session, _copy_of(source, title))
 
 

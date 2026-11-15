@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.6 — 2026-11-15
+> **Durum:** MVP planı, v2.1.7 — 2026-11-15
+> v2.1.7: M3a'da "Duplicate" butonu ve editördeki "All documents" linki M4'e kaldı (başvuru olmadan ikisi de mevcut butonların aynısını yapıyor); değişiklik yapılmamış taslaktan "Save as new version" yeni versiyon oluşturmaz. Karar: DECISIONS D-050.
 > v2.1.6: M3 ikiye bölündü (M3a belgeler + editör + HTML önizleme, M3b PDF: 3 şablon × 3 dil, WeasyPrint). M3a'da başvurusuz kopyalar "Not linked to an application" grubunda; kilitleme servis fonksiyonu olarak gelir, arayüzden M4'te tetiklenir. Karar: DECISIONS D-042.
 > v2.1.5: M2 ikiye bölündü (M2a profil bölümleri, M2b sıralama + fotoğraf + profil gücü). §6.4'e sıralama için ↑↓ butonları ve profil gücü formülü (10 madde × %10) eklendi. Karar: DECISIONS D-030.
 > v2.1.4: M1b Design kararları (§6.1). Login kilidi 5. hatadan itibaren sabit 15 dakika sürer. forgot-password'a IP başına 5/saat sınırı. Şifre sıfırlama e-postayı doğrulanmış sayar ve o e-postanın login kilidini temizler. Kararlar: DECISIONS D-027…D-029.
@@ -1081,7 +1082,8 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 - Başvurular M4'te geldiği için M3a'daki kopyalar başvuruya bağlı değildir; Copies listesinde "Not linked to an application" grubunda gösterilir. M4'te başvuruya bağlanır.
 - Kilitleme `document_service` fonksiyonu olarak gelir ve testlerle kanıtlanır; arayüzde kilitleme butonu yoktur (başvuru `applied` olunca M4'te tetiklenir). Kilitli belgede form salt okunur, "Duplicate as new version" vardır.
 - CV editörü (/cvs/{id}): solda form (içerik, bölüm gizle/göster, deneyim maddelerini seçme), sağda canlı HTML önizleme (HTMX, 500 ms debounce), versiyon seçici ve rozetler. Önizleme M3a'da classic şablonla.
-- "Tailor to a job" (M7), "Edit with assistant" (M12) ve "Download PDF" (M3b) butonları M3a'da gösterilmez.
+- "Tailor to a job" (M7), "Edit with assistant" (M12) ve "Download PDF" (M3b) butonları M3a'da gösterilmez. "Duplicate" butonu ve editördeki "All documents" linki de M4'te gelir: başvuru olmadan Duplicate "Save as new version" ile aynı işi yapar, "All documents" da "← Documents" ile aynı yere gider (D-050).
+- Değişiklik yapılmamış bir taslaktan "Save as new version" yeni versiyon oluşturmaz ("Nothing changed since this version…"). Kilitli belgede "Duplicate as new version" her zaman çalışır.
 - **Kabul:**
   - Yeni CV profilden snapshot alır; o dilde ilk CV master olur.
   - Snapshot'taki düzenleme ana profili değiştirmiyor. Kopyadaki düzenleme master'ı değiştirmiyor (test).

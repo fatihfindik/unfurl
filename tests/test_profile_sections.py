@@ -331,10 +331,10 @@ def test_row_actions_are_icon_buttons_with_names(profile_client):
 
     page = profile_client.get("/profile").text
 
-    # Pencil and trash icons; screen readers hear which row, mouse users get a tooltip.
+    # Pencil and trash icons; screen readers hear which row, mouse users see a tooltip.
     assert '<span class="sr-only">Edit AWS Cloud</span>' in page
     assert '<span class="sr-only">Delete AWS Cloud</span>' in page
-    assert 'title="Edit"' in page and 'title="Delete"' in page
+    assert 'data-tooltip="Edit"' in page and 'data-tooltip="Delete"' in page
 
 
 def test_card_headings_use_plus_and_pencil_buttons(profile_client):
@@ -350,5 +350,5 @@ def test_card_headings_use_plus_and_pencil_buttons(profile_client):
         "Edit personal info",
         "Edit summary",
     ]:
-        assert f'title="{name}"' in page
+        assert f'data-tooltip="{name}"' in page
         assert f'<span class="sr-only">{name}</span>' in page

@@ -147,7 +147,7 @@ def test_a_master_is_only_changed_after_it_was_unlocked(session, user, profile):
 
 def test_save_as_new_version_takes_the_next_free_number(session, user, profile):
     new_cv(session, user)
-    v1 = new_cv(session, user)
+    v1 = edit(session, new_cv(session, user), summary="Edited v1.")
 
     first = docs.save_as_new_version(session, user, v1)
     second = docs.save_as_new_version(session, user, v1)  # again from v1: no second v2
@@ -166,6 +166,26 @@ def test_a_new_version_copies_the_content_and_settings(session, user, profile):
     assert content_of(v2).summary == "Tailored."
     assert v2.title == v1.title
     assert v2.status == "draft"
+
+
+def test_a_never_edited_draft_gives_no_identical_new_version(session, user, profile):
+    new_cv(session, user)
+    v1 = new_cv(session, user)
+
+    with pytest.raises(docs.NothingChanged):
+        docs.save_as_new_version(session, user, v1)
+
+    edit(session, v1, summary="Now it is different.")
+    assert docs.save_as_new_version(session, user, reload(session, v1)).version == 2
+
+
+def test_a_new_draft_is_never_edited_until_saved(session, user, profile):
+    new_cv(session, user)
+    copy = new_cv(session, user)
+    assert docs.never_edited(reload(session, copy))
+
+    edit(session, copy, summary="Changed.")
+    assert not docs.never_edited(reload(session, copy))
 
 
 def test_a_new_version_of_the_master_is_a_copy_under_it(session, user, profile):
@@ -188,6 +208,14 @@ def test_duplicate_makes_a_separate_copy(session, user, profile):
     assert not copy.is_master
 
 
+def test_duplicate_does_not_repeat_copy_in_the_title(session, user, profile):
+    master = new_cv(session, user, title="Main CV")
+
+    again = docs.duplicate(session, user, docs.duplicate(session, user, master))
+
+    assert again.title == "Main CV (copy)"
+
+
 def test_duplicate_keeps_long_titles_within_the_limit(session, user, profile):
     master = new_cv(session, user, title="x" * 200)
 
@@ -196,7 +224,7 @@ def test_duplicate_keeps_long_titles_within_the_limit(session, user, profile):
 
 def test_versions_in_lineage_lists_master_and_copies(session, user, profile):
     master = new_cv(session, user)
-    v1 = new_cv(session, user)
+    v1 = edit(session, new_cv(session, user), summary="Edited v1.")
     v2 = docs.save_as_new_version(session, user, v1)
     new_cv(session, user, "de")  # another master, not in this lineage
 

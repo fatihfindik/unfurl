@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "components/page_header.html" import page_header %}
+{% from "components/page_header.html" import page_header, page_width %}
 
 {% block title %}My profile{% endblock %}
 
@@ -12,8 +12,8 @@
        back_url="/documents",
        back_label="Documents",
      ) }}
-  {#- max-w-[1240px] as in the prototype, so the page does not stretch on wide screens. -#}
-  <div class="grid max-w-[1240px] gap-5 px-4 pt-5 pb-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+  {#- At most 1240px wide (page_width), so the page does not stretch on wide screens. -#}
+  <div class="grid w-full {{ page_width() }} gap-5 px-4 pt-5 pb-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
     <div class="flex min-w-0 flex-col gap-5">
       {% include "profile/_personal.html" %}
       {% include "profile/_summary.html" %}

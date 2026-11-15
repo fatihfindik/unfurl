@@ -39,7 +39,7 @@ def test_empty_documents_page(auth_client):
 def test_masters_and_copies_are_listed(auth_client, session, user):
     master = new_cv(session, user, title="Main CV")
     copy = new_cv(session, user, title="For Acme")
-    docs.lock(session, docs.save_as_new_version(session, user, copy))
+    docs.lock(session, docs.duplicate(session, user, copy))
 
     page = auth_client.get("/documents").text
 
@@ -47,7 +47,7 @@ def test_masters_and_copies_are_listed(auth_client, session, user):
     assert f'href="/cvs/{master.id}"' in page
     assert "Classic template · updated today" in page
     assert "Not linked to an application" in page
-    assert "For Acme · v1" in page and "For Acme · v2" in page
+    assert "For Acme · v1" in page and "For Acme (copy) · v2" in page
     assert "based on Main CV" in page
     assert "Draft" in page and "Sent · locked" in page
 
@@ -164,3 +164,37 @@ def test_time_ago(days, text):
 
 def test_time_ago_reads_sqlite_dates_as_utc():
     assert time_ago(datetime(2026, 11, 15, 1), NOW) == "today"  # naive, as SQLite gives it
+
+
+# --- Delete from the list, layout -----------------------------------------------------
+
+
+def test_each_draft_row_can_be_deleted_after_a_confirmation(auth_client, session, user):
+    master = new_cv(session, user, title="Main CV")
+    copy = new_cv(session, user, title="For Acme")
+    sent = docs.lock(session, docs.duplicate(session, user, copy))
+
+    page = auth_client.get("/documents").text
+
+    for cv in (master, copy):
+        assert f'data-dialog-open="delete-cv-{cv.id}"' in page
+        assert f'hx-delete="/cvs/{cv.id}"' in page
+    assert f'data-dialog-open="delete-cv-{sent.id}"' not in page  # locked: never deleted
+
+
+def test_deleting_from_the_list_reloads_it(auth_client, session, user):
+    new_cv(session, user)
+    copy = new_cv(session, user, title="For Acme")
+
+    response = htmx_send(auth_client, "DELETE", f"/cvs/{copy.id}")
+
+    assert response.headers["HX-Redirect"] == "/documents"
+
+
+@pytest.mark.parametrize("url", ["/", "/documents", "/profile", "/learning"])
+def test_pages_are_left_aligned_with_a_max_width(auth_client, url):
+    # Left-aligned, not centred (Fatih, 2026-11-15); the width limit stays.
+    page = auth_client.get(url).text
+
+    assert "max-w-[1240px]" in page
+    assert "mx-auto w-full" not in page
