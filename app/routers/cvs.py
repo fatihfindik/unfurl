@@ -230,7 +230,7 @@ def cv_save(
             content=content,
             template=template,
             # An unticked checkbox sends nothing, so "not sent" means off.
-            show_photo=data.get("show_photo") == "on",
+            shown={box: data.get(box) == "on" for box in document_service.PRIVATE_BOXES},
             user=user,
             master_unlocked=unlocked,
         )

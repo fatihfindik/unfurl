@@ -87,8 +87,8 @@ def test_switching_off_removes_the_copy(auth_client, session, user, copy):
 def test_without_a_profile_photo_the_box_explains(auth_client, session, copy):
     response = save(auth_client, copy, show_photo="on")
 
-    assert 'id="cv-photo-hint" hx-swap-oob="true"' in response.text
-    assert "No photo yet." in response.text
+    assert 'id="cv-details-hint" hx-swap-oob="true"' in response.text
+    assert "Not in your profile yet: photo." in response.text
     assert stored(session, copy).personal.photo is None
 
 

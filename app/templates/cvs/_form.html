@@ -25,11 +25,17 @@
 
     <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">
       <legend class="mb-1 text-[13px] font-semibold text-text-2">Personal details</legend>
-      <label class="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="show_photo" {% if cv.show_photo %}checked{% endif %}>
-        Show photo (common in DACH)
-      </label>
-      {% with oob=False %}{% include "cvs/_photo_hint.html" %}{% endwith %}
+      {#- All off by default (Fatih, M3b). A box copies the value from the profile
+          into this CV; switched off, it is removed again (D-052, D-053). -#}
+      {%- for box, label in [("show_photo", "Show photo (common in DACH)"),
+                              ("show_birth_date", "Show date of birth"),
+                              ("show_nationality", "Show nationality")] %}
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="{{ box }}" {% if cv[box] %}checked{% endif %}>
+          {{ label }}
+        </label>
+      {%- endfor %}
+      {% with oob=False %}{% include "cvs/_details_hint.html" %}{% endwith %}
     </fieldset>
 
     <fieldset class="m-0 flex flex-col gap-2 border-0 p-0">

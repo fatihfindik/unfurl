@@ -1,0 +1,13 @@
+{#- Shown when a "Personal details" box is on but the profile has no value for it,
+    so the CV can't show it. Comes along with every autosave (oob=True), so it appears
+    right after ticking a box. -#}
+{%- set missing = [] -%}
+{%- if cv.show_photo and not content.personal.photo %}{% set _ = missing.append("photo") %}{% endif -%}
+{%- if cv.show_birth_date and not content.personal.date_of_birth %}{% set _ = missing.append("date of birth") %}{% endif -%}
+{%- if cv.show_nationality and not content.personal.nationality %}{% set _ = missing.append("nationality") %}{% endif -%}
+<p id="cv-details-hint" {% if oob %}hx-swap-oob="true"{% endif %}
+   class="{{ 'm-0 text-xs text-text-3' if missing else 'hidden' }}">
+  {%- if missing %}
+    Not in your profile yet: {{ missing | join(", ") }}. <a href="/profile" class="font-semibold text-link">Add it in My profile</a>, then switch the box off and on.
+  {%- endif %}
+</p>

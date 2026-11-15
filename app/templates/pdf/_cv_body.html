@@ -22,6 +22,11 @@
     <h1 class="cv-name">{{ p.full_name }}</h1>
     {%- if p.headline %}<p class="cv-headline">{{ p.headline }}</p>{% endif %}
     {%- if contacts %}<p class="cv-contacts">{{ contacts | join(" · ") }}</p>{% endif %}
+    {#- Only when their box is on (D-053); the CV holds them only then. -#}
+    {%- set private = [] %}
+    {%- if cv.show_birth_date and p.date_of_birth %}{% set _ = private.append(labels.date_of_birth ~ ": " ~ full_date(p.date_of_birth, cv.language)) %}{% endif %}
+    {%- if cv.show_nationality and p.nationality %}{% set _ = private.append(labels.nationality ~ ": " ~ p.nationality) %}{% endif %}
+    {%- if private %}<p class="cv-contacts">{{ private | join(" · ") }}</p>{% endif %}
   </header>
 
   {%- if content.summary and "summary" not in hidden %}

@@ -50,6 +50,10 @@ class CVPersonal(BaseModel):
         default=None, max_length=MAX_PHOTO_TEXT, pattern=r"^[A-Za-z0-9+/]+={0,2}$"
     )
     photo_type: Literal["image/jpeg"] | None = None
+    # Copied from the profile only while their box is on (D-053), like the photo.
+    # Never sent to the AI: see CVContent.without_private().
+    date_of_birth: dt.date | None = None
+    nationality: str | None = Field(default=None, max_length=SHORT_TEXT)
 
 
 class CVBullet(BaseModel):
@@ -102,7 +106,7 @@ class CVProject(BaseModel):
 
 
 class CVContent(BaseModel):
-    schema_version: int = 2  # 2: personal.photo (M3b)
+    schema_version: int = 2  # 2: photo, date of birth, nationality (M3b)
     personal: CVPersonal = Field(default_factory=CVPersonal)
     summary: str | None = None
     experience: list[CVExperience] = Field(default_factory=list)
@@ -112,6 +116,16 @@ class CVContent(BaseModel):
     certifications: list[CVCertification] = Field(default_factory=list)
     projects: list[CVProject] = Field(default_factory=list)
     hidden_sections: list[str] = Field(default_factory=list)  # names from CV_SECTIONS
+
+    def without_private(self) -> "CVContent":
+        """A copy without the photo, date of birth and nationality, for anything that
+        goes to the AI (M7+; SPEC §9.1, §10.2, D-053)."""
+        copy = self.model_copy(deep=True)
+        copy.personal.photo = None
+        copy.personal.photo_type = None
+        copy.personal.date_of_birth = None
+        copy.personal.nationality = None
+        return copy
 
     def to_json(self) -> dict:
         """For CVDocument.content (dates become "2021-03-01" text)."""

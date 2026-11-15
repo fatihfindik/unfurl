@@ -345,21 +345,23 @@ def update_content(
     title: str,
     content: CVContent,
     template: str | None = None,
-    show_photo: bool | None = None,
+    shown: dict[str, bool] | None = None,
     user: User | None = None,
     master_unlocked: bool = False,
 ) -> CVDocument:
     """Save the editor's changes. Only this document changes: never the profile,
     never the master of a copy, never the copies of a master. `template` must already
     be checked against the user's plan (the router does it, entitlements).
-    `show_photo` (with `user`) switches the photo on or off (D-052)."""
+    `shown` (with `user`) switches the personal details on or off, e.g.
+    {"show_photo": True, "show_birth_date": False} (D-052, D-053)."""
     _ensure_changeable(cv, master_unlocked)
     cv.title = title
     if template is not None:
         cv.template = template
-    if show_photo is not None:
-        cv.show_photo = show_photo
-        _set_photo(session, user, content, show_photo)
+    for box, on in (shown or {}).items():
+        setattr(cv, box, on)
+    if shown is not None:
+        _set_private_details(session, user, cv, content)
     cv.content = content.to_json()  # a new dict, so SQLAlchemy sees the change
     session.add(cv)
     session.commit()
@@ -367,21 +369,35 @@ def update_content(
     return cv
 
 
-def _set_photo(session: Session, user: User | None, content: CVContent, shown: bool) -> None:
-    """The photo rule (D-052): a CV holds a photo only while "Show photo" is on. When
-    it is switched on (or refreshed), a small copy of the current profile photo goes
-    into the content; switched off, the copy is removed. A CV that already has its
-    photo keeps it (so a sent CV never changes)."""
-    if not shown:
-        content.personal.photo = None
-        content.personal.photo_type = None
+PRIVATE_BOXES = ("show_photo", "show_birth_date", "show_nationality")
+
+
+def _set_private_details(
+    session: Session, user: User | None, cv: CVDocument, content: CVContent
+) -> None:
+    """The rule for photo, date of birth and nationality (D-052, D-053): a CV holds
+    them only while their box is on. Switched on (or refreshed), the current value
+    comes from the profile; switched off, it is removed. A value the CV already has
+    is kept (so a sent CV never changes). Nothing is stored that isn't shown."""
+    personal = content.personal
+    if not cv.show_photo:
+        personal.photo = None
+        personal.photo_type = None
+    if not cv.show_birth_date:
+        personal.date_of_birth = None
+    if not cv.show_nationality:
+        personal.nationality = None
+    if user is None:
         return
-    if content.personal.photo or user is None:
-        return
+
     profile = profile_service.get_or_create_profile(session, user)
-    photo = photo_service.photo_for_cv(profile.photo_path)
-    content.personal.photo = photo
-    content.personal.photo_type = "image/jpeg" if photo else None
+    if cv.show_photo and not personal.photo:
+        personal.photo = photo_service.photo_for_cv(profile.photo_path)
+        personal.photo_type = "image/jpeg" if personal.photo else None
+    if cv.show_birth_date and personal.date_of_birth is None:
+        personal.date_of_birth = profile.date_of_birth
+    if cv.show_nationality and not personal.nationality:
+        personal.nationality = profile.nationality
 
 
 def refresh_from_profile(
@@ -391,7 +407,7 @@ def refresh_from_profile(
     confirmed that their edits on this CV are overwritten)."""
     _ensure_changeable(cv, master_unlocked)
     content, profile_version = snapshot_from_profile(session, user)
-    _set_photo(session, user, content, cv.show_photo)  # the current photo, if shown
+    _set_private_details(session, user, cv, content)  # current values, where shown
     cv.content = content.to_json()
     cv.source_profile_version = profile_version
     session.add(cv)

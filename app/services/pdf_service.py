@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 from urllib.request import url2pathname
 
-from app.i18n.document_labels import labels
+from app.i18n.document_labels import full_date, labels
 from app.models import CVDocument
 from app.models.cv import CV_TEMPLATES
 from app.schemas.cv import CVContent
@@ -88,6 +88,7 @@ def cv_context(cv: CVDocument) -> dict:
         "cv": cv,
         "content": CVContent.model_validate(cv.content),
         "labels": labels(cv.language),
+        "full_date": full_date,  # date of birth written the CV language's way
         "cv_template": f"pdf/cv_{template_name(cv)}.html",
         "cv_stylesheet": f"css/cv_{template_name(cv)}.css",
     }

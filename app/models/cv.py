@@ -52,8 +52,9 @@ class CVDocument(SQLModel, table=True):
     # The CV itself: app.schemas.cv.CVContent as JSON (D-043). Code always assigns a
     # new dict, because SQLAlchemy doesn't notice changes inside a JSON value.
     content: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
-    show_photo: bool = Field(default=False)  # used from M3b
+    show_photo: bool = Field(default=False)  # used from M3b (D-052)
     show_birth_date: bool = Field(default=False)  # used from M3b
+    show_nationality: bool = Field(default=False)  # its own box (D-053)
     source_profile_version: int = Field(default=0)  # Profile.version at the snapshot
 
     is_master: bool = Field(default=False)
