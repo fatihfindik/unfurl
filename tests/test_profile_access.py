@@ -32,6 +32,9 @@ ROUTES = [
     ("GET", "/profile/summary/edit"),
     ("POST", "/profile/summary"),
     ("GET", "/profile/strength"),
+    ("GET", "/profile/photo"),
+    ("POST", "/profile/photo"),
+    ("DELETE", "/profile/photo"),
 ]
 for key in SECTIONS:
     ROUTES += [

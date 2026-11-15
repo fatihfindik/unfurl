@@ -17,10 +17,10 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from pydantic import BaseModel, ValidationError
 from sqlmodel import Session, SQLModel
-from starlette.datastructures import FormData
+from starlette.datastructures import FormData, UploadFile
 
 from app.db import get_session
 from app.models import (
@@ -46,7 +46,7 @@ from app.schemas.profile import (
     SummaryForm,
     form_errors,
 )
-from app.services import profile_service
+from app.services import photo_service, profile_service
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
 
@@ -109,6 +109,97 @@ def strength_view(request: Request, session: DbSession, user: RequiredUser):
     profile = profile_service.get_or_create_profile(session, user)
     strength = profile_service.profile_strength(session, profile)
     return fragment(request, "profile/_strength.html", {"strength": strength})
+
+
+# --- Photo (D-038, D-039) ---------------------------------------------------------
+
+
+@dataclass
+class PhotoUpload:
+    """What came in with a photo upload: the file, or a message saying why not."""
+
+    filename: str = ""
+    data: bytes = b""
+    error: str | None = None
+
+
+async def read_photo_upload(request: Request) -> PhotoUpload:
+    """The uploaded photo, with its size checked BEFORE the body is read.
+
+    The usual SubmittedForm dependency would read the whole request first, so a huge
+    upload would already be on the disk. Here the Content-Length header is checked
+    first; a request that is too big is answered without reading it. (The CSRF check
+    takes the token from the htmx header, so it doesn't read the body either.)
+    """
+    length = request.headers.get("content-length", "")
+    if not (length.isascii() and length.isdigit()):
+        return PhotoUpload(error=photo_service.UNREADABLE)
+    if int(length) > photo_service.MAX_REQUEST_BYTES:
+        return PhotoUpload(error=photo_service.TOO_BIG)
+
+    form = await request.form(max_files=1, max_fields=5)
+    upload = form.get("photo")
+    if not isinstance(upload, UploadFile):
+        return PhotoUpload(error=photo_service.UNREADABLE)
+    # One byte more than allowed is enough to know the file is too big.
+    data = await upload.read(photo_service.MAX_BYTES + 1)
+    return PhotoUpload(filename=upload.filename or "", data=data)
+
+
+def photo_context(user: User, profile: Profile, error: str | None = None) -> dict:
+    return {"user": user, "profile": profile, "photo_error": error}
+
+
+@router.get("/profile/photo")
+def photo_file(session: DbSession, user: RequiredUser):
+    """The signed-in user's own photo, for <img src>. There is no id in the URL, so
+    nobody can ask for another user's photo (SPEC §10.1)."""
+    profile = profile_service.get_or_create_profile(session, user)
+    path = photo_service.photo_file(profile.photo_path) if profile.photo_path else None
+    if path is None:
+        raise HTTPException(status_code=404)
+    return FileResponse(
+        path,
+        media_type=photo_service.media_type(profile.photo_path),
+        headers={
+            # Only this browser may keep a copy, and it asks again before using it.
+            "Cache-Control": "private, no-cache",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.post("/profile/photo", response_class=HTMLResponse)
+def photo_upload(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    upload: Annotated[PhotoUpload, Depends(read_photo_upload)],
+):
+    profile = profile_service.get_or_create_profile(session, user)
+    error = upload.error
+    if error is None:
+        try:
+            new_path = photo_service.save_photo(upload.data, upload.filename)
+        except photo_service.PhotoError as exc:
+            error = str(exc)
+    if error is not None:
+        # 200 with the message: htmx does not show 4xx answers.
+        return fragment(request, "profile/_photo.html", photo_context(user, profile, error))
+
+    old_path = profile_service.set_photo(session, profile, new_path)
+    # The old file goes only after the new path is saved, so a failed save never
+    # leaves the profile pointing at a deleted file.
+    photo_service.delete_photo_file(old_path)
+    return changed(fragment(request, "profile/_photo.html", photo_context(user, profile)))
+
+
+@router.delete("/profile/photo", response_class=HTMLResponse)
+def photo_delete(request: Request, session: DbSession, user: RequiredUser):
+    profile = profile_service.get_or_create_profile(session, user)
+    old_path = profile_service.set_photo(session, profile, None)
+    photo_service.delete_photo_file(old_path)
+    return changed(fragment(request, "profile/_photo.html", photo_context(user, profile)))
 
 
 # --- Personal info ----------------------------------------------------------------
@@ -330,9 +421,9 @@ def item_context(section: Section, item, values=None, errors=None) -> dict:
 
 
 # The order of the routes matters: FastAPI uses the first route whose path matches.
-# The fixed paths (/profile/personal, /profile/summary, /profile/strength) are defined
-# above, so "personal" is never read as a section; "/new" comes before "/{item_id}", so "new"
-# is never read as an id.
+# The fixed paths (/profile/personal, /profile/summary, /profile/strength,
+# /profile/photo) are defined above, so "personal" is never read as a section;
+# "/new" comes before "/{item_id}", so "new" is never read as an id.
 
 
 @router.get("/profile/{section_key}", response_class=HTMLResponse)

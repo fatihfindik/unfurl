@@ -1,0 +1,35 @@
+{#- Profile photo (optional, for DACH CVs; SPEC §6.4, §10.1, D-038). Context: user,
+    profile, photo_error. Upload and Remove replace this element. The image comes from
+    /profile/photo, which only ever serves the signed-in user's own photo; ?v= changes
+    with every profile change, so the browser shows a new photo right away. -#}
+{%- set initials = (user.full_name.split() | map("first") | join | upper)[:2] -%}
+<div id="profile-photo" class="flex items-center gap-4">
+  {%- if profile.photo_path %}
+    <img src="/profile/photo?v={{ profile.version }}" alt="Your profile photo" width="64" height="64"
+         class="size-16 shrink-0 rounded-full object-cover">
+  {%- else %}
+    <span aria-hidden="true"
+          class="flex size-16 shrink-0 items-center justify-center rounded-full bg-muted text-lg font-bold text-text-2">{{ initials }}</span>
+  {%- endif %}
+  <div class="flex min-w-0 flex-col gap-1">
+    <div class="flex flex-wrap items-center gap-3 text-sm font-semibold">
+      {#- Choosing a file sends it at once (hx-trigger="change"). The real file input is
+          visually hidden but still reachable with Tab; the label shows the focus ring. -#}
+      <form class="m-0" hx-post="/profile/photo" hx-encoding="multipart/form-data"
+            hx-trigger="change" hx-target="#profile-photo" hx-swap="outerHTML">
+        <label class="cursor-pointer rounded text-link hover:underline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#4F46E5]">
+          {{ "Change photo" if profile.photo_path else "Upload photo" }}
+          <input type="file" name="photo" accept="image/jpeg,image/png" class="sr-only">
+        </label>
+      </form>
+      {%- if profile.photo_path %}
+        <button type="button" class="text-red-text hover:underline"
+                hx-delete="/profile/photo" hx-target="#profile-photo" hx-swap="outerHTML">Remove<span class="sr-only"> photo</span></button>
+      {%- endif %}
+    </div>
+    <p class="m-0 text-xs text-text-3">JPEG or PNG, up to 2 MB. Hidden on CVs by default.</p>
+    {%- if photo_error %}
+      <p role="alert" class="m-0 text-xs font-medium text-red-text">{{ photo_error }}</p>
+    {%- endif %}
+  </div>
+</div>

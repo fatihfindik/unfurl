@@ -51,6 +51,10 @@ COPY --from=css /app/app/static/css/app.css app/static/css/app.css
 # Run as a normal user, not root: if the app is ever compromised, the attacker
 # can't change the system inside the container.
 RUN useradd --create-home --uid 1000 unfurl
+# Uploaded profile photos (UPLOAD_DIR=./uploads, D-038). The folder must exist in the
+# image and belong to `unfurl`: a new Docker volume mounted here copies this owner,
+# otherwise it would belong to root and saving a photo would fail.
+RUN mkdir -p /app/uploads/photos && chown -R unfurl /app/uploads
 USER unfurl
 
 EXPOSE 8000

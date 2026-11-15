@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 
+from app.config import get_settings  # noqa: E402
 from app.db import enable_sqlite_foreign_keys, get_session  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
@@ -33,6 +34,14 @@ def reset_limits():
     login_lockout.reset()
     email_limiter.reset()
     limiter.reset()
+
+
+@pytest.fixture(autouse=True)
+def upload_dir(tmp_path, monkeypatch):
+    """Uploaded files (profile photos) go to a temporary folder, never into the repo."""
+    folder = tmp_path / "uploads"
+    monkeypatch.setattr(get_settings(), "upload_dir", str(folder))
+    return folder
 
 
 @pytest.fixture

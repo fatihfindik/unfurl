@@ -205,6 +205,18 @@ def update_personal_info(
     session.refresh(profile)
 
 
+def set_photo(session: Session, profile: Profile, photo_path: str | None) -> str | None:
+    """Store a new photo path (None removes the photo). Returns the old path, so the
+    caller can delete the old file once the new value is saved."""
+    old = profile.photo_path
+    profile.photo_path = photo_path
+    session.add(profile)
+    _touch(session, profile.id)  # CV copies (M3) use the photo, so it is a change
+    session.commit()
+    session.refresh(profile)
+    return old
+
+
 def update_summary(session: Session, profile: Profile, form: SummaryForm) -> None:
     profile.summary = form.summary
     session.add(profile)

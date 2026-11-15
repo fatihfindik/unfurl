@@ -18,6 +18,7 @@
     <h2 id="profile-personal-title" class="m-0 text-base font-bold">Personal info</h2>
     {{ secondary_button("Edit", hx_get="/profile/personal/edit", hx_target="#profile-personal") }}
   </div>
+  {%- with photo_error=None %}{% include "profile/_photo.html" %}{% endwith %}
   <dl class="m-0 grid gap-x-6 gap-y-3 sm:grid-cols-2">
     {%- for label, value in rows %}
       <div class="flex min-w-0 flex-col gap-0.5">

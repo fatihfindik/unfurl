@@ -89,7 +89,7 @@ def test_saving_personal_info(auth_client, session, user):
 
     assert response.status_code == 200
     assert "Senior Product Manager" in response.text
-    assert "hx-post" not in response.text  # back to the read view
+    assert 'hx-post="/profile/personal"' not in response.text  # back to the read view
     profile = saved_profile(session)
     assert profile.headline == "Senior Product Manager"
     assert profile.email == "jana@work.example"

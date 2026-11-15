@@ -30,6 +30,9 @@ services:
       # 127.0.0.1: reachable only from this computer, not from others on the same
       # Wi-Fi/LAN (the local .env has DEBUG=true, which shows stack traces).
       - "127.0.0.1:8000:8000"
+    volumes:
+      # Profile photos survive `docker compose up --build` (removed only with -v).
+      - uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -43,3 +46,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:
