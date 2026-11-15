@@ -32,7 +32,7 @@ from app.schemas.cv import (
     CVProject,
     CVSkill,
 )
-from app.services import profile_service
+from app.services import photo_service, profile_service
 
 MAX_CVS_PER_USER = 100
 MAX_ID = profile_service.MAX_ID
@@ -345,20 +345,43 @@ def update_content(
     title: str,
     content: CVContent,
     template: str | None = None,
+    show_photo: bool | None = None,
+    user: User | None = None,
     master_unlocked: bool = False,
 ) -> CVDocument:
     """Save the editor's changes. Only this document changes: never the profile,
     never the master of a copy, never the copies of a master. `template` must already
-    be checked against the user's plan (the router does it, entitlements)."""
+    be checked against the user's plan (the router does it, entitlements).
+    `show_photo` (with `user`) switches the photo on or off (D-052)."""
     _ensure_changeable(cv, master_unlocked)
     cv.title = title
     if template is not None:
         cv.template = template
+    if show_photo is not None:
+        cv.show_photo = show_photo
+        _set_photo(session, user, content, show_photo)
     cv.content = content.to_json()  # a new dict, so SQLAlchemy sees the change
     session.add(cv)
     session.commit()
     session.refresh(cv)
     return cv
+
+
+def _set_photo(session: Session, user: User | None, content: CVContent, shown: bool) -> None:
+    """The photo rule (D-052): a CV holds a photo only while "Show photo" is on. When
+    it is switched on (or refreshed), a small copy of the current profile photo goes
+    into the content; switched off, the copy is removed. A CV that already has its
+    photo keeps it (so a sent CV never changes)."""
+    if not shown:
+        content.personal.photo = None
+        content.personal.photo_type = None
+        return
+    if content.personal.photo or user is None:
+        return
+    profile = profile_service.get_or_create_profile(session, user)
+    photo = photo_service.photo_for_cv(profile.photo_path)
+    content.personal.photo = photo
+    content.personal.photo_type = "image/jpeg" if photo else None
 
 
 def refresh_from_profile(
@@ -368,6 +391,7 @@ def refresh_from_profile(
     confirmed that their edits on this CV are overwritten)."""
     _ensure_changeable(cv, master_unlocked)
     content, profile_version = snapshot_from_profile(session, user)
+    _set_photo(session, user, content, cv.show_photo)  # the current photo, if shown
     cv.content = content.to_json()
     cv.source_profile_version = profile_version
     session.add(cv)

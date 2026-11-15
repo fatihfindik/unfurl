@@ -29,6 +29,22 @@
   box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12), 0 8px 24px rgba(16, 24, 40, 0.08);
 }
 
+/* The optional photo (common in DACH CVs) sits at the right of the name block. */
+.cv-paper .cv-photo {
+  float: right;
+  width: 90px;
+  height: 110px;
+  margin: 0 0 8px 16px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.cv-paper .cv-head::after {
+  content: "";
+  display: block;
+  clear: both;
+}
+
 .cv-paper .cv-head {
   border-bottom: 1px solid #c8ccd2;
   padding-bottom: 12px;

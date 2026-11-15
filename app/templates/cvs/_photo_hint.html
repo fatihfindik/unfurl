@@ -1,0 +1,6 @@
+{#- Shown when "Show photo" is on but the CV has no photo (the profile has none).
+    Comes along with every autosave (oob=True), so it appears right after ticking. -#}
+<p id="cv-photo-hint" {% if oob %}hx-swap-oob="true"{% endif %}
+   class="{{ 'm-0 text-xs text-text-3' if cv.show_photo and not content.personal.photo else 'hidden' }}">
+  No photo yet. <a href="/profile" class="font-semibold text-link">Add one in My profile</a>, then switch this off and on.
+</p>

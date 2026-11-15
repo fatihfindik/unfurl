@@ -4,6 +4,7 @@ The rules for masters, versions and locks are in app/services/document_service.p
 the routes here only read forms, call the service and pick the template.
 """
 
+import base64
 import logging
 from typing import Annotated
 
@@ -228,6 +229,9 @@ def cv_save(
             title=form.title,
             content=content,
             template=template,
+            # An unticked checkbox sends nothing, so "not sent" means off.
+            show_photo=data.get("show_photo") == "on",
+            user=user,
             master_unlocked=unlocked,
         )
     except (document_service.DocumentLocked, document_service.MasterNotUnlocked):
@@ -329,4 +333,19 @@ def cv_pdf(request: Request, session: DbSession, user: RequiredUser, cv_id: str)
             "Content-Disposition": pdf_service.content_disposition(cv),
             "Cache-Control": "private, no-store",
         },
+    )
+
+
+@router.get("/cvs/{cv_id}/photo")
+def cv_photo(session: DbSession, user: RequiredUser, cv_id: str):
+    """The photo inside a CV, for the editor preview (D-052). Only the owner gets it
+    (get_owned_cv); the PDF gets it as a data: URI instead."""
+    cv = document_service.get_owned_cv(session, user, cv_id)
+    personal = CVContent.model_validate(cv.content).personal
+    if not personal.photo:
+        raise HTTPException(status_code=404)
+    return Response(
+        content=base64.b64decode(personal.photo),
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"},
     )

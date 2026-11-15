@@ -1,3 +1,4 @@
 {#- Answer to an autosave: the new preview, plus the error list next to the form. -#}
 {% include cv_template %}
 {% with oob=True %}{% include "cvs/_errors.html" %}{% endwith %}
+{% with oob=True %}{% include "cvs/_photo_hint.html" %}{% endwith %}

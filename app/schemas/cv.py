@@ -9,12 +9,17 @@ and `schema_version` tells which shape a stored CV was written in.
 
 import datetime as dt
 import re
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.models.cv import CV_LANGUAGES
 from app.models.profile import LONG_TEXT, SHORT_TEXT
 from app.schemas.profile import ProfileForm
+
+# A CV photo is a ~400 px JPEG, about 20–50 KB; as base64 text a bit more. Anything
+# bigger than this was not made by us (D-052).
+MAX_PHOTO_TEXT = 200_000
 
 # The sections a user can hide on a CV (the name and contact lines are always shown).
 CV_SECTIONS = (
@@ -37,8 +42,14 @@ class CVPersonal(BaseModel):
     website: str | None = None
     linkedin_url: str | None = None
     github_url: str | None = None
-    # Photo, date of birth and nationality come with the PDF in M3b (show_photo,
-    # show_birth_date); they are not copied yet.
+    # The CV's own copy of the profile photo (D-052): a small JPEG as base64 text,
+    # only while "Show photo" is on. A sent (locked) CV keeps the photo it was sent
+    # with, whatever happens to the profile photo later. The limits stop odd content
+    # (the type goes into a Content-Type header and a data: URI).
+    photo: str | None = Field(
+        default=None, max_length=MAX_PHOTO_TEXT, pattern=r"^[A-Za-z0-9+/]+={0,2}$"
+    )
+    photo_type: Literal["image/jpeg"] | None = None
 
 
 class CVBullet(BaseModel):
@@ -91,7 +102,7 @@ class CVProject(BaseModel):
 
 
 class CVContent(BaseModel):
-    schema_version: int = 1
+    schema_version: int = 2  # 2: personal.photo (M3b)
     personal: CVPersonal = Field(default_factory=CVPersonal)
     summary: str | None = None
     experience: list[CVExperience] = Field(default_factory=list)

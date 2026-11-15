@@ -12,6 +12,13 @@
 {%- set contacts = [p.location, p.email, p.phone, p.linkedin_url, p.github_url, p.website] | select | list -%}
 <article class="cv-paper {{ template_class }}" aria-label="CV preview">
   <header class="cv-head">
+    {#- The photo only when "Show photo" is on (D-052). The PDF gets it inline (the only
+        inline data WeasyPrint may load, D-059); the preview loads it from the
+        owner-only /cvs/{id}/photo, with ?v= so a new photo shows at once. -#}
+    {%- if cv.show_photo and p.photo %}
+      <img class="cv-photo" alt="{{ p.full_name }}" width="90" height="110"
+           src="{% if for_pdf %}data:image/jpeg;base64,{{ p.photo }}{% else %}/cvs/{{ cv.id }}/photo?v={{ cv.updated_at.timestamp() | int }}{% endif %}">
+    {%- endif %}
     <h1 class="cv-name">{{ p.full_name }}</h1>
     {%- if p.headline %}<p class="cv-headline">{{ p.headline }}</p>{% endif %}
     {%- if contacts %}<p class="cv-contacts">{{ contacts | join(" · ") }}</p>{% endif %}
