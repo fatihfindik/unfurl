@@ -208,14 +208,15 @@ def test_resend_sends_a_new_email(auth_client, outbox):
     assert len(outbox) == 1
     assert outbox[0].to == USER_EMAIL
     page = auth_client.get("/check-inbox?resent=1").text
-    assert "Sent again. Check your spam folder too." in page
+    assert "Email sent. Check your spam folder too." in page
 
 
 def test_resend_with_htmx_returns_the_message(auth_client, outbox):
     response = resend(auth_client, htmx=True)
 
     assert response.status_code == 200
-    assert "Sent again. Check your spam folder too." in response.text
+    assert "Email sent. Check your spam folder too." in response.text
+    assert "bg-green-bg" in response.text  # a success badge, not plain text like the button
     assert "<html" not in response.text  # only the piece that replaces the button
     assert len(outbox) == 1
 

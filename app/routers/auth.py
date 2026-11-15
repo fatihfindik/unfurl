@@ -47,7 +47,7 @@ FormText = Annotated[str, Form()]
 FULL_NAME_MAX_LENGTH = 200
 LOGIN_ERROR = "Invalid email or password."
 LOCKED_ERROR = "Too many attempts. Try again in 15 minutes."
-RESENT_MESSAGE = "Sent again. Check your spam folder too."
+RESENT_MESSAGE = "Email sent. Check your spam folder too."
 WAIT_MESSAGE = "Please wait a few minutes before asking for another email."
 # The same answer whether the email has an account or not (no account guessing).
 FORGOT_MESSAGE = "If an account exists, we sent an email."
@@ -223,7 +223,7 @@ def check_inbox(request: Request, user: RequiredUser, resent: str = ""):
     return templates.TemplateResponse(
         request,
         "auth/check_inbox.html",
-        {"email": user.email, "message": RESENT_MESSAGE if resent else None},
+        {"email": user.email, "message": RESENT_MESSAGE if resent else None, "sent": bool(resent)},
     )
 
 
@@ -238,13 +238,13 @@ def resend_verification(request: Request, user: RequiredUser, background_tasks: 
         # Only the button is replaced, by this message (banner and Check your inbox page).
         # Always 200: htmx does not put 4xx responses into the page.
         return templates.TemplateResponse(
-            request, "components/resend_result.html", {"message": message}
+            request, "components/resend_result.html", {"message": message, "sent": allowed}
         )
     if not allowed:
         return templates.TemplateResponse(
             request,
             "auth/check_inbox.html",
-            {"email": user.email, "message": message},
+            {"email": user.email, "message": message, "sent": False},
             status_code=429,
         )
     return redirect("/check-inbox?resent=1")
