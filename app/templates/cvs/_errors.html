@@ -1,0 +1,15 @@
+{#- Messages for the editor form. Autosave doesn't redraw the form (the user is still
+    typing in it), so problems are listed here. With oob=True it comes along with
+    the preview and replaces the old list (htmx out-of-band swap).
+    A field with a problem keeps its last saved value; the other changes are saved. -#}
+{%- set field_names = {"title": "Title", "headline": "Headline", "summary": "Summary",
+                       "visible_sections": "Sections", "bullets": "Bullets"} -%}
+<div id="cv-form-errors" role="alert" {% if oob %}hx-swap-oob="true"{% endif %}
+     class="{{ 'flex flex-col gap-1 rounded-[10px] border border-red-text/40 bg-red-bg px-3 py-2.5 text-sm text-red-text' if errors else 'hidden' }}">
+  {%- for field, message in errors.items() %}
+    <p class="m-0"><span class="font-semibold">{{ field_names.get(field, "This change") }} was not saved:</span> {{ message }}</p>
+  {%- endfor %}
+  {%- if errors and not nothing_saved %}
+    <p class="m-0 text-xs">Your other changes are saved.</p>
+  {%- endif %}
+</div>

@@ -132,7 +132,7 @@ def test_first_row_has_up_turned_off_and_last_row_down(auth_client, session, use
     buttons = section[: section.index("</section>")]
 
     assert buttons.count("Move Project 0 up") == 1
-    assert buttons.count('<button type="button" disabled') == 2  # first ↑ and last ↓
+    assert buttons.count(" disabled ") == 2  # first ↑, last ↓ (the attribute, not class names)
 
 
 def test_a_single_row_has_no_move_buttons(auth_client, session, user):
@@ -170,7 +170,7 @@ def test_a_saved_row_keeps_its_buttons_right(auth_client, session, user):
     html = htmx_send(auth_client, "POST", f"/profile/projects/{rows[0].id}", {"name": "First"}).text
 
     assert "Move First up" in html
-    assert html.count('<button type="button" disabled') == 1  # it is still the first row
+    assert html.count(" disabled ") == 1  # it is still the first row
 
 
 def test_no_rows_are_lost_or_added(auth_client, session, user):

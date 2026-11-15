@@ -158,7 +158,7 @@ Kaynak: claude.ai Plan fazı (`docs/plans/M1-handoff.md`), Fatih onayı.
 - **Alternatifler:** Tek M1.
 
 ### D-025 · User tablosu sadece M1 kolonlarıyla
-- **Karar:** M1a migration'ı User'a sadece M1'in kullandığı kolonları ekler: `email`, `password_hash`, `full_name`, `is_verified`, `privacy_accepted_at`, `last_login_at`, `session_version`, `plan`, `plan_expires_at`, `created_at`, `updated_at`. Diğer §5.1 kolonları kendi milestone'larında küçük migration'larla gelir: `theme` (M4), `default_doc_language` (M3), `timezone` (M10/M11), `anthropic_api_key_encrypted` (M7), `ui_locale` (ihtiyaç olunca).
+- **Karar:** M1a migration'ı User'a sadece M1'in kullandığı kolonları ekler: `email`, `password_hash`, `full_name`, `is_verified`, `privacy_accepted_at`, `last_login_at`, `session_version`, `plan`, `plan_expires_at`, `created_at`, `updated_at`. Diğer §5.1 kolonları kendi milestone'larında küçük migration'larla gelir: `theme` (M4), `default_doc_language` (M3'ten Settings sayfasına ertelendi, Fatih 2026-11-15), `timezone` (M10/M11), `anthropic_api_key_encrypted` (M7), `ui_locale` (ihtiyaç olunca).
 - **Gerekçe:** Her kolon onu kullanan kodla birlikte gelir; kullanılmayan kolon olmaz.
 - **Not:** `created_at` ve `updated_at` uygulama tarafında SQLAlchemy `default` / `onupdate` ile dolar. Ham SQL ile yapılan güncellemeler `updated_at`'i değiştirmez; DB trigger'ı kullanılmaz.
 - **Alternatifler:** SPEC §5.1'in tamamını şimdi eklemek.
@@ -262,3 +262,42 @@ Kaynak: Design fazı (`docs/plans/M2b.md`), `plan-reviewer`, Fatih onayı.
 - **Karar:** Fotoğraf Personal info kartına girdiği için kartın görünümü M2b'de yenilenir: ad + headline büyük, fotoğraf solda, dolu iletişim bilgileri tek satırda ikonlarla, boş alanlar yerine kısa ipucu, DACH bilgileri soluk satırda. Düzenleme formu değişmez. SPEC §6.4 görünümü tanımlamadığı için SPEC değişmez. Uygulama footer'ı ilk önce ayrı issue'ya (#25) bırakılmıştı; değişiklik tek satır çıkınca M2b'de yapıldı (linkler sağ altta, Fatih, 2026-11-15).
 - **Gerekçe:** M2a manuel testinde kart uzun bulundu (10 satır, çoğu "Not added"); aynı kart, aynı test turu (Fatih, 2026-11-15).
 - **Alternatifler:** Tasarımı ayrı bir işe bırakmak.
+
+## M3 — CV oluşturucu (2026-11-15)
+
+Kaynak: Plan fazı, Fatih onayı.
+
+### D-042 · M3 ikiye bölündü
+- **Karar:** M3a (CV belgeleri: model, `document_service`, Documents sayfası, editör + canlı HTML önizleme) ve M3b (PDF: 3 şablon × 3 dil, WeasyPrint, indirme), ayrı branch, PR ve etiketlerle: `m3a-cv-documents` / `v0.3a-m3a`, `m3b-cv-pdf` / `v0.3b-m3b`. Başvurular M4'te geldiği için M3a'daki kopyalar başvuruya bağlı değildir ("Not linked to an application" grubu); kilitleme servis fonksiyonu olarak gelir ve testlerle kanıtlanır, arayüzden M4'te tetiklenir. Sonraki milestone'ların butonları (Tailor to a job M7, Edit with assistant M12, Download PDF M3b) gösterilmez; Cover letters sekmesi "Coming soon" (M8).
+- **Gerekçe:** Tek M3 (model + versiyon/kilit kuralları + liste + editör + canlı önizleme + 3 şablon × 3 dil PDF + Docker'da WeasyPrint) WORKFLOW'daki 1-2 haftalık sınırı aşar. PDF'in kendine has riskleri var (sistem kütüphaneleri, fontlar, sayfa düzeni). M3a tek başına SPEC'teki snapshot / master / kilit kabul kriterlerini karşılar.
+- **Alternatifler:** Tek M3. Önce PDF, sonra editör (kuralsız belge olurdu). Kilit butonunu M3a'da göstermek (M4'teki akışla çakışır).
+
+## M3a — CV belgeleri ve editör (2026-11-15)
+
+Kaynak: Design fazı (`docs/plans/M3a.md`), `plan-reviewer`, Fatih onayı.
+
+### D-043 · CV içeriği bir Pydantic şeması (`CVContent`)
+- **Karar:** `CVDocument.content` JSON'u `app/schemas/cv.py`'deki `CVContent` ile okunur ve yazılır: `schema_version` (1), personal (ad, headline, e-posta, telefon, konum, linkler), summary, experience (bullet'lar `{text, selected}`), education, skills, languages, certifications, projects, `hidden_sections`. Snapshot = profilin o anki hali (`snapshot_from_profile`). Fotoğraf, doğum tarihi ve uyruk M3a'da snapshot'a girmez (M3b); `show_photo`/`show_birth_date` kolonları şimdiden gelir (SPEC §5.3). Alternatif: içeriği ilişkisel tablolara kopyalamak.
+
+### D-044 · Önizleme ve PDF aynı şablonu kullanır
+- **Karar:** SPEC §4 ağacına uygun olarak `app/templates/pdf/cv_classic.html` sadece CV'yi çizer; stili Tailwind değil düz CSS `app/static/css/cv_classic.css`, `.cv-paper` altında kapsamlı, satır içi `style=`/`<style>` yok (CSP). Editör önizlemesi bu şablonu parça olarak koyar; M3b'de WeasyPrint aynı şablonu ve CSS'i kullanır. CSS sadece editörde yüklenir: `base.html`'e `{% block head_extra %}`. Kâğıt koyu temada da beyaz (SPEC §6.0). Alternatif: `<iframe srcdoc>`.
+
+### D-045 · Başvuru yokken versiyon kuralları
+- **Karar:** Soy (lineage) = aynı `parent_id` (M3a'da hep o dilin master'ı). Master'ın `version`'ı 0. Yeni versiyon numarası **her yerde** `max(soydaki version) + 1`; unique index `(parent_id, version)` + `IntegrityError` olursa bir kez yeniden dene. New CV: o dilde master yoksa master; varsa master'ın soyunda yeni kopya (profilden snapshot). Save as new version / Duplicate as new version: içeriği kopyalayıp aynı soyda yeni taslak. Duplicate: aynı içerik, başlık "{başlık} (copy)", aynı soyda yeni taslak. M4'te `application_id` gelince soy (parent, application) olur; kolon M4'te (D-025 kalıbı).
+
+### D-046 · M4'e kadar CV silme onay modalıyla
+- **Karar:** M0'daki `modal` bileşeni, "Delete this CV? This can't be undone." SPEC §6.0/2 modalı hesap silmeye ayırır; Undo M4'te geldiği için geçici istisna (D-035'teki profil satırlarından farkı: bir belge çok daha büyük kayıp). M4'te Undo ile değişir.
+
+### D-047 · Kopyası olan master silinemez
+- **Karar:** `delete_cv` master'ın soyunda kopya varsa reddeder ("This master has {n} copies. Delete the copies first."). `parent_id` FK yine `ON DELETE SET NULL` (savunma için), ama kurala göre sahipsiz kopya oluşmaz.
+
+### D-048 · Master sadece açık onayla düzenlenir
+- **Karar:** Master editörde salt okunur açılır; "Edit master" + onay modalı → o sayfada form açılır (sunucu tarafında: master'a POST ancak formda `edit_master=confirmed` alanı varsa kabul edilir, yoksa 409). Refresh from profile master'da da aynı onayı ister. Mevcut kopyalar etkilenmez (test). CLAUDE.md'deki "never edit a master … in place" kuralına istisna eklenir: "…except when the user explicitly unlocks the master in the editor". SPEC §9.8 ile uyumlu; asistan (M12) master'ı asla değiştirmez.
+
+### D-049 · M3a editör kapsamı
+- **Karar:** Editörde belge adı, headline, summary, bölüm göster/gizle ve deneyim maddesi seçimi düzenlenir. Deneyim, eğitim vb. metinleri profilde düzenlenip Refresh from profile ile gelir veya M12'de asistanla. Alternatif: tüm snapshot'ı düzenlenebilir yapmak (büyük form, M3a'yı şişirir).
+
+### D-050 · M3a'da Duplicate ve "All documents" yok, değişmemiş taslak yeni versiyon olmaz
+- **Karar:** M3a editöründe "Duplicate" butonu ve "All documents" linki gösterilmez; M4'te gelir (Duplicate = başka bir başvuru için kopya, "All documents" = editör bir başvurudan açıldığında). Servisteki `duplicate()` kalır, başlıkta "(copy)" bir kez yazılır. Hiç düzenlenmemiş bir taslaktan (oluşturulduğundan beri `updated_at == created_at`) "Save as new version" yeni versiyon oluşturmaz ve "Nothing changed since this version…" der; kilitli belgeden "Duplicate as new version" her zaman çalışır. Editör eylemleri ikon butonları (ipucu + ekran okuyucu adı); Documents listesinde her taslak satırında onaylı Delete. İkon butonlarının adı hover ve klavye odağında hemen görünür (`data-tooltip`, input.css). Sayfa genişliği tek yerde (`page_width`: 1240 px, editör 1600 px); sayfalar sola yaslı kalır (ortalama denendi, Fatih beğenmedi; sağ taraf ileride doldurulabilir).
+- **Gerekçe:** Fatih'in elle testi (2026-11-15): aynı içerikle v8…v13 ve "(copy) (copy) (copy)" oluştu; başvuru yokken iki buton aynı işi yapıyordu; geniş ekranda sağ taraf boş kalıyordu; tarayıcının `title` ipucu geç çıkıyordu.
+- **Alternatifler:** İki butonu da göstermek. Değişmemiş taslağı içerik karşılaştırmasıyla bulmak (kopyanın kaynağı kayıtlı olmadığı için güvenilmez). Sayfaları tam genişlikte göstermek (uzun satırlar okunaksız) veya ortalamak.

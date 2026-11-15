@@ -178,3 +178,41 @@
   and upload rules, strength card refresh, Personal info card redesign).
 - WORKFLOW: maybe, to discuss in the retro: add "icons and button style" to the
   Design checklist for screens with many actions.
+
+## M3a — CV documents, editor and preview (2026-11-15)
+
+**What I learned**
+- A document can be a frozen copy of other data. A CV is a snapshot of the profile
+  stored as JSON (`CVContent`), so editing the CV never changes the profile, and
+  changing the profile never changes a CV that was already made.
+- Rules belong in one place. Every master, version and lock rule lives in
+  `document_service`; routes only call it. "A locked CV never changes" and "a
+  master changes only after Edit master" are checked there, so no route can forget.
+- The database can enforce rules too: a partial unique index allows only one master
+  per language, and a unique (master, version) pair stops two clicks at the same
+  moment from creating the same version number. Autogenerate wrote the index
+  condition in SQLite's dialect, which would have broken Postgres; the plan reviewer
+  had warned about exactly this.
+- Using the app finds what tests can't: an empty title blocked every other change,
+  "Save as new version" made identical copies (v8…v13), and two buttons did the same
+  thing before applications exist. Each became a small rule (partial save, "nothing
+  changed", Duplicate waits for M4).
+- The same HTML template drives the live preview now and the PDF later, so what the
+  user sees is what they will download.
+
+**What was hard**
+- Deciding how a master may be edited: SPEC, CLAUDE.md and my first plan didn't
+  agree. The plan reviewer caught it before any code.
+- Many UI rounds on the editor (read-only look, error box, icons, tooltips, page
+  width).
+
+**What I will do differently**
+- Click through a new screen right after it is built, before moving on, so UI
+  feedback comes one step at a time.
+- Ask Claude to run the browser checks when the change is mostly JavaScript.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.6 (M3 split into M3a/M3b) and v2.1.7 (Duplicate and "All
+  documents" wait for M4, no new version from an unchanged draft). Decisions D-042…D-050.
+- WORKFLOW: maybe, to discuss in the retro: a short browser check by Claude at the
+  end of each Build step that changes JavaScript.

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "components/page_header.html" import page_header, page_width %}
+{% from "components/modal.html" import modal %}
+{% from "components/icons.html" import icon %}
+
+{% block title %}Documents{% endblock %}
+
+{#- docs/prototype/Documents.dc.html, SPEC §6.5. Masters (one per language) on top,
+    then the copies. Copies are linked to applications from M4 on; until then they
+    are listed as "Not linked to an application" (D-042). -#}
+{#- A trash button that opens this CV's delete confirmation (D-046). Locked copies
+    have none: they can never be deleted. -#}
+{% macro delete_button(cv) %}
+  <button type="button" data-tooltip="Delete" data-dialog-open="delete-cv-{{ cv.id }}"
+          class="inline-flex size-7 items-center justify-center rounded-md text-red-text hover:bg-red-bg">{{ icon("trash") }}<span class="sr-only">Delete {{ cv.title }}</span></button>
+{% endmacro %}
+
+{% block content %}
+  {{ page_header("Documents", subtitle="Master documents stay clean. Each application gets its own copy.") }}
+  <div class="flex w-full {{ page_width() }} flex-col gap-5 px-4 pt-5 pb-8 md:px-8">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <nav aria-label="Document type" class="flex gap-1 rounded-lg bg-muted p-1 text-sm font-semibold">
+        {%- for key, label in [("cvs", "CVs"), ("letters", "Cover letters")] %}
+          <a href="/documents{{ '?tab=letters' if key == 'letters' else '' }}"
+             {%- if tab == key %} aria-current="page"{% endif %}
+             class="rounded-md px-3 py-1.5 no-underline {{ 'bg-surface text-text shadow-sm' if tab == key else 'text-text-2 hover:text-text' }}">{{ label }}</a>
+        {%- endfor %}
+      </nav>
+      {%- if tab == "cvs" %}
+        <button type="button" data-dialog-open="new-cv"
+                class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#4F46E5] px-3 text-sm font-semibold text-white hover:bg-[#4338CA]">New CV</button>
+      {%- endif %}
+    </div>
+
+    <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+      <div class="flex min-w-0 flex-col gap-5">
+        {%- if tab == "letters" %}
+          <section class="flex flex-col gap-2 rounded-xl border border-border bg-surface p-5">
+            <h2 class="m-0 text-base font-bold">Cover letters</h2>
+            <p class="m-0 text-sm text-text-3">Coming soon. Cover letters arrive in a later update, with the same masters and copies as CVs.</p>
+          </section>
+        {%- else %}
+          <section aria-labelledby="masters-title" class="flex flex-col gap-3">
+            <h2 id="masters-title" class="m-0 text-xs font-bold uppercase tracking-wide text-text-3">Masters</h2>
+            {%- if masters %}
+              <ul class="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 xl:grid-cols-3">
+                {%- for cv in masters %}
+                  <li class="flex flex-col gap-1 rounded-xl border border-border bg-surface p-4">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-xs font-bold text-accent-text">MASTER · {{ cv.language | upper }}</span>
+                      {{ delete_button(cv) }}
+                    </div>
+                    <a href="/cvs/{{ cv.id }}" class="break-words text-base font-bold text-text no-underline hover:underline">{{ cv.title }}</a>
+                    <span class="text-sm text-text-3">{{ template_names.get(cv.template, cv.template) }} template · updated {{ cv.updated_at | time_ago }}</span>
+                  </li>
+                {%- endfor %}
+              </ul>
+            {%- else %}
+              <div class="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border-strong bg-surface p-5">
+                <p class="m-0 text-sm text-text-2">No CVs yet. Create your first master CV from your profile.</p>
+                <button type="button" data-dialog-open="new-cv" class="text-sm font-semibold text-link hover:underline">Create a master CV</button>
+              </div>
+            {%- endif %}
+          </section>
+
+          <section aria-labelledby="copies-title" class="flex flex-col gap-3">
+            <h2 id="copies-title" class="m-0 text-xs font-bold uppercase tracking-wide text-text-3">Copies for applications</h2>
+            {%- if copies %}
+              <div class="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
+                <h3 class="m-0 text-sm font-bold text-text-2">Not linked to an application</h3>
+                <ul class="m-0 flex list-none flex-col divide-y divide-border p-0">
+                  {%- for cv in copies %}
+                    {%- set master = by_id.get(cv.parent_id) %}
+                    <li class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
+                      <div class="flex min-w-0 flex-col gap-0.5">
+                        <a href="/cvs/{{ cv.id }}" class="break-words text-sm font-semibold text-text no-underline hover:underline">{{ cv.title }} · v{{ cv.version }}</a>
+                        <span class="text-xs text-text-3">
+                          {{- language_names.get(cv.language, cv.language) }} · {{ template_names.get(cv.template, cv.template) }}
+                          {%- if master %} · based on {{ master.title }}{% endif %} · updated {{ cv.updated_at | time_ago }}
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        {%- if cv.is_locked %}
+                          <span class="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-text-2">Sent · locked</span>
+                        {%- else %}
+                          <span class="rounded-full bg-blue-bg px-2 py-0.5 text-xs font-semibold text-blue-text">Draft</span>
+                          {{ delete_button(cv) }}
+                        {%- endif %}
+                      </div>
+                    </li>
+                  {%- endfor %}
+                </ul>
+              </div>
+            {%- else %}
+              <p class="m-0 text-sm text-text-3">No copies yet.</p>
+            {%- endif %}
+            <p class="m-0 text-xs text-text-3">Copies will be linked to applications once application tracking arrives. Sent copies are locked, so you always know what you sent.</p>
+          </section>
+        {%- endif %}
+      </div>
+
+      <div class="flex min-w-0 flex-col gap-5">
+        {%- with show_profile_link=True %}{% include "profile/_strength.html" %}{% endwith %}
+      </div>
+    </div>
+  </div>
+
+  {%- if tab == "cvs" %}
+    {%- for cv in masters + copies if not cv.is_locked %}
+      {% call modal("delete-cv-" ~ cv.id, "Delete this CV?") %}
+        <p class="m-0 text-sm text-text-2">"{{ cv.title }}" will be deleted. This can't be undone.</p>
+        {#- A master with copies stays; the reason appears here (D-047). -#}
+        <div id="delete-cv-{{ cv.id }}-message"></div>
+        <div class="flex justify-end gap-2">
+          <form method="dialog" class="m-0"><button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold hover:bg-muted">Cancel</button></form>
+          <button type="button" hx-delete="/cvs/{{ cv.id }}" hx-target="#delete-cv-{{ cv.id }}-message"
+                  class="inline-flex h-9 items-center rounded-lg bg-[#D92D20] px-3 text-sm font-semibold text-white hover:bg-[#B42318]">Delete</button>
+        </div>
+      {% endcall %}
+    {%- endfor %}
+    {% call modal("new-cv", "New CV") %}
+      {% include "cvs/_new_cv_form.html" %}
+    {% endcall %}
+  {%- endif %}
+{% endblock %}

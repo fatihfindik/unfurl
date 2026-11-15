@@ -70,7 +70,7 @@ def test_htmx_eval_scripts_and_inline_styles_are_off(auth_client):
 
 @pytest.mark.parametrize(
     ("url", "section"),
-    [("/learning", "Learning"), ("/documents", "Documents"), ("/settings", "Settings")],
+    [("/learning", "Learning"), ("/settings", "Settings")],  # /documents is real since M3a
 )
 def test_unbuilt_sections_show_coming_soon_with_their_menu_item_current(auth_client, url, section):
     response = auth_client.get(url)

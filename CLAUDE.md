@@ -19,7 +19,7 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - At the end of each milestone, add 3–5 bullet points of concepts learned to `docs/LEARNING_LOG.md`.
 - Tests never call the real Anthropic API. Use `FakeAIClient`.
 - Every database query on user data must filter by `user_id`.
-- Documents: never edit a master or a locked version in place; changes create a new draft version.
+- Documents: never edit a locked version; never edit a master in place unless the user explicitly unlocks it in the editor ("Edit master", D-048). Other changes create a new draft version.
 - The assistant never deletes data; changes to more than 2 records go through a PendingChangeSet preview.
 - Plan checks go through `app/billing/entitlements.py` (`can()`, `limit()`), never `user.plan == "pro"`.
 - Any work that changes a rule in the SPEC ships in the same PR as the SPEC update and closes the related issue.
@@ -38,7 +38,8 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - [x] M1b Authentication: email verification, password reset, login lockout
 - [x] M2a Profile: sections (add, edit, delete)
 - [x] M2b Profile: reorder, photo, profile strength
-- [ ] M3 CV builder + PDF (master / versions / locks)
+- [x] M3a CV documents: master / versions / locks, editor + HTML preview
+- [ ] M3b CV PDF: 3 templates × 3 languages (WeasyPrint)
 - [ ] M4 Application tracking home (board, next step, interview, archive, toast + undo, theme)
 - [ ] M5 AI foundation + job extraction
 - [ ] M6 Chrome extension

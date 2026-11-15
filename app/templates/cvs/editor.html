@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% from "components/page_header.html" import page_header, page_width %}
+{% from "components/modal.html" import modal %}
+{% from "components/icons.html" import icon %}
+
+{% block head_extra %}<link rel="stylesheet" href="/static/css/cv_classic.css">{% endblock %}
+{% block title %}{{ cv.title }}{% endblock %}
+
+{#- CV editor (SPEC §6.5, docs/prototype/CVEditor.dc.html): form on the left, live
+    preview on the right. Masters open read-only (D-048), locked copies stay
+    read-only. -#}
+{% block content %}
+  {%- set button = "inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted" %}
+  {{ page_header(cv.title, back_url="/documents", back_label="Documents", wide=True) }}
+  <div class="flex w-full {{ page_width(wide=True) }} flex-col gap-4 px-4 pt-5 pb-8 md:px-8">
+    <div class="flex flex-wrap items-center gap-2 text-sm">
+      {%- if cv.is_master %}
+        <span class="rounded-full bg-accent-bg px-2 py-0.5 text-xs font-semibold text-accent-text">Master</span>
+      {%- elif cv.is_locked %}
+        <span class="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-text-2">Sent · locked</span>
+      {%- else %}
+        <span class="rounded-full bg-blue-bg px-2 py-0.5 text-xs font-semibold text-blue-text">Draft · v{{ cv.version }}</span>
+      {%- endif %}
+      <span class="text-text-3">{{ language_names.get(cv.language, cv.language) }} · {{ template_names.get(cv.template, cv.template) }} template</span>
+      {#- "All documents" (SPEC §6.5) comes with M4, when the back link can point to an
+          application; until then "← Documents" above does the same. -#}
+    </div>
+
+    {#- Version picker and actions (SPEC §6.5). The picker is a <details> menu of
+        links, so it works without JavaScript. Edits are saved on their own, so there
+        is no "Save" button; "Save as new version" keeps this one and starts the next. -#}
+    <div class="flex flex-wrap items-center gap-2">
+      <details class="relative">
+        <summary class="{{ button }} cursor-pointer list-none">
+          Version: {{ "Master" if cv.is_master else "v" ~ cv.version }} ▾
+        </summary>
+        <ul class="absolute left-0 z-20 mt-1 flex min-w-[260px] list-none flex-col rounded-lg border border-border bg-surface p-1 shadow-lg">
+          {%- for version in versions %}
+            <li>
+              <a href="/cvs/{{ version.id }}" {% if version.id == cv.id %}aria-current="page"{% endif %}
+                 class="flex justify-between gap-3 rounded-md px-3 py-2 text-sm no-underline {{ 'bg-accent-bg font-semibold text-accent-text' if version.id == cv.id else 'text-text hover:bg-muted' }}">
+                <span>{{ "Master" if version.is_master else "v" ~ version.version }} · {{ version.title }}</span>
+                <span class="text-text-3">{{ "sent" if version.is_locked else ("" if version.is_master else "draft") }}</span>
+              </a>
+            </li>
+          {%- endfor %}
+        </ul>
+      </details>
+      {#- Icon buttons with a tooltip (data-tooltip) and a name for screen readers.
+          "Duplicate" comes back with M4 (copy for another application); without
+          applications it would do the same as "Save as new version" (D-050). -#}
+      {%- set icon_button_class = "inline-flex size-9 items-center justify-center rounded-lg border border-border-strong bg-surface text-text hover:bg-muted" %}
+      {%- if not cv.is_locked %}
+        <button type="button" data-tooltip="Save as new version" class="{{ icon_button_class }}"
+                hx-post="/cvs/{{ cv.id }}/versions" hx-target="#cv-action-message">{{ icon("new-version") }}<span class="sr-only">Save as new version</span></button>
+      {%- endif %}
+      {%- if editable %}
+        <button type="button" data-tooltip="Refresh from profile" class="{{ icon_button_class }}"
+                data-dialog-open="refresh-cv">{{ icon("refresh") }}<span class="sr-only">Refresh from profile</span></button>
+      {%- endif %}
+      {%- if not cv.is_locked %}
+        <button type="button" data-tooltip="Delete" class="{{ icon_button_class }} text-red-text hover:bg-red-bg"
+                data-dialog-open="delete-cv">{{ icon("trash") }}<span class="sr-only">Delete this CV</span></button>
+      {%- endif %}
+    </div>
+    <div id="cv-action-message"></div>
+
+    {#- Information band (SPEC §6.5): what this document is and what changing it does. -#}
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm">
+      {%- if cv.is_master and master_unlocked %}
+        <p class="m-0">You are editing your master CV. Changes only affect new copies, not existing ones.</p>
+        <a href="/cvs/{{ cv.id }}" class="font-semibold text-link no-underline hover:underline">Done editing</a>
+      {%- elif cv.is_master %}
+        <p class="m-0">This is your master CV ({{ language_names.get(cv.language, cv.language) }}). New copies start from it.</p>
+        <button type="button" data-dialog-open="edit-master"
+                class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 font-semibold hover:bg-muted">Edit master</button>
+      {%- elif cv.is_locked %}
+        <p class="m-0">Sent · locked. You can't change a sent CV. Duplicate it as a new version to make changes.</p>
+        <button type="button" hx-post="/cvs/{{ cv.id }}/versions" hx-target="#cv-action-message"
+                class="inline-flex h-9 items-center rounded-lg bg-[#4F46E5] px-3 font-semibold text-white hover:bg-[#4338CA]">Duplicate as new version</button>
+      {%- else %}
+        <p class="m-0">Copy{% if master %} based on {{ master.title }}{% endif %}. Your master CV stays unchanged.</p>
+      {%- endif %}
+    </div>
+
+    {#- The form takes the free width; the preview is at most an A4 page wide. -#}
+    <div class="grid gap-6 lg:grid-cols-[minmax(340px,1fr)_minmax(0,860px)] lg:items-start">
+      <div class="rounded-xl border border-border bg-surface p-5">
+        {% include "cvs/_form.html" %}
+      </div>
+      <div class="flex min-w-0 flex-col gap-2">
+        <p class="m-0 text-xs font-semibold uppercase tracking-wide text-text-3">Live preview · A4</p>
+        <div id="cv-preview" class="overflow-x-auto rounded-xl bg-muted p-3 md:p-6">
+          {% include "pdf/cv_classic.html" %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {%- if cv.is_master and not master_unlocked %}
+    {% call modal("edit-master", "Edit your master CV?") %}
+      <p class="m-0 text-sm text-text-2">Changes only affect new copies, not the copies you already have. Copies for applications start from the master.</p>
+      <div class="flex justify-end gap-2">
+        <form method="dialog" class="m-0"><button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold hover:bg-muted">Cancel</button></form>
+        <a href="/cvs/{{ cv.id }}?edit_master=confirmed"
+           class="inline-flex h-9 items-center rounded-lg bg-[#4F46E5] px-3 text-sm font-semibold text-white no-underline hover:bg-[#4338CA]">Edit master</a>
+      </div>
+    {% endcall %}
+  {%- endif %}
+  {%- if editable %}
+    {% call modal("refresh-cv", "Refresh from profile?") %}
+      <p class="m-0 text-sm text-text-2">This CV gets the current content of your profile. Your edits on this CV (headline, summary, sections, bullets) are replaced.</p>
+      <div class="flex justify-end gap-2">
+        <form method="dialog" class="m-0"><button type="submit" class="{{ button }}">Cancel</button></form>
+        <button type="button" hx-post="/cvs/{{ cv.id }}/refresh" hx-target="#cv-action-message"
+                {%- if master_unlocked %} hx-vals='{"edit_master": "confirmed"}'{% endif %}
+                class="inline-flex h-9 items-center rounded-lg bg-[#4F46E5] px-3 text-sm font-semibold text-white hover:bg-[#4338CA]">Refresh</button>
+      </div>
+    {% endcall %}
+  {%- endif %}
+
+  {%- if not cv.is_locked %}
+    {#- A confirmation until Undo arrives with M4 (D-046). -#}
+    {% call modal("delete-cv", "Delete this CV?") %}
+      <p class="m-0 text-sm text-text-2">"{{ cv.title }}" will be deleted. This can't be undone.</p>
+      <div id="delete-cv-message"></div>
+      <div class="flex justify-end gap-2">
+        <form method="dialog" class="m-0"><button type="submit" class="{{ button }}">Cancel</button></form>
+        <button type="button" hx-delete="/cvs/{{ cv.id }}" hx-target="#delete-cv-message"
+                class="inline-flex h-9 items-center rounded-lg bg-[#D92D20] px-3 text-sm font-semibold text-white hover:bg-[#B42318]">Delete</button>
+      </div>
+    {% endcall %}
+  {%- endif %}
+{% endblock %}

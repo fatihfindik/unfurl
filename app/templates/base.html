@@ -20,6 +20,8 @@
 <html lang="en" class="theme-{{ theme }}">
 <head>
   {% include "layouts/_head.html" %}
+  {#- Extra stylesheets for one page only (e.g. the CV editor's paper styles). -#}
+  {% block head_extra %}{% endblock %}
   <title>{% block title %}{% endblock %} · Unfurl</title>
 </head>
 {#- hx-headers: every htmx request sends the CSRF token as a header (app/security.py). -#}
