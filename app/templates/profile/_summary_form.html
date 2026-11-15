@@ -7,7 +7,7 @@
     {{ csrf_field(csrf_token) }}
     {{ textarea_field("summary", "Summary", value=values.summary, error=errors.summary, maxlength=5000, rows=5, id_prefix="summary") }}
     <div class="flex gap-2">
-      {{ primary_button("Save") }}
+      {{ primary_button("Save", size="sm") }}
       {{ secondary_button("Cancel", hx_get="/profile/summary", hx_target="#profile-summary") }}
     </div>
   </form>

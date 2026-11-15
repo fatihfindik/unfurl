@@ -68,7 +68,7 @@ def test_every_app_page_has_the_toast_live_region(auth_client):
 
 FORMS = (
     '{% from "components/forms.html" import'
-    " csrf_field, text_field, checkbox_field, primary_button %}"
+    " csrf_field, text_field, checkbox_field, primary_button, secondary_button %}"
 )
 
 
@@ -128,3 +128,9 @@ def test_checkbox_field_plain_label_is_escaped():
 def test_primary_button_submits():
     html = render(FORMS + '{{ primary_button("Sign in") }}')
     assert '<button type="submit"' in html and "Sign in" in html
+
+
+def test_small_primary_button_matches_secondary_height():
+    primary = render(FORMS + '{{ primary_button("Save", size="sm") }}')
+    secondary = render(FORMS + '{{ secondary_button("Cancel") }}')
+    assert "h-9" in primary and "h-9" in secondary and "h-11" not in primary

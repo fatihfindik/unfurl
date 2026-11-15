@@ -107,9 +107,11 @@
   </button>
 {% endmacro %}
 
-{% macro primary_button(label, type="submit") %}
+{#- size="lg" for full-width auth forms; size="sm" sits next to a secondary_button
+    (Save + Cancel) and has the same height. -#}
+{% macro primary_button(label, type="submit", size="lg") %}
   <button type="{{ type }}"
-          class="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]">
+          class="inline-flex {{ 'h-9 px-3' if size == 'sm' else 'h-11 px-4' }} items-center justify-center gap-2 rounded-lg bg-[#4F46E5] text-sm font-semibold text-white hover:bg-[#4338CA]">
     {{ label }}
   </button>
 {% endmacro %}

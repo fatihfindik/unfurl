@@ -21,7 +21,7 @@
       {%- endif %}
       {{ caller() }}
       <div class="flex gap-2">
-        {{ primary_button("Save") }}
+        {{ primary_button("Save", size="sm") }}
         {%- if item %}
           {{ secondary_button("Cancel", hx_get=base ~ "/" ~ item.id, hx_target="closest li") }}
         {%- else %}
