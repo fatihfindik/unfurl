@@ -2,7 +2,7 @@
 
 **Grow while you apply.** A free web app + Chrome extension for job seekers: build ATS-friendly CVs and cover letters (DE / EN / TR), save job postings with one click, see how well you fit, check your documents before you apply, and turn skill gaps into a learning plan you actually keep, with an AI assistant powered by Claude.
 
-> Status: specification v2.1.5 and clickable prototype done; M0 (project skeleton), M1a (sign in, sessions, plans) and M1b (email verification, password reset, login lockout), M2a (profile sections) and M2b (profile order, photo, strength) done.
+> Status: specification v2.1.7 and clickable prototype done; M0 (project skeleton), M1a (sign in, sessions, plans), M1b (email verification, password reset, login lockout), M2a (profile sections), M2b (profile order, photo, strength) and M3a (CV documents: masters, versions, locks, editor with live preview) done; M3b (CV PDF) next.
 
 - Specification: [`docs/SPEC.md`](docs/SPEC.md)
 - Prototype (design reference): [`docs/prototype/`](docs/prototype/)
@@ -30,7 +30,7 @@ uv run fastapi dev app/main.py   # http://localhost:8000
 ```
 The first `scripts/build_css.sh` downloads the Tailwind CLI (needs internet once).
 
-Open http://localhost:8000: every app page needs an account, so you land on **Sign in**. Use **Create account** to make your first user (any email works locally). Emails are not sent locally: with `EMAIL_BACKEND=console` they are printed in the `fastapi dev` terminal, so copy the verification or reset link from there. Open the app on `localhost:8000`, not `127.0.0.1:8000`: email links use `APP_BASE_URL` (`http://localhost:8000`), and the browser keeps separate sign-in cookies for the two addresses. After pulling new code, run `uv run alembic upgrade head` again if there are new migrations. Your profile is under the account menu (top right) › **My profile**. Profile photos are saved in `UPLOAD_DIR` (`./uploads`, not in git); with Docker they live in the `uploads` volume.
+Open http://localhost:8000: every app page needs an account, so you land on **Sign in**. Use **Create account** to make your first user (any email works locally). Emails are not sent locally: with `EMAIL_BACKEND=console` they are printed in the `fastapi dev` terminal, so copy the verification or reset link from there. Open the app on `localhost:8000`, not `127.0.0.1:8000`: email links use `APP_BASE_URL` (`http://localhost:8000`), and the browser keeps separate sign-in cookies for the two addresses. After pulling new code, run `uv run alembic upgrade head` again if there are new migrations. Your profile is under the account menu (top right) › **My profile**. CVs are under **Documents**: the first CV in a language becomes its master; open a CV to edit it with a live preview (a master opens read-only until you click **Edit master**). Profile photos are saved in `UPLOAD_DIR` (`./uploads`, not in git); with Docker they live in the `uploads` volume.
 
 `APP_ENV` is required (`development` or `production`); the app refuses to start without it. With `APP_ENV=production` it also refuses to start when `DEBUG=true`, `SECRET_KEY` is the placeholder or shorter than 32 characters, `ENCRYPTION_KEY` is empty, `EMAIL_BACKEND` is not `smtp` or `SMTP_HOST` is empty. In production the API docs (`/docs`, `/redoc`, `/openapi.json`) are turned off.
 
