@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.5 — 2026-11-14
+> **Durum:** MVP planı, v2.1.6 — 2026-11-15
+> v2.1.6: M3 ikiye bölündü (M3a belgeler + editör + HTML önizleme, M3b PDF: 3 şablon × 3 dil, WeasyPrint). M3a'da başvurusuz kopyalar "Not linked to an application" grubunda; kilitleme servis fonksiyonu olarak gelir, arayüzden M4'te tetiklenir. Karar: DECISIONS D-042.
 > v2.1.5: M2 ikiye bölündü (M2a profil bölümleri, M2b sıralama + fotoğraf + profil gücü). §6.4'e sıralama için ↑↓ butonları ve profil gücü formülü (10 madde × %10) eklendi. Karar: DECISIONS D-030.
 > v2.1.4: M1b Design kararları (§6.1). Login kilidi 5. hatadan itibaren sabit 15 dakika sürer. forgot-password'a IP başına 5/saat sınırı. Şifre sıfırlama e-postayı doğrulanmış sayar ve o e-postanın login kilidini temizler. Kararlar: DECISIONS D-027…D-029.
 > v2.1.3: M1 ikiye bölündü (M1a oturum çekirdeği, M1b e-posta akışları). §6.1'de yönlendirme güvenliği (open redirect, #4), login kilidi, oturum geçersiz kılma, tek kullanımlık reset token ve CSRF kuralları netleşti. `User.session_version` eklendi (§5.1). Kararlar: DECISIONS D-020…D-024.
@@ -1074,12 +1075,23 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
   - 2 MB'tan büyük, JPEG/PNG olmayan veya uzantısı değiştirilmiş dosya reddediliyor. Kaydedilen dosyada EXIF yok (test). Fotoğrafı sadece sahibi görebiliyor. Silince dosya da siliniyor.
   - Profil gücü 10 maddenin her biri için doğru hesaplanıyor (test).
 
-### M3 — CV oluşturucu + PDF
-- Documents sayfası (CVs sekmesi, Masters + Copies, Profile strength kartı)
-- CVDocument, snapshot mantığı, **master / versiyon / kilit alanları ve `document_service`**, editör + canlı önizleme, versiyon seçici ve rozetler
-- 3 PDF şablonu, DE/EN/TR bölüm başlıkları (`document_labels.py`)
-- WeasyPrint ile PDF indirme
-- **Kabul:** 3 şablon × 3 dil PDF olarak düzgün oluşuyor. Metin seçilebilir. Örnek profille 1-2 sayfa. Snapshot'taki düzenleme ana profili değiştirmiyor. Kopyadaki düzenleme master'ı değiştirmiyor. Kilitli belge düzenlenemiyor ve silinemiyor (testler var).
+### M3a — CV belgeleri ve editör
+- Documents sayfası: CVs sekmesi (Masters + Copies), sağda Profile strength kartı (6.5). Cover letters sekmesi görünür, içinde "Coming soon" (M8).
+- CVDocument (5.3), `CVContent` şeması, profilden snapshot, **master / versiyon / kilit alanları ve `document_service`**: yeni CV (o dilde master yoksa master olur), Duplicate, Save as new version, Refresh from profile (onaylı), Delete.
+- Başvurular M4'te geldiği için M3a'daki kopyalar başvuruya bağlı değildir; Copies listesinde "Not linked to an application" grubunda gösterilir. M4'te başvuruya bağlanır.
+- Kilitleme `document_service` fonksiyonu olarak gelir ve testlerle kanıtlanır; arayüzde kilitleme butonu yoktur (başvuru `applied` olunca M4'te tetiklenir). Kilitli belgede form salt okunur, "Duplicate as new version" vardır.
+- CV editörü (/cvs/{id}): solda form (içerik, bölüm gizle/göster, deneyim maddelerini seçme), sağda canlı HTML önizleme (HTMX, 500 ms debounce), versiyon seçici ve rozetler. Önizleme M3a'da classic şablonla.
+- "Tailor to a job" (M7), "Edit with assistant" (M12) ve "Download PDF" (M3b) butonları M3a'da gösterilmez.
+- **Kabul:**
+  - Yeni CV profilden snapshot alır; o dilde ilk CV master olur.
+  - Snapshot'taki düzenleme ana profili değiştirmiyor. Kopyadaki düzenleme master'ı değiştirmiyor (test).
+  - Kilitli belge düzenlenemiyor ve silinemiyor (test). Başka kullanıcının belgesine her erişim 404 (test).
+  - Önizleme her değişiklikte güncelleniyor.
+
+### M3b — PDF
+- 3 PDF şablonu (classic, modern, compact; 6.5), DE/EN/TR bölüm başlıkları (`document_labels.py`), CV'de fotoğraf ve doğum tarihi (`show_photo`, `show_birth_date`).
+- WeasyPrint ile PDF indirme (Docker sistem kütüphaneleri, D-014), dosya adı `CV_{FullName}_{Company?}_{lang}.pdf`, editörde "Download PDF". Profil linkleri PDF'te link olacaksa yeniden kontrol (#23).
+- **Kabul:** 3 şablon × 3 dil PDF olarak düzgün oluşuyor. Metin seçilebilir. Örnek profille 1-2 sayfa. ATS kuralları (6.5) sağlanıyor.
 
 ### M4 — Başvuru takibi (ana sayfa)
 - Application + ApplicationEvent, Applications ana sayfası: özet kartları, Needs attention (en acil 3 + Show all, Snooze), Kanban (sürükle-bırak, daraltılmış Rejected), liste (sıralama, sayfalama), arama ve filtreler, "Show archived" + Restore

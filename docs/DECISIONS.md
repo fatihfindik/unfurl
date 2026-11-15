@@ -262,3 +262,12 @@ Kaynak: Design fazı (`docs/plans/M2b.md`), `plan-reviewer`, Fatih onayı.
 - **Karar:** Fotoğraf Personal info kartına girdiği için kartın görünümü M2b'de yenilenir: ad + headline büyük, fotoğraf solda, dolu iletişim bilgileri tek satırda ikonlarla, boş alanlar yerine kısa ipucu, DACH bilgileri soluk satırda. Düzenleme formu değişmez. SPEC §6.4 görünümü tanımlamadığı için SPEC değişmez. Uygulama footer'ı ilk önce ayrı issue'ya (#25) bırakılmıştı; değişiklik tek satır çıkınca M2b'de yapıldı (linkler sağ altta, Fatih, 2026-11-15).
 - **Gerekçe:** M2a manuel testinde kart uzun bulundu (10 satır, çoğu "Not added"); aynı kart, aynı test turu (Fatih, 2026-11-15).
 - **Alternatifler:** Tasarımı ayrı bir işe bırakmak.
+
+## M3 — CV oluşturucu (2026-11-15)
+
+Kaynak: Plan fazı, Fatih onayı.
+
+### D-042 · M3 ikiye bölündü
+- **Karar:** M3a (CV belgeleri: model, `document_service`, Documents sayfası, editör + canlı HTML önizleme) ve M3b (PDF: 3 şablon × 3 dil, WeasyPrint, indirme), ayrı branch, PR ve etiketlerle: `m3a-cv-documents` / `v0.3a-m3a`, `m3b-cv-pdf` / `v0.3b-m3b`. Başvurular M4'te geldiği için M3a'daki kopyalar başvuruya bağlı değildir ("Not linked to an application" grubu); kilitleme servis fonksiyonu olarak gelir ve testlerle kanıtlanır, arayüzden M4'te tetiklenir. Sonraki milestone'ların butonları (Tailor to a job M7, Edit with assistant M12, Download PDF M3b) gösterilmez; Cover letters sekmesi "Coming soon" (M8).
+- **Gerekçe:** Tek M3 (model + versiyon/kilit kuralları + liste + editör + canlı önizleme + 3 şablon × 3 dil PDF + Docker'da WeasyPrint) WORKFLOW'daki 1-2 haftalık sınırı aşar. PDF'in kendine has riskleri var (sistem kütüphaneleri, fontlar, sayfa düzeni). M3a tek başına SPEC'teki snapshot / master / kilit kabul kriterlerini karşılar.
+- **Alternatifler:** Tek M3. Önce PDF, sonra editör (kuralsız belge olurdu). Kilit butonunu M3a'da göstermek (M4'teki akışla çakışır).
