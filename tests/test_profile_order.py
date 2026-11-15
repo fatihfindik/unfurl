@@ -221,6 +221,7 @@ def test_the_same_order_changes_nothing(auth_client, session, user):
         lambda a, b, c: ["abc", a, b],  # not an id
         lambda a, b, c: ["-1", a, b],
         lambda a, b, c: [a] * 51,  # more ids than a section can have
+        lambda a, b, c: ["9" * 5000, a, b],  # a number too long for int() (was a 500)
     ],
 )
 def test_wrong_lists_change_nothing(auth_client, session, user, make_ids):

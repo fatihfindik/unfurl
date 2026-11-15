@@ -163,7 +163,7 @@ def test_remove_deletes_the_file(auth_client, session, upload_dir):
         (image_bytes("GIF"), "anim.jpg", photo_service.WRONG_TYPE),  # content decides
         (image_bytes("WEBP"), "photo.webp", photo_service.WRONG_TYPE),
         (image_bytes(), "photo.heic", photo_service.WRONG_TYPE),
-        (b"just some text, not an image", "notes.jpg", photo_service.UNREADABLE),
+        (b"just some text, not an image", "notes.jpg", photo_service.WRONG_TYPE),
         (b"", "empty.jpg", photo_service.UNREADABLE),
         (image_bytes()[:300], "broken.jpg", photo_service.UNREADABLE),  # cut off
         (b"x" * (photo_service.MAX_BYTES + 1), "big.jpg", photo_service.TOO_BIG),
@@ -295,3 +295,46 @@ def test_the_page_shows_upload_or_the_photo(auth_client):
     page = auth_client.get("/profile").text
     assert "Change photo" in page
     assert 'src="/profile/photo?v=' in page
+
+
+# --- Hardening from the M2b security review ---------------------------------------
+
+
+def test_a_phone_mpo_jpeg_is_kept_as_jpeg(auth_client, upload_dir):
+    # Some phones save JPEGs with a second picture inside; Pillow calls them MPO.
+    first = Image.new("RGB", (40, 30), "red")
+    buffer = io.BytesIO()
+    first.save(buffer, format="MPO", save_all=True, append_images=[Image.new("RGB", (40, 30))])
+
+    response = upload(auth_client, buffer.getvalue(), "phone.jpg")
+
+    assert 'role="alert"' not in response.text
+    assert stored_files(upload_dir)[0].suffix == ".jpg"
+
+
+def test_any_pillow_failure_is_a_message_and_leaves_no_file(auth_client, upload_dir, monkeypatch):
+    # A damaged EXIF block can make Pillow raise unusual errors (not only OSError).
+    def broken(image):
+        raise SyntaxError("bad EXIF")
+
+    monkeypatch.setattr(photo_service.ImageOps, "exif_transpose", broken)
+
+    response = upload(auth_client, image_bytes())
+
+    assert response.status_code == 200
+    assert escape(photo_service.UNREADABLE) in response.text
+    assert stored_files(upload_dir) == []
+
+
+def test_a_failed_save_removes_the_new_file(auth_client, upload_dir, monkeypatch):
+    from app.services import profile_service
+
+    def failing_set_photo(*args, **kwargs):
+        raise RuntimeError("database is down")
+
+    monkeypatch.setattr(profile_service, "set_photo", failing_set_photo)
+
+    with pytest.raises(RuntimeError):
+        upload(auth_client, image_bytes())
+
+    assert stored_files(upload_dir) == []  # no file without a profile pointing to it

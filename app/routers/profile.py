@@ -187,7 +187,13 @@ def photo_upload(
         # 200 with the message: htmx does not show 4xx answers.
         return fragment(request, "profile/_photo.html", photo_context(user, profile, error))
 
-    old_path = profile_service.set_photo(session, profile, new_path)
+    try:
+        old_path = profile_service.set_photo(session, profile, new_path)
+    except Exception:
+        # The new file was written but the database didn't take it: remove the file,
+        # so nothing is left on the disk that no profile points to.
+        photo_service.delete_photo_file(new_path)
+        raise
     # The old file goes only after the new path is saved, so a failed save never
     # leaves the profile pointing at a deleted file.
     photo_service.delete_photo_file(old_path)
@@ -486,7 +492,9 @@ def section_order(
     # More ids than a section can have, or something that isn't an id: the request
     # didn't come from our page, so it changes nothing (the section comes back as it is).
     if len(raw_ids) <= profile_service.MAX_ITEMS_PER_SECTION and all(
-        value.isascii() and value.isdigit() for value in raw_ids
+        # At most 10 digits: ids fit in 32 bits, and int() refuses very long numbers.
+        value.isascii() and value.isdigit() and len(value) <= 10
+        for value in raw_ids
     ):
         ids = [int(value) for value in raw_ids]
         moved = profile_service.reorder_items(session, profile, section.model, ids)

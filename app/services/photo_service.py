@@ -26,7 +26,13 @@ MAX_SIDE = 800  # px, long side of the saved photo (D-039)
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 # Pillow's name for the format -> the extension and media type we store it with.
-FORMATS = {"JPEG": (".jpg", "image/jpeg"), "PNG": (".png", "image/png")}
+# MPO is how Pillow reads some phone JPEGs (several pictures in one file, e.g. for
+# depth effects); the first picture is a normal JPEG and is stored as one.
+FORMATS = {
+    "JPEG": (".jpg", "image/jpeg"),
+    "MPO": (".jpg", "image/jpeg"),
+    "PNG": (".png", "image/png"),
+}
 PHOTO_FOLDER = "photos"
 
 # Messages shown under the photo (short, in the user's words).
@@ -54,35 +60,44 @@ def save_photo(data: bytes, filename: str) -> str:
         raise PhotoError(UNREADABLE)
 
     try:
-        image = Image.open(io.BytesIO(data))  # reads only the header, not the pixels
-    except (UnidentifiedImageError, OSError):
+        # formats=: only the JPEG and PNG readers ever look at the bytes. Anything else
+        # (GIF, WEBP, a text file called .jpg) is "not identified" and refused.
+        # Only the header is read here, not the pixels.
+        # (The JPEG reader also opens MPO files and reports them as "MPO".)
+        image = Image.open(io.BytesIO(data), formats=["JPEG", "PNG"])
+    except UnidentifiedImageError:
+        raise PhotoError(WRONG_TYPE) from None
+    except Exception:
         raise PhotoError(UNREADABLE) from None
-    # The content decides, not the name: a GIF or a text file called .jpg is refused.
-    # A PNG called .jpg is fine and is saved as .png (D-039).
-    if image.format not in FORMATS:
-        raise PhotoError(WRONG_TYPE)
     # Checked before the pixels are loaded: a small file can claim a huge image
     # ("decompression bomb") and fill the memory when it is decoded.
     width, height = image.size
     if width * height > MAX_PIXELS:
         raise PhotoError(TOO_BIG)
 
+    # The content decides, not the name: a PNG called .jpg is stored as .png (D-039).
+    stored_format = "PNG" if image.format == "PNG" else "JPEG"
     try:
-        cleaned = _clean(image, image.format)
-    except (OSError, ValueError, Image.DecompressionBombError):
+        cleaned = _clean(image, stored_format)
+        # Encode in memory first, so a failure never leaves half a file on the disk.
+        # No exif=, icc_profile= or pnginfo= arguments: nothing from the original
+        # file's metadata is written into the new one.
+        buffer = io.BytesIO()
+        if stored_format == "JPEG":
+            cleaned.save(buffer, format="JPEG", quality=90)
+        else:
+            cleaned.save(buffer, format="PNG", optimize=True)
+    except Exception:
+        # A broken file can make Pillow fail in many ways (OSError, SyntaxError,
+        # struct.error in a damaged EXIF block, ...). For the user it is all the same:
+        # this image can't be read.
         raise PhotoError(UNREADABLE) from None
 
-    extension, _media_type = FORMATS[image.format]
+    extension, _media_type = FORMATS[stored_format]
     folder = upload_root() / PHOTO_FOLDER
     folder.mkdir(parents=True, exist_ok=True)
     relative = f"{PHOTO_FOLDER}/{secrets.token_hex(16)}{extension}"
-    with open(upload_root() / relative, "wb") as file:
-        if image.format == "JPEG":
-            # No exif=, icc_profile= or pnginfo= arguments: nothing from the original
-            # file's metadata is written into the new one.
-            cleaned.save(file, format="JPEG", quality=90)
-        else:
-            cleaned.save(file, format="PNG", optimize=True)
+    (upload_root() / relative).write_bytes(buffer.getvalue())
     return relative
 
 
