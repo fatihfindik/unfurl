@@ -38,6 +38,13 @@ ENV UV_PYTHON_DOWNLOADS=never \
     PATH="/app/.venv/bin:$PATH"
 WORKDIR /app
 
+# Pango and HarfBuzz for WeasyPrint (CV PDFs, D-051, D-014). The fonts come from the
+# app's own static/fonts, so no font packages are needed. The apt lists are removed
+# afterwards to keep the image small.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Runtime dependencies only (--no-dev): no pytest, ruff or Tailwind in production.
 COPY pyproject.toml uv.lock .python-version ./
 RUN --mount=type=cache,target=/root/.cache/uv \

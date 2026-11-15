@@ -15,6 +15,7 @@ dependencies = [
     "pydantic-settings>=2.16.2",
     "slowapi>=0.1.10",
     "sqlmodel>=0.0.48",
+    "weasyprint>=70.0",
 ]
 
 # No [build-system]: Unfurl is an app, not a library. uv installs only the
@@ -42,6 +43,7 @@ pythonpath = ["."]
 dev = [
     "freezegun>=1.5.5",
     "httpx>=0.28.1",
+    "pypdf>=7.1.0",
     "pytailwindcss>=0.4.2",
     "pytest>=9.2.0",
     "ruff>=0.17.4",

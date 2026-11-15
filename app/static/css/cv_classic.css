@@ -16,7 +16,11 @@
   background: #ffffff;
   color: #1f2328;
   color-scheme: light;
-  font-family: "Inter", Arial, sans-serif;
+  /* The two font stacks every CV template uses. cv_print.css changes them for the
+     PDF (WeasyPrint needs the latin-ext half of each font as a separate family). */
+  --cv-sans: "Inter", Arial, sans-serif;
+  --cv-serif: "Source Serif 4", Georgia, serif;
+  font-family: var(--cv-sans);
   font-size: 13px;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -31,7 +35,7 @@
 
 .cv-classic .cv-name {
   margin: 0;
-  font-family: "Source Serif 4", Georgia, serif;
+  font-family: var(--cv-serif);
   font-size: 26px;
   font-weight: 700;
   line-height: 1.2;
@@ -55,7 +59,7 @@
 
 .cv-classic h2 {
   margin: 0 0 6px;
-  font-family: "Source Serif 4", Georgia, serif;
+  font-family: var(--cv-serif);
   font-size: 15px;
   font-weight: 700;
   text-transform: uppercase;

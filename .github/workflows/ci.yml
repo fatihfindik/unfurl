@@ -33,6 +33,12 @@ jobs:
           version: "0.13.7"
           enable-cache: true
 
+      # Pango for WeasyPrint: the CV PDF tests render real PDFs (D-051).
+      - name: Install Pango
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
+
       # --locked: fail if uv.lock doesn't match pyproject.toml.
       # uv installs Python 3.12 from .python-version.
       - name: Install dependencies
@@ -64,6 +70,19 @@ jobs:
 
       - name: Home page answers
         run: curl -fsS -o /dev/null http://localhost:8000/
+
+      # The image has Pango and the fonts: a real CV PDF can be made inside it (D-051).
+      - name: A CV PDF can be rendered in the image
+        run: |
+          docker compose exec -T app python -c "
+          from app.models import CVDocument
+          from app.schemas.cv import CVContent, CVPersonal
+          from app.services.pdf_service import render_cv_pdf
+          cv = CVDocument(user_id=1, title='t', language='de', content=CVContent(personal=CVPersonal(full_name='Jürgen Çelik')).to_json())
+          pdf = render_cv_pdf(cv)
+          assert pdf.startswith(b'%PDF'), 'not a PDF'
+          print('PDF bytes:', len(pdf))
+          "
 
       - name: Migrations ran on Postgres
         run: |
