@@ -14,6 +14,7 @@ SQLModel.metadata.naming_convention = {
 }
 
 # Imported after the naming convention is set, so the tables use it.
+from app.models.cv import CVDocument  # noqa: E402
 from app.models.profile import (  # noqa: E402
     Certification,
     Education,
@@ -26,6 +27,7 @@ from app.models.profile import (  # noqa: E402
 from app.models.user import User  # noqa: E402
 
 __all__ = [
+    "CVDocument",
     "Certification",
     "Education",
     "Experience",
