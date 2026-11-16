@@ -498,13 +498,17 @@ def test_undo_is_rate_limited(auth_client):
 # --- Wrong HTTP methods ------------------------------------------------------------------
 
 
+def test_get_undo_is_not_a_page(auth_client):
+    # Since M4b, GET /applications/<id> is the detail page: "undo" is not an id (404).
+    assert auth_client.get("/applications/undo").status_code == 404
+
+
 @pytest.mark.parametrize(
     "method, path",
     [
         ("PUT", "/applications"),
         ("PATCH", "/applications"),
         ("DELETE", "/applications"),
-        ("GET", "/applications/undo"),
         ("PUT", "/applications/undo"),
         ("DELETE", "/applications/undo"),
         ("GET", "/applications/{id}/archive"),

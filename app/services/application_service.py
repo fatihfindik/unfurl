@@ -444,6 +444,34 @@ def archived_count(session: Session, user: User) -> int:
     ).one()
 
 
+def neighbours(
+    session: Session, user: User, application: Application
+) -> tuple[int, int, int | None, int | None]:
+    """Where the application sits among its column for "‹ 1 of 10 in Saved ›" (D-078):
+    (position from 1, how many, id before, id after). Archived jobs are counted among
+    the archived ones of their status, newest first."""
+    if application.archived:
+        siblings = list(
+            session.exec(
+                select(Application.id)
+                .where(
+                    Application.user_id == user.id,
+                    Application.status == application.status,
+                    col(Application.archived).is_(True),
+                )
+                .order_by(col(Application.last_activity_at).desc(), col(Application.id).desc())
+            )
+        )
+    else:
+        siblings = [card.id for card in column_of(session, user, application.status)]
+    if application.id not in siblings:
+        return 1, 1, None, None
+    index = siblings.index(application.id)
+    before = siblings[index - 1] if index > 0 else None
+    after = siblings[index + 1] if index + 1 < len(siblings) else None
+    return index + 1, len(siblings), before, after
+
+
 def events_of(session: Session, application: Application) -> list[ApplicationEvent]:
     """The timeline of an application the caller already owns, oldest first."""
     return list(

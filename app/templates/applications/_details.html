@@ -1,0 +1,25 @@
+{#- Details of a job (SPEC §6.7 "Job & details"). Empty fields show "—". Editing comes
+    with the Details form (D-075). Context: application, source_name, remote_name, closes_text. -#}
+{%- set rows = [
+  ("Contact person", application.contact_name),
+  ("Contact email", application.contact_email),
+  ("Salary (from posting)", application.salary_text),
+  ("Work mode", remote_name),
+  ("Source", source_name),
+  ("Posting closes", closes_text),
+] %}
+<section id="application-details" aria-labelledby="details-title" class="flex flex-col gap-3.5 rounded-xl border border-border bg-surface p-5">
+  <h2 id="details-title" class="m-0 text-base font-bold">Details</h2>
+  <dl class="m-0 grid gap-x-4 gap-y-3 sm:grid-cols-2">
+    {%- for label, value in rows %}
+      <div class="flex min-w-0 flex-col gap-0.5">
+        <dt class="text-[13px] font-semibold text-text-3">{{ label }}</dt>
+        <dd class="m-0 break-words text-sm text-text">{{ value or "—" }}</dd>
+      </div>
+    {%- endfor %}
+    <div class="flex min-w-0 flex-col gap-0.5 sm:col-span-2">
+      <dt class="text-[13px] font-semibold text-text-3">Notes</dt>
+      <dd class="m-0 whitespace-pre-line break-words text-sm text-text">{{ application.notes or "—" }}</dd>
+    </div>
+  </dl>
+</section>

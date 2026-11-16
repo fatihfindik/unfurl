@@ -12,6 +12,7 @@ import datetime as dt
 from dataclasses import dataclass
 
 from app.models import Application
+from app.models.base import as_utc
 from app.services import clock
 
 # Days in the rules of SPEC §6.13.
@@ -109,7 +110,7 @@ def interview_has_passed(interview_at: dt.datetime, now: dt.datetime) -> bool:
     (00:00, "all day") when its day is over."""
     if clock.is_start_of_day(interview_at):
         return clock.local(now).date() > clock.local(interview_at).date()
-    return now >= interview_at
+    return as_utc(now) >= as_utc(interview_at)  # SQLite gives times back without a zone
 
 
 def after_done(application: Application, now: dt.datetime) -> tuple[str | None, dt.datetime | None]:
@@ -120,3 +121,68 @@ def after_done(application: Application, now: dt.datetime) -> tuple[str | None, 
         day = clock.local(now).date() + dt.timedelta(days=FOLLOW_UP_DAYS_AFTER_THANK_YOU)
         return "follow_up", clock.to_utc(day)
     return None, None
+
+
+# --- Words for the Next step card ------------------------------------------------------
+
+
+def day_text(value: dt.datetime) -> str:
+    """ "Wed, 18 Nov" in the user's time zone."""
+    return clock.local(value).strftime("%a, %-d %b")
+
+
+def when_text(value: dt.datetime) -> str:
+    """ "Wed, 18 Nov" for a whole day, "Wed, 18 Nov, 10:00" with a time."""
+    if clock.is_start_of_day(value):
+        return day_text(value)
+    return clock.local(value).strftime("%a, %-d %b, %H:%M")
+
+
+def title(step: NextStep) -> str:
+    """The card's main line: "Apply by Wed, 11 Nov", "Interview · Wed, 18 Nov, 10:00"."""
+    if step.at is None:
+        return {"reply_offer": "Reply to the offer", "interview": "Interview"}.get(
+            step.type, step.label
+        )
+    if step.type in ("apply_by",):
+        return f"Apply by {day_text(step.at)}"
+    if step.type in ("follow_up", "thank_you"):
+        return f"{step.label} on {day_text(step.at)}"
+    if step.type == "reply_offer":
+        return f"Reply to the offer by {day_text(step.at)}"
+    return f"{step.label} · {when_text(step.at)}"
+
+
+INTERVIEW_TYPE_NAMES = {"video": "Video call", "phone": "Phone call", "onsite": "On site"}
+
+
+def reason(step: NextStep, application: Application) -> str:
+    """The small line under the title: why this step and this date."""
+    if not step.automatic:
+        return "Set by you. It stays until the status changes."
+    if step.type == "apply_by":
+        if step.waiting:
+            return "Saved a week ago. Apply, or archive it if it's not for you."
+        return f"The posting closes on {day_text(clock.to_utc(application.posting_closes_at))}."
+    if step.type == "follow_up":
+        return "10 days after applying, if you hear nothing."
+    if step.type == "interview":
+        if step.at is None:
+            return "Add the date when you know it."
+        kind = INTERVIEW_TYPE_NAMES.get(application.interview_type or "", "")
+        who = f" with {application.interview_with}" if application.interview_with else ""
+        return f"{kind or 'Interview'}{who}." if kind or who else "Good luck!"
+    if step.type == "thank_you":
+        return "The interview is over. A short thank-you note helps."
+    if step.type == "reply_offer":
+        return "Add the deadline from the offer letter."
+    return ""
+
+
+def no_step_reason(application: Application) -> str:
+    """Why there is no next step."""
+    if application.archived:
+        return "Archived jobs have no next step."
+    if application.next_action_manual:
+        return "Done. Change the status or set a new next step."
+    return f"{application.status.capitalize()} jobs have no next step."

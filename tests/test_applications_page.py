@@ -138,7 +138,10 @@ def test_things_from_later_milestones_are_not_on_the_page(auth_client, session, 
 
     for later in ["Fit", "fit score", "Auto-fill", "Needs attention", "Snooze", "extension"]:
         assert later not in html
-    assert "/applications/" not in html  # cards don't link anywhere until M4b
+    # Since M4b the company name links to the detail page; nothing else links on.
+    assert set(re.findall(r'href="(/applications/[^"]*)"', html)) <= {
+        f"/applications/{card}" for card in re.findall(r'data-card="(\d+)"', html)
+    }
 
 
 def test_logged_out_visitors_go_to_login(client):

@@ -19,7 +19,7 @@ from app.models.application import BOARD_STATUSES, MAX_DESCRIPTION
 from app.schemas.application import ADD_JOB_STATUSES, AddJobForm, BoardQuery
 from app.schemas.profile import form_errors
 from app.security import limiter
-from app.services import application_service, undo_service
+from app.services import application_service, clock, next_step_service, undo_service
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
 
@@ -308,4 +308,91 @@ def application_restore(
     toast = f"{application.company} restored."
     return Response(
         status_code=204, headers=page_events(toast=toast, undo_url=UNDO_URL, undo_token=token)
+    )
+
+
+# --- Detail page (SPEC §6.7, M4b) --------------------------------------------------------
+
+
+def timeline_text(event, source_name: str) -> str:
+    """One line of the timeline, newest first on the page."""
+    if event.type == "created":
+        where = "Added by hand" if source_name == "Added by hand" else f"Saved from {source_name}"
+        if event.to_status and event.to_status != "saved":
+            return f"{where} as {STATUS_TITLES.get(event.to_status, event.to_status)}"
+        return where
+    if event.type == "status_changed":
+        before = STATUS_TITLES.get(event.from_status or "", event.from_status)
+        after = STATUS_TITLES.get(event.to_status or "", event.to_status)
+        return f"Status: {before} → {after}"
+    if event.type == "note_added":
+        return f"Note: {event.message or ''}"
+    return {"archived": "Archived", "restored": "Restored"}.get(event.type, event.message or "")
+
+
+def when_text(value) -> str:
+    """When an event happened: "Today, 09:12", "Yesterday, 18:40", "Mon, 9 Nov, 10:05"."""
+    local = clock.local(value)
+    days = (clock.today() - local.date()).days
+    day = {0: "Today", 1: "Yesterday"}.get(days, local.strftime("%a, %-d %b"))
+    return f"{day}, {local.strftime('%H:%M')}"
+
+
+def initials(company: str) -> str:
+    """ "Kranich Health GmbH" -> "KH": the company avatar."""
+    words = [word for word in company.split() if word[:1].isalnum()]
+    return "".join(word[0] for word in words[:2]).upper() or "?"
+
+
+def detail_context(session: Session, user: User, application) -> dict:
+    now = clock.now()
+    step = next_step_service.next_step(application, now)
+    source_name = SOURCE_NAMES.get(application.source, "Other")
+    events = application_service.events_of(session, application)
+    position, total, before_id, after_id = application_service.neighbours(
+        session, user, application
+    )
+    return {
+        "application": application,
+        "initials": initials(application.company),
+        "status_title": STATUS_TITLES.get(application.status, application.status),
+        "source_name": source_name,
+        "remote_name": REMOTE_NAMES.get(application.remote_type),
+        "saved_when": application.created_at,
+        "position": position,
+        "total": total,
+        "before_url": f"/applications/{before_id}" if before_id else "",
+        "after_url": f"/applications/{after_id}" if after_id else "",
+        "step": step,
+        "step_title": next_step_service.title(step) if step else "No next step",
+        "step_reason": (
+            next_step_service.reason(step, application)
+            if step
+            else next_step_service.no_step_reason(application)
+        ),
+        "timeline": [
+            {
+                "text": timeline_text(event, source_name),
+                "when": when_text(event.created_at),
+                "type": event.type,
+            }
+            for event in reversed(events)
+        ],
+        "interview_type_names": next_step_service.INTERVIEW_TYPE_NAMES,
+        "closes_text": (
+            next_step_service.day_text(clock.to_utc(application.posting_closes_at))
+            if application.posting_closes_at
+            else ""
+        ),
+    }
+
+
+@router.get("/applications/{application_id}", response_class=HTMLResponse)
+def application_detail(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """One application: header, details, saved posting, next step and timeline."""
+    application = application_service.get_owned_application(session, user, application_id)
+    return templates.TemplateResponse(
+        request, "applications/detail.html", detail_context(session, user, application)
     )

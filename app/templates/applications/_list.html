@@ -28,7 +28,7 @@
       {%- endif %}
       {%- for job in rows %}
         <tr data-row="{{ job.id }}"{% if job.archived %} data-archived{% endif %} class="border-t border-muted {{ 'opacity-60' if job.archived }}">
-          <td class="break-words px-4 py-3 font-semibold text-text">{{ job.company }}</td>
+          <td class="break-words px-4 py-3 font-semibold text-text"><a href="/applications/{{ job.id }}" class="text-text no-underline hover:underline">{{ job.company }}</a></td>
           <td class="break-words px-4 py-3 text-text-2">{{ job.job_title }}</td>
           <td class="px-4 py-3">{{ status_badge(job.status, status_titles[job.status]) }}</td>
           <td class="px-4 py-3 text-text-3">{{ source_names.get(job.source, "Other") }}</td>
