@@ -1,0 +1,17 @@
+{#- The small coloured dot of a status (colours from the prototype). The classes are
+    written out one by one: Tailwind finds class names in the source text, so a class
+    built with {{ }} would never be generated.
+
+    {% from "applications/_status.html" import status_dot %}
+    {{ status_dot("applied") }}
+-#}
+{% macro status_dot(status) %}
+  {%- set colours = {
+    "saved": "bg-[#667085]",
+    "applied": "bg-[#2563EB]",
+    "interview": "bg-[#7C3AED]",
+    "offer": "bg-[#079455]",
+    "rejected": "bg-[#D92D20]",
+  } -%}
+  <span aria-hidden="true" class="size-2 shrink-0 rounded-full {{ colours.get(status, 'bg-[#667085]') }}"></span>
+{%- endmacro %}

@@ -1,0 +1,24 @@
+{#- The board (SPEC §6.7): five columns, each scrolls on its own; on a narrow screen
+    the columns scroll sideways. Dragging comes in step 4 of plan M4a. -#}
+{% from "applications/_status.html" import status_dot %}
+<div class="overflow-x-auto">
+  <div class="grid min-w-[1120px] grid-cols-[repeat(5,minmax(220px,1fr))] gap-3.5">
+    {%- for column in columns %}
+      <section aria-label="{{ column.title }}" data-column="{{ column.key }}"
+               class="flex min-h-[420px] flex-col gap-2.5 rounded-xl border border-dashed border-transparent bg-column p-3">
+        <h2 class="m-0 flex items-center gap-2 text-sm font-bold text-text">
+          {{ status_dot(column.key) }}{{ column.title }}
+          <span class="ml-auto text-xs font-semibold text-text-3">{{ column.cards | length }}</span>
+        </h2>
+        <div class="flex max-h-[560px] flex-col gap-2.5 overflow-y-auto">
+          {%- for card in column.cards %}
+            {% include "applications/_card.html" %}
+          {%- endfor %}
+        </div>
+        {%- if not column.cards %}
+          <span class="py-4 text-center text-[13px] text-text-3">No jobs here</span>
+        {%- endif %}
+      </section>
+    {%- endfor %}
+  </div>
+</div>

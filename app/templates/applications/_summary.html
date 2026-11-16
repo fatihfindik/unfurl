@@ -1,0 +1,12 @@
+{#- Summary cards (SPEC §6.3): one per status with its count. Archived jobs are not
+    counted. Clicking a card to filter comes with the filters (plan M4a, step 7). -#}
+{% from "applications/_status.html" import status_dot %}
+<section aria-label="Pipeline summary" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+  {%- for column in columns %}
+    <div data-summary="{{ column.key }}" class="flex flex-col items-start gap-1 rounded-xl border border-border bg-surface px-4 py-3.5">
+      <span class="flex items-center gap-2 text-[13px] font-semibold text-text-2">{{ status_dot(column.key) }}{{ column.title }}</span>
+      <strong class="text-[26px] leading-[1.1] text-text">{{ column.cards | length }}</strong>
+      <span class="text-xs text-text-3">{{ column.hint }}</span>
+    </div>
+  {%- endfor %}
+</section>

@@ -3,9 +3,19 @@
 
 {% block title %}Applications{% endblock %}
 
+{#- docs/prototype/Applications.dc.html, SPEC §6.3 and §6.7. The board is as wide as
+    the window (five columns need the room), so this page has no page_width. -#}
 {% block content %}
-  {{ page_header("Applications", subtitle="Every job you saved or applied to.") }}
-  <div class="w-full {{ page_width() }} px-4 pt-5 pb-8 md:px-8">
-    <p class="text-sm text-text-3">No applications yet.</p>
+  {{ page_header("Applications", subtitle="Every job you saved or applied to. Drag a card to change its status.") }}
+  <div id="applications-region" class="flex w-full flex-col gap-[18px] px-4 pt-5 pb-8 md:px-8">
+    {% include "applications/_summary.html" %}
+    {%- if has_applications %}
+      {% include "applications/_board.html" %}
+    {%- else %}
+      <div class="flex flex-col items-start gap-1 rounded-xl border border-dashed border-border-strong bg-surface p-5">
+        <p class="m-0 text-sm font-semibold text-text">No applications yet.</p>
+        <p class="m-0 text-sm text-text-3">Jobs you save show up here, one card per job.</p>
+      </div>
+    {%- endif %}
   </div>
 {% endblock %}

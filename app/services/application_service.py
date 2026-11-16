@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, col, func, select
 
 from app.models import Application, ApplicationEvent, User
+from app.models.application import BOARD_STATUSES
 from app.models.base import utcnow
 from app.services import profile_service
 
@@ -86,6 +87,30 @@ def column_of(session: Session, user: User, status: str) -> list[Application]:
             .order_by(col(Application.position), col(Application.id))
         )
     )
+
+
+def board(session: Session, user: User) -> dict[str, list[Application]]:
+    """Every column of the board with its cards: {"saved": [...], "applied": [...], …}.
+    One query for all columns; archived cards are left out."""
+    cards = session.exec(
+        select(Application)
+        .where(
+            Application.user_id == user.id,
+            col(Application.status).in_(BOARD_STATUSES),
+            col(Application.archived).is_(False),
+        )
+        .order_by(col(Application.position), col(Application.id))
+    )
+    columns: dict[str, list[Application]] = {status: [] for status in BOARD_STATUSES}
+    for card in cards:
+        columns[card.status].append(card)
+    return columns
+
+
+def has_any(session: Session, user: User) -> bool:
+    """True if the user has saved at least one job (archived ones count)."""
+    first = session.exec(select(Application.id).where(Application.user_id == user.id)).first()
+    return first is not None
 
 
 def _renumber(cards: list[Application]) -> None:
