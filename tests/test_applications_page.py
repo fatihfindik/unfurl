@@ -3,6 +3,8 @@
 import datetime as dt
 import re
 
+import pytest
+
 from app.models.base import utcnow
 from app.services import application_service as apps
 from app.services.auth_service import create_user
@@ -144,3 +146,73 @@ def test_logged_out_visitors_go_to_login(client):
 
     assert response.status_code == 303
     assert response.headers["location"].startswith("/login")
+
+
+# --- Dragging, "Show more" and the closed Rejected column (SPEC §6.7) ------------------
+
+
+def test_every_column_is_a_drop_list_and_cards_carry_their_id(auth_client, session, user):
+    job = add(session, user)
+
+    html = auth_client.get("/").text
+
+    for status in ("saved", "applied", "interview", "offer", "rejected"):
+        assert f'data-board-list data-status="{status}"' in html
+    assert f'data-card="{job.id}"' in column_html(html, "saved")
+
+
+def test_rejected_starts_closed_but_still_takes_a_dropped_card(auth_client, session, user):
+    add(session, user, "Declined GmbH", status="saved")
+    job = apps.column_of(session, user, "saved")[0]
+    apps.move(session, user, job, "rejected")
+
+    html = auth_client.get("/").text
+
+    assert 'data-rejected="closed"' in html  # the page starts with the column closed
+    rejected = column_html(html, "rejected")
+    assert "Hidden to keep the board calm. Drop a card here to reject it." in rejected
+    assert ">Show</span>" in rejected and ">Hide</span>" in rejected
+    assert 'data-board-list data-status="rejected"' in rejected  # still a drop list
+    assert column_count(html, "rejected") == 1  # the count stays visible
+    # Only Rejected can be closed.
+    assert "toggleRejected" not in column_html(html, "saved")
+
+
+def test_a_column_shows_twenty_cards_then_show_more(auth_client, session, user):
+    for number in range(23):
+        add(session, user, f"Company {number:02d}")
+    add(session, user, "Sent", status="applied")
+
+    html = auth_client.get("/").text
+
+    saved = column_html(html, "saved")
+    assert saved.count("data-card=") == 20
+    assert column_count(html, "saved") == 23  # the heading counts all of them
+    assert "Show more (3)" in saved and 'hx-get="/?more=saved"' in saved
+    assert "Company 22" in saved and "Company 02" not in saved  # newest first
+    assert "Show more" not in column_html(html, "applied")
+
+
+def test_show_more_shows_the_whole_column_and_keeps_it_open_on_reload(auth_client, session, user):
+    for number in range(23):
+        add(session, user, f"Company {number:02d}")
+
+    html = auth_client.get("/?more=saved", headers={"HX-Request": "true"}).text
+
+    saved = column_html(html, "saved")
+    assert saved.count("data-card=") == 23 and "Show more" not in saved
+    # After the next change the board reloads with the same choice.
+    assert 'hx-get="/?more=saved"' in html.split(">", 1)[0]
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["?more=moon", "?more=%22%3E%3Cscript%3Ealert(1)%3C/script%3E", "?more=saved%22+onload%3D%22x"],
+)
+def test_unknown_values_in_the_address_are_dropped(auth_client, session, user, query):
+    add(session, user)
+
+    html = auth_client.get("/" + query).text
+
+    assert "alert(1)" not in html and "onload" not in html
+    assert 'hx-get="/"' in html  # the region reloads the plain page

@@ -27,6 +27,10 @@ class TooManyApplications(Exception):
     """The user already has MAX_APPLICATIONS_PER_USER applications."""
 
 
+class NotOnBoard(Exception):
+    """The status is not a column of the board, or the card is archived."""
+
+
 def today() -> dt.date:
     """Today's date in UTC (users get their own time zone in M10/M11, D-061)."""
     return utcnow().date()
@@ -166,6 +170,48 @@ def create(
     session.commit()
     session.refresh(application)
     return application
+
+
+def move(
+    session: Session, user: User, application: Application, status: str, after_id=None
+) -> ApplicationEvent | None:
+    """Put a card into the column `status`, right below the card `after_id` (or at the
+    top when after_id is empty). Dragging a card on the board ends here (D-063).
+
+    A new status writes a "status_changed" event, which is returned; moving a card
+    inside its column only changes the order and returns None. The browser names
+    the card above instead of a number, because with filters or "Show more" the
+    cards on screen are not the whole column.
+    """
+    if status not in BOARD_STATUSES or application.archived:
+        raise NotOnBoard
+    above = get_owned_application(session, user, after_id) if after_id else None
+    if above is not None and above.id == application.id:
+        return None  # dropped where it was
+
+    old_status = application.status
+    cards = [card for card in column_of(session, user, status) if card.id != application.id]
+    # If the card above is no longer in this column (an old screen), go to the top.
+    index = cards.index(above) + 1 if above in cards else 0
+    cards.insert(index, application)
+
+    event = None
+    if status != old_status:
+        application.status = status
+        application.last_activity_at = utcnow()
+        if status == "applied" and application.applied_at is None:
+            application.applied_at = today()  # SPEC §5.6; a date already there stays
+        event = _add_event(
+            session, application, "status_changed", from_status=old_status, to_status=status
+        )
+        # The column it left closes the gap. (The card itself is filtered out by id:
+        # whether the query already sees its new status depends on autoflush.)
+        _renumber([c for c in column_of(session, user, old_status) if c.id != application.id])
+    _renumber(cards)
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return event
 
 
 def events_of(session: Session, application: Application) -> list[ApplicationEvent]:

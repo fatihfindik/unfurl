@@ -1,8 +1,11 @@
-"""Form for adding a job by hand (SPEC §6.7 "Add job", D-062)."""
+"""Forms and query parameters of the Applications page (SPEC §6.7, D-062)."""
+
+from dataclasses import dataclass, replace
+from urllib.parse import urlencode
 
 from pydantic import Field, field_validator
 
-from app.models.application import JOB_URL_TEXT, MAX_DESCRIPTION, REMOTE_TYPES
+from app.models.application import BOARD_STATUSES, JOB_URL_TEXT, MAX_DESCRIPTION, REMOTE_TYPES
 from app.models.profile import SHORT_TEXT
 from app.schemas.profile import ProfileForm, check_url
 
@@ -60,3 +63,29 @@ def is_link(text: str) -> bool:
     """True for a single link: starts with http:// or https:// and has no spaces.
     Anything else in the field is the posting text."""
     return text.startswith(("http://", "https://")) and not any(c.isspace() for c in text)
+
+
+@dataclass(frozen=True)
+class BoardQuery:
+    """What the address of the Applications page asks for (`/?more=saved,applied`).
+
+    Every value is checked against a list of known values; anything else is dropped,
+    so the address can never put unknown text into the page or a query.
+    """
+
+    # Columns that show all their cards instead of the first COLUMN_LIMIT.
+    more: tuple[str, ...] = ()
+
+    @classmethod
+    def from_params(cls, params) -> "BoardQuery":
+        asked = (params.get("more") or "").split(",")
+        return cls(more=tuple(status for status in BOARD_STATUSES if status in asked))
+
+    def with_more(self, status: str) -> "BoardQuery":
+        return replace(self, more=tuple(s for s in BOARD_STATUSES if s in (*self.more, status)))
+
+    @property
+    def url(self) -> str:
+        """The address of the page with these choices, e.g. "/?more=saved"."""
+        params = {"more": ",".join(self.more)} if self.more else {}
+        return "/?" + urlencode(params) if params else "/"

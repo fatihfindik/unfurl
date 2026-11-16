@@ -12,7 +12,10 @@
     <button type="button" data-dialog-open="add-job"
             class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]">{{ icon("plus") }}Add job</button>
   {% endcall %}
-  <div class="w-full px-4 pt-5 pb-8 md:px-8">
+  {#- `board` (app.js) remembers whether Rejected is open; it sits around the region,
+      so reloading the region doesn't close the column again. -#}
+  <div x-data="board" data-rejected="closed" x-bind:data-rejected="rejectedState"
+       class="group/board w-full px-4 pt-5 pb-8 md:px-8">
     {% include "applications/_region.html" %}
   </div>
 

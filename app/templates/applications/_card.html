@@ -2,7 +2,7 @@
     "LinkedIn · 3 days ago". The card has no status menu; the fit score badge comes
     with M7 and the link to the detail page with M4b (D-060). Context: card. -#}
 {%- set place = [card.location, remote_names.get(card.remote_type)] | select | join(" · ") %}
-<article data-card="{{ card.id }}" class="flex flex-col gap-2 rounded-[10px] border border-border bg-surface p-3">
+<article data-card="{{ card.id }}" class="flex cursor-grab flex-col gap-2 rounded-[10px] border border-border bg-surface p-3">
   <div class="flex flex-col gap-0.5">
     <strong class="break-words text-sm text-text">{{ card.company }}</strong>
     <span class="break-words text-[13px] text-text-2">{{ card.job_title }}</span>

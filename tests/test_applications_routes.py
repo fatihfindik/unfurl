@@ -7,6 +7,7 @@ import pytest
 from app.models import Application
 from app.routers import applications as routes
 from app.services import application_service as apps
+from app.services.auth_service import create_user
 from tests.helpers import csrf_token
 
 
@@ -213,3 +214,105 @@ def test_adding_jobs_is_rate_limited(auth_client):
 
     assert codes[:30] == [200] * 30
     assert codes[30] == 429
+
+
+# --- Moving a card: PATCH /applications/{id}/move (D-063, D-065) ----------------------------
+
+
+def move(client, job_id, status, after_id=""):
+    return client.patch(
+        f"/applications/{job_id}/move",
+        data={"status": status, "after_id": after_id},
+        headers={"HX-Request": "true", "X-CSRF-Token": csrf_token(client)},
+    )
+
+
+@pytest.fixture
+def job(session, user) -> Application:
+    return apps.create(session, user, company="Şişecam", job_title="PM")
+
+
+def test_moving_to_another_column_saves_it_and_shows_a_toast(auth_client, session, job):
+    response = move(auth_client, job.id, "interview")
+
+    assert response.status_code == 204 and response.text == ""
+    events = events_of(response)
+    assert events["toast"]["message"] == "Şişecam moved to Interview."
+    assert events["applications-changed"] is True
+    session.refresh(job)
+    assert job.status == "interview"
+
+
+def test_the_card_above_is_respected(auth_client, session, user, job):
+    first = apps.create(session, user, company="First", job_title="PM", status="applied")
+    apps.create(session, user, company="Second", job_title="PM", status="applied")  # on top
+
+    move(auth_client, job.id, "applied", after_id=str(first.id))
+
+    assert [card.company for card in apps.column_of(session, user, "applied")] == [
+        "Second",
+        "First",
+        "Şişecam",
+    ]
+
+
+def test_a_new_order_in_the_same_column_reloads_the_board_without_a_toast(
+    auth_client, session, user, job
+):
+    other_job = apps.create(session, user, company="Other", job_title="PM")  # above `job`
+
+    response = move(auth_client, job.id, "saved", after_id="")
+
+    assert response.status_code == 204
+    assert response.headers["HX-Trigger"] == "applications-changed"  # no toast (D-065)
+    assert [card.id for card in apps.column_of(session, user, "saved")] == [job.id, other_job.id]
+
+
+@pytest.mark.parametrize("status", ["", "withdrawn", "archived", "moon", "Saved"])
+def test_a_status_that_is_not_a_column_is_refused(auth_client, session, job, status):
+    assert move(auth_client, job.id, status).status_code == 422
+    session.refresh(job)
+    assert job.status == "saved"
+
+
+@pytest.mark.parametrize("bad_id", ["abc", "0", "-1", "1.5", str(2**31), str(2**70)])
+def test_an_id_that_is_not_one_is_not_found(auth_client, job, bad_id):
+    assert move(auth_client, bad_id, "applied").status_code == 404
+
+
+def test_another_users_card_cannot_be_moved_or_used_as_the_card_above(
+    auth_client, session, user, job
+):
+    other = create_user(session, email="other@example.com", password="x" * 12, full_name="O")
+    theirs = apps.create(session, other, company="Theirs", job_title="PM")
+
+    assert move(auth_client, theirs.id, "applied").status_code == 404
+    assert move(auth_client, job.id, "saved", after_id=str(theirs.id)).status_code == 404
+    session.refresh(theirs)
+    session.refresh(job)
+    assert (theirs.status, theirs.position, job.status) == ("saved", 0, "saved")
+
+
+def test_logged_out_visitors_cannot_move_a_card(client, session, job):
+    response = move(client, job.id, "applied")
+
+    assert response.headers.get("HX-Redirect", "").startswith("/login")
+    session.refresh(job)
+    assert job.status == "saved"
+
+
+def test_moving_needs_the_csrf_token(auth_client, session, job):
+    response = auth_client.patch(f"/applications/{job.id}/move", data={"status": "applied"})
+
+    assert response.status_code == 403
+    session.refresh(job)
+    assert job.status == "saved"
+
+
+@pytest.mark.parametrize("method", ["get", "post", "delete"])
+def test_only_patch_moves_a_card(auth_client, job, method):
+    response = getattr(auth_client, method)(
+        f"/applications/{job.id}/move", headers={"X-CSRF-Token": csrf_token(auth_client)}
+    )
+
+    assert response.status_code == 405

@@ -125,6 +125,20 @@ document.addEventListener("alpine:init", () => {
     },
   });
 
+  // The board on the Applications page: is the Rejected column open? (SPEC §6.7:
+  // closed at first.) Kept here, outside the part of the page that reloads.
+  Alpine.data("board", () => ({
+    rejectedOpen: false,
+    // As text for the data-rejected attribute: Alpine removes an attribute whose
+    // value is false, and the CSS needs to see "closed" too.
+    get rejectedState() {
+      return this.rejectedOpen ? "open" : "closed";
+    },
+    toggleRejected() {
+      this.rejectedOpen = !this.rejectedOpen;
+    },
+  }));
+
   // Experience bullets on /profile: one input per bullet (all named "bullets").
   // The server renders the saved bullets; "Add bullet" copies the empty row from the
   // <template>, × removes a row. Empty rows are ignored by the server.
@@ -223,9 +237,56 @@ function initSortable(root) {
   });
 }
 
+// Drag and drop on the board (SPEC §6.7, D-063). Every column's card list
+// (data-board-list, data-status) is a Sortable in the same group, so a card can be
+// dropped into another column or at another place in its own.
+// The server is told the column and the card above (after_id), not a number: with
+// filters or "Show more" the cards on screen are not the whole column.
+// It answers without HTML; the "applications-changed" event then reloads the board
+// from the server (the region's hx-trigger), so the screen shows what is stored.
+function initBoard(root) {
+  root.querySelectorAll("[data-board-list]").forEach((list) => {
+    if (list.dataset.sortReady) return;
+    list.dataset.sortReady = "true";
+    Sortable.create(list, {
+      group: "board",
+      draggable: "[data-card]",
+      filter: "[data-archived]", // archived cards stay where they are
+      animation: 150,
+      ghostClass: "opacity-40",
+      // On a touch screen a drag starts after a short hold, so swiping still scrolls.
+      delay: 150,
+      delayOnTouchOnly: true,
+      onEnd(event) {
+        if (event.from === event.to && event.oldIndex === event.newIndex) return;
+        const card = event.item;
+        // The nearest card above that is on screen and not archived. In a closed
+        // column (Rejected) the cards are hidden: the card goes to the top.
+        let above = card.previousElementSibling;
+        while (above && (!above.dataset.card || above.dataset.archived || !above.offsetParent)) {
+          above = above.previousElementSibling;
+        }
+        htmx.ajax("PATCH", `/applications/${card.dataset.card}/move`, {
+          source: event.to,
+          swap: "none",
+          values: { status: event.to.dataset.status, after_id: above ? above.dataset.card : "" },
+        });
+      },
+    });
+  });
+}
+
 // htmx.onLoad runs for the first page and for every piece of HTML htmx puts in,
 // so lists that come back after a save or a move get drag and drop again.
 htmx.onLoad(initSortable);
+htmx.onLoad(initBoard);
+
+// If saving a move fails, the card is in the wrong place on screen: reload the board.
+document.addEventListener("htmx:responseError", (event) => {
+  if (event.detail.elt?.dataset?.boardList !== undefined) {
+    htmx.trigger(document.body, "applications-changed");
+  }
+});
 
 // If saving the order fails (e.g. a row was deleted in another tab), the dragged
 // order on screen is wrong. Load the section again so it shows the stored order.

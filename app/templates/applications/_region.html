@@ -3,9 +3,9 @@
     (D-065), so counts and columns are always the server's.
     The board has no summary cards: its column headings already show each status
     and its count. The cards (_summary.html) belong to the list view (D-070).
-    Context: columns, has_applications. -#}
+    Context: columns, has_applications, region_url (this page with its current choices). -#}
 <div id="applications-region" class="flex flex-col gap-[18px]"
-     hx-get="/" hx-trigger="applications-changed from:body" hx-swap="outerHTML">
+     hx-get="{{ region_url }}" hx-trigger="applications-changed from:body" hx-swap="outerHTML">
   {%- if has_applications %}
     {% include "applications/_board.html" %}
   {%- else %}

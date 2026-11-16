@@ -1,22 +1,47 @@
 {#- The board (SPEC §6.7): five columns, each scrolls on its own; on a narrow screen
-    the columns scroll sideways. Dragging comes in step 4 of plan M4a. -#}
+    the columns scroll sideways. Cards are dragged between and inside the columns
+    (app.js, initBoard): data-board-list is a drop list, data-status its column.
+
+    Rejected starts closed ("Show"): its cards are hidden but the column still takes
+    a dropped card (the card being dragged, .sortable-chosen, is the one card not hidden:
+    SortableJS can't drop a card into a list that hides it). Open or closed is kept by the `board` Alpine data on the element
+    around the region (index.html), as data-rejected="open" or "closed", so it survives a reload
+    of the region; the group-data-* classes below read it. -#}
 {% from "applications/_status.html" import status_dot %}
 <div class="overflow-x-auto">
   <div class="grid min-w-[1120px] grid-cols-[repeat(5,minmax(220px,1fr))] gap-3.5">
     {%- for column in columns %}
+      {%- set closable = column.key == "rejected" %}
       <section aria-label="{{ column.title }}" data-column="{{ column.key }}"
                class="flex min-h-[420px] flex-col gap-2.5 rounded-xl border border-dashed border-transparent bg-column p-3">
         <h2 class="m-0 flex items-center gap-2 text-sm font-bold text-text">
           {{ status_dot(column.key) }}{{ column.title }}
-          <span class="ml-auto text-xs font-semibold text-text-3">{{ column.cards | length }}</span>
+          <span class="ml-auto text-xs font-semibold text-text-3">{{ column.count }}</span>
+          {%- if closable %}
+            <button type="button" x-on:click="toggleRejected" aria-controls="board-list-rejected"
+                    aria-expanded="false" x-bind:aria-expanded="rejectedOpen"
+                    class="text-xs font-semibold text-link hover:underline">
+              <span class="group-data-[rejected=open]/board:hidden">Show</span>
+              <span class="hidden group-data-[rejected=open]/board:inline">Hide</span>
+            </button>
+          {%- endif %}
         </h2>
-        <div class="flex max-h-[560px] flex-col gap-2.5 overflow-y-auto">
+        {%- if closable %}
+          <span class="hidden text-xs text-text-3 group-data-[rejected=closed]/board:inline">Hidden to keep the board calm. Drop a card here to reject it.</span>
+        {%- endif %}
+        {%- if not column.cards %}
+          <span class="py-4 text-center text-[13px] text-text-3 {{ 'group-data-[rejected=closed]/board:hidden' if closable }}">No jobs here</span>
+        {%- endif %}
+        {#- flex-1: the whole column below the heading takes a dropped card, also when empty. -#}
+        <div id="board-list-{{ column.key }}" data-board-list data-status="{{ column.key }}"
+             class="flex max-h-[560px] flex-1 flex-col gap-2.5 overflow-y-auto {{ 'group-data-[rejected=closed]/board:[&>:not(.sortable-chosen)]:hidden' if closable }}">
           {%- for card in column.cards %}
             {% include "applications/_card.html" %}
           {%- endfor %}
         </div>
-        {%- if not column.cards %}
-          <span class="py-4 text-center text-[13px] text-text-3">No jobs here</span>
+        {%- if column.count > column.cards | length %}
+          <button type="button" hx-get="{{ column.more_url }}" hx-target="#applications-region" hx-swap="outerHTML"
+                  class="self-start text-xs font-semibold text-link hover:underline {{ 'group-data-[rejected=closed]/board:hidden' if closable }}">Show more ({{ column.count - column.cards | length }})</button>
         {%- endif %}
       </section>
     {%- endfor %}

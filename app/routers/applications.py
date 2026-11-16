@@ -7,8 +7,8 @@ request, calls the service and picks a template.
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, Response
 from pydantic import ValidationError
 from sqlmodel import Session
 from starlette.datastructures import FormData
@@ -16,7 +16,7 @@ from starlette.datastructures import FormData
 from app.db import get_session
 from app.models import User
 from app.models.application import BOARD_STATUSES, MAX_DESCRIPTION
-from app.schemas.application import ADD_JOB_STATUSES, AddJobForm
+from app.schemas.application import ADD_JOB_STATUSES, AddJobForm, BoardQuery
 from app.schemas.profile import form_errors
 from app.security import limiter
 from app.services import application_service
@@ -66,28 +66,37 @@ SOURCE_NAMES = {
 REMOTE_NAMES = {"remote": "Remote", "hybrid": "Hybrid", "onsite": "Onsite"}  # "unknown": nothing
 
 
+# A column shows this many cards, then "Show more" (SPEC §6.7).
+COLUMN_LIMIT = 20
+
 TOO_MANY_APPLICATIONS = (
     f"You have reached the limit of {application_service.MAX_APPLICATIONS_PER_USER} jobs."
 )
 
 
-def board_context(session: Session, user: User) -> dict:
-    """What the page needs: one entry per column, with its title, hint and cards."""
+def board_context(session: Session, user: User, query: BoardQuery) -> dict:
+    """What the page needs: one entry per column, with its title and cards."""
     cards = application_service.board(session, user)
-    columns = [
-        {
-            "key": status,
-            "title": STATUS_TITLES[status],
-            "hint": STATUS_HINTS[status],
-            "cards": cards[status],
-        }
-        for status in BOARD_STATUSES
-    ]
+    columns = []
+    for status in BOARD_STATUSES:
+        show_all = status in query.more
+        columns.append(
+            {
+                "key": status,
+                "title": STATUS_TITLES[status],
+                "hint": STATUS_HINTS[status],
+                "count": len(cards[status]),
+                "cards": cards[status] if show_all else cards[status][:COLUMN_LIMIT],
+                # Where "Show more" leads; empty when every card is shown already.
+                "more_url": "" if show_all else query.with_more(status).url,
+            }
+        )
     return {
         "columns": columns,
         "has_applications": application_service.has_any(session, user),
         "source_names": SOURCE_NAMES,
         "remote_names": REMOTE_NAMES,
+        "region_url": query.url,  # the region reloads itself with the same choices
     }
 
 
@@ -115,7 +124,8 @@ def page_events(*, toast: str, undo_url: str = "", undo_token: str = "", **more)
 
 @router.get("/", response_class=HTMLResponse)
 def applications_home(request: Request, session: DbSession, user: RequiredUser):
-    context = board_context(session, user)
+    query = BoardQuery.from_params(request.query_params)
+    context = board_context(session, user, query)
     if is_htmx(request):
         # The page asks again after a change: only the part that shows the jobs.
         return templates.TemplateResponse(request, "applications/_region.html", context)
@@ -162,3 +172,28 @@ def add_job_form(request: Request, values: dict | None, errors: dict | None) -> 
     return templates.TemplateResponse(
         request, "applications/_add_job_form.html", add_job_context(values, errors)
     )
+
+
+@router.patch("/applications/{application_id}/move")
+def application_move(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """A card was dropped on the board (D-063): `status` is the column, `after_id` the
+    card above it (empty at the top). The answer has no HTML: the page reloads the
+    board itself, so it always shows what is stored."""
+    application = application_service.get_owned_application(session, user, application_id)
+    try:
+        event = application_service.move(
+            session, user, application, str(data.get("status", "")), data.get("after_id") or None
+        )
+    except application_service.NotOnBoard:
+        raise HTTPException(status_code=422) from None
+
+    if event is None:  # only the order changed: no toast (D-065)
+        return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
+    toast = f"{application.company} moved to {STATUS_TITLES[application.status]}."
+    return Response(status_code=204, headers=page_events(toast=toast))
