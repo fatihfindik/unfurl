@@ -332,3 +332,10 @@ Kaynak: Design fazı (`docs/plans/M3b.md`), `plan-reviewer`, Fatih onayı.
 
 ### D-059 · WeasyPrint sadece izinli kaynakları okur
 - **Karar:** `render_cv_pdf` kendi `url_fetcher`'ını verir: yalnız `data:image/jpeg;base64,…` (CV fotoğrafı) ve `app/static/css` ile `app/static/fonts` içinde kalan `file://` yolları (resolve sonrası kontrol); `http(s)://`, diğer `file://` yolları ve her şey reddedilir. Kullanıcı verisi bugün `src`/`url()`'e girmiyor; bu katman ileride bir hata olursa da sunucunun yerel dosya veya ağ okumasını engeller (SPEC §10.1, derinlemesine savunma). Test: `http://…` ve `file:///etc/passwd` reddedilir.
+
+### D-060 · M4 üçe bölündü
+Kaynak: Plan fazı, Fatih onayı (2026-11-16).
+- **Karar:** M4a (Board: `Application` + `ApplicationEvent`, Add job, Kanban, liste, arama/filtre, arşiv, Toast + Undo altyapısı, `User.theme`), M4b (detay sayfası iskeleti, `next_step_service`, mülakat modalı, Needs attention + Snooze) ve M4c (CV'yi başvuruya bağlama, `applied`'da kilitleme + `ApplicationDocument`, M3'ten ertelenen Duplicate / "All documents" / PDF adında şirket, profil satırı ve CV silmede Undo). Ayrı branch, PR ve etiketlerle: `m4a-board` / `v0.4a-m4a`, `m4b-application-detail` / `v0.4b-m4b`, `m4c-application-documents` / `v0.4c-m4c`. Sonraki milestone'lara bağlı parçalar M4'te **gösterilmez** (pasif buton yok): uyum skoru rozeti, minimum skor filtresi ve Fit sıralaması M7'de; "Auto-fill with AI" M5'te; eklenti bilgi kutusu M6'da gelir.
+- **Gerekçe:** Tek M4 (2 tablo, board, liste, filtreler, detay sayfası, next step kuralları, mülakat, kilitleme, Undo, tema ve 7 ertelenmiş iş) WORKFLOW'daki 1-2 haftalık sınırı aşar. Sıra bağımlılığı izler: Undo altyapısı M4a'da kurulur, M4b ve M4c kullanır; kilitleme için önce başvuru ve detay sayfası gerekir. Çalışmayan butonları göstermemek D-050'deki kuralın devamıdır.
+- **Alternatifler:** Tek M4. İki parça (ikinci PR çok büyük olurdu). Sonraki özellikleri pasif göstermek (ölü butonlar).
+

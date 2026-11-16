@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.8 — 2026-11-16
+> **Durum:** MVP planı, v2.1.9 — 2026-11-16
+> v2.1.9: M4 üçe bölündü (M4a board + Undo altyapısı + tema, M4b detay sayfası + next step + mülakat, M4c başvuruda belgeler + M2/M3'ten ertelenenler). Sonraki milestone'lara bağlı parçalar (uyum skoru rozeti, minimum skor filtresi, Fit sıralaması: M7; "Auto-fill with AI": M5) M4'te gösterilmez. Karar: DECISIONS D-060.
 > v2.1.8: M3b Design kararları. CV'de uyruk için ayrı kutu (`show_nationality`); fotoğraf, doğum tarihi ve uyruk kutuları varsayılan olarak kapalıdır ve değer CV'ye sadece kutusu açıkken kopyalanır. CV dili oluştururken seçilir, sonra değişmez. Kararlar: DECISIONS D-051…D-059.
 > v2.1.7: M3a'da "Duplicate" butonu ve editördeki "All documents" linki M4'e kaldı (başvuru olmadan ikisi de mevcut butonların aynısını yapıyor); değişiklik yapılmamış taslaktan "Save as new version" yeni versiyon oluşturmaz. Karar: DECISIONS D-050.
 > v2.1.6: M3 ikiye bölündü (M3a belgeler + editör + HTML önizleme, M3b PDF: 3 şablon × 3 dil, WeasyPrint). M3a'da başvurusuz kopyalar "Not linked to an application" grubunda; kilitleme servis fonksiyonu olarak gelir, arayüzden M4'te tetiklenir. Karar: DECISIONS D-042.
@@ -1096,14 +1097,44 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 - WeasyPrint ile PDF indirme (Docker sistem kütüphaneleri, D-014), dosya adı `CV_{FullName}_{Company?}_{lang}.pdf`, editörde "Download PDF". Profil linkleri PDF'te link olacaksa yeniden kontrol (#23).
 - **Kabul:** 3 şablon × 3 dil PDF olarak düzgün oluşuyor. Metin seçilebilir. Örnek profille 1-2 sayfa. ATS kuralları (6.5) sağlanıyor.
 
-### M4 — Başvuru takibi (ana sayfa)
-- Application + ApplicationEvent, Applications ana sayfası: özet kartları, Needs attention (en acil 3 + Show all, Snooze), Kanban (sürükle-bırak, daraltılmış Rejected), liste (sıralama, sayfalama), arama ve filtreler, "Show archived" + Restore
-- Interview modalı ve alanları, `next_step_service` (6.13)
-- Manuel "Add job" modalı (AI'sız), detay sayfası iskeleti: başlık kalıbı, durum seçici, Job & details sekmesi, sağ panel (Next step, Documents, Timeline)
-- `applied` durumuna geçişte bağlı belgelerin kilitlenmesi ve `ApplicationDocument` kayıtları
-- Toast + Undo altyapısı (durum, arşiv, snooze)
-- Tema altyapısı: CSS değişkenleri (`--input` dahil), üst bardaki tema seçici, `User.theme`
-- **Kabul:** Durum değişikliği event oluşturuyor ve Undo ile geri alınabiliyor. `applied_at` otomatik doluyor. Next step kuralları (Saved, Applied, Interview → thank-you → follow-up, manual override) ve Needs attention sıralaması `freezegun` ile test edilmiş. `applied`'a geçişte belgeler kilitleniyor. Arşivlenen ilan board'da görünmüyor, Restore ile dönüyor. Tema seçimi kaydediliyor.
+### M4a — Board
+- `Application` (5.5) ve `ApplicationEvent` (5.6) tabloları. Bu parçanın kullanmadığı kolonlar kendi parçasında eklenir (D-025 kalıbı).
+- Applications ana sayfası (6.3, 6.7): özet kartları (5 durum, tıklayınca filtre), Kanban (SortableJS sürükle-bırak, sütun içi sıra, daraltılmış Rejected, sütunda ilk 20 + "Show more"), liste görünümü (Company'ye göre sıralama, sayfa başına 25), arama (şirket, pozisyon, şehir), filtreler (kaynak, çalışma şekli), "Clear filters", "Show archived (n)" + Restore.
+- Manuel **"Add job"** modalı (AI'sız): link veya ilan metni, alanlar, Status. Kayıt sonrası toast + Undo.
+- Durum değişikliği event oluşturur; `applied` olunca `applied_at` boşsa bugünün tarihi atanır. Arşivleme ve geri alma.
+- **Toast + Undo altyapısı** (6.0/2): sunucudan tetiklenen toast ve Undo; M4a'da durum, sıra, arşiv ve ekleme için.
+- **Tema:** seçim `User.theme`'e kaydedilir (D-007'deki cookie'nin yerine geçer; çıkış yapmış sayfalar için cookie kalır).
+- M4a'da gösterilmeyenler: kartta uyum skoru rozeti, minimum skor filtresi, Fit sütununa göre sıralama (M7); "Auto-fill with AI" ve eklenti bilgi kutusu (M5, M6); Needs attention (M4b). Karta tıklamak M4b'ye kadar bir yere gitmez. Interview'a taşıma M4b'ye kadar modal açmaz.
+- **Kabul:**
+  - Durum değişikliği event oluşturuyor ve Undo ile geri alınabiliyor (test). `applied_at` otomatik doluyor (test).
+  - Sürükle-bırak durumu ve sütun içi sırayı kaydediyor; sayfa yenilenince aynı kalıyor.
+  - Arşivlenen ilan board'da ve özet sayılarında görünmüyor, "Show archived" ile görünüyor, Restore ile dönüyor (test).
+  - Arama ve filtreler board'u ve listeyi daraltıyor; liste sayfalanıyor (test).
+  - Başka kullanıcının başvurusuna her erişim 404 (test).
+  - Tema seçimi hesaba kaydediliyor ve başka bir tarayıcıda girişte aynı geliyor (test).
+
+### M4b — Detay sayfası ve next step
+- Başvuru detay sayfası iskeleti (/applications/{id}, 6.7): başlık kalıbı (6.0/3: "← Applications", şirket avatarı, "‹ 1 of 10 ›"), durum seçici (Saved/Applied/Interview/Offer/Rejected/Archived), "View posting ↗", **Job & details** sekmesi (Details + "Original posting (saved copy)"; yapılandırılmış ilan M5'te), sağ panel: **Next step** kartı ve **Timeline** (+ not ekleme). Apply / Progress sekmesi M7–M9'da dolar.
+- `next_step_service` (6.13): otomatik kurallar, "Change" (tür + tarih), "Done", manual override.
+- **Interview modalı** (board, detay): tarih, saat, tür, kiminle; "Skip, I will add it later".
+- Ana sayfada **Needs attention** (6.3): en acil 3 + "Show all (n)", eylem linki, **Snooze** (3 gün, toast + Undo).
+- **Kabul:**
+  - Next step kuralları (Saved, Applied, Interview → thank-you → follow-up, Offer, manual override) `freezegun` ile test edilmiş.
+  - Needs attention sıralaması (bugün/geçmiş → mülakat → follow-up → bekleyen kayıt) ve Snooze + Undo test edilmiş.
+  - Interview'a taşıma modalı açıyor; "Skip" ile de durum değişiyor.
+  - Timeline durum, not, mülakat ve next step değişikliklerini gösteriyor; not eklenebiliyor.
+  - Başka kullanıcının başvurusunun detayına ve işlemlerine erişim 404 (test).
+
+### M4c — Başvuruda belgeler
+- CV'yi başvuruya bağlama: `CVDocument.application_id` (D-045: soy = master + başvuru), `Application.cv_id`; detay sayfasında **Documents** kartı (sent/draft rozetleri), Documents sayfasında kopyalar başvuruya göre gruplanır ("Not linked to an application" grubu kalır).
+- `applied` durumuna geçişte bağlı belgelerin kilitlenmesi ve `ApplicationDocument` kayıtları (5.4b); Undo kilidi ve kayıtları geri alır.
+- M3'ten ertelenenler (D-050, D-057): editörde "Duplicate" (başka bir başvuru için kopya) ve "All documents", başvurudan açılınca "← {Başvuru adı}" ve bilgi bandında şirket, PDF dosya adında şirket (`CV_{FullName}_{Company}_{lang}.pdf`).
+- Silmede Undo (D-035, D-046): profil satırı ve CV silme toast + Undo ile; CV silmedeki onay modalı kalkar.
+- **Kabul:**
+  - `applied`'a geçişte bağlı belgeler kilitleniyor ve `ApplicationDocument` içerik kopyasıyla oluşuyor; Undo ikisini de geri alıyor (test).
+  - Bir başvurunun kopyası başka kullanıcının başvurusuna bağlanamıyor (test).
+  - Başvuruya bağlı CV'nin PDF adı şirketi içeriyor (test).
+  - Silinen profil satırı ve CV, Undo ile aynı içerikle geri geliyor (test).
 
 ### M5 — AI altyapısı + ilan çıkarımı
 - `AIClient` arayüzü, `AnthropicClient`, `FakeAIClient`
