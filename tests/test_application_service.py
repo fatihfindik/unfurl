@@ -52,7 +52,8 @@ def test_a_new_job_goes_to_the_top_of_its_column(session, user):
 
 @freeze_time("2026-11-16 23:30:00")
 def test_a_job_added_as_applied_gets_todays_date(session, user):
-    assert add(session, user, status="applied").applied_at == dt.date(2026, 11, 16)
+    # 23:30 UTC is 00:30 on the 17th in Vienna: the user's day counts (D-071).
+    assert add(session, user, status="applied").applied_at == dt.date(2026, 11, 17)
     assert add(session, user, status="saved").applied_at is None
 
 

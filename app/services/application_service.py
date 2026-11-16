@@ -14,7 +14,7 @@ from sqlmodel import Session, col, delete, func, select
 from app.models import Application, ApplicationEvent, User
 from app.models.application import BOARD_STATUSES
 from app.models.base import as_utc, utcnow
-from app.services import profile_service
+from app.services import clock, profile_service
 
 MAX_APPLICATIONS_PER_USER = 2000  # archived ones count too (D-061)
 MAX_ID = profile_service.MAX_ID
@@ -38,8 +38,8 @@ class NothingToUndo(Exception):
 
 
 def today() -> dt.date:
-    """Today's date in UTC (users get their own time zone in M10/M11, D-061)."""
-    return utcnow().date()
+    """Today's date where the user is (D-071; was UTC in M4a)."""
+    return clock.today()
 
 
 def detect_source(job_url: str | None) -> str:

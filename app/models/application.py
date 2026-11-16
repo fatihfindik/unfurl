@@ -31,7 +31,21 @@ SOURCES = (
     "other",
     "manual",
 )
-EVENT_TYPES = ("created", "status_changed", "archived", "restored")
+EVENT_TYPES = (
+    "created",
+    "status_changed",
+    "archived",
+    "restored",
+    "note_added",
+    "interview_scheduled",
+    "next_step_changed",
+)
+# The next step's kinds (SPEC §6.13). Only a next step the user set by hand is stored;
+# the automatic one is worked out from the status (D-073, next_step_service).
+NEXT_ACTION_TYPES = ("apply_by", "follow_up", "interview", "thank_you", "reply_offer", "custom")
+INTERVIEW_TYPES = ("video", "phone", "onsite")
+MAX_NOTE = 2000  # a note on the timeline
+MAX_NOTES = 5000  # the "Notes" field in Details
 
 # Job links are often long (tracking parameters), longer than profile links.
 JOB_URL_TEXT = 2000
@@ -63,6 +77,29 @@ class Application(SQLModel, table=True):
     position: int = Field(default=0)
     applied_at: dt.date | None = Field(default=None)  # UTC date for now (D-061)
     archived: bool = Field(default=False)
+    # Next step set by hand (D-073). next_action_manual with no type means "done,
+    # nothing until the status changes". A status change clears all four.
+    next_action_type: str | None = Field(default=None, max_length=20)  # NEXT_ACTION_TYPES
+    next_action_at: dt.datetime | None = Field(
+        default=None, sa_column=datetime_column(nullable=True)
+    )
+    next_action_note: str | None = Field(default=None, max_length=SHORT_TEXT)
+    next_action_manual: bool = Field(default=False)
+    # Interview (the modal). A time of 00:00 for the user means "no time given".
+    interview_at: dt.datetime | None = Field(default=None, sa_column=datetime_column(nullable=True))
+    interview_type: str | None = Field(default=None, max_length=10)  # INTERVIEW_TYPES
+    interview_with: str | None = Field(default=None, max_length=SHORT_TEXT)
+    # Details (the form on the detail page, D-075).
+    posting_closes_at: dt.date | None = Field(default=None)
+    contact_name: str | None = Field(default=None, max_length=SHORT_TEXT)
+    contact_email: str | None = Field(default=None, max_length=320)
+    salary_text: str | None = Field(default=None, max_length=SHORT_TEXT)
+    notes: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    # Hidden from Needs attention until then (D-074).
+    snoozed_until: dt.datetime | None = Field(
+        default=None, sa_column=datetime_column(nullable=True)
+    )
+
     # "Updated" on cards and in the list: changes on add, status change, archive and
     # restore only. Not updated_at: moving one card renumbers its neighbours, and
     # that must not make them look changed (D-061).
@@ -85,7 +122,7 @@ class ApplicationEvent(SQLModel, table=True):
     type: str = Field(max_length=30)  # one of EVENT_TYPES
     from_status: str | None = Field(default=None, max_length=10)
     to_status: str | None = Field(default=None, max_length=10)
-    message: str | None = Field(default=None, max_length=SHORT_TEXT)
+    message: str | None = Field(default=None, sa_column=Column(Text, nullable=True))  # a note: long
 
     created_at: dt.datetime = created_at_field()
     updated_at: dt.datetime = updated_at_field()
