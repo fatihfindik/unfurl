@@ -101,6 +101,7 @@ def board_context(session: Session, user: User, query: BoardQuery) -> dict:
         "remote_names": REMOTE_NAMES,
         "region_url": query.url,  # the region reloads itself with the same choices
         "clear_url": query.without_filters().url,
+        "archived_count": application_service.archived_count(session, user),
         "source_choices": [(key, SOURCE_NAMES[key]) for key in FILTER_SOURCES],
         "mode_choices": list(REMOTE_NAMES.items()),
     }
@@ -269,3 +270,39 @@ def application_undo(request: Request, session: DbSession, user: RequiredUser, d
     except application_service.NothingToUndo:
         return Response(status_code=204, headers=page_events(toast="Nothing to undo."))
     return Response(status_code=204, headers=page_events(toast="Undone."))
+
+
+@router.post("/applications/{application_id}/archive")
+def application_archive(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """ "Archive" in the list (D-066): off the board, not deleted. Toast with Undo."""
+    application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.before_note(session, user, application)
+    try:
+        event = application_service.archive(session, user, application)
+    except application_service.NotOnBoard:  # archived already (another tab)
+        return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
+    token = undo_service.make_token(user, application.id, [event.id], before)
+    toast = f"{application.company} archived."
+    return Response(
+        status_code=204, headers=page_events(toast=toast, undo_url=UNDO_URL, undo_token=token)
+    )
+
+
+@router.post("/applications/{application_id}/restore")
+def application_restore(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """ "Restore" on an archived card or row: back to the top of its column. Toast with Undo."""
+    application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.before_note(session, user, application)
+    try:
+        event = application_service.restore(session, user, application)
+    except application_service.NotOnBoard:  # not archived (restored in another tab)
+        return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
+    token = undo_service.make_token(user, application.id, [event.id], before)
+    toast = f"{application.company} restored."
+    return Response(
+        status_code=204, headers=page_events(toast=toast, undo_url=UNDO_URL, undo_token=token)
+    )

@@ -96,6 +96,7 @@ class BoardQuery:
     source: str = ""
     mode: str = ""
     status: str = ""  # list view only (summary cards, D-070)
+    archived: bool = False  # "Show archived"
     # Board columns that show all their cards instead of the first COLUMN_LIMIT.
     more: tuple[str, ...] = ()
 
@@ -120,6 +121,7 @@ class BoardQuery:
             source=source if source in SOURCES else "",
             mode=mode if mode in FILTER_MODES else "",
             status=status if view == "list" and status in BOARD_STATUSES else "",
+            archived=params.get("archived") == "1",
             more=tuple(status for status in BOARD_STATUSES if status in asked),
         )
 
@@ -128,18 +130,20 @@ class BoardQuery:
 
     @property
     def filters(self) -> Filters:
-        return Filters(q=self.q, source=self.source, mode=self.mode, status=self.status)
+        return Filters(
+            q=self.q, source=self.source, mode=self.mode, status=self.status, archived=self.archived
+        )
 
     @property
     def has_filters(self) -> bool:
-        return any((self.q, self.source, self.mode, self.status))
+        return any((self.q, self.source, self.mode, self.status, self.archived))
 
     def with_status(self, status: str) -> "BoardQuery":
         """A summary card: filter by its status, or remove the filter if it is on."""
         return replace(self, status="" if self.status == status else status, page=1)
 
     def without_filters(self) -> "BoardQuery":
-        return replace(self, q="", source="", mode="", status="", page=1)
+        return replace(self, q="", source="", mode="", status="", archived=False, page=1)
 
     def with_sort(self, sort: str) -> "BoardQuery":
         return replace(self, sort=sort, page=1)
@@ -157,6 +161,8 @@ class BoardQuery:
         for name in ("q", "source", "mode", "status"):
             if getattr(self, name):
                 params[name] = getattr(self, name)
+        if self.archived:
+            params["archived"] = "1"
         if self.view == "list":
             if self.sort:
                 params["sort"] = self.sort

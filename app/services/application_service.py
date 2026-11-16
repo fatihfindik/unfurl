@@ -108,13 +108,14 @@ class Filters:
     source: str = ""
     mode: str = ""  # remote_type
     status: str = ""  # list view only (the summary cards, D-070)
+    archived: bool = False  # "Show archived": archived jobs are shown too, faded
 
 
 NO_FILTERS = Filters()
 
 
 def _jobs(session: Session, user: User, filters: Filters) -> list[Application]:
-    """The user's jobs that are on the board (not archived) and match `filters`.
+    """The user's jobs that match `filters`; archived ones only with "Show archived".
 
     Source, work mode and status are filtered in SQL. The search text is compared in
     Python with search_key (D-067): SQLite's lower() only knows A-Z, and "istanbul"
@@ -122,15 +123,18 @@ def _jobs(session: Session, user: User, filters: Filters) -> list[Application]:
     query = select(Application).where(
         Application.user_id == user.id,
         col(Application.status).in_(BOARD_STATUSES),
-        col(Application.archived).is_(False),
     )
+    if not filters.archived:
+        query = query.where(col(Application.archived).is_(False))
     if filters.source:
         query = query.where(Application.source == filters.source)
     if filters.mode:
         query = query.where(Application.remote_type == filters.mode)
     if filters.status:
         query = query.where(Application.status == filters.status)
-    jobs = list(session.exec(query.order_by(col(Application.position), col(Application.id))))
+    # Archived cards come last in their column (D-063): they have no place in the order.
+    order = (col(Application.archived), col(Application.position), col(Application.id))
+    jobs = list(session.exec(query.order_by(*order)))
     words = search_key(filters.q).split()
     if words:
         jobs = [job for job in jobs if _matches(job, words)]
@@ -148,7 +152,7 @@ def board(
     session: Session, user: User, filters: Filters = NO_FILTERS
 ) -> dict[str, list[Application]]:
     """Every column of the board with its cards: {"saved": [...], "applied": [...], …},
-    top to bottom. Archived cards are left out."""
+    top to bottom; archived cards (with "Show archived") at the bottom."""
     columns: dict[str, list[Application]] = {status: [] for status in BOARD_STATUSES}
     for card in _jobs(session, user, filters):
         columns[card.status].append(card)
@@ -391,6 +395,44 @@ def undo(
     session.commit()
     session.refresh(application)
     return application
+
+
+def archive(session: Session, user: User, application: Application) -> ApplicationEvent:
+    """Take a job off the board without deleting it (SPEC §5.5, D-066). It keeps its
+    status; "Show archived" shows it, Restore brings it back."""
+    if application.archived:
+        raise NotOnBoard
+    application.archived = True
+    application.last_activity_at = utcnow()
+    event = _add_event(session, application, "archived")
+    _place(session, user, application, application.status, None)  # its column closes the gap
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return event
+
+
+def restore(session: Session, user: User, application: Application) -> ApplicationEvent:
+    """Put an archived job back on the board, at the top of its column (D-066)."""
+    if not application.archived:
+        raise NotOnBoard
+    application.archived = False
+    application.last_activity_at = utcnow()
+    event = _add_event(session, application, "restored")
+    _place(session, user, application, application.status, 0)
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return event
+
+
+def archived_count(session: Session, user: User) -> int:
+    """How many jobs are archived ("Show archived (n)")."""
+    return session.exec(
+        select(func.count())
+        .select_from(Application)
+        .where(Application.user_id == user.id, col(Application.archived).is_(True))
+    ).one()
 
 
 def events_of(session: Session, application: Application) -> list[ApplicationEvent]:

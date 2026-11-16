@@ -5,8 +5,8 @@
     hx-history="false": htmx doesn't keep a copy of this page (with company names)
     in the browser's storage for the back button; going back loads it again.
     Context: query, has_applications, region_url, clear_url, oob (True for htmx:
-    also send the toolbar's "Clear filters"), and the board or list context. -#}
-{% from "applications/_toolbar_parts.html" import clear_filters %}
+    also send the toolbar's "Show archived" and "Clear filters"), and the board or list context. -#}
+{% from "applications/_toolbar_parts.html" import filter_extras %}
 <div id="applications-region" class="flex flex-col gap-[18px]" hx-history="false"
      hx-get="{{ region_url }}" hx-trigger="applications-changed from:body" hx-swap="outerHTML">
   {#- Choices made inside the region; the toolbar form sends them along (hx-include). -#}
@@ -18,7 +18,7 @@
       <input type="hidden" name="more" value="{{ query.more | join(',') }}">
     {%- endif %}
   </div>
-  {%- if oob %}{{ clear_filters(query, clear_url, oob=True) }}{% endif %}
+  {%- if oob %}{{ filter_extras(query, clear_url, archived_count, oob=True) }}{% endif %}
   {%- if not has_applications %}
     <div class="flex flex-col items-start gap-1 rounded-xl border border-dashed border-border-strong bg-surface p-5">
       <p class="m-0 text-sm font-semibold text-text">No applications yet.</p>

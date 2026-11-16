@@ -3,9 +3,9 @@
     thrown away. Every change asks the server for the region again (htmx) and puts
     the choices in the address bar. Choices that live inside the region (sort,
     status, "Show more") come along through hx-include="#board-state".
-    "Clear filters" is drawn by clear_filters() and updated by the region (OOB).
-    Context: query, source_choices, mode_choices, clear_url. -#}
-{% from "applications/_toolbar_parts.html" import clear_filters %}
+    "Show archived" and "Clear filters" are drawn by filter_extras() and updated by
+    the region (OOB). Context: query, source_choices, mode_choices, clear_url, archived_count. -#}
+{% from "applications/_toolbar_parts.html" import filter_extras %}
 <form id="board-filters" role="search" aria-label="Filter applications" class="m-0 flex flex-wrap items-center gap-2.5"
       action="/" hx-get="/" hx-trigger="change" hx-target="#applications-region" hx-swap="outerHTML"
       hx-push-url="true" hx-include="#board-state" x-data="boardFilters">
@@ -26,7 +26,7 @@
       <option value="{{ value }}"{% if query.mode == value %} selected{% endif %}>{{ label }}</option>
     {%- endfor %}
   </select>
-  {{ clear_filters(query, clear_url) }}
+  {{ filter_extras(query, clear_url, archived_count) }}
   <span class="flex-1"></span>
   {#- Board / List as radio buttons: one choice of two, works with the keyboard, and a
       change sends the form like any filter. The labels look like a segmented switch. -#}

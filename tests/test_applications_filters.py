@@ -168,7 +168,9 @@ def test_no_fit_filter_until_m7(auth_client, jobs):
 def test_the_region_sends_clear_filters_to_the_toolbar(auth_client, jobs):
     html = auth_client.get("/?q=acme", headers={"HX-Request": "true"}).text
 
-    assert '<span id="clear-filters" hx-swap-oob="true">' in html
+    assert (
+        'id="filter-extras" class="flex flex-wrap items-center gap-2.5" hx-swap-oob="true"' in html
+    )
     assert ">Clear filters</a>" in html
 
 

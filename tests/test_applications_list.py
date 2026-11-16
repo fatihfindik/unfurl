@@ -65,7 +65,8 @@ def test_the_columns_of_the_list(auth_client, session, user):
 
     headers = re.findall(r'<th scope="col"[^>]*>(.*?)</th>', html, re.S)
     names = [re.sub(r"<[^>]+>|\s+|[↑↓]", "", header) for header in headers]
-    assert names == ["Company", "Role", "Status", "Source", "Updated"]  # no Fit until M7
+    # No Fit until M7; the last column holds Archive / Restore (its name is for screen readers).
+    assert names == ["Company", "Role", "Status", "Source", "Updated", "Actions"]
 
 
 # --- Sorting by Company (D-067) ----------------------------------------------------------

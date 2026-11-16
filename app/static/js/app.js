@@ -146,6 +146,9 @@ document.addEventListener("alpine:init", () => {
       this.$root.querySelectorAll("input[type=search], select").forEach((field) => {
         field.value = "";
       });
+      this.$root.querySelectorAll("input[name=archived]").forEach((box) => {
+        box.checked = false;
+      });
     },
   }));
 
@@ -262,6 +265,7 @@ function initBoard(root) {
       group: "board",
       draggable: "[data-card]",
       filter: "[data-archived]", // archived cards stay where they are
+      preventOnFilter: false, // ...but their Restore button still gets the click
       animation: 150,
       ghostClass: "opacity-40",
       // On a touch screen a drag starts after a short hold, so swiping still scrolls.
