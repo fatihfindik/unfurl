@@ -1,0 +1,16 @@
+{#- The part of the page that shows the jobs: summary cards and the board. After a
+    change the server sends the "applications-changed" event (HX-Trigger) and this
+    region asks for itself again (D-065), so counts and columns are always the
+    server's. Context: columns, has_applications. -#}
+<div id="applications-region" class="flex flex-col gap-[18px]"
+     hx-get="/" hx-trigger="applications-changed from:body" hx-swap="outerHTML">
+  {% include "applications/_summary.html" %}
+  {%- if has_applications %}
+    {% include "applications/_board.html" %}
+  {%- else %}
+    <div class="flex flex-col items-start gap-1 rounded-xl border border-dashed border-border-strong bg-surface p-5">
+      <p class="m-0 text-sm font-semibold text-text">No applications yet.</p>
+      <p class="m-0 text-sm text-text-3">Jobs you save show up here, one card per job. Start with "Add job".</p>
+    </div>
+  {%- endif %}
+</div>

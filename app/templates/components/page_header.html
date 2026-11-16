@@ -4,25 +4,35 @@
 
     {% from "components/page_header.html" import page_header %}
     {{ page_header("My profile", back_url="/", back_label="Applications") }}
+
+    With buttons on the right of the title:
+    {% call page_header("Applications") %}<button …>Add job</button>{% endcall %}
 -#}
 {#- The bar is full width; its content has the same width as the page below it
     (page_width), so title and content line up. wide=True for editors (1600px),
     otherwise 1240px as in the prototype. Left-aligned (Fatih, 2026-11-15). -#}
 {% macro page_header(title, subtitle=None, back_url=None, back_label=None, wide=False) %}
   <header class="border-b border-border bg-surface px-4 py-[18px] md:px-8">
-    <div class="flex w-full flex-col gap-[3px] {{ page_width(wide) }}">
-      {%- if back_url %}
-        <a href="{{ safe_redirect_path(back_url) }}" class="mb-1 self-start text-sm font-semibold text-link no-underline hover:underline">← {{ back_label or "Back" }}</a>
-      {%- endif %}
-      <h1 class="m-0 text-[22px] font-bold">{{ title }}</h1>
-      {%- if subtitle %}
-        <p class="m-0 text-sm text-text-3">{{ subtitle }}</p>
+    <div class="flex w-full flex-wrap items-center justify-between gap-4 {{ page_width(wide) }}">
+      <div class="flex min-w-0 flex-col gap-[3px]">
+        {%- if back_url %}
+          <a href="{{ safe_redirect_path(back_url) }}" class="mb-1 self-start text-sm font-semibold text-link no-underline hover:underline">← {{ back_label or "Back" }}</a>
+        {%- endif %}
+        <h1 class="m-0 text-[22px] font-bold">{{ title }}</h1>
+        {%- if subtitle %}
+          <p class="m-0 text-sm text-text-3">{{ subtitle }}</p>
+        {%- endif %}
+      </div>
+      {#- Buttons on the right, from {% call page_header(...) %} … {% endcall %}. -#}
+      {%- if caller is defined %}
+        <div class="flex flex-wrap items-center gap-2.5">{{ caller() }}</div>
       {%- endif %}
     </div>
   </header>
 {% endmacro %}
 
-{#- Classes for a page's content area: at most 1240px wide (1600px for editors). -#}
+{#- Classes for a page's content area: at most 1240px wide (1600px for editors);
+    wide="full" for a page as wide as the window (the board). -#}
 {% macro page_width(wide=False) -%}
-  {{ "max-w-[1600px]" if wide else "max-w-[1240px]" }}
+  {{ "" if wide == "full" else ("max-w-[1600px]" if wide else "max-w-[1240px]") }}
 {%- endmacro %}

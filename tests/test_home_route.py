@@ -47,11 +47,18 @@ def test_query_string_keeps_applications_menu_item_current(auth_client):
     assert re.search(r'<a href="/" aria-current="page"', html)
 
 
-@pytest.mark.parametrize("path", ["/index.html", "/applications", "/%3Cscript%3E"])
+@pytest.mark.parametrize("path", ["/index.html", "/applications.html", "/%3Cscript%3E"])
 def test_home_path_variants_are_not_found(auth_client, path):
     response = auth_client.get(path)
     assert response.status_code == 404
     assert "<script>" not in response.text
+
+
+def test_applications_is_only_for_adding_a_job(auth_client):
+    # The list of jobs is the home page; /applications only takes the "Add job" form (M4a).
+    response = auth_client.get("/applications")
+    assert response.status_code == 405
+    assert response.headers["allow"] == "POST"
 
 
 @pytest.mark.parametrize("value", ["Dark", "DARK", "darkx", "theme-dark"])

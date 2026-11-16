@@ -13,6 +13,7 @@ from app.models.base import as_utc, utcnow
 from app.security import get_csrf_token, safe_redirect_path
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+STATIC_DIR = Path(__file__).parent / "static"
 
 THEMES = ("light", "dark", "system")
 DEFAULT_THEME = "system"
@@ -80,7 +81,23 @@ def is_htmx(request: Request) -> bool:
     return request.headers.get("HX-Request") == "true"
 
 
+def static_url(path: str) -> str:
+    """The address of one of our own files that we change (app.css, app.js), with the
+    time it was last changed: "/static/css/app.css?v=1763321656".
+
+    Browsers keep static files for a while. Without the ?v=… part a browser can show
+    a new page with the old stylesheet or script; with it, a changed file has a new
+    address and is fetched again. `path` is always written in a template, never user input.
+    """
+    try:
+        version = int((STATIC_DIR / path).stat().st_mtime)
+    except OSError:  # app.css before the first build
+        version = 0
+    return f"/static/{path}?v={version}"
+
+
 # Functions templates can call. safe_redirect_path keeps back_url links on this site.
 templates.env.globals["safe_redirect_path"] = safe_redirect_path
+templates.env.globals["static_url"] = static_url
 templates.env.filters["month_year"] = month_year
 templates.env.filters["time_ago"] = time_ago

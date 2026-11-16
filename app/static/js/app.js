@@ -103,14 +103,18 @@ document.addEventListener("alpine:init", () => {
 
   // Toast + Undo (SPEC §6.0/2). A store is shared state any script can use:
   //   Alpine.store("toast").show("Archived", "/applications/12/undo")
+  // The server shows one too, with the "toast" event in the HX-Trigger header (below).
+  // undoToken is the signed note of what to take back; it is sent to undoUrl (D-064).
   Alpine.store("toast", {
     visible: false,
     message: "",
     undoUrl: "",
+    undoToken: "",
     timer: null,
-    show(message, undoUrl = "") {
+    show(message, undoUrl = "", undoToken = "") {
       this.message = message;
       this.undoUrl = undoUrl;
+      this.undoToken = undoToken;
       this.visible = true;
       clearTimeout(this.timer);
       this.timer = setTimeout(() => this.hide(), TOAST_SECONDS * 1000);
@@ -151,7 +155,7 @@ document.addEventListener("alpine:init", () => {
     undo() {
       const store = Alpine.store("toast");
       // htmx sends the POST with the same headers as any other htmx request.
-      htmx.ajax("POST", store.undoUrl, { swap: "none" });
+      htmx.ajax("POST", store.undoUrl, { swap: "none", values: { token: store.undoToken } });
       store.hide();
     },
     hide() {
@@ -255,8 +259,22 @@ document.addEventListener("click", (event) => {
     });
 });
 
+// Events the server sends in the HX-Trigger header after a change (D-065).
+// htmx fires them on the page with the header's value as event.detail.
+//   "toast": {message, undo_url, undo_token}  -> show the toast
+//   "close-dialog": "<id>"                    -> close that modal (a string arrives as detail.value)
+document.addEventListener("toast", (event) => {
+  const { message, undo_url: undoUrl, undo_token: undoToken } = event.detail;
+  if (message) Alpine.store("toast").show(message, undoUrl || "", undoToken || "");
+});
+document.addEventListener("close-dialog", (event) => {
+  const dialog = document.getElementById(event.detail.value);
+  if (dialog instanceof HTMLDialogElement && dialog.open) dialog.close();
+});
+
 // Modals and drawers are native <dialog> elements (templates/components/).
 // - Any element with data-dialog-open="<id>" opens that dialog.
+// - Any element with data-dialog-close closes the dialog it is in (Cancel buttons).
 // - A click on the dark backdrop closes it. The dialog's content is wrapped in a
 //   div that fills it, so only a backdrop click has the <dialog> itself as target.
 // Esc, focus handling and the close button (<form method="dialog">) are built into the browser.
@@ -264,6 +282,10 @@ document.addEventListener("click", (event) => {
   const opener = event.target.closest("[data-dialog-open]");
   if (opener) {
     document.getElementById(opener.dataset.dialogOpen)?.showModal();
+    return;
+  }
+  if (event.target.closest("[data-dialog-close]")) {
+    event.target.closest("dialog")?.close();
     return;
   }
   if (event.target instanceof HTMLDialogElement && event.target.open) {
