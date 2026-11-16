@@ -2,7 +2,7 @@
 
 **Grow while you apply.** A free web app + Chrome extension for job seekers: build ATS-friendly CVs and cover letters (DE / EN / TR), save job postings with one click, see how well you fit, check your documents before you apply, and turn skill gaps into a learning plan you actually keep, with an AI assistant powered by Claude.
 
-> Status: specification v2.1.7 and clickable prototype done; M0 (project skeleton), M1a (sign in, sessions, plans), M1b (email verification, password reset, login lockout), M2a (profile sections), M2b (profile order, photo, strength), M3a (CV documents: masters, versions, locks, editor with live preview) and M3b (CV PDF: 3 templates × DE/EN/TR) done.
+> Status: specification v2.1.11 and clickable prototype done; M0 (project skeleton), M1a (sign in, sessions, plans), M1b (email verification, password reset, login lockout), M2a (profile sections), M2b (profile order, photo, strength), M3a (CV documents: masters, versions, locks, editor with live preview), M3b (CV PDF: 3 templates × DE/EN/TR) and M4a (applications board: add job, drag and drop, list, search and filters, archive, undo, theme saved with the account) done.
 
 - Specification: [`docs/SPEC.md`](docs/SPEC.md)
 - Prototype (design reference): [`docs/prototype/`](docs/prototype/)
@@ -61,5 +61,5 @@ CI (GitHub Actions) runs lint and tests on every push, and a Docker + Postgres c
 
 ### Emails and limits
 - **Emails** (verification, password reset) are sent after the response, in the background. `EMAIL_BACKEND=console` prints them in the terminal; `EMAIL_BACKEND=smtp` sends them with the `SMTP_*` settings (STARTTLS, usually port 587). Sending errors are logged as `unfurl.email`, without the address. Tests never send email: they use the `outbox` fixture.
-- **Limits** (SPEC §6.1): 5 failed sign-ins for the same IP + email lock that pair for 15 minutes; at most 3 verification or reset emails per address per hour; per IP: sign in 10/minute, create account 5/hour, forgot password 5/hour. They live in memory: restarting the server clears them, and they only work with one app process.
+- **Limits** (SPEC §6.1): 5 failed sign-ins for the same IP + email lock that pair for 15 minutes; at most 3 verification or reset emails per address per hour; per IP: sign in 10/minute, create account 5/hour, forgot password 5/hour. Applications: add job 30/minute, move a card 120/minute, archive and restore 60/minute each, undo 60/minute, theme 30/minute. They live in memory: restarting the server clears them, and they only work with one app process.
 - **Behind a proxy** (deploy, M13) the app sees the proxy's IP address unless uvicorn runs with `--proxy-headers` and `--forwarded-allow-ips`; otherwise all users share one IP limit.
