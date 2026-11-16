@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.9 — 2026-11-16
+> **Durum:** MVP planı, v2.1.10 — 2026-11-16
+> v2.1.10: M4a Design kararları. `Application.last_activity_at` (kartta ve listede "Updated"). "Add job"da Work mode alanı; kaynak linkten türetilir. M4a'da arşivleme liste satırından. Aynı sütunda sıra değiştirmenin Undo'su yok. Kullanıcı başına en fazla 2.000 başvuru. Klavyeyle durum değiştirme M4b'nin kabul kriteri. Kararlar: DECISIONS D-061…D-069.
 > v2.1.9: M4 üçe bölündü (M4a board + Undo altyapısı + tema, M4b detay sayfası + next step + mülakat, M4c başvuruda belgeler + M2/M3'ten ertelenenler). Sonraki milestone'lara bağlı parçalar (uyum skoru rozeti, minimum skor filtresi, Fit sıralaması: M7; "Auto-fill with AI": M5) M4'te gösterilmez. Karar: DECISIONS D-060.
 > v2.1.8: M3b Design kararları. CV'de uyruk için ayrı kutu (`show_nationality`); fotoğraf, doğum tarihi ve uyruk kutuları varsayılan olarak kapalıdır ve değer CV'ye sadece kutusu açıkken kopyalanır. CV dili oluştururken seçilir, sonra değişmez. Kararlar: DECISIONS D-051…D-059.
 > v2.1.7: M3a'da "Duplicate" butonu ve editördeki "All documents" linki M4'e kaldı (başvuru olmadan ikisi de mevcut butonların aynısını yapıyor); değişiklik yapılmamış taslaktan "Save as new version" yeni versiyon oluşturmaz. Karar: DECISIONS D-050.
@@ -427,6 +428,7 @@ Profilin **anlık görüntüsüdür** (snapshot). Bir ilana göre uyarlanan CV, 
 | cv_id | FK, nullable | Bu başvuruda kullanılan CV |
 | cover_letter_id | FK, nullable | |
 | archived | bool | Arşivlenen ilan board'da görünmez, "Show archived" ile görünür ve geri alınabilir. Silinmez. |
+| last_activity_at | datetime | Kartta ve listede "Updated": ekleme, durum değişikliği, arşiv ve restore'da değişir (sıra değişince değişmez; D-061) |
 
 ### 5.6 ApplicationEvent (zaman çizelgesi)
 | Alan | Tip |
@@ -1100,9 +1102,9 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 ### M4a — Board
 - `Application` (5.5) ve `ApplicationEvent` (5.6) tabloları. Bu parçanın kullanmadığı kolonlar kendi parçasında eklenir (D-025 kalıbı).
 - Applications ana sayfası (6.3, 6.7): özet kartları (5 durum, tıklayınca filtre), Kanban (SortableJS sürükle-bırak, sütun içi sıra, daraltılmış Rejected, sütunda ilk 20 + "Show more"), liste görünümü (Company'ye göre sıralama, sayfa başına 25), arama (şirket, pozisyon, şehir), filtreler (kaynak, çalışma şekli), "Clear filters", "Show archived (n)" + Restore.
-- Manuel **"Add job"** modalı (AI'sız): link veya ilan metni, alanlar, Status. Kayıt sonrası toast + Undo.
-- Durum değişikliği event oluşturur; `applied` olunca `applied_at` boşsa bugünün tarihi atanır. Arşivleme ve geri alma.
-- **Toast + Undo altyapısı** (6.0/2): sunucudan tetiklenen toast ve Undo; M4a'da durum, sıra, arşiv ve ekleme için.
+- Manuel **"Add job"** modalı (AI'sız): link veya ilan metni (tek alan), Company, Role, Location, Work mode, Status. Kaynak linkten türetilir (D-062). Kayıt sonrası toast + Undo. Kullanıcı başına en fazla 2.000 başvuru.
+- Durum değişikliği event oluşturur; `applied` olunca `applied_at` boşsa bugünün tarihi atanır. Arşivleme M4a'da liste satırındaki "Archive" ile; arşivli satır ve kartta "Restore" (D-066).
+- **Toast + Undo altyapısı** (6.0/2): sunucudan tetiklenen toast ve Undo; M4a'da durum, arşiv, restore ve ekleme için. Aynı sütunda sadece sıra değiştirmek toast üretmez (D-065).
 - **Tema:** seçim `User.theme`'e kaydedilir (D-007'deki cookie'nin yerine geçer; çıkış yapmış sayfalar için cookie kalır).
 - M4a'da gösterilmeyenler: kartta uyum skoru rozeti, minimum skor filtresi, Fit sütununa göre sıralama (M7); "Auto-fill with AI" ve eklenti bilgi kutusu (M5, M6); Needs attention (M4b). Karta tıklamak M4b'ye kadar bir yere gitmez. Interview'a taşıma M4b'ye kadar modal açmaz.
 - **Kabul:**
@@ -1122,6 +1124,7 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
   - Next step kuralları (Saved, Applied, Interview → thank-you → follow-up, Offer, manual override) `freezegun` ile test edilmiş.
   - Needs attention sıralaması (bugün/geçmiş → mülakat → follow-up → bekleyen kayıt) ve Snooze + Undo test edilmiş.
   - Interview'a taşıma modalı açıyor; "Skip" ile de durum değişiyor.
+  - Durum, detay sayfasındaki seçiciyle klavyeden değiştirilebiliyor (M4a'da sadece sürükleme vardı, D-069).
   - Timeline durum, not, mülakat ve next step değişikliklerini gösteriyor; not eklenebiliyor.
   - Başka kullanıcının başvurusunun detayına ve işlemlerine erişim 404 (test).
 
