@@ -96,7 +96,7 @@ def test_editor_shows_form_and_preview(auth_client, copy):
 def test_later_buttons_are_not_shown_yet(auth_client, copy):
     page = auth_client.get(f"/cvs/{copy.id}").text
 
-    for later in ["Tailor to a job", "Edit with assistant", "Download PDF"]:
+    for later in ["Tailor to a job", "Edit with assistant"]:  # Download PDF is here since M3b
         assert later not in page
 
 
@@ -278,3 +278,58 @@ def test_a_locked_copy_is_read_only_and_refuses_saves(auth_client, session, copy
     response = save(auth_client, copy, summary="Changed after sending.")
     assert response.status_code == 409
     assert stored(session, copy).summary == "From the profile."
+
+
+# --- Template (M3b) -------------------------------------------------------------------
+
+
+def test_the_form_offers_the_three_templates(auth_client, copy):
+    page = auth_client.get(f"/cvs/{copy.id}").text
+
+    assert 'name="template"' in page
+    for value, label in [("classic", "Classic"), ("modern", "Modern"), ("compact", "Compact")]:
+        assert f'<option value="{value}"' in page and f">{label}</option>" in page
+    assert '<option value="classic" selected>' in page
+
+
+def test_changing_the_template_saves_and_redraws_the_preview(auth_client, session, copy):
+    response = save(auth_client, copy, template="modern", summary="Still saved.")
+
+    assert response.status_code == 200
+    assert 'class="cv-paper cv-modern"' in response.text
+    session.expire_all()
+    assert session.get(CVDocument, copy.id).template == "modern"
+    assert stored(session, copy).summary == "Still saved."
+
+
+@pytest.mark.parametrize("template", ["fancy", "../../secret", ""])
+def test_an_unknown_template_keeps_the_old_one(auth_client, session, copy, template):
+    response = save(auth_client, copy, template=template, summary="Other change.")
+
+    session.expire_all()
+    assert session.get(CVDocument, copy.id).template == "classic"
+    assert stored(session, copy).summary == "Other change."  # the rest is saved
+    if template:  # an empty value just means "unchanged"
+        assert "Template was not saved: Choose a template." in text_of(response)
+
+
+def test_a_template_the_plan_does_not_allow_is_refused(auth_client, session, copy, monkeypatch):
+    # Plan checks go through entitlements (CLAUDE.md), so a plan without "modern"
+    # can't pick it even with a hand-made request.
+    from app.routers import cvs
+
+    monkeypatch.setattr(cvs, "allowed_templates", lambda user: ["classic"])
+
+    response = save(auth_client, copy, template="modern")
+
+    session.expire_all()
+    assert session.get(CVDocument, copy.id).template == "classic"
+    assert "Template was not saved" in text_of(response)
+
+
+def test_a_locked_cv_keeps_its_template(auth_client, session, copy):
+    docs.lock(session, copy)
+
+    assert save(auth_client, copy, template="compact").status_code == 409
+    session.expire_all()
+    assert session.get(CVDocument, copy.id).template == "classic"

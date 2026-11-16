@@ -1,0 +1,56 @@
+/* Print rules for the CV PDF (D-054). Loaded only by pdf/_pdf_page.html, which
+   WeasyPrint renders; the editor preview never uses this file.
+
+   - A4 page with the margins on the page itself, so the paper "card" style of the
+     preview (shadow, padding, min-height) is switched off.
+   - The fonts: the same self-hosted files as the app (D-006). Each font comes in two
+     halves (latin, latin-ext). The app joins them with unicode-range, but in
+     WeasyPrint that draws wrong shapes for ğ ş İ (the text layer was right, the
+     picture was not; found by looking at the first PDF). So the latin-ext half is a
+     separate family ("… Ext") placed second in the font stack: Pango takes each
+     letter from the first family that has it. The paths are inside static/fonts,
+     the only font folder WeasyPrint may read (D-059). */
+
+@font-face {
+  font-family: "Inter";
+  font-weight: 100 900;
+  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
+}
+@font-face {
+  font-family: "Inter Ext";
+  font-weight: 100 900;
+  src: url("../fonts/inter-latin-ext-wght-normal.woff2") format("woff2-variations");
+}
+@font-face {
+  font-family: "Source Serif 4";
+  font-weight: 200 900;
+  src: url("../fonts/source-serif-4-latin-wght-normal.woff2") format("woff2-variations");
+}
+@font-face {
+  font-family: "Source Serif 4 Ext";
+  font-weight: 200 900;
+  src: url("../fonts/source-serif-4-latin-ext-wght-normal.woff2") format("woff2-variations");
+}
+
+@page {
+  size: A4;
+  margin: 16mm 16mm 18mm;
+}
+
+.cv-paper {
+  --cv-sans: "Inter", "Inter Ext", sans-serif;
+  --cv-serif: "Source Serif 4", "Source Serif 4 Ext", serif;
+  max-width: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+/* Keep a job's title and its first lines together, and headings with their text. */
+.cv-entry {
+  break-inside: avoid;
+}
+.cv-paper h2 {
+  break-after: avoid;
+}

@@ -148,7 +148,8 @@ def test_remove_deletes_the_file(auth_client, session, upload_dir):
     )
 
     assert response.status_code == 200
-    assert "Upload photo" in response.text
+    assert "Upload a photo…" in response.text
+    assert "Remove photo" not in response.text
     assert stored_files(upload_dir) == []
     assert saved_profile(session).photo_path is None
 
@@ -287,13 +288,13 @@ def test_paths_outside_the_photo_folder_are_never_served(upload_dir, path):
 
 def test_the_page_shows_upload_or_the_photo(auth_client):
     page = auth_client.get("/profile").text
-    assert "Upload photo" in page
+    assert "Upload a photo…" in page
     assert 'hx-encoding="multipart/form-data"' in page
     assert "JPEG or PNG, up to 2 MB." in page
 
     upload(auth_client, image_bytes())
     page = auth_client.get("/profile").text
-    assert "Change photo" in page
+    assert "Remove photo" in page  # the menu offers removing once there is a photo
     assert 'src="/profile/photo?v=' in page
 
 

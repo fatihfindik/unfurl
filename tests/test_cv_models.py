@@ -85,7 +85,7 @@ def test_content_goes_in_and_out_as_json(session, user):
     loaded = CVContent.model_validate(session.get(CVDocument, cv.id).content)
     assert loaded.personal.full_name == "Jana"
     assert loaded.summary == "Hello"
-    assert loaded.schema_version == 1
+    assert loaded.schema_version == 2  # 2 since the CV photo (M3b)
 
 
 def test_old_content_without_new_fields_still_loads(session, user):

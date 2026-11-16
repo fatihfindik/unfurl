@@ -4,6 +4,9 @@ The rules for masters, versions and locks are in app/services/document_service.p
 the routes here only read forms, call the service and pick the template.
 """
 
+import base64
+import binascii
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -15,20 +18,23 @@ from starlette.datastructures import FormData
 from app.billing.entitlements import allowed_templates
 from app.db import get_session
 from app.models import CVDocument, User
-from app.models.cv import CV_LANGUAGES
+from app.models.cv import CV_LANGUAGES, CV_TEMPLATES
 from app.schemas.cv import CV_SECTIONS, LANGUAGE_NAMES, CVContent, CVEditForm, NewCVForm
 from app.schemas.profile import form_errors
-from app.services import document_service, profile_service
+from app.security import limiter
+from app.services import document_service, pdf_service, profile_service
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
 
 router = APIRouter(dependencies=[Depends(require_user)])
+logger = logging.getLogger("unfurl.cvs")
 
 DbSession = Annotated[Session, Depends(get_session)]
 RequiredUser = Annotated[User, Depends(require_user)]
 
-# Templates that can be shown so far. M3b adds "modern" and "compact" (#28).
-BUILT_TEMPLATES = ("classic",)
+# Templates that are built (all three since M3b); the plan decides which a user
+# may pick (entitlements, CLAUDE.md).
+BUILT_TEMPLATES = CV_TEMPLATES
 TEMPLATE_NAMES = {"classic": "Classic", "modern": "Modern", "compact": "Compact"}
 TOO_MANY_CVS = (
     f"You can have up to {document_service.MAX_CVS_PER_USER} CVs. Delete one to add another."
@@ -131,19 +137,23 @@ MASTER_UNLOCKED = "confirmed"
 
 
 def editor_context(
-    cv: CVDocument, *, master_unlocked: bool, errors=None, master: CVDocument | None = None
+    cv: CVDocument,
+    *,
+    master_unlocked: bool,
+    errors=None,
+    master: CVDocument | None = None,
+    template_choices: list | None = None,
 ) -> dict:
-    content = CVContent.model_validate(cv.content)
-    return {
-        "cv": cv,
+    # cv, content, labels and cv_template for the preview (the same as the PDF).
+    return pdf_service.cv_context(cv) | {
         "master": master,  # for the band "Copy based on …"
-        "content": content,
         "errors": errors or {},
         "language_names": LANGUAGE_NAMES,
         "template_names": TEMPLATE_NAMES,
         "section_names": SECTION_NAMES,
         "sections": CV_SECTIONS,
         "master_unlocked": master_unlocked,
+        "template_choices": template_choices or [],
         # The form can be changed: never when locked, a master only after unlocking.
         "editable": not cv.is_locked and (not cv.is_master or master_unlocked),
     }
@@ -158,7 +168,9 @@ def cv_editor(
     master = None
     if cv.parent_id is not None:
         master = document_service.get_owned_cv(session, user, cv.parent_id)
-    context = editor_context(cv, master_unlocked=unlocked, master=master)
+    context = editor_context(
+        cv, master_unlocked=unlocked, master=master, template_choices=template_choices(user)
+    )
     # The version picker: the master and every copy under it.
     context["versions"] = document_service.versions_in_lineage(session, user, cv)
     return templates.TemplateResponse(request, "cvs/editor.html", context)
@@ -181,13 +193,19 @@ def cv_save(
     }
     saved_content = CVContent.model_validate(cv.content)
     errors = {}
+    # The template must be one the user's plan allows (entitlements, CLAUDE.md);
+    # otherwise the CV keeps its template and the rest is still saved.
+    template = data.get("template") or cv.template
+    if template not in dict(template_choices(user)):
+        errors["template"] = "Choose a template."
+        template = cv.template
     try:
         form = CVEditForm.model_validate(values)
     except ValidationError as exc:
         # One bad text field must not block the other changes (e.g. an empty title
         # while a section is switched off): that field keeps its saved value, the
         # rest is saved, and the message says what wasn't.
-        errors = form_errors(exc)
+        errors |= form_errors(exc)
         saved = {
             "title": cv.title,
             "headline": saved_content.personal.headline,
@@ -207,7 +225,15 @@ def cv_save(
     content = form.apply_to(saved_content)
     try:
         document_service.update_content(
-            session, cv, title=form.title, content=content, master_unlocked=unlocked
+            session,
+            cv,
+            title=form.title,
+            content=content,
+            template=template,
+            # An unticked checkbox sends nothing, so "not sent" means off.
+            shown={box: data.get(box) == "on" for box in document_service.PRIVATE_BOXES},
+            user=user,
+            master_unlocked=unlocked,
         )
     except (document_service.DocumentLocked, document_service.MasterNotUnlocked):
         # The page shows a locked document or a closed master read-only, so this only
@@ -284,3 +310,47 @@ def cv_delete(request: Request, session: DbSession, user: RequiredUser, cv_id: s
             request, f"This master has {exc.copies} {word}. Delete the {word} first."
         )
     return go_to(request, "/documents")
+
+
+# --- PDF (D-057) ------------------------------------------------------------------
+
+
+@router.get("/cvs/{cv_id}/pdf")
+@limiter.limit("20/minute")  # making a PDF takes CPU time
+def cv_pdf(request: Request, session: DbSession, user: RequiredUser, cv_id: str):
+    """Download the CV as PDF. Locked copies too: that is the CV that was sent."""
+    cv = document_service.get_owned_cv(session, user, cv_id)
+    try:
+        pdf = pdf_service.render_cv_pdf(cv)
+    except pdf_service.PDFError as exc:
+        # Only the kind of error goes to the log, never the CV's content.
+        logger.warning("CV PDF failed (cv %s): %s", cv.id, exc)
+        context = {"cv": cv}
+        return templates.TemplateResponse(request, "cvs/pdf_error.html", context, status_code=503)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": pdf_service.content_disposition(cv),
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+@router.get("/cvs/{cv_id}/photo")
+def cv_photo(session: DbSession, user: RequiredUser, cv_id: str):
+    """The photo inside a CV, for the editor preview (D-052). Only the owner gets it
+    (get_owned_cv); the PDF gets it as a data: URI instead."""
+    cv = document_service.get_owned_cv(session, user, cv_id)
+    personal = CVContent.model_validate(cv.content).personal
+    if not personal.photo:
+        raise HTTPException(status_code=404)
+    try:
+        photo = base64.b64decode(personal.photo, validate=True)
+    except binascii.Error:  # only a broken database row: no photo, never a 500
+        raise HTTPException(status_code=404) from None
+    return Response(
+        content=photo,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"},
+    )

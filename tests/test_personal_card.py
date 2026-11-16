@@ -74,4 +74,16 @@ def test_the_photo_sits_in_the_card(auth_client):
     html = htmx_get(auth_client, "/profile/personal").text
 
     assert 'id="profile-photo"' in html
-    assert "Upload photo" in html
+    assert "Upload a photo…" in html
+
+
+def test_the_photo_has_an_edit_menu_like_github(auth_client):
+    html = htmx_get(auth_client, "/profile/personal").text
+
+    # "Edit" on the circle opens a <details> menu with the upload, and the rules as a
+    # note in the menu (also read by screen readers through aria-describedby).
+    assert "<details" in html and 'Edit<span class="sr-only"> profile photo</span>' in html
+    assert "Upload a photo…" in html and 'type="file" name="photo"' in html
+    assert 'aria-describedby="profile-photo-hint"' in html
+    assert "JPEG or PNG, up to 2 MB. Hidden on CVs unless you switch it on." in html
+    assert "Remove photo" not in html  # nothing to remove yet

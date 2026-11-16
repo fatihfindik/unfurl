@@ -1,0 +1,149 @@
+/* The layout every CV template shares (SPEC §6.5, D-044, D-054): one column, the
+   paper, the spacing of sections, entries and bullets. Each template's own look is in
+   cv_classic.css, cv_modern.css and cv_compact.css, under .cv-paper etc. Plain CSS,
+   not Tailwind: WeasyPrint gets the same files for the PDF, so preview and PDF look
+   the same.
+
+   Everything is under .cv-paper, so it never changes the rest of the app. The paper
+   stays white in the dark theme too (SPEC §6.0). Tailwind's reset removes margins
+   and list bullets, so they are set here on purpose. */
+
+.cv-paper {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 794px; /* A4 width at 96 dpi */
+  min-height: 1123px; /* A4 height at 96 dpi */
+  margin: 0 auto;
+  padding: 56px 60px;
+  background: #ffffff;
+  color: #1f2328;
+  color-scheme: light;
+  /* The two font stacks every CV template uses. cv_print.css changes them for the
+     PDF (WeasyPrint needs the latin-ext half of each font as a separate family). */
+  --cv-sans: "Inter", Arial, sans-serif;
+  --cv-serif: "Source Serif 4", Georgia, serif;
+  font-family: var(--cv-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12), 0 8px 24px rgba(16, 24, 40, 0.08);
+}
+
+/* The optional photo (common in DACH CVs) sits at the right of the name block. */
+.cv-paper .cv-photo {
+  float: right;
+  width: 90px;
+  height: 110px;
+  margin: 0 0 8px 16px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.cv-paper .cv-head::after {
+  content: "";
+  display: block;
+  clear: both;
+}
+
+.cv-paper .cv-head {
+  border-bottom: 1px solid #c8ccd2;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.cv-paper .cv-name {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cv-paper .cv-headline {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: #3b4250;
+}
+
+.cv-paper .cv-contacts {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #4b5262;
+}
+
+.cv-paper .cv-section {
+  margin-top: 14px;
+}
+
+.cv-paper h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  border-bottom: 1px solid #e3e6ea;
+  padding-bottom: 2px;
+}
+
+.cv-paper .cv-entry {
+  margin-top: 8px;
+}
+
+.cv-paper .cv-entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.cv-paper .cv-entry-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.cv-paper .cv-dates,
+.cv-paper .cv-meta {
+  margin: 0;
+  font-size: 12px;
+  color: #5b6272;
+}
+
+.cv-paper .cv-text {
+  margin: 2px 0 0;
+  white-space: pre-line;
+}
+
+/* The "•" is drawn as text before each line, not as a list marker: WeasyPrint puts
+   list markers at the end of the PDF's text, so an ATS read every bullet's text and
+   then a row of lone "•" lines. As text, each "•" sits right before its line. */
+.cv-paper .cv-bullets,
+.cv-paper .cv-list {
+  margin: 4px 0 0;
+  padding-left: 14px;
+  list-style: none;
+}
+
+.cv-paper .cv-bullets li,
+.cv-paper .cv-list li {
+  margin: 1px 0;
+}
+
+.cv-paper .cv-bullets li::before,
+.cv-paper .cv-list li::before {
+  content: "•";
+  display: inline-block;
+  width: 10px;
+  margin-left: -10px;
+}
+
+/* Narrow screens: less padding so the text stays readable on a phone. */
+@media (max-width: 640px) {
+  .cv-paper {
+    min-height: 0;
+    padding: 24px 20px;
+  }
+}
+
+/* Links in the PDF (#23): clickable, but they look like the text around them. */
+.cv-paper a {
+  color: inherit;
+  text-decoration: none;
+}

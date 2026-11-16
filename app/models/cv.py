@@ -18,6 +18,9 @@ from app.models.profile import SHORT_TEXT
 # Stored as text, not as database enums (like User.plan, D-025).
 CV_LANGUAGES = ("de", "en", "tr")
 CV_STATUSES = ("draft", "locked")
+# The templates that exist (SPEC §6.5). Which ones a user may pick is decided by
+# their plan (app.billing.entitlements.allowed_templates, CLAUDE.md).
+CV_TEMPLATES = ("classic", "modern", "compact")
 DEFAULT_TEMPLATE = "classic"
 
 
@@ -49,8 +52,9 @@ class CVDocument(SQLModel, table=True):
     # The CV itself: app.schemas.cv.CVContent as JSON (D-043). Code always assigns a
     # new dict, because SQLAlchemy doesn't notice changes inside a JSON value.
     content: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
-    show_photo: bool = Field(default=False)  # used from M3b
+    show_photo: bool = Field(default=False)  # used from M3b (D-052)
     show_birth_date: bool = Field(default=False)  # used from M3b
+    show_nationality: bool = Field(default=False)  # its own box (D-053)
     source_profile_version: int = Field(default=0)  # Profile.version at the snapshot
 
     is_master: bool = Field(default=False)

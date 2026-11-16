@@ -235,6 +235,26 @@ document.addEventListener("htmx:responseError", (event) => {
   });
 });
 
+// "Download PDF" in the CV editor (D-057). Autosave waits 500 ms after the last key,
+// so a click right after typing would download the PDF without that text. The click
+// saves the form at once (the same request autosave sends), then downloads.
+// Without a form (a locked CV or a closed master can't change) it just downloads.
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("[data-cv-download]");
+  const form = document.getElementById("cv-form");
+  if (!link || !form || form.querySelector("fieldset:disabled")) return;
+  event.preventDefault();
+  htmx
+    .ajax("POST", form.getAttribute("hx-post"), {
+      source: form,
+      target: "#cv-preview",
+      swap: "innerHTML",
+    })
+    .finally(() => {
+      window.location.href = link.href;
+    });
+});
+
 // Modals and drawers are native <dialog> elements (templates/components/).
 // - Any element with data-dialog-open="<id>" opens that dialog.
 // - A click on the dark backdrop closes it. The dialog's content is wrapped in a

@@ -9,6 +9,7 @@ An uploaded file is never trusted and never stored as it came:
   never used, so it can't point anywhere else on the disk.
 """
 
+import base64
 import io
 import secrets
 from pathlib import Path
@@ -23,6 +24,7 @@ MAX_BYTES = 2 * 1024 * 1024  # 2 MB (SPEC §10.1)
 MAX_REQUEST_BYTES = MAX_BYTES + 64 * 1024
 MAX_PIXELS = 25_000_000
 MAX_SIDE = 800  # px, long side of the saved photo (D-039)
+CV_PHOTO_SIDE = 400  # px, long side of the copy inside a CV (D-052)
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 # Pillow's name for the format -> the extension and media type we store it with.
@@ -144,3 +146,22 @@ def delete_photo_file(relative: str | None) -> None:
     path = photo_file(relative)
     if path is not None:
         path.unlink(missing_ok=True)
+
+
+def photo_for_cv(relative: str | None) -> str | None:
+    """A small copy of a stored profile photo for a CV (D-052): at most CV_PHOTO_SIDE
+    px, transparency filled with white, always JPEG quality 85, as base64 text.
+    None if there is no photo or its file is gone."""
+    path = photo_file(relative) if relative else None
+    if path is None:
+        return None
+    with Image.open(path) as image:
+        image.thumbnail((CV_PHOTO_SIDE, CV_PHOTO_SIDE))
+        if image.mode != "RGB":
+            # JPEG has no transparency: paint it white, like the CV paper.
+            background = Image.new("RGB", image.size, "white")
+            background.paste(image, mask=image.convert("RGBA").getchannel("A"))
+            image = background
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", quality=85)
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
