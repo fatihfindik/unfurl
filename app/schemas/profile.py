@@ -259,4 +259,8 @@ def _message(error: dict) -> str:
         return str(error["ctx"]["error"])
     if kind in ("int_parsing", "int_type", "greater_than_equal", "less_than_equal"):
         return "Choose a level from 1 to 5."
+    if kind in ("date_parsing", "date_from_datetime_parsing", "date_type"):
+        return "Use the format YYYY-MM-DD."
+    if kind in ("time_parsing", "time_type"):
+        return "Use the format HH:MM."
     return "Check this field."

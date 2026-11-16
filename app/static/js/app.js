@@ -363,6 +363,28 @@ document.addEventListener("toast", (event) => {
   const { message, undo_url: undoUrl, undo_token: undoToken } = event.detail;
   if (message) Alpine.store("toast").show(message, undoUrl || "", undoToken || "");
 });
+// The interview modal (D-076): after a move to Interview the server sends
+// "open-interview" with the application id; the "Add interview details" button does
+// the same. The form for that application is loaded into the modal, then it opens.
+function openInterview(applicationId) {
+  const dialog = document.getElementById("interview");
+  if (!dialog || !/^\d+$/.test(String(applicationId))) return;
+  htmx
+    .ajax("GET", `/applications/${applicationId}/interview`, {
+      target: "#interview-body",
+      swap: "innerHTML",
+    })
+    .then(() => {
+      if (!dialog.open) dialog.showModal();
+      dialog.querySelector("input[name=date]")?.focus();
+    });
+}
+document.addEventListener("open-interview", (event) => openInterview(event.detail.value));
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-interview-open]");
+  if (button) openInterview(button.dataset.interviewOpen);
+});
+
 document.addEventListener("close-dialog", (event) => {
   const dialog = document.getElementById(event.detail.value);
   if (dialog instanceof HTMLDialogElement && dialog.open) dialog.close();

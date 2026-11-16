@@ -16,7 +16,7 @@ from starlette.datastructures import FormData
 from app.db import get_session
 from app.models import User
 from app.models.application import BOARD_STATUSES, MAX_DESCRIPTION
-from app.schemas.application import ADD_JOB_STATUSES, AddJobForm, BoardQuery
+from app.schemas.application import ADD_JOB_STATUSES, AddJobForm, BoardQuery, InterviewForm
 from app.schemas.profile import form_errors
 from app.security import limiter
 from app.services import application_service, clock, next_step_service, undo_service
@@ -267,8 +267,10 @@ def application_move(
     if event is None:  # only the order changed: no toast (D-065)
         return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
     toast = f"{application.company} moved to {STATUS_TITLES[application.status]}."
+    more = {"open-interview": application.id} if application.status == "interview" else {}
     return Response(
-        status_code=204, headers=undo_events(session, user, application, [event], before, toast)
+        status_code=204,
+        headers=undo_events(session, user, application, [event], before, toast, **more),
     )
 
 
@@ -449,6 +451,79 @@ def application_status(
         toast = f"{application.company} archived."
     else:
         toast = f"{application.company} moved to {STATUS_TITLES[status]}."
+    # Interview: the modal asks for the date next; the status is already changed, so
+    # "Skip" leaves it as it is (SPEC M4b acceptance, D-076).
+    more = {"open-interview": application.id} if status == "interview" else {}
     return Response(
-        status_code=204, headers=undo_events(session, user, application, events, before, toast)
+        status_code=204,
+        headers=undo_events(session, user, application, events, before, toast, **more),
     )
+
+
+# --- Interview modal (D-076) -------------------------------------------------------------
+
+
+def interview_form(request: Request, application, values: dict, errors: dict) -> HTMLResponse:
+    context = {
+        "application": application,
+        "values": values,
+        "errors": errors,
+        "type_choices": list(next_step_service.INTERVIEW_TYPE_NAMES.items()),
+    }
+    return templates.TemplateResponse(request, "applications/_interview_form.html", context)
+
+
+@router.get("/applications/{application_id}/interview", response_class=HTMLResponse)
+def interview_form_page(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """The modal's form, filled with what is known (an earlier interview date)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    values = {
+        "interview_type": application.interview_type or "",
+        "interview_with": application.interview_with or "",
+    }
+    if application.interview_at:
+        local = clock.local(application.interview_at)
+        values["date"] = local.date().isoformat()
+        if not clock.is_start_of_day(application.interview_at):
+            values["time"] = local.strftime("%H:%M")
+    return interview_form(request, application, values, {})
+
+
+@router.post("/applications/{application_id}/interview", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def interview_save(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """ "Save interview": errors come back in the form (200); saved, the modal closes
+    with a toast and Undo, and the page reloads its parts."""
+    application = application_service.get_owned_application(session, user, application_id)
+    values = dict(data)
+    try:
+        form = InterviewForm.model_validate(values)
+    except ValidationError as exc:
+        return interview_form(request, application, values, form_errors(exc))
+
+    before = application_service.note(session, user, application)
+    at = clock.to_utc(form.date, form.time)
+    events = application_service.set_interview(
+        session,
+        user,
+        application,
+        at=at,
+        interview_type=form.interview_type,
+        interview_with=form.interview_with,
+    )
+    toast = f"Interview saved for {next_step_service.when_text(at)}."
+    response = interview_form(request, application, {}, {})
+    response.headers.update(
+        undo_events(
+            session, user, application, events, before, toast, **{"close-dialog": "interview"}
+        )
+    )
+    return response

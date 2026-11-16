@@ -1,5 +1,6 @@
 """Forms and query parameters of the Applications page (SPEC §6.7, D-062)."""
 
+import datetime as dt
 from dataclasses import dataclass, replace
 from urllib.parse import urlencode
 
@@ -7,6 +8,7 @@ from pydantic import Field, field_validator
 
 from app.models.application import (
     BOARD_STATUSES,
+    INTERVIEW_TYPES,
     JOB_URL_TEXT,
     MAX_DESCRIPTION,
     REMOTE_TYPES,
@@ -14,6 +16,7 @@ from app.models.application import (
 )
 from app.models.profile import SHORT_TEXT
 from app.schemas.profile import ProfileForm, check_url
+from app.services import clock
 from app.services.application_service import Filters
 
 # A new job starts in one of these two columns (the prototype's Status field).
@@ -78,6 +81,39 @@ SORTS = ("", "company", "-company")
 MAX_PAGE = 10_000  # far more than 2,000 jobs / 25 per page; keeps the number small
 MAX_SEARCH = 100  # characters of search text (D-067)
 FILTER_MODES = ("remote", "hybrid", "onsite")
+
+
+def check_date_range(value: dt.date | None) -> dt.date | None:
+    """Dates people type for a job: from a year ago to two years ahead. Keeps typos
+    like 2062 out, and 9999-12-31 + 10 days can't overflow (plan-reviewer M4b #7)."""
+    if value is None:
+        return None
+    today = clock.today()
+    if not today - dt.timedelta(days=365) <= value <= today + dt.timedelta(days=730):
+        raise ValueError("Pick a date between last year and two years from now.")
+    return value
+
+
+class InterviewForm(ProfileForm):
+    """The interview modal (D-076). Only the date is needed; without a time the
+    interview counts as "all day"."""
+
+    date: dt.date
+    time: dt.time | None = None
+    interview_type: str | None = None
+    interview_with: str | None = Field(default=None, max_length=SHORT_TEXT)
+
+    @field_validator("date")
+    @classmethod
+    def check_date(cls, value):
+        return check_date_range(value)
+
+    @field_validator("interview_type")
+    @classmethod
+    def check_type(cls, value):
+        if value is not None and value not in INTERVIEW_TYPES:
+            raise ValueError("Choose a type from the list.")
+        return value
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,7 @@
+{#- The empty interview modal, on the board and the detail page. app.js loads the form
+    for one application into it ("open-interview" event or a [data-interview-open]
+    button) and opens it. -#}
+{% from "components/modal.html" import modal %}
+{% call modal("interview", "Interview details") %}
+  <div id="interview-body"></div>
+{% endcall %}

@@ -22,6 +22,8 @@
     </div>
   </div>
 
+  {% include "applications/_interview_modal.html" %}
+
   {% call modal("add-job", "Add a job") %}
     {% include "applications/_add_job_form.html" %}
   {% endcall %}

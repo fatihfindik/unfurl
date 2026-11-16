@@ -15,6 +15,7 @@ from app.models import Application, ApplicationEvent, User
 from app.models.application import BOARD_STATUSES
 from app.models.base import as_utc, utcnow
 from app.services import clock, profile_service
+from app.services import next_step_service as next_step_text
 
 MAX_APPLICATIONS_PER_USER = 2000  # archived ones count too (D-061)
 MAX_ID = profile_service.MAX_ID
@@ -551,6 +552,42 @@ def clear_next_step(application: Application) -> None:
     application.next_action_note = None
     application.next_action_manual = False
     application.snoozed_until = None
+
+
+def set_interview(
+    session: Session,
+    user: User,
+    application: Application,
+    *,
+    at: dt.datetime,
+    interview_type: str | None,
+    interview_with: str | None,
+) -> list[ApplicationEvent]:
+    """Save the interview from the modal (D-076). A job that isn't in Interview yet is
+    moved there first. A new date also clears a next step set by hand: the interview
+    is the next step again (D-073). Returns the events written."""
+    events = []
+    if application.archived:
+        events.append(restore(session, user, application))
+    if application.status != "interview":
+        events.append(move(session, user, application, "interview"))
+    application.interview_at = at
+    application.interview_type = interview_type
+    application.interview_with = interview_with
+    application.last_activity_at = utcnow()
+    clear_next_step(application)
+    events.append(
+        _add_event(
+            session,
+            application,
+            "interview_scheduled",
+            message=f"Interview set for {next_step_text.when_text(at)}",
+        )
+    )
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return events
 
 
 def set_status(

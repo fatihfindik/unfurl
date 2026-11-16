@@ -1,0 +1,22 @@
+{#- The interview modal's form (D-076). Loaded into the modal when it opens (app.js,
+    "open-interview"); errors come back as this form. "Skip" only closes the modal:
+    the status was already changed. Context: application, values, errors, type_choices. -#}
+{%- from "components/forms.html" import text_field, select_field, primary_button -%}
+<form id="interview-form" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/applications/{{ application.id }}/interview" hx-target="this" hx-swap="outerHTML">
+  <p class="m-0 text-sm text-text-3"><strong class="text-text">{{ application.company }}</strong> · When is it? We use it for your next step.</p>
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ text_field("date", "Date", type="date", value=values.date or "", error=errors.date, id_prefix="interview") }}
+    {{ text_field("time", "Time (optional)", type="time", value=values.time or "", error=errors.time, required=False, id_prefix="interview") }}
+    {{ select_field("interview_type", "Type", type_choices, value=values.interview_type or "", error=errors.interview_type, placeholder="Not sure", id_prefix="interview") }}
+    {{ text_field("interview_with", "With (optional)", value=values.interview_with or "", error=errors.interview_with, required=False, maxlength=200, id_prefix="interview", placeholder="e.g. Mira Hofer, Head of Product") }}
+  </div>
+  <div class="flex flex-wrap items-center justify-between gap-2.5">
+    <button type="button" data-dialog-close class="text-sm font-semibold text-text-3 hover:text-text hover:underline">Skip, I will add it later</button>
+    <div class="flex gap-2.5">
+      <button type="button" data-dialog-close
+              class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Cancel</button>
+      {{ primary_button("Save interview", size="sm") }}
+    </div>
+  </div>
+</form>
