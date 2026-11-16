@@ -77,8 +77,15 @@ def time_ago(value, now=None) -> str:
 
 
 def is_htmx(request: Request) -> bool:
-    """True for requests sent by htmx (they want a piece of a page, not a whole page)."""
-    return request.headers.get("HX-Request") == "true"
+    """True for requests sent by htmx that want a piece of a page, not a whole page.
+
+    The back button is the exception: when htmx has no saved copy of an earlier page
+    (hx-history="false"), it asks for it again with HX-History-Restore-Request, and
+    then it needs the whole page."""
+    return (
+        request.headers.get("HX-Request") == "true"
+        and request.headers.get("HX-History-Restore-Request") != "true"
+    )
 
 
 def static_url(path: str) -> str:

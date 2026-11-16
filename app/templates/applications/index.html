@@ -16,7 +16,10 @@
       so reloading the region doesn't close the column again. -#}
   <div x-data="board" data-rejected="closed" x-bind:data-rejected="rejectedState"
        class="group/board w-full px-4 pt-5 pb-8 md:px-8">
-    {% include "applications/_region.html" %}
+    <div class="flex flex-col gap-[18px]">
+      {% include "applications/_toolbar.html" %}
+      {% include "applications/_region.html" %}
+    </div>
   </div>
 
   {% call modal("add-job", "Add a job") %}

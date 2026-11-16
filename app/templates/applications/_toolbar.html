@@ -1,0 +1,16 @@
+{#- The row above the jobs (SPEC §6.7): Board / List now; search and filters come
+    next (plan M4a, step 7). It sits outside the region that reloads, so what the
+    user is typing or choosing is never thrown away. Each link loads the region
+    and updates the address bar. Context: query. -#}
+<div class="flex flex-wrap items-center gap-2.5">
+  <span class="flex-1"></span>
+  <nav aria-label="View" class="flex rounded-[10px] bg-muted p-[3px]">
+    {%- for value, label in [("board", "Board"), ("list", "List")] %}
+      {%- set url = "/?view=list" if value == "list" else "/" %}
+      <a href="{{ url }}" hx-get="{{ url }}" hx-target="#applications-region" hx-swap="outerHTML" hx-push-url="true"
+         data-view="{{ value }}" x-on:click="pickView"
+         {%- if query.view == value %} aria-current="page"{% endif %}
+         class="rounded-lg px-3 py-1.5 text-[13px] font-medium text-text-3 no-underline hover:text-text aria-[current=page]:bg-surface aria-[current=page]:font-semibold aria-[current=page]:text-text aria-[current=page]:shadow-sm">{{ label }}</a>
+    {%- endfor %}
+  </nav>
+</div>

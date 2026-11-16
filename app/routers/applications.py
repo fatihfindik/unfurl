@@ -70,6 +70,7 @@ UNDO_URL = "/applications/undo"
 
 # A column shows this many cards, then "Show more" (SPEC §6.7).
 COLUMN_LIMIT = 20
+PAGE_SIZE = 25  # rows per page in the list view (SPEC §6.7)
 
 TOO_MANY_APPLICATIONS = (
     f"You have reached the limit of {application_service.MAX_APPLICATIONS_PER_USER} jobs."
@@ -77,8 +78,23 @@ TOO_MANY_APPLICATIONS = (
 
 
 def board_context(session: Session, user: User, query: BoardQuery) -> dict:
-    """What the page needs: one entry per column, with its title and cards."""
+    """What the page needs for the board or the list. Both views share the counts
+    per status (column headings, summary cards above the list)."""
     cards = application_service.board(session, user)
+    counts = {status: len(cards[status]) for status in BOARD_STATUSES}
+    context = {
+        "query": query,
+        "counts": counts,
+        "status_titles": STATUS_TITLES,
+        "status_hints": STATUS_HINTS,
+        "has_applications": application_service.has_any(session, user),
+        "source_names": SOURCE_NAMES,
+        "remote_names": REMOTE_NAMES,
+        "region_url": query.url,  # the region reloads itself with the same choices
+    }
+    if query.view == "list":
+        return context | list_context(session, user, query)
+
     columns = []
     for status in BOARD_STATUSES:
         show_all = status in query.more
@@ -86,19 +102,34 @@ def board_context(session: Session, user: User, query: BoardQuery) -> dict:
             {
                 "key": status,
                 "title": STATUS_TITLES[status],
-                "hint": STATUS_HINTS[status],
-                "count": len(cards[status]),
+                "count": counts[status],
                 "cards": cards[status] if show_all else cards[status][:COLUMN_LIMIT],
                 # Where "Show more" leads; empty when every card is shown already.
                 "more_url": "" if show_all else query.with_more(status).url,
             }
         )
+    return context | {"columns": columns}
+
+
+def list_context(session: Session, user: User, query: BoardQuery) -> dict:
+    """One page of the list view. A page number past the end shows the last page."""
+    jobs = application_service.listing(session, user, query.sort)
+    pages = max(1, -(-len(jobs) // PAGE_SIZE))  # rounded up
+    page = min(query.page, pages)
+    first = (page - 1) * PAGE_SIZE
+    rows = jobs[first : first + PAGE_SIZE]
     return {
-        "columns": columns,
-        "has_applications": application_service.has_any(session, user),
-        "source_names": SOURCE_NAMES,
-        "remote_names": REMOTE_NAMES,
-        "region_url": query.url,  # the region reloads itself with the same choices
+        "rows": rows,
+        "total": len(jobs),
+        "first_row": first + 1 if rows else 0,
+        "last_row": first + len(rows),
+        "page_size": PAGE_SIZE,
+        "previous_url": query.with_page(page - 1).url if page > 1 else "",
+        "next_url": query.with_page(page + 1).url if page < pages else "",
+        # Clicking "Company" sorts A to Z, then Z to A, then back to "last updated".
+        "company_sort_url": query.with_sort(
+            {"": "company", "company": "-company", "-company": ""}[query.sort]
+        ).url,
     }
 
 

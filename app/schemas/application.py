@@ -65,27 +65,68 @@ def is_link(text: str) -> bool:
     return text.startswith(("http://", "https://")) and not any(c.isspace() for c in text)
 
 
+VIEWS = ("board", "list")
+# List order: "" = last updated first (the default), "company" = A to Z, "-company" = Z to A.
+SORTS = ("", "company", "-company")
+MAX_PAGE = 10_000  # far more than 2,000 jobs / 25 per page; keeps the number small
+
+
 @dataclass(frozen=True)
 class BoardQuery:
-    """What the address of the Applications page asks for (`/?more=saved,applied`).
+    """What the address of the Applications page asks for, e.g.
+    `/?view=list&sort=company&page=2` or `/?more=saved,applied`.
 
-    Every value is checked against a list of known values; anything else is dropped,
-    so the address can never put unknown text into the page or a query.
+    Every value is checked against a list of known values; anything else falls back
+    to the default, so the address can never put unknown text into the page or a query.
     """
 
-    # Columns that show all their cards instead of the first COLUMN_LIMIT.
+    view: str = "board"
+    sort: str = ""
+    page: int = 1
+    # Board columns that show all their cards instead of the first COLUMN_LIMIT.
     more: tuple[str, ...] = ()
 
     @classmethod
     def from_params(cls, params) -> "BoardQuery":
         asked = (params.get("more") or "").split(",")
-        return cls(more=tuple(status for status in BOARD_STATUSES if status in asked))
+        view = params.get("view")
+        sort = params.get("sort") or ""
+        try:
+            page = int(params.get("page") or 1)
+        except ValueError:
+            page = 1
+        return cls(
+            view=view if view in VIEWS else "board",
+            sort=sort if sort in SORTS else "",
+            page=min(max(page, 1), MAX_PAGE),
+            more=tuple(status for status in BOARD_STATUSES if status in asked),
+        )
 
     def with_more(self, status: str) -> "BoardQuery":
         return replace(self, more=tuple(s for s in BOARD_STATUSES if s in (*self.more, status)))
 
+    def with_sort(self, sort: str) -> "BoardQuery":
+        return replace(self, sort=sort, page=1)
+
+    def with_page(self, page: int) -> "BoardQuery":
+        return replace(self, page=page)
+
+    @property
+    def params(self) -> dict[str, str]:
+        """The choices that differ from the default, as address parameters. The view
+        only keeps what belongs to it (sort and page to the list, more to the board)."""
+        params: dict[str, str] = {}
+        if self.view == "list":
+            params["view"] = "list"
+            if self.sort:
+                params["sort"] = self.sort
+            if self.page > 1:
+                params["page"] = str(self.page)
+        elif self.more:
+            params["more"] = ",".join(self.more)
+        return params
+
     @property
     def url(self) -> str:
-        """The address of the page with these choices, e.g. "/?more=saved"."""
-        params = {"more": ",".join(self.more)} if self.more else {}
-        return "/?" + urlencode(params) if params else "/"
+        """The address of the page with these choices, e.g. "/?view=list&sort=company"."""
+        return "/?" + urlencode(self.params) if self.params else "/"

@@ -1,13 +1,14 @@
 {#- Summary cards (SPEC §6.3): one per status with its count. Archived jobs are not
     counted. Shown above the list view only (D-070); on the board the column
-    headings say the same. Clicking a card to filter comes with the filters. -#}
+    headings say the same. Clicking a card to filter comes with the filters.
+    Context: counts, status_titles, status_hints. -#}
 {% from "applications/_status.html" import status_dot %}
 <section aria-label="Pipeline summary" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-  {%- for column in columns %}
-    <div data-summary="{{ column.key }}" class="flex flex-col items-start gap-1 rounded-xl border border-border bg-surface px-4 py-3.5">
-      <span class="flex items-center gap-2 text-[13px] font-semibold text-text-2">{{ status_dot(column.key) }}{{ column.title }}</span>
-      <strong class="text-[26px] leading-[1.1] text-text">{{ column.cards | length }}</strong>
-      <span class="text-xs text-text-3">{{ column.hint }}</span>
+  {%- for status, count in counts.items() %}
+    <div data-summary="{{ status }}" class="flex flex-col items-start gap-1 rounded-xl border border-border bg-surface px-4 py-3.5">
+      <span class="flex items-center gap-2 text-[13px] font-semibold text-text-2">{{ status_dot(status) }}{{ status_titles[status] }}</span>
+      <strong class="text-[26px] leading-[1.1] text-text">{{ count }}</strong>
+      <span class="text-xs text-text-3">{{ status_hints[status] }}</span>
     </div>
   {%- endfor %}
 </section>

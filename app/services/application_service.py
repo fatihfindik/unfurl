@@ -4,6 +4,7 @@ Routes only call this module. Every query filters by user_id (CLAUDE.md).
 """
 
 import datetime as dt
+import unicodedata
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException
@@ -113,6 +114,41 @@ def board(session: Session, user: User) -> dict[str, list[Application]]:
     for card in cards:
         columns[card.status].append(card)
     return columns
+
+
+# Letters that NFKD can't turn into a plain letter (the same list as the PDF file
+# names, D-057): "ı" has no "i + accent" form.
+_PLAIN_LETTERS = str.maketrans(
+    {"ı": "i", "İ": "I", "ß": "ss", "ğ": "g", "Ğ": "G", "ø": "o", "Ø": "O"}
+)
+
+
+def search_key(text: str | None) -> str:
+    """Text in the form used to compare and sort it (D-067): no accents, no capitals.
+    "İstanbul", "istanbul" and "ISTANBUL" all become "istanbul"; "Österreich" becomes
+    "osterreich". casefold() alone is not enough: "İ".casefold() is "i" plus a dot."""
+    text = unicodedata.normalize("NFKD", (text or "").translate(_PLAIN_LETTERS))
+    return "".join(c for c in text if not unicodedata.combining(c)).casefold()
+
+
+def listing(session: Session, user: User, sort: str = "") -> list[Application]:
+    """The user's jobs for the list view, archived ones left out. `sort` is "" (last
+    updated first), "company" (A to Z) or "-company" (Z to A)."""
+    jobs = list(
+        session.exec(
+            select(Application).where(
+                Application.user_id == user.id,
+                col(Application.status).in_(BOARD_STATUSES),
+                col(Application.archived).is_(False),
+            )
+        )
+    )
+    # Sorted in Python: SQLite's lower() only knows A-Z, and both databases must agree.
+    if sort in ("company", "-company"):
+        jobs.sort(key=lambda job: (search_key(job.company), job.id), reverse=sort == "-company")
+    else:
+        jobs.sort(key=lambda job: (as_utc(job.last_activity_at), job.id), reverse=True)
+    return jobs
 
 
 def has_any(session: Session, user: User) -> bool:

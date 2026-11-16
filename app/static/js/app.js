@@ -137,6 +137,15 @@ document.addEventListener("alpine:init", () => {
     toggleRejected() {
       this.rejectedOpen = !this.rejectedOpen;
     },
+    // Board / List: the link loads the region itself (htmx); this only marks the
+    // chosen one, because the toolbar is outside the part that reloads.
+    pickView(event) {
+      const picked = event.currentTarget;
+      picked.parentElement.querySelectorAll("[data-view]").forEach((link) => {
+        if (link === picked) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
+      });
+    },
   }));
 
   // Experience bullets on /profile: one input per bullet (all named "bullets").

@@ -1,0 +1,49 @@
+{#- The list view (SPEC §6.7): one row per job, 25 per page, sortable by Company.
+    The newest change comes first unless the user sorts. No Fit column until M7
+    (D-060). Sort and page links load the region and update the address bar.
+    Context: rows, total, first_row, last_row, page_size, previous_url, next_url,
+    company_sort_url, query, status_titles, source_names. -#}
+{% from "applications/_status.html" import status_badge %}
+{%- set sort_mark = {"company": " ↑", "-company": " ↓"}.get(query.sort, "") %}
+{%- set sort_state = {"company": "ascending", "-company": "descending"}.get(query.sort, "none") %}
+<div class="overflow-x-auto rounded-xl border border-border bg-surface">
+  <table class="w-full min-w-[720px] border-collapse text-sm">
+    <thead>
+      <tr class="text-left text-xs uppercase tracking-[0.04em] text-text-3">
+        <th scope="col" class="px-4 py-3 font-semibold" aria-sort="{{ sort_state }}">
+          <a href="{{ company_sort_url }}" hx-get="{{ company_sort_url }}" hx-target="#applications-region"
+             hx-swap="outerHTML" hx-push-url="true"
+             class="text-text-3 no-underline hover:text-text">Company{{ sort_mark }}</a>
+        </th>
+        <th scope="col" class="px-4 py-3 font-semibold">Role</th>
+        <th scope="col" class="px-4 py-3 font-semibold">Status</th>
+        <th scope="col" class="px-4 py-3 font-semibold">Source</th>
+        <th scope="col" class="px-4 py-3 font-semibold">Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for job in rows %}
+        <tr data-row="{{ job.id }}" class="border-t border-muted">
+          <td class="break-words px-4 py-3 font-semibold text-text">{{ job.company }}</td>
+          <td class="break-words px-4 py-3 text-text-2">{{ job.job_title }}</td>
+          <td class="px-4 py-3">{{ status_badge(job.status, status_titles[job.status]) }}</td>
+          <td class="px-4 py-3 text-text-3">{{ source_names.get(job.source, "Other") }}</td>
+          <td class="whitespace-nowrap px-4 py-3 text-text-3">{{ job.last_activity_at | time_ago }}</td>
+        </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  <div class="flex flex-wrap items-center justify-between gap-3 border-t border-muted px-4 py-3 text-[13px] text-text-3">
+    <span>Showing {{ first_row }}–{{ last_row }} of {{ total }} · {{ page_size }} per page</span>
+    <nav aria-label="Pages" class="flex gap-1.5">
+      {%- for label, url in [("Previous", previous_url), ("Next", next_url)] %}
+        {%- if url %}
+          <a href="{{ url }}" hx-get="{{ url }}" hx-target="#applications-region" hx-swap="outerHTML" hx-push-url="true"
+             class="inline-flex h-[30px] items-center rounded-lg border border-border-strong bg-surface px-3.5 text-xs font-medium text-text-2 no-underline hover:bg-muted">{{ label }}</a>
+        {%- else %}
+          <span aria-disabled="true" class="inline-flex h-[30px] items-center rounded-lg border border-border-strong px-3.5 text-xs font-medium text-text-2 opacity-50">{{ label }}</span>
+        {%- endif %}
+      {%- endfor %}
+    </nav>
+  </div>
+</div>
