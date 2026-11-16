@@ -40,7 +40,7 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - [x] M2b Profile: reorder, photo, profile strength
 - [x] M3a CV documents: master / versions / locks, editor + HTML preview
 - [x] M3b CV PDF: 3 templates × 3 languages (WeasyPrint)
-- [ ] M4a Board: applications, add job, kanban, list, filters, archive, toast + undo, theme
+- [x] M4a Board: applications, add job, kanban, list, filters, archive, toast + undo, theme
 - [ ] M4b Application detail: next step, interview, needs attention, timeline
 - [ ] M4c Documents in applications: link, lock on applied, duplicate, undo for deletes
 - [ ] M5 AI foundation + job extraction
