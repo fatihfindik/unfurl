@@ -26,7 +26,7 @@ def test_home_is_utf8_html(auth_client):
     "query",
     [
         "?page=2&sort=desc",
-        "?q=%3Cscript%3Ealert(1)%3C/script%3E",
+        "?view=%3Cscript%3Ealert(1)%3C/script%3E",
         "?%22%3E%3Cimg%20src=x%20onerror=alert(1)%3E=1",
         "?theme=dark",
     ],
@@ -39,6 +39,14 @@ def test_query_string_is_ignored_and_not_reflected(auth_client, query):
     assert "onerror" not in response.text
     # Only the cookie picks the theme, never a query parameter.
     assert html_class(response.text) == "theme-system"
+
+
+def test_the_search_text_comes_back_only_escaped(auth_client):
+    # Since M4a the search box shows what was searched for; never as HTML.
+    html = auth_client.get("/?q=%22%3E%3Cscript%3Ealert(1)%3C/script%3E").text
+
+    assert "<script>alert(1)" not in html
+    assert 'value="&#34;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"' in html
 
 
 def test_query_string_keeps_applications_menu_item_current(auth_client):

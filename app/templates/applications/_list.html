@@ -22,6 +22,9 @@
       </tr>
     </thead>
     <tbody>
+      {%- if not rows %}
+        <tr><td colspan="5" class="border-t border-muted px-4 py-6 text-center text-text-3">No jobs match these filters.</td></tr>
+      {%- endif %}
       {%- for job in rows %}
         <tr data-row="{{ job.id }}" class="border-t border-muted">
           <td class="break-words px-4 py-3 font-semibold text-text">{{ job.company }}</td>

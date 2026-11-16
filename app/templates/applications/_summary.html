@@ -1,14 +1,18 @@
 {#- Summary cards (SPEC §6.3): one per status with its count. Archived jobs are not
     counted. Shown above the list view only (D-070); on the board the column
-    headings say the same. Clicking a card to filter comes with the filters.
-    Context: counts, status_titles, status_hints. -#}
+    headings say the same. Clicking a card shows only that status; clicking it again shows all.
+    Context: counts, status_titles, status_hints, query. -#}
 {% from "applications/_status.html" import status_dot %}
 <section aria-label="Pipeline summary" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
   {%- for status, count in counts.items() %}
-    <div data-summary="{{ status }}" class="flex flex-col items-start gap-1 rounded-xl border border-border bg-surface px-4 py-3.5">
+    {%- set url = query.with_status(status).url %}
+    {#- A link that filters the list by this status; aria-current marks the one that is on. -#}
+    <a href="{{ url }}" hx-get="{{ url }}" hx-target="#applications-region" hx-swap="outerHTML" hx-push-url="true"
+       data-summary="{{ status }}"{% if query.status == status %} aria-current="true"{% endif %}
+       class="flex flex-col items-start gap-1 rounded-xl border border-border bg-surface px-4 py-3.5 text-text no-underline hover:border-border-strong aria-[current=true]:border-2 aria-[current=true]:border-[#4F46E5] aria-[current=true]:px-[15px] aria-[current=true]:py-[13px]">
       <span class="flex items-center gap-2 text-[13px] font-semibold text-text-2">{{ status_dot(status) }}{{ status_titles[status] }}</span>
       <strong class="text-[26px] leading-[1.1] text-text">{{ count }}</strong>
       <span class="text-xs text-text-3">{{ status_hints[status] }}</span>
-    </div>
+    </a>
   {%- endfor %}
 </section>

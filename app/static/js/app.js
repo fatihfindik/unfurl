@@ -137,13 +137,14 @@ document.addEventListener("alpine:init", () => {
     toggleRejected() {
       this.rejectedOpen = !this.rejectedOpen;
     },
-    // Board / List: the link loads the region itself (htmx); this only marks the
-    // chosen one, because the toolbar is outside the part that reloads.
-    pickView(event) {
-      const picked = event.currentTarget;
-      picked.parentElement.querySelectorAll("[data-view]").forEach((link) => {
-        if (link === picked) link.setAttribute("aria-current", "page");
-        else link.removeAttribute("aria-current");
+  }));
+
+  // The search and filter form on the Applications page. "Clear filters" loads the
+  // page without filters (its own link); this empties the fields to match.
+  Alpine.data("boardFilters", () => ({
+    clear() {
+      this.$root.querySelectorAll("input[type=search], select").forEach((field) => {
+        field.value = "";
       });
     },
   }));
@@ -289,6 +290,18 @@ function initBoard(root) {
 // so lists that come back after a save or a move get drag and drop again.
 htmx.onLoad(initSortable);
 htmx.onLoad(initBoard);
+
+// The filter form sends every field, also the empty ones. Leaving out empty fields
+// and the default view keeps the address short ("/?q=acme", not
+// "/?q=acme&source=&mode=&view=board"); the server reads a missing field as "all".
+document.addEventListener("htmx:configRequest", (event) => {
+  if (!event.detail.elt.closest?.("#board-filters")) return;
+  const params = event.detail.parameters;
+  // htmx 2 gives a FormData here; delete() works on it like on a plain object.
+  for (const [name, value] of [...params.entries()]) {
+    if (value === "" || (name === "view" && value === "board")) params.delete(name);
+  }
+});
 
 // If saving a move fails, the card is in the wrong place on screen: reload the board.
 document.addEventListener("htmx:responseError", (event) => {

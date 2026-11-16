@@ -5,9 +5,16 @@ from urllib.parse import urlencode
 
 from pydantic import Field, field_validator
 
-from app.models.application import BOARD_STATUSES, JOB_URL_TEXT, MAX_DESCRIPTION, REMOTE_TYPES
+from app.models.application import (
+    BOARD_STATUSES,
+    JOB_URL_TEXT,
+    MAX_DESCRIPTION,
+    REMOTE_TYPES,
+    SOURCES,
+)
 from app.models.profile import SHORT_TEXT
 from app.schemas.profile import ProfileForm, check_url
+from app.services.application_service import Filters
 
 # A new job starts in one of these two columns (the prototype's Status field).
 ADD_JOB_STATUSES = ("saved", "applied")
@@ -69,6 +76,8 @@ VIEWS = ("board", "list")
 # List order: "" = last updated first (the default), "company" = A to Z, "-company" = Z to A.
 SORTS = ("", "company", "-company")
 MAX_PAGE = 10_000  # far more than 2,000 jobs / 25 per page; keeps the number small
+MAX_SEARCH = 100  # characters of search text (D-067)
+FILTER_MODES = ("remote", "hybrid", "onsite")
 
 
 @dataclass(frozen=True)
@@ -83,6 +92,10 @@ class BoardQuery:
     view: str = "board"
     sort: str = ""
     page: int = 1
+    q: str = ""
+    source: str = ""
+    mode: str = ""
+    status: str = ""  # list view only (summary cards, D-070)
     # Board columns that show all their cards instead of the first COLUMN_LIMIT.
     more: tuple[str, ...] = ()
 
@@ -95,15 +108,38 @@ class BoardQuery:
             page = int(params.get("page") or 1)
         except ValueError:
             page = 1
+        view = view if view in VIEWS else "board"
+        source = params.get("source") or ""
+        mode = params.get("mode") or ""
+        status = params.get("status") or ""
         return cls(
-            view=view if view in VIEWS else "board",
+            view=view,
             sort=sort if sort in SORTS else "",
             page=min(max(page, 1), MAX_PAGE),
+            q=" ".join((params.get("q") or "").split())[:MAX_SEARCH],
+            source=source if source in SOURCES else "",
+            mode=mode if mode in FILTER_MODES else "",
+            status=status if view == "list" and status in BOARD_STATUSES else "",
             more=tuple(status for status in BOARD_STATUSES if status in asked),
         )
 
     def with_more(self, status: str) -> "BoardQuery":
         return replace(self, more=tuple(s for s in BOARD_STATUSES if s in (*self.more, status)))
+
+    @property
+    def filters(self) -> Filters:
+        return Filters(q=self.q, source=self.source, mode=self.mode, status=self.status)
+
+    @property
+    def has_filters(self) -> bool:
+        return any((self.q, self.source, self.mode, self.status))
+
+    def with_status(self, status: str) -> "BoardQuery":
+        """A summary card: filter by its status, or remove the filter if it is on."""
+        return replace(self, status="" if self.status == status else status, page=1)
+
+    def without_filters(self) -> "BoardQuery":
+        return replace(self, q="", source="", mode="", status="", page=1)
 
     def with_sort(self, sort: str) -> "BoardQuery":
         return replace(self, sort=sort, page=1)
@@ -118,6 +154,10 @@ class BoardQuery:
         params: dict[str, str] = {}
         if self.view == "list":
             params["view"] = "list"
+        for name in ("q", "source", "mode", "status"):
+            if getattr(self, name):
+                params[name] = getattr(self, name)
+        if self.view == "list":
             if self.sort:
                 params["sort"] = self.sort
             if self.page > 1:

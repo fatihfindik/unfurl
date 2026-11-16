@@ -1,16 +1,41 @@
-{#- The row above the jobs (SPEC §6.7): Board / List now; search and filters come
-    next (plan M4a, step 7). It sits outside the region that reloads, so what the
-    user is typing or choosing is never thrown away. Each link loads the region
-    and updates the address bar. Context: query. -#}
-<div class="flex flex-wrap items-center gap-2.5">
-  <span class="flex-1"></span>
-  <nav aria-label="View" class="flex rounded-[10px] bg-muted p-[3px]">
-    {%- for value, label in [("board", "Board"), ("list", "List")] %}
-      {%- set url = "/?view=list" if value == "list" else "/" %}
-      <a href="{{ url }}" hx-get="{{ url }}" hx-target="#applications-region" hx-swap="outerHTML" hx-push-url="true"
-         data-view="{{ value }}" x-on:click="pickView"
-         {%- if query.view == value %} aria-current="page"{% endif %}
-         class="rounded-lg px-3 py-1.5 text-[13px] font-medium text-text-3 no-underline hover:text-text aria-[current=page]:bg-surface aria-[current=page]:font-semibold aria-[current=page]:text-text aria-[current=page]:shadow-sm">{{ label }}</a>
+{#- The row above the jobs (SPEC §6.7): search, filters, Board / List.
+    It sits outside the region that reloads, so what the user is typing is never
+    thrown away. Every change asks the server for the region again (htmx) and puts
+    the choices in the address bar. Choices that live inside the region (sort,
+    status, "Show more") come along through hx-include="#board-state".
+    "Clear filters" is drawn by clear_filters() and updated by the region (OOB).
+    Context: query, source_choices, mode_choices, clear_url. -#}
+{% from "applications/_toolbar_parts.html" import clear_filters %}
+<form id="board-filters" role="search" aria-label="Filter applications" class="m-0 flex flex-wrap items-center gap-2.5"
+      action="/" hx-get="/" hx-trigger="change" hx-target="#applications-region" hx-swap="outerHTML"
+      hx-push-url="true" hx-include="#board-state" x-data="boardFilters">
+  {#- The search asks while typing, 300 ms after the last key; "search" is the ✕ in the box. -#}
+  <input type="search" name="q" value="{{ query.q }}" maxlength="100" aria-label="Search applications"
+         placeholder="Search company, role or city" autocomplete="off"
+         hx-get="/" hx-trigger="input changed delay:300ms, search" hx-include="closest form, #board-state"
+         class="h-10 w-full sm:w-[260px]">
+  <select name="source" aria-label="Source" class="h-10 w-full sm:w-[170px]">
+    <option value="">All sources</option>
+    {%- for value, label in source_choices %}
+      <option value="{{ value }}"{% if query.source == value %} selected{% endif %}>{{ label }}</option>
     {%- endfor %}
-  </nav>
-</div>
+  </select>
+  <select name="mode" aria-label="Work mode" class="h-10 w-full sm:w-[150px]">
+    <option value="">Any work mode</option>
+    {%- for value, label in mode_choices %}
+      <option value="{{ value }}"{% if query.mode == value %} selected{% endif %}>{{ label }}</option>
+    {%- endfor %}
+  </select>
+  {{ clear_filters(query, clear_url) }}
+  <span class="flex-1"></span>
+  {#- Board / List as radio buttons: one choice of two, works with the keyboard, and a
+      change sends the form like any filter. The labels look like a segmented switch. -#}
+  <fieldset class="m-0 flex rounded-[10px] border-0 bg-muted p-[3px]">
+    <legend class="sr-only">View</legend>
+    {%- for value, label in [("board", "Board"), ("list", "List")] %}
+      <label class="cursor-pointer rounded-lg px-3 py-1.5 text-[13px] font-medium text-text-3 hover:text-text has-[:checked]:bg-surface has-[:checked]:font-semibold has-[:checked]:text-text has-[:checked]:shadow-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-link">
+        <input type="radio" name="view" value="{{ value }}" class="sr-only"{% if query.view == value %} checked{% endif %}>{{ label }}
+      </label>
+    {%- endfor %}
+  </fieldset>
+</form>

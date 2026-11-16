@@ -1,0 +1,13 @@
+{#- "Clear filters" next to the filters, shown only while a filter is on. The toolbar
+    draws it on page load; after that the region sends a new one with every reload
+    (oob=True: htmx puts it in place by its id), because only the server knows the
+    filters of the answer. The click also empties the form fields (boardFilters in app.js). -#}
+{% macro clear_filters(query, clear_url, oob=False) %}
+  <span id="clear-filters"{% if oob %} hx-swap-oob="true"{% endif %}>
+    {%- if query.has_filters %}
+      <a href="{{ clear_url }}" hx-get="{{ clear_url }}" hx-target="#applications-region" hx-swap="outerHTML"
+         hx-push-url="true" x-on:click="clear"
+         class="text-[13px] font-semibold text-link no-underline hover:underline">Clear filters</a>
+    {%- endif %}
+  </span>
+{%- endmacro %}

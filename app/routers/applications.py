@@ -64,6 +64,16 @@ SOURCE_NAMES = {
     "manual": "Added by hand",
 }
 REMOTE_NAMES = {"remote": "Remote", "hybrid": "Hybrid", "onsite": "Onsite"}  # "unknown": nothing
+# The "All sources" filter offers these ("other" is never set by hand).
+FILTER_SOURCES = (
+    "linkedin",
+    "stepstone",
+    "karriere_at",
+    "indeed",
+    "xing",
+    "company_site",
+    "manual",
+)
 
 
 UNDO_URL = "/applications/undo"
@@ -80,17 +90,19 @@ TOO_MANY_APPLICATIONS = (
 def board_context(session: Session, user: User, query: BoardQuery) -> dict:
     """What the page needs for the board or the list. Both views share the counts
     per status (column headings, summary cards above the list)."""
-    cards = application_service.board(session, user)
-    counts = {status: len(cards[status]) for status in BOARD_STATUSES}
+    cards = application_service.board(session, user, query.filters)
     context = {
         "query": query,
-        "counts": counts,
+        "counts": application_service.counts(session, user),  # summary cards: unfiltered
         "status_titles": STATUS_TITLES,
         "status_hints": STATUS_HINTS,
         "has_applications": application_service.has_any(session, user),
         "source_names": SOURCE_NAMES,
         "remote_names": REMOTE_NAMES,
         "region_url": query.url,  # the region reloads itself with the same choices
+        "clear_url": query.without_filters().url,
+        "source_choices": [(key, SOURCE_NAMES[key]) for key in FILTER_SOURCES],
+        "mode_choices": list(REMOTE_NAMES.items()),
     }
     if query.view == "list":
         return context | list_context(session, user, query)
@@ -102,7 +114,7 @@ def board_context(session: Session, user: User, query: BoardQuery) -> dict:
             {
                 "key": status,
                 "title": STATUS_TITLES[status],
-                "count": counts[status],
+                "count": len(cards[status]),  # with the filters: what the column holds
                 "cards": cards[status] if show_all else cards[status][:COLUMN_LIMIT],
                 # Where "Show more" leads; empty when every card is shown already.
                 "more_url": "" if show_all else query.with_more(status).url,
@@ -113,7 +125,7 @@ def board_context(session: Session, user: User, query: BoardQuery) -> dict:
 
 def list_context(session: Session, user: User, query: BoardQuery) -> dict:
     """One page of the list view. A page number past the end shows the last page."""
-    jobs = application_service.listing(session, user, query.sort)
+    jobs = application_service.listing(session, user, query.sort, query.filters)
     pages = max(1, -(-len(jobs) // PAGE_SIZE))  # rounded up
     page = min(query.page, pages)
     first = (page - 1) * PAGE_SIZE
@@ -161,7 +173,9 @@ def applications_home(request: Request, session: DbSession, user: RequiredUser):
     context = board_context(session, user, query)
     if is_htmx(request):
         # The page asks again after a change: only the part that shows the jobs.
-        return templates.TemplateResponse(request, "applications/_region.html", context)
+        return templates.TemplateResponse(
+            request, "applications/_region.html", context | {"oob": True}
+        )
     return templates.TemplateResponse(
         request, "applications/index.html", context | add_job_context()
     )

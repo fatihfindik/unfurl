@@ -5,6 +5,7 @@ Routes only call this module. Every query filters by user_id (CLAUDE.md).
 
 import datetime as dt
 import unicodedata
+from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException
@@ -98,22 +99,76 @@ def column_of(session: Session, user: User, status: str) -> list[Application]:
     )
 
 
-def board(session: Session, user: User) -> dict[str, list[Application]]:
-    """Every column of the board with its cards: {"saved": [...], "applied": [...], …}.
-    One query for all columns; archived cards are left out."""
-    cards = session.exec(
-        select(Application)
+@dataclass(frozen=True)
+class Filters:
+    """What the user narrowed the jobs down to (SPEC §6.7). Empty means "all".
+    The router only passes values it checked against the known lists."""
+
+    q: str = ""  # search text: company, job title or city
+    source: str = ""
+    mode: str = ""  # remote_type
+    status: str = ""  # list view only (the summary cards, D-070)
+
+
+NO_FILTERS = Filters()
+
+
+def _jobs(session: Session, user: User, filters: Filters) -> list[Application]:
+    """The user's jobs that are on the board (not archived) and match `filters`.
+
+    Source, work mode and status are filtered in SQL. The search text is compared in
+    Python with search_key (D-067): SQLite's lower() only knows A-Z, and "istanbul"
+    must find "İstanbul" in both databases. A user has at most 2,000 jobs."""
+    query = select(Application).where(
+        Application.user_id == user.id,
+        col(Application.status).in_(BOARD_STATUSES),
+        col(Application.archived).is_(False),
+    )
+    if filters.source:
+        query = query.where(Application.source == filters.source)
+    if filters.mode:
+        query = query.where(Application.remote_type == filters.mode)
+    if filters.status:
+        query = query.where(Application.status == filters.status)
+    jobs = list(session.exec(query.order_by(col(Application.position), col(Application.id))))
+    words = search_key(filters.q).split()
+    if words:
+        jobs = [job for job in jobs if _matches(job, words)]
+    return jobs
+
+
+def _matches(job: Application, words: list[str]) -> bool:
+    """True if every word of the search is in the company, the job title or the place.
+    ("acme vienna" finds the Acme job in Vienna.)"""
+    text = " ".join(search_key(value) for value in (job.company, job.job_title, job.location))
+    return all(word in text for word in words)
+
+
+def board(
+    session: Session, user: User, filters: Filters = NO_FILTERS
+) -> dict[str, list[Application]]:
+    """Every column of the board with its cards: {"saved": [...], "applied": [...], …},
+    top to bottom. Archived cards are left out."""
+    columns: dict[str, list[Application]] = {status: [] for status in BOARD_STATUSES}
+    for card in _jobs(session, user, filters):
+        columns[card.status].append(card)
+    return columns
+
+
+def counts(session: Session, user: User) -> dict[str, int]:
+    """How many jobs each status has, archived ones not counted (the summary cards:
+    they always show the whole picture, whatever the filters)."""
+    rows = session.exec(
+        select(Application.status, func.count())
         .where(
             Application.user_id == user.id,
             col(Application.status).in_(BOARD_STATUSES),
             col(Application.archived).is_(False),
         )
-        .order_by(col(Application.position), col(Application.id))
+        .group_by(Application.status)
     )
-    columns: dict[str, list[Application]] = {status: [] for status in BOARD_STATUSES}
-    for card in cards:
-        columns[card.status].append(card)
-    return columns
+    found = dict(rows.all())
+    return {status: found.get(status, 0) for status in BOARD_STATUSES}
 
 
 # Letters that NFKD can't turn into a plain letter (the same list as the PDF file
@@ -131,18 +186,12 @@ def search_key(text: str | None) -> str:
     return "".join(c for c in text if not unicodedata.combining(c)).casefold()
 
 
-def listing(session: Session, user: User, sort: str = "") -> list[Application]:
-    """The user's jobs for the list view, archived ones left out. `sort` is "" (last
-    updated first), "company" (A to Z) or "-company" (Z to A)."""
-    jobs = list(
-        session.exec(
-            select(Application).where(
-                Application.user_id == user.id,
-                col(Application.status).in_(BOARD_STATUSES),
-                col(Application.archived).is_(False),
-            )
-        )
-    )
+def listing(
+    session: Session, user: User, sort: str = "", filters: Filters = NO_FILTERS
+) -> list[Application]:
+    """The jobs for the list view. `sort` is "" (last updated first), "company"
+    (A to Z) or "-company" (Z to A)."""
+    jobs = _jobs(session, user, filters)
     # Sorted in Python: SQLite's lower() only knows A-Z, and both databases must agree.
     if sort in ("company", "-company"):
         jobs.sort(key=lambda job: (search_key(job.company), job.id), reverse=sort == "-company")

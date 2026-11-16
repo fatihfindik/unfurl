@@ -176,9 +176,9 @@ def test_the_view_switch_marks_the_current_view(auth_client, session, user):
     board = auth_client.get("/").text
     listed = get_list(auth_client)
 
-    assert re.search(r'data-view="board"[^>]*aria-current="page"', board)
-    assert re.search(r'data-view="list"[^>]*aria-current="page"', listed)
-    assert not re.search(r'data-view="list"[^>]*aria-current', board)
+    assert 'name="view" value="board" class="sr-only" checked' in board
+    assert 'name="view" value="list" class="sr-only" checked' in listed
+    assert 'value="list" class="sr-only" checked' not in board
 
 
 def test_the_region_reloads_with_the_same_choices(auth_client, session, user):
@@ -236,4 +236,4 @@ def test_the_back_button_gets_the_whole_page(auth_client, session, user):
         "/?view=list", headers={"HX-Request": "true", "HX-History-Restore-Request": "true"}
     ).text
 
-    assert "<html" in html and 'aria-label="View"' in html
+    assert "<html" in html and 'id="board-filters"' in html
