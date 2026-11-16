@@ -7,11 +7,11 @@ import datetime as dt
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException
-from sqlmodel import Session, col, func, select
+from sqlmodel import Session, col, delete, func, select
 
 from app.models import Application, ApplicationEvent, User
 from app.models.application import BOARD_STATUSES
-from app.models.base import utcnow
+from app.models.base import as_utc, utcnow
 from app.services import profile_service
 
 MAX_APPLICATIONS_PER_USER = 2000  # archived ones count too (D-061)
@@ -29,6 +29,10 @@ class TooManyApplications(Exception):
 
 class NotOnBoard(Exception):
     """The status is not a column of the board, or the card is archived."""
+
+
+class NothingToUndo(Exception):
+    """The action was already undone, or something changed the application since."""
 
 
 def today() -> dt.date:
@@ -193,25 +197,115 @@ def move(
     cards = [card for card in column_of(session, user, status) if card.id != application.id]
     # If the card above is no longer in this column (an old screen), go to the top.
     index = cards.index(above) + 1 if above in cards else 0
-    cards.insert(index, application)
 
     event = None
     if status != old_status:
-        application.status = status
         application.last_activity_at = utcnow()
         if status == "applied" and application.applied_at is None:
             application.applied_at = today()  # SPEC §5.6; a date already there stays
         event = _add_event(
             session, application, "status_changed", from_status=old_status, to_status=status
         )
-        # The column it left closes the gap. (The card itself is filtered out by id:
-        # whether the query already sees its new status depends on autoflush.)
-        _renumber([c for c in column_of(session, user, old_status) if c.id != application.id])
-    _renumber(cards)
+    _place(session, user, application, status, index)
     session.add(application)
     session.commit()
     session.refresh(application)
     return event
+
+
+def _place(session: Session, user: User, application: Application, status: str, index) -> None:
+    """Put the card at place `index` of column `status` (None: off the board, archived)
+    and close the gap in the column it leaves. Both columns are numbered again, so
+    positions never repeat (D-063)."""
+    old_status = application.status
+    application.status = status
+    # Cards are filtered out by id: whether a query already sees the card's new
+    # values depends on autoflush.
+    if old_status != status or index is None:
+        _renumber([c for c in column_of(session, user, old_status) if c.id != application.id])
+    if index is not None:
+        cards = [c for c in column_of(session, user, status) if c.id != application.id]
+        cards.insert(min(index, len(cards)), application)
+        _renumber(cards)
+
+
+# --- Undo (D-064) ---------------------------------------------------------------------
+# An undoable action returns its events and a "before" note: the values it changed.
+# The note travels inside a signed token (app/services/undo_service.py) and comes
+# back when the user clicks Undo. Only these fields are ever written back.
+
+UNDO_FIELDS = ("status", "index", "applied_at", "archived", "last_activity_at")
+
+
+def before_note(session: Session, user: User, application: Application) -> dict:
+    """The values an action may change, as plain text for the undo token."""
+    index = None
+    if not application.archived:
+        column = [card.id for card in column_of(session, user, application.status)]
+        index = column.index(application.id) if application.id in column else 0
+    return {
+        "status": application.status,
+        "index": index,
+        "applied_at": application.applied_at.isoformat() if application.applied_at else None,
+        "archived": application.archived,
+        "last_activity_at": as_utc(application.last_activity_at).isoformat(),
+    }
+
+
+def undo(
+    session: Session, user: User, application_id, event_ids: list[int], before: dict | None
+) -> Application | None:
+    """Take back the action that wrote `event_ids`. `before` is the note from before_note,
+    or None when the action created the application (then it is deleted again).
+    Returns the application, or None if it was deleted.
+
+    Undo works only while the action's last event is still the newest one of the
+    application: anything done afterwards would otherwise be overwritten. The events
+    are deleted first, and only if all of them are still there: of two Undo clicks
+    at the same moment, one finds them gone and changes nothing.
+    """
+    try:
+        application = get_owned_application(session, user, application_id)
+    except HTTPException:
+        raise NothingToUndo from None  # already deleted by an earlier Undo
+    newest = session.exec(
+        select(func.max(ApplicationEvent.id)).where(
+            ApplicationEvent.application_id == application.id
+        )
+    ).one()
+    if not event_ids or newest != max(event_ids):
+        raise NothingToUndo
+    if before is not None and before.get("status") not in BOARD_STATUSES:
+        raise NothingToUndo  # never happens with our own tokens; a guard all the same
+
+    deleted = session.exec(
+        delete(ApplicationEvent).where(
+            col(ApplicationEvent.id).in_(event_ids),
+            ApplicationEvent.application_id == application.id,
+        )
+    )
+    if deleted.rowcount != len(set(event_ids)):
+        session.rollback()
+        raise NothingToUndo
+
+    if before is None:
+        session.delete(application)  # undo "add": its events go with it (cascade)
+        _renumber(
+            [c for c in column_of(session, user, application.status) if c.id != application.id]
+        )
+        session.commit()
+        return None
+
+    applied_at = before.get("applied_at")
+    application.applied_at = dt.date.fromisoformat(applied_at) if applied_at else None
+    application.last_activity_at = dt.datetime.fromisoformat(before["last_activity_at"])
+    application.archived = bool(before["archived"])
+    index = None if application.archived else int(before.get("index") or 0)
+    _place(session, user, application, before["status"], index)
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return application
 
 
 def events_of(session: Session, application: Application) -> list[ApplicationEvent]:

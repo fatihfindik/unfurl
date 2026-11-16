@@ -19,7 +19,7 @@ from app.models.application import BOARD_STATUSES, MAX_DESCRIPTION
 from app.schemas.application import ADD_JOB_STATUSES, AddJobForm, BoardQuery
 from app.schemas.profile import form_errors
 from app.security import limiter
-from app.services import application_service
+from app.services import application_service, undo_service
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
 
@@ -65,6 +65,8 @@ SOURCE_NAMES = {
 }
 REMOTE_NAMES = {"remote": "Remote", "hybrid": "Hybrid", "onsite": "Onsite"}  # "unknown": nothing
 
+
+UNDO_URL = "/applications/undo"
 
 # A column shows this many cards, then "Show more" (SPEC §6.7).
 COLUMN_LIMIT = 20
@@ -164,7 +166,11 @@ def application_create(
 
     response = add_job_form(request, None, None)
     toast = f"{application.company} saved to {STATUS_TITLES[application.status]}."
-    response.headers.update(page_events(toast=toast, **{"close-dialog": "add-job"}))
+    created = application_service.events_of(session, application)[-1]
+    token = undo_service.make_token(user, application.id, [created.id], before=None)
+    response.headers.update(
+        page_events(toast=toast, undo_url=UNDO_URL, undo_token=token, **{"close-dialog": "add-job"})
+    )
     return response
 
 
@@ -186,6 +192,7 @@ def application_move(
     card above it (empty at the top). The answer has no HTML: the page reloads the
     board itself, so it always shows what is stored."""
     application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.before_note(session, user, application)
     try:
         event = application_service.move(
             session, user, application, str(data.get("status", "")), data.get("after_id") or None
@@ -196,4 +203,24 @@ def application_move(
     if event is None:  # only the order changed: no toast (D-065)
         return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
     toast = f"{application.company} moved to {STATUS_TITLES[application.status]}."
-    return Response(status_code=204, headers=page_events(toast=toast))
+    token = undo_service.make_token(user, application.id, [event.id], before)
+    return Response(
+        status_code=204, headers=page_events(toast=toast, undo_url=UNDO_URL, undo_token=token)
+    )
+
+
+@router.post("/applications/undo")
+@limiter.limit("60/minute")
+def application_undo(request: Request, session: DbSession, user: RequiredUser, data: SubmittedForm):
+    """Undo in the toast (D-064). The token says what to take back; if that is no
+    longer possible (already undone, too old, changed since), nothing changes."""
+    note = undo_service.read_token(user, str(data.get("token", "")))
+    try:
+        if note is None:
+            raise application_service.NothingToUndo
+        application_service.undo(
+            session, user, note["application_id"], note["event_ids"], note["before"]
+        )
+    except application_service.NothingToUndo:
+        return Response(status_code=204, headers=page_events(toast="Nothing to undo."))
+    return Response(status_code=204, headers=page_events(toast="Undone."))
