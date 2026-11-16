@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.7 — 2026-11-15
+> **Durum:** MVP planı, v2.1.8 — 2026-11-16
+> v2.1.8: M3b Design kararları. CV'de uyruk için ayrı kutu (`show_nationality`); fotoğraf, doğum tarihi ve uyruk kutuları varsayılan olarak kapalıdır ve değer CV'ye sadece kutusu açıkken kopyalanır. CV dili oluştururken seçilir, sonra değişmez. Kararlar: DECISIONS D-051…D-059.
 > v2.1.7: M3a'da "Duplicate" butonu ve editördeki "All documents" linki M4'e kaldı (başvuru olmadan ikisi de mevcut butonların aynısını yapıyor); değişiklik yapılmamış taslaktan "Save as new version" yeni versiyon oluşturmaz. Karar: DECISIONS D-050.
 > v2.1.6: M3 ikiye bölündü (M3a belgeler + editör + HTML önizleme, M3b PDF: 3 şablon × 3 dil, WeasyPrint). M3a'da başvurusuz kopyalar "Not linked to an application" grubunda; kilitleme servis fonksiyonu olarak gelir, arayüzden M4'te tetiklenir. Karar: DECISIONS D-042.
 > v2.1.5: M2 ikiye bölündü (M2a profil bölümleri, M2b sıralama + fotoğraf + profil gücü). §6.4'e sıralama için ↑↓ butonları ve profil gücü formülü (10 madde × %10) eklendi. Karar: DECISIONS D-030.
@@ -361,7 +362,7 @@ Profilin **anlık görüntüsüdür** (snapshot). Bir ilana göre uyarlanan CV, 
 | language | enum de/en/tr | Bölüm başlıklarının dili |
 | template | enum classic/modern/compact | |
 | content | JSON | Profil verisinin kopyası + kullanıcı düzenlemeleri (şema: `CVContent` Pydantic modeli) |
-| show_photo, show_birth_date | bool | |
+| show_photo, show_birth_date, show_nationality | bool | Varsayılan kapalı. Değer (fotoğraf, doğum tarihi, uyruk) CV içeriğine sadece kutusu açıkken kopyalanır (D-052, D-053) |
 | source_profile_version | int | |
 | application_id | FK, nullable | Belirli bir başvuru için uyarlandıysa |
 | is_master | bool | |
@@ -1091,7 +1092,7 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
   - Önizleme her değişiklikte güncelleniyor.
 
 ### M3b — PDF
-- 3 PDF şablonu (classic, modern, compact; 6.5), DE/EN/TR bölüm başlıkları (`document_labels.py`), CV'de fotoğraf ve doğum tarihi (`show_photo`, `show_birth_date`).
+- 3 PDF şablonu (classic, modern, compact; 6.5), DE/EN/TR bölüm başlıkları (`document_labels.py`), CV'de fotoğraf, doğum tarihi ve uyruk (`show_photo`, `show_birth_date`, `show_nationality`).
 - WeasyPrint ile PDF indirme (Docker sistem kütüphaneleri, D-014), dosya adı `CV_{FullName}_{Company?}_{lang}.pdf`, editörde "Download PDF". Profil linkleri PDF'te link olacaksa yeniden kontrol (#23).
 - **Kabul:** 3 şablon × 3 dil PDF olarak düzgün oluşuyor. Metin seçilebilir. Örnek profille 1-2 sayfa. ATS kuralları (6.5) sağlanıyor.
 

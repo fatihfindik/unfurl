@@ -216,3 +216,42 @@
   documents" wait for M4, no new version from an unchanged draft). Decisions D-042…D-050.
 - WORKFLOW: maybe, to discuss in the retro: a short browser check by Claude at the
   end of each Build step that changes JavaScript.
+
+## M3b — CV as PDF: 3 templates × 3 languages (2026-11-16)
+
+**What I learned**
+- A PDF can be made from the same HTML and CSS as the web page. WeasyPrint turns
+  the preview template into an A4 PDF, so the download looks like the preview. It
+  needs a system library (Pango), which must be installed on my Mac, in Docker and
+  in CI: a Python package can depend on things `uv` can't install.
+- A tool that reads HTML can also fetch files and URLs. The PDF renderer gets an
+  allow-list (our stylesheets, our fonts, the CV photo) and refuses everything
+  else, so no CV content can make the server read a local file or call an address.
+- "Looks right" and "reads right" are different tests for a PDF. Turkish letters
+  were drawn wrong while the text layer was correct, and bullet marks came at the
+  end of the text an ATS reads. Both needed a look at the real PDF and then a test
+  that fails with the old setup.
+- Private data is copied only when asked for. Photo, date of birth and nationality
+  go into a CV only while their box is on, and are removed when it goes off. The
+  security review still found one path that forgot the rule (copies lost the
+  nationality box but kept the value): a rule needs a test on every path.
+- Text in a response header must be cleaned like text in HTML. The file name comes
+  from the user's name, so only letters, digits, "_" and "-" survive, with a plain
+  ASCII name for old browsers and the real letters in `filename*`.
+
+**What was hard**
+- Pango on macOS: `uv run` drops the variable that tells the system where Homebrew
+  libraries are, so the app sets it itself before loading WeasyPrint.
+- The photo hint on the profile page took three designs before the GitHub-style
+  "Edit" menu felt right.
+
+**What I will do differently**
+- Open the real output (PDF, email, file) early, not only the tests.
+- Show a reference I like (as with GitHub's photo menu) at the start of a UI
+  discussion instead of after two rounds.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.8 (`show_nationality`, private details off by default and copied
+  only while on, CV language fixed at creation). Decisions D-051…D-059.
+- WORKFLOW: no. Notes for M13: rate limit per user for the PDF route, a cap on
+  parallel PDF renders, a request body size limit, delete photo files with the account.
