@@ -181,6 +181,17 @@ def test_a_cv_without_a_photo_has_none_to_serve(auth_client, copy):
     assert auth_client.get(f"/cvs/{copy.id}/photo").status_code == 404
 
 
+def test_a_broken_stored_photo_is_a_404_not_a_500(auth_client, session, copy):
+    # Security review M3b (E2): "abc" passes the schema pattern but isn't base64.
+    content = stored(session, copy)
+    content.personal.photo = "abc"
+    copy.content = content.to_json()
+    session.add(copy)
+    session.commit()
+
+    assert auth_client.get(f"/cvs/{copy.id}/photo").status_code == 404
+
+
 def test_logged_out_visitors_get_no_photo(client):
     response = client.get("/cvs/1/photo", follow_redirects=False)
 

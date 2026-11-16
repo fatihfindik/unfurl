@@ -278,6 +278,7 @@ def _copy_of(source: CVDocument, title: str) -> CVDocument:
             content=dict(source.content),
             show_photo=source.show_photo,
             show_birth_date=source.show_birth_date,
+            show_nationality=source.show_nationality,
             source_profile_version=source.source_profile_version,
             parent_id=source.id if source.is_master else source.parent_id,
         )

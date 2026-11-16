@@ -5,6 +5,7 @@ the routes here only read forms, call the service and pick the template.
 """
 
 import base64
+import binascii
 import logging
 from typing import Annotated
 
@@ -344,8 +345,12 @@ def cv_photo(session: DbSession, user: RequiredUser, cv_id: str):
     personal = CVContent.model_validate(cv.content).personal
     if not personal.photo:
         raise HTTPException(status_code=404)
+    try:
+        photo = base64.b64decode(personal.photo, validate=True)
+    except binascii.Error:  # only a broken database row: no photo, never a 500
+        raise HTTPException(status_code=404) from None
     return Response(
-        content=base64.b64decode(personal.photo),
+        content=photo,
         media_type="image/jpeg",
         headers={"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"},
     )

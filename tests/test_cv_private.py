@@ -103,6 +103,19 @@ def test_refresh_takes_the_current_values_only_for_boxes_that_are_on(
     assert personal.date_of_birth is None  # its box is off
 
 
+def test_new_versions_keep_both_boxes_and_their_values(auth_client, session, user, profile):
+    # Security review M3b (E1): the nationality box was lost on copies while the
+    # value stayed in the content, against D-053.
+    cv = new_copy(session, user)
+    save(auth_client, cv, show_birth_date="on", show_nationality="on", summary="Edited.")
+
+    v2 = docs.save_as_new_version(session, user, reload(session, cv))
+
+    assert v2.show_birth_date and v2.show_nationality
+    assert stored(session, v2).personal.nationality == "Österreich"
+    assert stored(session, v2).personal.date_of_birth == date(1990, 3, 1)
+
+
 def test_a_missing_value_is_explained(auth_client, session, user):
     get_or_create_profile(session, user)  # no date of birth, no nationality
     cv = new_copy(session, user)
