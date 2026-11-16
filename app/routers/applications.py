@@ -163,9 +163,26 @@ def page_events(*, toast: str, undo_url: str = "", undo_token: str = "", **more)
     "Şişecam" is safe in an HTTP header."""
     events = {
         "toast": {"message": toast, "undo_url": undo_url, "undo_token": undo_token},
-        "applications-changed": True,
+        "applications-changed": True,  # the board and list reload themselves
+        "application-changed": True,  # so does an open detail page (D-076)
     } | more
     return {"HX-Trigger": json.dumps(events)}
+
+
+def undo_events(
+    session: Session, user: User, application, events: list, before: dict, toast: str, **more
+) -> dict:
+    """The HX-Trigger for an undoable change (D-079): the toast with a token that
+    holds what changed, from the note taken before the action."""
+    after = application_service.note(session, user, application)
+    token = undo_service.make_change_token(
+        user,
+        application.id,
+        [event.id for event in events],
+        application_service.newest_event_id(session, application),
+        application_service.changes(before, after),
+    )
+    return page_events(toast=toast, undo_url=UNDO_URL, undo_token=token, **more)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -239,7 +256,7 @@ def application_move(
     card above it (empty at the top). The answer has no HTML: the page reloads the
     board itself, so it always shows what is stored."""
     application = application_service.get_owned_application(session, user, application_id)
-    before = application_service.before_note(session, user, application)
+    before = application_service.note(session, user, application)
     try:
         event = application_service.move(
             session, user, application, str(data.get("status", "")), data.get("after_id") or None
@@ -250,9 +267,8 @@ def application_move(
     if event is None:  # only the order changed: no toast (D-065)
         return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
     toast = f"{application.company} moved to {STATUS_TITLES[application.status]}."
-    token = undo_service.make_token(user, application.id, [event.id], before)
     return Response(
-        status_code=204, headers=page_events(toast=toast, undo_url=UNDO_URL, undo_token=token)
+        status_code=204, headers=undo_events(session, user, application, [event], before, toast)
     )
 
 
@@ -265,9 +281,19 @@ def application_undo(request: Request, session: DbSession, user: RequiredUser, d
     try:
         if note is None:
             raise application_service.NothingToUndo
-        application_service.undo(
-            session, user, note["application_id"], note["event_ids"], note["before"]
-        )
+        if note["version"] == 2:
+            application_service.undo_change(
+                session,
+                user,
+                note["application_id"],
+                note["event_ids"],
+                note["newest"],
+                note["fields"],
+            )
+        else:  # "add", and M4a tokens still within their minute
+            application_service.undo(
+                session, user, note["application_id"], note["event_ids"], note["before"]
+            )
     except application_service.NothingToUndo:
         return Response(status_code=204, headers=page_events(toast="Nothing to undo."))
     return Response(status_code=204, headers=page_events(toast="Undone."))
@@ -280,15 +306,14 @@ def application_archive(
 ):
     """ "Archive" in the list (D-066): off the board, not deleted. Toast with Undo."""
     application = application_service.get_owned_application(session, user, application_id)
-    before = application_service.before_note(session, user, application)
+    before = application_service.note(session, user, application)
     try:
         event = application_service.archive(session, user, application)
     except application_service.NotOnBoard:  # archived already (another tab)
         return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
-    token = undo_service.make_token(user, application.id, [event.id], before)
     toast = f"{application.company} archived."
     return Response(
-        status_code=204, headers=page_events(toast=toast, undo_url=UNDO_URL, undo_token=token)
+        status_code=204, headers=undo_events(session, user, application, [event], before, toast)
     )
 
 
@@ -299,15 +324,14 @@ def application_restore(
 ):
     """ "Restore" on an archived card or row: back to the top of its column. Toast with Undo."""
     application = application_service.get_owned_application(session, user, application_id)
-    before = application_service.before_note(session, user, application)
+    before = application_service.note(session, user, application)
     try:
         event = application_service.restore(session, user, application)
     except application_service.NotOnBoard:  # not archived (restored in another tab)
         return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
-    token = undo_service.make_token(user, application.id, [event.id], before)
     toast = f"{application.company} restored."
     return Response(
-        status_code=204, headers=page_events(toast=toast, undo_url=UNDO_URL, undo_token=token)
+        status_code=204, headers=undo_events(session, user, application, [event], before, toast)
     )
 
 
@@ -379,6 +403,7 @@ def detail_context(session: Session, user: User, application) -> dict:
             for event in reversed(events)
         ],
         "interview_type_names": next_step_service.INTERVIEW_TYPE_NAMES,
+        "status_choices": [*STATUS_TITLES.items(), ("archived", "Archived")],
         "closes_text": (
             next_step_service.day_text(clock.to_utc(application.posting_closes_at))
             if application.posting_closes_at
@@ -395,4 +420,35 @@ def application_detail(
     application = application_service.get_owned_application(session, user, application_id)
     return templates.TemplateResponse(
         request, "applications/detail.html", detail_context(session, user, application)
+    )
+
+
+PICKER_STATUSES = (*BOARD_STATUSES, "archived")
+
+
+@router.post("/applications/{application_id}/status")
+@limiter.limit("60/minute")
+def application_status(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """The status picker on the detail page (D-076): works with the keyboard, unlike
+    dragging (D-069). Toast with Undo; the page reloads its parts (application-changed)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    status = str(data.get("status", ""))
+    if status not in PICKER_STATUSES:
+        raise HTTPException(status_code=422)
+    before = application_service.note(session, user, application)
+    events = application_service.set_status(session, user, application, status)
+    if not events:  # it already had that status (another tab)
+        return Response(status_code=204, headers={"HX-Trigger": "application-changed"})
+    if status == "archived":
+        toast = f"{application.company} archived."
+    else:
+        toast = f"{application.company} moved to {STATUS_TITLES[status]}."
+    return Response(
+        status_code=204, headers=undo_events(session, user, application, events, before, toast)
     )

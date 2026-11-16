@@ -1,13 +1,18 @@
 {% extends "base.html" %}
-{% from "applications/_status.html" import status_badge %}
 
 {% block title %}{{ application.job_title }} · {{ application.company }}{% endblock %}
 
 {#- One application (SPEC §6.7, docs/prototype/ApplicationDetail.dc.html; M4b).
     No Apply / Progress tab until M7–M9 (D-060): the page shows "Job & details"
-    straight away. The status picker comes in step 3, the forms in later steps.
+    straight away.
     Context: see detail_context in app/routers/applications.py. -#}
 {% block content %}
+  {#- After a change (status, Undo, …) the server sends "application-changed"; the page
+      then asks for itself again and keeps only this part (hx-select), so the header,
+      the next step and the timeline always show what is stored (D-076). -#}
+  <div id="application-page" class="flex flex-1 flex-col"
+       hx-get="/applications/{{ application.id }}" hx-trigger="application-changed from:body"
+       hx-select="#application-page" hx-swap="outerHTML">
   <header class="flex flex-col gap-3.5 border-b border-border bg-surface px-4 pt-4 pb-[18px] md:px-8">
     <div class="flex items-center justify-between gap-3">
       {#- The same back link as every inner page (components/page_header.html, SPEC §6.0/3). -#}
@@ -35,10 +40,17 @@
         </div>
       </div>
       <div class="flex flex-wrap items-center gap-2.5">
-        {%- if application.archived %}
-          <span class="rounded-md bg-muted px-2 py-[3px] text-xs font-bold text-text-3">ARCHIVED</span>
-        {%- endif %}
-        {{ status_badge(application.status, status_title) }}
+        {#- A plain <select>: works with the keyboard and screen readers (D-069, D-076).
+            A change is sent right away; the answer has the toast with Undo. -#}
+        <label class="flex items-center gap-2 text-[13px] font-semibold text-text-2">Status
+          <select name="status" hx-post="/applications/{{ application.id }}/status" hx-trigger="change" hx-swap="none"
+                  class="h-10 font-bold">
+            {%- set current = "archived" if application.archived else application.status %}
+            {%- for value, label in status_choices %}
+              <option value="{{ value }}"{% if value == current %} selected{% endif %}>{{ label }}</option>
+            {%- endfor %}
+          </select>
+        </label>
         {%- if application.job_url %}
           {#- The link goes to another site: noopener so that site can't reach this tab,
               noreferrer so it doesn't see our address (security review M4a). -#}
@@ -71,5 +83,6 @@
       {% include "applications/_next_step.html" %}
       {% include "applications/_timeline.html" %}
     </aside>
+  </div>
   </div>
 {% endblock %}

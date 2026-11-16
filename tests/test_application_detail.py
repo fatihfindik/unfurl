@@ -91,7 +91,7 @@ def test_an_archived_job_counts_among_the_archived(auth_client, session, user):
     html = page(auth_client, job)
 
     assert "1 of 1 in archived Saved" in html
-    assert "ARCHIVED" in html
+    assert '<option value="archived" selected>Archived</option>' in html  # the status picker
 
 
 def test_no_tabs_until_m7(auth_client, session, user):

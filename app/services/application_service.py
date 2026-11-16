@@ -295,6 +295,7 @@ def move(
         event = _add_event(
             session, application, "status_changed", from_status=old_status, to_status=status
         )
+        clear_next_step(application)  # a new status starts with its automatic next step
     _place(session, user, application, status, index)
     session.add(application)
     session.commit()
@@ -318,7 +319,143 @@ def _place(session: Session, user: User, application: Application, status: str, 
         _renumber(cards)
 
 
-# --- Undo (D-064) ---------------------------------------------------------------------
+# --- Undo, version 2 (D-079) ------------------------------------------------------------
+# Before an undoable action the router takes a note() of the application, and another
+# one after it. changes() keeps the fields that differ, as [before, after]. Undo writes
+# the "before" values back, but only while those fields still have the "after" values
+# and no newer event exists: a newer change is never overwritten, and a token can't be
+# used twice (the second time the fields are no longer at "after").
+
+NOTE_FIELDS = (
+    "status",
+    "archived",
+    "applied_at",
+    "last_activity_at",
+    "next_action_type",
+    "next_action_at",
+    "next_action_note",
+    "next_action_manual",
+    "interview_at",
+    "interview_type",
+    "interview_with",
+    "snoozed_until",
+)
+_DATETIME_FIELDS = ("last_activity_at", "next_action_at", "interview_at", "snoozed_until")
+_BOOL_FIELDS = ("archived", "next_action_manual")
+_TEXT_FIELDS = (
+    "status",
+    "next_action_type",
+    "next_action_note",
+    "interview_type",
+    "interview_with",
+)
+
+
+def _to_text(value):
+    """A field value as JSON-friendly text for the token (UTC for times)."""
+    if isinstance(value, dt.datetime):
+        return as_utc(value).isoformat()
+    if isinstance(value, dt.date):
+        return value.isoformat()
+    return value
+
+
+def _from_text(field: str, value):
+    """The other way round. Raises ValueError for a value of the wrong kind."""
+    if value is None:
+        if field in _BOOL_FIELDS or field in ("status", "last_activity_at"):
+            raise ValueError(field)
+        return None
+    if field in _DATETIME_FIELDS:
+        return dt.datetime.fromisoformat(value) if isinstance(value, str) else _bad(field)
+    if field == "applied_at":
+        return dt.date.fromisoformat(value) if isinstance(value, str) else _bad(field)
+    if field in _BOOL_FIELDS:
+        return value if isinstance(value, bool) else _bad(field)
+    if field in _TEXT_FIELDS:
+        return value if isinstance(value, str) and len(value) <= 200 else _bad(field)
+    return _bad(field)
+
+
+def _bad(field: str):
+    raise ValueError(field)
+
+
+def note(session: Session, user: User, application: Application) -> dict:
+    """The values an undoable action may change, plus "index": the card's place in
+    its column (None while archived)."""
+    values = {field: _to_text(getattr(application, field)) for field in NOTE_FIELDS}
+    index = None
+    if not application.archived:
+        column = [card.id for card in column_of(session, user, application.status)]
+        index = column.index(application.id) if application.id in column else 0
+    return values | {"index": index}
+
+
+def changes(before: dict, after: dict) -> dict:
+    """{field: [before, after]} for the fields an action changed. The place in the
+    column ("index") only matters when the card changed column or was archived."""
+    changed = {f: [before[f], after[f]] for f in NOTE_FIELDS if before[f] != after[f]}
+    if "status" in changed or "archived" in changed:
+        changed["index"] = [before["index"], None]
+    return changed
+
+
+def newest_event_id(session: Session, application: Application) -> int | None:
+    return session.exec(
+        select(func.max(ApplicationEvent.id)).where(
+            ApplicationEvent.application_id == application.id
+        )
+    ).one()
+
+
+def undo_change(
+    session: Session, user: User, application_id, event_ids: list[int], newest, fields: dict
+) -> Application:
+    """Take back one action (D-079): delete its events and write back the "before"
+    values of `fields`. Raises NothingToUndo if the application changed since."""
+    try:
+        application = get_owned_application(session, user, application_id)
+    except HTTPException:
+        raise NothingToUndo from None
+    if not fields or newest_event_id(session, application) != newest:
+        raise NothingToUndo
+    current = note(session, user, application)
+    if any(current[f] != values[1] for f, values in fields.items() if f != "index"):
+        raise NothingToUndo  # something changed these fields since: keep it
+    try:
+        restored = {f: _from_text(f, values[0]) for f, values in fields.items() if f != "index"}
+        index = fields.get("index", [None])[0]
+        if index is not None and (not isinstance(index, int) or isinstance(index, bool)):
+            raise ValueError("index")
+        if restored.get("status", application.status) not in BOARD_STATUSES:
+            raise ValueError("status")
+    except (TypeError, ValueError, IndexError):
+        raise NothingToUndo from None  # never with our own tokens
+
+    if event_ids:
+        deleted = session.exec(
+            delete(ApplicationEvent).where(
+                col(ApplicationEvent.id).in_(event_ids),
+                ApplicationEvent.application_id == application.id,
+            )
+        )
+        if deleted.rowcount != len(set(event_ids)):
+            session.rollback()  # another Undo was faster
+            raise NothingToUndo
+
+    status = restored.pop("status", application.status)
+    for field, value in restored.items():
+        setattr(application, field, value)
+    if "index" in fields:
+        _place(session, user, application, status, None if application.archived else index or 0)
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return application
+
+
+# --- Undo (D-064, M4a tokens; still used for "add") -------------------------------------
 # An undoable action returns its events and a "before" note: the values it changed.
 # The note travels inside a signed token (app/services/undo_service.py) and comes
 # back when the user clicks Undo. Only these fields are ever written back.
@@ -404,6 +541,33 @@ def undo(
     session.commit()
     session.refresh(application)
     return application
+
+
+def clear_next_step(application: Application) -> None:
+    """Forget a next step set by hand and a snooze (D-073, D-074): the rules for the
+    new situation apply again."""
+    application.next_action_type = None
+    application.next_action_at = None
+    application.next_action_note = None
+    application.next_action_manual = False
+    application.snoozed_until = None
+
+
+def set_status(
+    session: Session, user: User, application: Application, status: str
+) -> list[ApplicationEvent]:
+    """The status picker on the detail page (D-076): a board status, or "archived".
+    From the archive the job is restored first. Returns the events written."""
+    if status != "archived" and status not in BOARD_STATUSES:
+        raise NotOnBoard
+    if status == "archived":
+        return [] if application.archived else [archive(session, user, application)]
+    events = []
+    if application.archived:
+        events.append(restore(session, user, application))
+    if status != application.status:
+        events.append(move(session, user, application, status))
+    return events
 
 
 def archive(session: Session, user: User, application: Application) -> ApplicationEvent:
