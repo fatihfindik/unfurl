@@ -374,3 +374,10 @@ Kaynak: M4a Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
 ### D-069 · M4a'da durum klavyeyle değişmez (bilinen eksik)
 Kaynak: M4a Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
 - **Karar:** Board'da durum sadece sürükleyerek değişir (SPEC §6.7). Klavye yolu M4b'deki durum seçiciyle gelir; M4b'nin kabul kriterlerine "durum klavyeyle değiştirilebiliyor" eklenir (SPEC §12 ve #33, Adım 0). M13'ten önce canlıya çıkış yok.
+
+### D-070 · Özet kartları sadece liste görünümünde
+Kaynak: M4a Build, Fatih'in geri bildirimi (2026-11-16).
+- **Karar:** Applications sayfasındaki 5 özet kartı (durum + sayı + kısa açıklama) board görünümünde gösterilmez, sadece liste görünümünün üstünde durur. Duruma göre filtre (karta tıklama) da liste görünümüne aittir. Board'da sütun başlığı durumu ve sayıyı verir.
+- **Gerekçe:** Board'da kartlar ve sütun başlıkları aynı sırada aynı bilgiyi iki kez gösteriyordu ("Saved 1" üstte, "Saved 1" altta). Board'u duruma göre filtrelemek de anlamsız: sütunlar zaten duruma göre gruplar, diğer dört sütun boş kalırdı. Liste görünümünde sütun olmadığı için sayıları ve durum filtresini kartlar taşır.
+- **Alternatifler:** Prototipteki gibi ikisini de göstermek. Kartları sütun başlığıyla birleştirmek (liste görünümünde yine ayrı kart gerekir).
+

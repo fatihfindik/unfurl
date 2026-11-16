@@ -65,6 +65,7 @@ Geçersiz veya başkasına ait id her yerde 404 (CV route'larındaki `get_owned_
 
 ## 3. Ekran (prototip `Applications.dc.html`; SPEC kazanır)
 - Başlık: "Applications", "Every job you saved or applied to. Drag a card to change its status.", sağda **Add job**.
+- **Güncelleme (D-070, Build sırasında):** özet kartları sadece liste görünümünde; board'da gösterilmez, durum filtresi de listeye aittir.
 - Özet kartları: Saved "Jobs you are considering", Applied "Waiting for a reply", Interview "In the interview process", Offer "Offers on the table", Rejected "Closed, keep the learnings". Tıklayınca o duruma filtre, tekrar tıklayınca kalkar. Sayılar filtrelerden etkilenmez, arşivliler sayılmaz.
 - Filtre satırı: arama kutusu (300 ms debounce), "All sources", "Any work mode", "Show archived (n)", "Clear filters" (filtre varken), sağda Board / List.
 - Board: 5 sütun, başlıkta sayı; her sütun kendi içinde kaydırılır. Durum filtresi (özet kartı) board'da da geçerlidir: diğer sütunlar boş görünür (prototipteki gibi). Kart: şirket, pozisyon, "Vienna · Hybrid", "LinkedIn · 3 days ago" (`time_ago`). Rejected daraltılmış ("Show" / "Hide"; "Hidden to keep the board calm. Drop a card here to reject it."), kapalıyken de bırakma alanı. Boş sütun: "No jobs here". Sütunda ilk 20 + "Show more (n)". Arşivli kart soluk, "ARCHIVED" etiketi ve "Restore", sürüklenmez.

@@ -18,9 +18,10 @@ def column_html(html: str, status: str) -> str:
     return re.search(rf'<section[^>]*data-column="{status}".*?</section>', html, re.S).group(0)
 
 
-def summary_count(html: str, status: str) -> int:
-    card = re.search(rf'data-summary="{status}".*?<strong[^>]*>(\d+)</strong>', html, re.S)
-    return int(card.group(1))
+def column_count(html: str, status: str) -> int:
+    """The number in a column's heading."""
+    heading = re.search(r"<h2.*?</h2>", column_html(html, status), re.S).group(0)
+    return int(re.findall(r">(\d+)</span>", heading)[-1])
 
 
 def test_without_jobs_the_page_says_so(auth_client):
@@ -28,7 +29,6 @@ def test_without_jobs_the_page_says_so(auth_client):
 
     assert "No applications yet." in html
     assert "data-column=" not in html  # no empty board
-    assert [summary_count(html, s) for s in ("saved", "applied", "rejected")] == [0, 0, 0]
 
 
 def test_the_board_has_five_columns_in_order(auth_client, session, user):
@@ -58,7 +58,8 @@ def test_cards_are_in_their_column_newest_on_top(auth_client, session, user):
     saved = column_html(html, "saved")
     assert saved.index("Second") < saved.index("First")
     assert "Sent" in column_html(html, "applied") and "Sent" not in saved
-    assert (summary_count(html, "saved"), summary_count(html, "applied")) == (2, 1)
+    assert (column_count(html, "saved"), column_count(html, "applied")) == (2, 1)
+    assert column_count(html, "offer") == 0
 
 
 def test_a_card_shows_place_source_and_when(auth_client, session, user):
@@ -115,7 +116,17 @@ def test_another_users_jobs_are_never_shown(auth_client, session, user):
     html = auth_client.get("/").text
 
     assert "Their Secret GmbH" not in html
-    assert summary_count(html, "saved") == 1
+    assert column_count(html, "saved") == 1
+
+
+def test_the_board_has_no_summary_cards(auth_client, session, user):
+    # The column headings already show each status and its count (D-070).
+    add(session, user)
+
+    html = auth_client.get("/").text
+
+    assert "data-summary=" not in html and "Pipeline summary" not in html
+    assert "Jobs you are considering" not in html
 
 
 def test_things_from_later_milestones_are_not_on_the_page(auth_client, session, user):

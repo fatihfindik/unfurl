@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.10 — 2026-11-16
+> **Durum:** MVP planı, v2.1.11 — 2026-11-16
+> v2.1.11: Özet kartları sadece liste görünümünde gösterilir; board'da sütun başlıkları aynı bilgiyi (durum + sayı) zaten verir. Duruma göre filtre de liste görünümündedir. Karar: DECISIONS D-070.
 > v2.1.10: M4a Design kararları. `Application.last_activity_at` (kartta ve listede "Updated"). "Add job"da Work mode alanı; kaynak linkten türetilir. M4a'da arşivleme liste satırından. Aynı sütunda sıra değiştirmenin Undo'su yok. Kullanıcı başına en fazla 2.000 başvuru. Klavyeyle durum değiştirme M4b'nin kabul kriteri. Kararlar: DECISIONS D-061…D-069.
 > v2.1.9: M4 üçe bölündü (M4a board + Undo altyapısı + tema, M4b detay sayfası + next step + mülakat, M4c başvuruda belgeler + M2/M3'ten ertelenenler). Sonraki milestone'lara bağlı parçalar (uyum skoru rozeti, minimum skor filtresi, Fit sıralaması: M7; "Auto-fill with AI": M5) M4'te gösterilmez. Karar: DECISIONS D-060.
 > v2.1.8: M3b Design kararları. CV'de uyruk için ayrı kutu (`show_nationality`); fotoğraf, doğum tarihi ve uyruk kutuları varsayılan olarak kapalıdır ve değer CV'ye sadece kutusu açıkken kopyalanır. CV dili oluştururken seçilir, sonra değişmez. Kararlar: DECISIONS D-051…D-059.
@@ -554,7 +555,7 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 
 ### 6.3 Applications – ana sayfa (/)
 Giriş sonrası açılan sayfa Applications'tır (ayrı bir Dashboard yok).
-- **Özet kartları:** 5 durum (Saved, Applied, Interview, Offer, Rejected), her biri sayı + kısa açıklama ("Waiting for a reply"). Karta tıklamak listeyi o duruma göre filtreler, tekrar tıklamak filtreyi kaldırır. Arşivlenenler sayılmaz.
+- **Özet kartları (sadece liste görünümünde, D-070):** 5 durum (Saved, Applied, Interview, Offer, Rejected), her biri sayı + kısa açıklama ("Waiting for a reply"). Karta tıklamak listeyi o duruma göre filtreler, tekrar tıklamak filtreyi kaldırır. Arşivlenenler sayılmaz. Board görünümünde kartlar gösterilmez: sütun başlıkları durumu ve sayıyı zaten verir.
 - **Needs attention:** Next step tarihi bugün veya geçmiş olan başvurular (6.13). Sıralama: bugün/geçmiş tarihli → mülakat → follow-up → bekleyen kayıt. En acil 3 madde gösterilir, fazlası "Show all (n)" ile açılır. Her maddede eylem linki ve "Snooze" (3 gün gizler, toast + Undo).
 - Filtreler ve görünüm 6.7'de.
 - Seri ve haftalık saat Learning sayfasında, profil gücü Documents sayfasında gösterilir.
@@ -1101,7 +1102,7 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 
 ### M4a — Board
 - `Application` (5.5) ve `ApplicationEvent` (5.6) tabloları. Bu parçanın kullanmadığı kolonlar kendi parçasında eklenir (D-025 kalıbı).
-- Applications ana sayfası (6.3, 6.7): özet kartları (5 durum, tıklayınca filtre), Kanban (SortableJS sürükle-bırak, sütun içi sıra, daraltılmış Rejected, sütunda ilk 20 + "Show more"), liste görünümü (Company'ye göre sıralama, sayfa başına 25), arama (şirket, pozisyon, şehir), filtreler (kaynak, çalışma şekli), "Clear filters", "Show archived (n)" + Restore.
+- Applications ana sayfası (6.3, 6.7): Kanban (SortableJS sürükle-bırak, sütun içi sıra, daraltılmış Rejected, sütunda ilk 20 + "Show more"), liste görünümü (üstünde özet kartları: 5 durum, tıklayınca filtre; Company'ye göre sıralama, sayfa başına 25), arama (şirket, pozisyon, şehir), filtreler (kaynak, çalışma şekli), "Clear filters", "Show archived (n)" + Restore.
 - Manuel **"Add job"** modalı (AI'sız): link veya ilan metni (tek alan), Company, Role, Location, Work mode, Status. Kaynak linkten türetilir (D-062). Kayıt sonrası toast + Undo. Kullanıcı başına en fazla 2.000 başvuru.
 - Durum değişikliği event oluşturur; `applied` olunca `applied_at` boşsa bugünün tarihi atanır. Arşivleme M4a'da liste satırındaki "Archive" ile; arşivli satır ve kartta "Restore" (D-066).
 - **Toast + Undo altyapısı** (6.0/2): sunucudan tetiklenen toast ve Undo; M4a'da durum, arşiv, restore ve ekleme için. Aynı sütunda sadece sıra değiştirmek toast üretmez (D-065).

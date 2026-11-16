@@ -1,5 +1,6 @@
 {#- Summary cards (SPEC §6.3): one per status with its count. Archived jobs are not
-    counted. Clicking a card to filter comes with the filters (plan M4a, step 7). -#}
+    counted. Shown above the list view only (D-070); on the board the column
+    headings say the same. Clicking a card to filter comes with the filters. -#}
 {% from "applications/_status.html" import status_dot %}
 <section aria-label="Pipeline summary" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
   {%- for column in columns %}

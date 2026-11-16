@@ -1,10 +1,11 @@
-{#- The part of the page that shows the jobs: summary cards and the board. After a
-    change the server sends the "applications-changed" event (HX-Trigger) and this
-    region asks for itself again (D-065), so counts and columns are always the
-    server's. Context: columns, has_applications. -#}
+{#- The part of the page that shows the jobs. After a change the server sends the
+    "applications-changed" event (HX-Trigger) and this region asks for itself again
+    (D-065), so counts and columns are always the server's.
+    The board has no summary cards: its column headings already show each status
+    and its count. The cards (_summary.html) belong to the list view (D-070).
+    Context: columns, has_applications. -#}
 <div id="applications-region" class="flex flex-col gap-[18px]"
      hx-get="/" hx-trigger="applications-changed from:body" hx-swap="outerHTML">
-  {% include "applications/_summary.html" %}
   {%- if has_applications %}
     {% include "applications/_board.html" %}
   {%- else %}
