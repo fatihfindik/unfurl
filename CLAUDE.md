@@ -39,7 +39,7 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - [x] M2a Profile: sections (add, edit, delete)
 - [x] M2b Profile: reorder, photo, profile strength
 - [x] M3a CV documents: master / versions / locks, editor + HTML preview
-- [ ] M3b CV PDF: 3 templates × 3 languages (WeasyPrint)
+- [x] M3b CV PDF: 3 templates × 3 languages (WeasyPrint)
 - [ ] M4 Application tracking home (board, next step, interview, archive, toast + undo, theme)
 - [ ] M5 AI foundation + job extraction
 - [ ] M6 Chrome extension
