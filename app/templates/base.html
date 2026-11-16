@@ -58,7 +58,7 @@
   <div class="flex min-w-0 flex-1 flex-col">
     <div class="relative flex items-center justify-end gap-2.5 border-b border-border bg-surface px-4 py-2.5 md:px-8">
 
-      {{ theme_picker(theme) }}
+      {{ theme_picker(theme, save_url="/settings/theme" if current_user) }}
 
       {#- Static in M0; the unread badge and the panel come in M11. -#}
       <button type="button" aria-label="Notifications"

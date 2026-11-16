@@ -54,7 +54,10 @@ def test_assets_come_from_our_own_origin(auth_client):
     # Every script has a /static src: no CDNs and no inline scripts (SPEC §10.1).
     for tag in scripts:
         assert 'src="/static/' in tag
-    assert '<link rel="stylesheet" href="/static/css/app.css">' in html
+    # Our own stylesheet and script carry the time they last changed (?v=…), so a
+    # browser never mixes a new page with an old cached file.
+    assert re.search(r'<link rel="stylesheet" href="/static/css/app\.css\?v=\d+">', html)
+    assert re.search(r'<script src="/static/js/app\.js\?v=\d+" defer>', html)
     assert not re.search(r'(src|href)="(https?:)?//', html)
 
 

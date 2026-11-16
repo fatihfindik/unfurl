@@ -82,7 +82,7 @@ def stored(session, cv) -> CVContent:
 def test_editor_shows_form_and_preview(auth_client, copy):
     page = auth_client.get(f"/cvs/{copy.id}").text
 
-    assert '<link rel="stylesheet" href="/static/css/cv_classic.css">' in page
+    assert '<link rel="stylesheet" href="/static/css/cv_classic.css?v=' in page
     assert 'id="cv-form"' in page and 'hx-trigger="input delay:500ms"' in page
     assert 'class="cv-paper cv-classic"' in page
     assert "Shipped it" in page

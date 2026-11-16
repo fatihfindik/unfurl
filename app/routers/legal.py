@@ -4,12 +4,15 @@ Open to everyone, logged in or not. The texts are placeholders until a legal
 review before launch (M13).
 """
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
+from app.services.auth_service import current_user
 from app.templating import templates
 
-router = APIRouter()
+# current_user (not require_user): open to everyone, but a logged-in user is known,
+# so the page uses their theme and the theme picker saves to the account (D-068).
+router = APIRouter(dependencies=[Depends(current_user)])
 
 
 def legal_page(request: Request, page: str, title: str) -> HTMLResponse:

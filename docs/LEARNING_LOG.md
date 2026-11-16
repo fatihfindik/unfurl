@@ -255,3 +255,46 @@
   only while on, CV language fixed at creation). Decisions D-051…D-059.
 - WORKFLOW: no. Notes for M13: rate limit per user for the PDF route, a cap on
   parallel PDF renders, a request body size limit, delete photo files with the account.
+
+## M4a — Applications board (2026-11-16)
+
+**What I learned**
+- Undo without a table: the server writes "what to take back" into a small note,
+  signs it with SECRET_KEY and gives it to the toast. Anyone can read the note, but
+  nobody can change or forge it. Undo only works while that action is still the
+  newest change, so an old Undo never overwrites a newer one.
+- The server can tell the page what happened through a response header
+  (`HX-Trigger`): show a toast, reload the board, close the modal. The page listens
+  and asks for the board again, so the screen always shows what is stored. HTTP
+  headers only carry ASCII, so "Şişecam" is written as \u escapes (json.dumps).
+- Sorting and numbering: dragging a card sends "the card above it", not a number,
+  because with filters or "Show more" the screen is not the whole column. A separate
+  `last_activity_at` keeps "Updated" honest when neighbours are renumbered.
+- Comparing text for people is harder than `lower()`: "İstanbul".casefold() is not
+  "istanbul". One `search_key()` (Turkish letters, accents removed, casefold) is
+  used for search and sorting, the same in SQLite and Postgres.
+- Browsers keep old files: after a change the page came with an old stylesheet.
+  A `?v=<time changed>` on our own CSS and JS fixes it for good. And with
+  hx-history="false" the back button asks the server again, which then has to send
+  the whole page, not a piece.
+
+**What was hard**
+- Things only a real browser shows: the old cached stylesheet, a card that couldn't
+  be dropped into the closed Rejected column (it was hidden while dragged), the back
+  button returning half a page.
+- Seeing the same information twice on the board (summary cards and column
+  headings) only became obvious on the real screen.
+
+**What I will do differently**
+- Look at the first screen of a milestone early, before the details, so layout
+  questions (like the summary cards) come up in step 2, not step 6.
+- Keep a test account with a known password for local testing.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes. v2.1.9 (M4 split into M4a/M4b/M4c), v2.1.10 (M4a Design decisions:
+  `last_activity_at`, work mode in Add job, archive from the list row, keyboard
+  status change in M4b), v2.1.11 (summary cards only above the list). Decisions
+  D-060…D-070.
+- WORKFLOW: no. Notes for M13: key the rate limits by user behind a proxy, the
+  2,000-job cap can be passed by a few with parallel requests (D-061).
+

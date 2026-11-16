@@ -190,10 +190,18 @@ def test_deleting_from_the_list_reloads_it(auth_client, session, user):
     assert response.headers["HX-Redirect"] == "/documents"
 
 
-@pytest.mark.parametrize("url", ["/", "/documents", "/profile", "/learning"])
+@pytest.mark.parametrize("url", ["/documents", "/profile", "/learning"])
 def test_pages_are_left_aligned_with_a_max_width(auth_client, url):
     # Left-aligned, not centred (Fatih, 2026-11-15); the width limit stays.
     page = auth_client.get(url).text
 
     assert "max-w-[1240px]" in page
+    assert "mx-auto w-full" not in page
+
+
+def test_the_board_page_uses_the_whole_width(auth_client):
+    # Five columns need the room (prototype Applications.dc.html has no width limit).
+    page = auth_client.get("/").text
+
+    assert "max-w-[1240px]" not in page
     assert "mx-auto w-full" not in page

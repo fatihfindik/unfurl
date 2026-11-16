@@ -34,7 +34,7 @@ from app.services.auth_service import (
     user_from_reset_token,
     user_from_verify_token,
 )
-from app.templating import is_htmx, templates
+from app.templating import is_htmx, set_theme_cookie, templates
 
 router = APIRouter()
 
@@ -131,7 +131,11 @@ def login(
     session.add(user)
     session.commit()
     start_session(request, user)
-    return redirect(safe_redirect_path(next))
+    response = redirect(safe_redirect_path(next))
+    # The account's theme wins over this browser's old choice (D-068); the cookie keeps
+    # the login and legal pages in the same colours after logging out.
+    set_theme_cookie(response, user.theme)
+    return response
 
 
 # --- Register -----------------------------------------------------------------------

@@ -26,7 +26,7 @@ def test_home_is_utf8_html(auth_client):
     "query",
     [
         "?page=2&sort=desc",
-        "?q=%3Cscript%3Ealert(1)%3C/script%3E",
+        "?view=%3Cscript%3Ealert(1)%3C/script%3E",
         "?%22%3E%3Cimg%20src=x%20onerror=alert(1)%3E=1",
         "?theme=dark",
     ],
@@ -41,17 +41,32 @@ def test_query_string_is_ignored_and_not_reflected(auth_client, query):
     assert html_class(response.text) == "theme-system"
 
 
+def test_the_search_text_comes_back_only_escaped(auth_client):
+    # Since M4a the search box shows what was searched for; never as HTML.
+    html = auth_client.get("/?q=%22%3E%3Cscript%3Ealert(1)%3C/script%3E").text
+
+    assert "<script>alert(1)" not in html
+    assert 'value="&#34;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"' in html
+
+
 def test_query_string_keeps_applications_menu_item_current(auth_client):
     # The active menu item is chosen from the path only, so a query string must not break it.
     html = auth_client.get("/?filter=open").text
     assert re.search(r'<a href="/" aria-current="page"', html)
 
 
-@pytest.mark.parametrize("path", ["/index.html", "/applications", "/%3Cscript%3E"])
+@pytest.mark.parametrize("path", ["/index.html", "/applications.html", "/%3Cscript%3E"])
 def test_home_path_variants_are_not_found(auth_client, path):
     response = auth_client.get(path)
     assert response.status_code == 404
     assert "<script>" not in response.text
+
+
+def test_applications_is_only_for_adding_a_job(auth_client):
+    # The list of jobs is the home page; /applications only takes the "Add job" form (M4a).
+    response = auth_client.get("/applications")
+    assert response.status_code == 405
+    assert response.headers["allow"] == "POST"
 
 
 @pytest.mark.parametrize("value", ["Dark", "DARK", "darkx", "theme-dark"])

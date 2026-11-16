@@ -15,8 +15,9 @@ const TOAST_SECONDS = 5;
 
 document.addEventListener("alpine:init", () => {
   // Theme icon in the top bar with a Light / Dark / System menu.
-  // Saves the choice in the `theme` cookie (the server reads it on the next page load)
-  // and switches the class on <html> right away, without a request.
+  // Saves the choice in the `theme` cookie (the server reads it on pages without a
+  // login), and for a logged-in user also in the account (data-save-url), and
+  // switches the class on <html> right away.
   Alpine.data("themePicker", () => ({
     open: false,
 
@@ -69,6 +70,11 @@ document.addEventListener("alpine:init", () => {
       if (!THEMES.includes(theme)) return;
 
       document.cookie = `theme=${theme}; Path=/; Max-Age=${ONE_YEAR_IN_SECONDS}; SameSite=Lax`;
+      // Logged in: also save it with the account, so every device uses it (D-068).
+      const saveUrl = this.$root.dataset.saveUrl;
+      if (saveUrl) {
+        htmx.ajax("POST", saveUrl, { source: this.$root, swap: "none", values: { theme } });
+      }
 
       const html = document.documentElement;
       THEMES.forEach((name) => html.classList.remove(`theme-${name}`));
@@ -103,14 +109,18 @@ document.addEventListener("alpine:init", () => {
 
   // Toast + Undo (SPEC §6.0/2). A store is shared state any script can use:
   //   Alpine.store("toast").show("Archived", "/applications/12/undo")
+  // The server shows one too, with the "toast" event in the HX-Trigger header (below).
+  // undoToken is the signed note of what to take back; it is sent to undoUrl (D-064).
   Alpine.store("toast", {
     visible: false,
     message: "",
     undoUrl: "",
+    undoToken: "",
     timer: null,
-    show(message, undoUrl = "") {
+    show(message, undoUrl = "", undoToken = "") {
       this.message = message;
       this.undoUrl = undoUrl;
+      this.undoToken = undoToken;
       this.visible = true;
       clearTimeout(this.timer);
       this.timer = setTimeout(() => this.hide(), TOAST_SECONDS * 1000);
@@ -120,6 +130,33 @@ document.addEventListener("alpine:init", () => {
       this.visible = false;
     },
   });
+
+  // The board on the Applications page: is the Rejected column open? (SPEC §6.7:
+  // closed at first.) Kept here, outside the part of the page that reloads.
+  Alpine.data("board", () => ({
+    rejectedOpen: false,
+    // As text for the data-rejected attribute: Alpine removes an attribute whose
+    // value is false, and the CSS needs to see "closed" too.
+    get rejectedState() {
+      return this.rejectedOpen ? "open" : "closed";
+    },
+    toggleRejected() {
+      this.rejectedOpen = !this.rejectedOpen;
+    },
+  }));
+
+  // The search and filter form on the Applications page. "Clear filters" loads the
+  // page without filters (its own link); this empties the fields to match.
+  Alpine.data("boardFilters", () => ({
+    clear() {
+      this.$root.querySelectorAll("input[type=search], select").forEach((field) => {
+        field.value = "";
+      });
+      this.$root.querySelectorAll("input[name=archived]").forEach((box) => {
+        box.checked = false;
+      });
+    },
+  }));
 
   // Experience bullets on /profile: one input per bullet (all named "bullets").
   // The server renders the saved bullets; "Add bullet" copies the empty row from the
@@ -151,7 +188,7 @@ document.addEventListener("alpine:init", () => {
     undo() {
       const store = Alpine.store("toast");
       // htmx sends the POST with the same headers as any other htmx request.
-      htmx.ajax("POST", store.undoUrl, { swap: "none" });
+      htmx.ajax("POST", store.undoUrl, { swap: "none", values: { token: store.undoToken } });
       store.hide();
     },
     hide() {
@@ -219,9 +256,72 @@ function initSortable(root) {
   });
 }
 
+// Drag and drop on the board (SPEC §6.7, D-063). Every column's card list
+// (data-board-list, data-status) is a Sortable in the same group, so a card can be
+// dropped into another column or at another place in its own.
+// The server is told the column and the card above (after_id), not a number: with
+// filters or "Show more" the cards on screen are not the whole column.
+// It answers without HTML; the "applications-changed" event then reloads the board
+// from the server (the region's hx-trigger), so the screen shows what is stored.
+function initBoard(root) {
+  root.querySelectorAll("[data-board-list]").forEach((list) => {
+    if (list.dataset.sortReady) return;
+    list.dataset.sortReady = "true";
+    Sortable.create(list, {
+      group: "board",
+      draggable: "[data-card]",
+      filter: "[data-archived]", // archived cards stay where they are
+      preventOnFilter: false, // ...but their Restore button still gets the click
+      animation: 150,
+      ghostClass: "opacity-40",
+      // On a touch screen a drag starts after a short hold, so swiping still scrolls.
+      delay: 150,
+      delayOnTouchOnly: true,
+      onEnd(event) {
+        if (event.from === event.to && event.oldIndex === event.newIndex) return;
+        const card = event.item;
+        // The nearest card above that is on screen and not archived. In a closed
+        // column (Rejected) the cards are hidden: the card goes to the top.
+        let above = card.previousElementSibling;
+        while (above && (!above.dataset.card || above.dataset.archived || !above.offsetParent)) {
+          above = above.previousElementSibling;
+        }
+        htmx.ajax("PATCH", `/applications/${card.dataset.card}/move`, {
+          source: event.to,
+          swap: "none",
+          values: { status: event.to.dataset.status, after_id: above ? above.dataset.card : "" },
+        });
+      },
+    });
+  });
+}
+
 // htmx.onLoad runs for the first page and for every piece of HTML htmx puts in,
 // so lists that come back after a save or a move get drag and drop again.
 htmx.onLoad(initSortable);
+htmx.onLoad(initBoard);
+
+// The filter form sends every field, also the empty ones. Leaving out empty fields
+// and the default view keeps the address short ("/?q=acme", not
+// "/?q=acme&source=&mode=&view=board"); the server reads a missing field as "all".
+document.addEventListener("htmx:configRequest", (event) => {
+  if (!event.detail.elt.closest?.("#board-filters")) return;
+  const params = event.detail.parameters;
+  // htmx 2 gives a FormData here; delete() works on it like on a plain object.
+  const board = params.get("view") !== "list";
+  for (const [name, value] of [...params.entries()]) {
+    if (value === "" || (name === "view" && value === "board")) params.delete(name);
+    // Sort, status and page belong to the list; the server ignores them on the board.
+    else if (board && ["sort", "status", "page"].includes(name)) params.delete(name);
+  }
+});
+
+// If saving a move fails, the card is in the wrong place on screen: reload the board.
+document.addEventListener("htmx:responseError", (event) => {
+  if (event.detail.elt?.dataset?.boardList !== undefined) {
+    htmx.trigger(document.body, "applications-changed");
+  }
+});
 
 // If saving the order fails (e.g. a row was deleted in another tab), the dragged
 // order on screen is wrong. Load the section again so it shows the stored order.
@@ -255,8 +355,22 @@ document.addEventListener("click", (event) => {
     });
 });
 
+// Events the server sends in the HX-Trigger header after a change (D-065).
+// htmx fires them on the page with the header's value as event.detail.
+//   "toast": {message, undo_url, undo_token}  -> show the toast
+//   "close-dialog": "<id>"                    -> close that modal (a string arrives as detail.value)
+document.addEventListener("toast", (event) => {
+  const { message, undo_url: undoUrl, undo_token: undoToken } = event.detail;
+  if (message) Alpine.store("toast").show(message, undoUrl || "", undoToken || "");
+});
+document.addEventListener("close-dialog", (event) => {
+  const dialog = document.getElementById(event.detail.value);
+  if (dialog instanceof HTMLDialogElement && dialog.open) dialog.close();
+});
+
 // Modals and drawers are native <dialog> elements (templates/components/).
 // - Any element with data-dialog-open="<id>" opens that dialog.
+// - Any element with data-dialog-close closes the dialog it is in (Cancel buttons).
 // - A click on the dark backdrop closes it. The dialog's content is wrapped in a
 //   div that fills it, so only a backdrop click has the <dialog> itself as target.
 // Esc, focus handling and the close button (<form method="dialog">) are built into the browser.
@@ -264,6 +378,10 @@ document.addEventListener("click", (event) => {
   const opener = event.target.closest("[data-dialog-open]");
   if (opener) {
     document.getElementById(opener.dataset.dialogOpen)?.showModal();
+    return;
+  }
+  if (event.target.closest("[data-dialog-close]")) {
+    event.target.closest("dialog")?.close();
     return;
   }
   if (event.target instanceof HTMLDialogElement && event.target.open) {

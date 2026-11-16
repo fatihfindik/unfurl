@@ -4,7 +4,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 {#- With an icon link the browser no longer asks for /favicon.ico (which was a 404). -#}
 <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/static/css/app.css">
+{#- static_url adds ?v=<time of last change>, so a browser never shows a new page
+    with an old stylesheet or script. The vendored files below only change with
+    their version, by hand. -#}
+<link rel="stylesheet" href="{{ static_url('css/app.css') }}">
 {#- htmx settings, read when htmx starts (a meta tag, so no inline script is needed):
     no eval (hx-on, hx-vars, js: values), no <script> tags run from swapped HTML,
     and no inline <style> for .htmx-indicator (it lives in input.css). Keeps htmx
@@ -14,5 +17,5 @@
     app.js must run before alpine.min.js (see app.js). -#}
 <script src="/static/js/htmx.min.js" defer></script>
 <script src="/static/js/sortable.min.js" defer></script>
-<script src="/static/js/app.js" defer></script>
+<script src="{{ static_url('js/app.js') }}" defer></script>
 <script src="/static/js/alpine.min.js" defer></script>

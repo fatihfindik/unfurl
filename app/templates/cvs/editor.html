@@ -5,10 +5,10 @@
 
 {#- All three template stylesheets: switching the template only changes a class. -#}
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/css/cv_base.css">
-  <link rel="stylesheet" href="/static/css/cv_classic.css">
-  <link rel="stylesheet" href="/static/css/cv_modern.css">
-  <link rel="stylesheet" href="/static/css/cv_compact.css">
+  <link rel="stylesheet" href="{{ static_url('css/cv_base.css') }}">
+  <link rel="stylesheet" href="{{ static_url('css/cv_classic.css') }}">
+  <link rel="stylesheet" href="{{ static_url('css/cv_modern.css') }}">
+  <link rel="stylesheet" href="{{ static_url('css/cv_compact.css') }}">
 {% endblock %}
 {% block title %}{{ cv.title }}{% endblock %}
 

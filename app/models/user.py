@@ -36,5 +36,9 @@ class User(SQLModel, table=True):
     plan: str = Field(default="free", max_length=20)
     plan_expires_at: datetime | None = Field(default=None, sa_column=datetime_column(nullable=True))
 
+    # Light / dark / system (SPEC §5.1, §6.0). Saved with the account, so it is the same
+    # on every device (D-068). Valid values: app.templating.THEMES.
+    theme: str = Field(default="system", max_length=10)
+
     created_at: datetime = created_at_field()
     updated_at: datetime = updated_at_field()

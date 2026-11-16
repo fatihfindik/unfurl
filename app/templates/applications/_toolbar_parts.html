@@ -1,0 +1,20 @@
+{#- The parts of the toolbar only the server can keep right: "Show archived (n)" (the
+    number changes when a job is archived) and "Clear filters" (shown while a filter
+    is on). The toolbar draws them on page load; after that the region sends them
+    again with every reload (oob=True: htmx puts them in place by their id).
+    "Clear filters" also empties the form fields (boardFilters in app.js). -#}
+{% macro filter_extras(query, clear_url, archived_count, oob=False) %}
+  <span id="filter-extras" class="flex flex-wrap items-center gap-2.5"{% if oob %} hx-swap-oob="true"{% endif %}>
+    {%- if archived_count or query.archived %}
+      <label class="flex cursor-pointer items-center gap-2 text-[13px] text-text-2">
+        <input type="checkbox" name="archived" value="1"{% if query.archived %} checked{% endif %}>
+        Show archived ({{ archived_count }})
+      </label>
+    {%- endif %}
+    {%- if query.has_filters %}
+      <a href="{{ clear_url }}" hx-get="{{ clear_url }}" hx-target="#applications-region" hx-swap="outerHTML"
+         hx-push-url="true" x-on:click="clear"
+         class="text-[13px] font-semibold text-link no-underline hover:underline">Clear filters</a>
+    {%- endif %}
+  </span>
+{%- endmacro %}
