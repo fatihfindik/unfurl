@@ -244,3 +244,27 @@ def test_another_users_archived_jobs_are_not_counted_or_shown(auth_client, sessi
 
     assert "Show archived (1)" in html
     assert "Their Archive" not in html
+
+
+# --- Rate limits on the other write routes (security review M4a, A) -------------------------
+
+
+def test_moving_archiving_and_the_theme_are_rate_limited(auth_client, session, user, jobs):
+    job = jobs["A"]
+    headers = {"HX-Request": "true", "X-CSRF-Token": csrf_token(auth_client)}
+
+    moves = [
+        auth_client.patch(f"/applications/{job.id}/move", data={"status": "saved"}, headers=headers)
+        for _ in range(121)
+    ]
+    themes = [
+        auth_client.post("/settings/theme", data={"theme": "dark"}, headers=headers)
+        for _ in range(31)
+    ]
+    archives = [
+        auth_client.post(f"/applications/{job.id}/archive", headers=headers) for _ in range(61)
+    ]
+
+    assert moves[-1].status_code == 429 and moves[-2].status_code != 429
+    assert themes[-1].status_code == 429 and themes[-2].status_code == 204
+    assert archives[-1].status_code == 429 and archives[-2].status_code == 204

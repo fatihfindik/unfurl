@@ -308,8 +308,11 @@ document.addEventListener("htmx:configRequest", (event) => {
   if (!event.detail.elt.closest?.("#board-filters")) return;
   const params = event.detail.parameters;
   // htmx 2 gives a FormData here; delete() works on it like on a plain object.
+  const board = params.get("view") !== "list";
   for (const [name, value] of [...params.entries()]) {
     if (value === "" || (name === "view" && value === "board")) params.delete(name);
+    // Sort, status and page belong to the list; the server ignores them on the board.
+    else if (board && ["sort", "status", "page"].includes(name)) params.delete(name);
   }
 });
 

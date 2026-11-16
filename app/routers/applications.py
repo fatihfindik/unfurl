@@ -227,6 +227,7 @@ def add_job_form(request: Request, values: dict | None, errors: dict | None) -> 
 
 
 @router.patch("/applications/{application_id}/move")
+@limiter.limit("120/minute")  # each move renumbers up to two columns
 def application_move(
     request: Request,
     session: DbSession,
@@ -273,6 +274,7 @@ def application_undo(request: Request, session: DbSession, user: RequiredUser, d
 
 
 @router.post("/applications/{application_id}/archive")
+@limiter.limit("60/minute")
 def application_archive(
     request: Request, session: DbSession, user: RequiredUser, application_id: str
 ):
@@ -291,6 +293,7 @@ def application_archive(
 
 
 @router.post("/applications/{application_id}/restore")
+@limiter.limit("60/minute")
 def application_restore(
     request: Request, session: DbSession, user: RequiredUser, application_id: str
 ):

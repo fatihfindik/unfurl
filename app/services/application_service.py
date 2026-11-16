@@ -385,11 +385,20 @@ def undo(
         session.commit()
         return None
 
-    applied_at = before.get("applied_at")
-    application.applied_at = dt.date.fromisoformat(applied_at) if applied_at else None
-    application.last_activity_at = dt.datetime.fromisoformat(before["last_activity_at"])
-    application.archived = bool(before["archived"])
-    index = None if application.archived else int(before.get("index") or 0)
+    try:
+        applied_at = before.get("applied_at")
+        applied_at = dt.date.fromisoformat(applied_at) if applied_at else None
+        last_activity_at = dt.datetime.fromisoformat(before["last_activity_at"])
+        archived = bool(before["archived"])
+        index = None if archived else int(before.get("index") or 0)
+    except (KeyError, TypeError, ValueError):
+        # Never with our own tokens; a broken note is "nothing to undo", not a 500
+        # (test-writer M4a). The deleted events come back with the rollback.
+        session.rollback()
+        raise NothingToUndo from None
+    application.applied_at = applied_at
+    application.last_activity_at = last_activity_at
+    application.archived = archived
     _place(session, user, application, before["status"], index)
     session.add(application)
     session.commit()

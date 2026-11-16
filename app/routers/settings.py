@@ -5,12 +5,13 @@ The Settings page itself comes in M11 (app/routers/placeholders.py until then).
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import Response
 from sqlmodel import Session
 
 from app.db import get_session
 from app.models import User
+from app.security import limiter
 from app.services.auth_service import require_user
 from app.templating import THEMES, set_theme_cookie
 
@@ -21,7 +22,10 @@ RequiredUser = Annotated[User, Depends(require_user)]
 
 
 @router.post("/settings/theme")
-def save_theme(session: DbSession, user: RequiredUser, theme: Annotated[str, Form()] = ""):
+@limiter.limit("30/minute")
+def save_theme(
+    request: Request, session: DbSession, user: RequiredUser, theme: Annotated[str, Form()] = ""
+):
     """The theme picker (D-068): save the choice with the account, so it is the same on
     every device. The cookie is written too, for the pages without a login."""
     if theme not in THEMES:
