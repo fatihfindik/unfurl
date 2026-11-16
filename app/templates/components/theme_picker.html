@@ -1,16 +1,18 @@
 {#- Theme picker (SPEC §2, D-018): one icon button that opens a Light / Dark / System menu.
     The button shows the current theme's icon: data-current on the button picks which of
     the three icons is visible. In the menu, aria-checked marks the chosen row (✓).
-    Behaviour (open/close, arrow keys, saving the choice) is `themePicker` in app.js.
+    Behaviour (open/close, arrow keys, saving the choice in the cookie and, with
+    save_url, in the account) is `themePicker` in app.js.
 
     {% from "components/theme_picker.html" import theme_picker %}
-    {{ theme_picker(theme) }}
+    {{ theme_picker(theme, save_url="/settings/theme" if current_user) }}
 -#}
 {%- from "components/icons.html" import icon -%}
 
-{% macro theme_picker(theme) %}
+{% macro theme_picker(theme, save_url=None) %}
   {%- set theme_options = [("light", "Light"), ("dark", "Dark"), ("system", "System")] %}
-  <div class="relative" x-data="themePicker" x-on:click.outside="close" x-on:keydown.escape="closeAndFocusButton">
+  {#- save_url only for a logged-in user: the choice is also saved with the account (D-068). -#}
+  <div class="relative" x-data="themePicker"{% if save_url %} data-save-url="{{ save_url }}"{% endif %} x-on:click.outside="close" x-on:keydown.escape="closeAndFocusButton">
     <button type="button" x-ref="button" data-current="{{ theme }}" aria-label="Color theme" title="Color theme"
             aria-haspopup="menu" aria-controls="theme-menu" aria-expanded="false"
             x-bind:aria-expanded="open" x-on:click="toggle"

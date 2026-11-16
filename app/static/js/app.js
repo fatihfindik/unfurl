@@ -15,8 +15,9 @@ const TOAST_SECONDS = 5;
 
 document.addEventListener("alpine:init", () => {
   // Theme icon in the top bar with a Light / Dark / System menu.
-  // Saves the choice in the `theme` cookie (the server reads it on the next page load)
-  // and switches the class on <html> right away, without a request.
+  // Saves the choice in the `theme` cookie (the server reads it on pages without a
+  // login), and for a logged-in user also in the account (data-save-url), and
+  // switches the class on <html> right away.
   Alpine.data("themePicker", () => ({
     open: false,
 
@@ -69,6 +70,11 @@ document.addEventListener("alpine:init", () => {
       if (!THEMES.includes(theme)) return;
 
       document.cookie = `theme=${theme}; Path=/; Max-Age=${ONE_YEAR_IN_SECONDS}; SameSite=Lax`;
+      // Logged in: also save it with the account, so every device uses it (D-068).
+      const saveUrl = this.$root.dataset.saveUrl;
+      if (saveUrl) {
+        htmx.ajax("POST", saveUrl, { source: this.$root, swap: "none", values: { theme } });
+      }
 
       const html = document.documentElement;
       THEMES.forEach((name) => html.classList.remove(`theme-${name}`));

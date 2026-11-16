@@ -6,7 +6,7 @@ It lives in its own module so routers can import it without importing app.main
 
 from pathlib import Path
 
-from fastapi import Request
+from fastapi import Request, Response
 from fastapi.templating import Jinja2Templates
 
 from app.models.base import as_utc, utcnow
@@ -17,17 +17,27 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 THEMES = ("light", "dark", "system")
 DEFAULT_THEME = "system"
+THEME_COOKIE_SECONDS = 365 * 24 * 60 * 60  # one year, like app.js
+
+
+def set_theme_cookie(response: Response, theme: str) -> None:
+    """The `theme` cookie, as app.js writes it (D-007, D-019): read by JavaScript and
+    the server, no personal data, so neither HttpOnly nor Secure is needed."""
+    response.set_cookie(
+        "theme", theme, max_age=THEME_COOKIE_SECONDS, path="/", samesite="lax", httponly=False
+    )
 
 
 def theme_context(request: Request) -> dict:
-    """Add `theme` to every template, read from the `theme` cookie.
+    """Add `theme` to every template: the logged-in user's choice, or for visitors
+    (login and legal pages) the `theme` cookie.
 
-    The theme class is put on <html> by the server, so the page never flashes
-    in the wrong colours while loading (SPEC §6.0). Until users exist (M1) the
-    choice lives in a cookie; in M4 it moves to User.theme.
-    Unknown values fall back to "system", so the cookie can't inject HTML/CSS.
+    The theme class is put on <html> by the server, so the page never flashes in the
+    wrong colours while loading (SPEC §6.0). Unknown values fall back to "system",
+    so neither the cookie nor the database can inject HTML/CSS (D-007, D-068).
     """
-    theme = request.cookies.get("theme")
+    user = getattr(request.state, "user", None)
+    theme = user.theme if user is not None else request.cookies.get("theme")
     if theme not in THEMES:
         theme = DEFAULT_THEME
     return {"theme": theme}

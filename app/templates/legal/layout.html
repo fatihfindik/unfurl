@@ -16,7 +16,7 @@
       {{ logo_mark() }}
       <span class="font-display text-[19px] font-bold tracking-[-0.02em] text-text">Unfurl</span>
     </a>
-    {{ theme_picker(theme) }}
+    {{ theme_picker(theme, save_url="/settings/theme" if current_user) }}
   </header>
 
   <main class="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-4 px-4 py-10 md:px-8">
