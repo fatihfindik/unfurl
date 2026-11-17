@@ -10,7 +10,7 @@ documents come with M4b and M4c. The rules live in app/services/application_serv
 
 import datetime as dt
 
-from sqlalchemy import Column, Index, Text
+from sqlalchemy import JSON, Column, ForeignKey, Index, Integer, Text
 from sqlmodel import Field, SQLModel
 
 from app.models.base import created_at_field, datetime_column, updated_at_field, utcnow
@@ -95,6 +95,23 @@ class Application(SQLModel, table=True):
     contact_email: str | None = Field(default=None, max_length=320)
     salary_text: str | None = Field(default=None, max_length=SHORT_TEXT)
     notes: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    # The CV used for this application now (D-080). A CV can be the current one of one
+    # application only (unique). use_alter: application and cvdocument point at each
+    # other, so this constraint is added after both tables exist.
+    cv_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer,
+            ForeignKey(
+                "cvdocument.id",
+                ondelete="SET NULL",
+                use_alter=True,
+                name="fk_application_cv_id_cvdocument",
+            ),
+            nullable=True,
+            unique=True,
+        ),
+    )
     # Hidden from Needs attention until then (D-074).
     snoozed_until: dt.datetime | None = Field(
         default=None, sa_column=datetime_column(nullable=True)
@@ -123,6 +140,30 @@ class ApplicationEvent(SQLModel, table=True):
     from_status: str | None = Field(default=None, max_length=10)
     to_status: str | None = Field(default=None, max_length=10)
     message: str | None = Field(default=None, sa_column=Column(Text, nullable=True))  # a note: long
+
+    created_at: dt.datetime = created_at_field()
+    updated_at: dt.datetime = updated_at_field()
+
+
+DOC_TYPES = ("cv", "cover_letter")
+
+
+class ApplicationDocument(SQLModel, table=True):
+    """What was sent with an application (SPEC §5.4b, D-083): "what exactly did I send
+    to this company?". The content is a full copy, so it stays even if the document
+    changes or is deleted later."""
+
+    __tablename__ = "applicationdocument"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    application_id: int = Field(foreign_key="application.id", ondelete="CASCADE", index=True)
+    doc_type: str = Field(max_length=20)  # one of DOC_TYPES
+    document_id: int | None = Field(
+        default=None, foreign_key="cvdocument.id", ondelete="SET NULL", index=True
+    )
+    content_snapshot: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    sent_at: dt.datetime = Field(default_factory=utcnow, sa_column=datetime_column(nullable=False))
 
     created_at: dt.datetime = created_at_field()
     updated_at: dt.datetime = updated_at_field()
