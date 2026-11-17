@@ -385,6 +385,27 @@ document.addEventListener("click", (event) => {
   if (button) openInterview(button.dataset.interviewOpen);
 });
 
+// The "Add task" modal on the Learning page: the form is loaded first, with the
+// user's current goals (a "+ Add task" on a goal card picks that goal), then the
+// modal opens. data-task-open is "" or a goal id.
+function openTaskForm(goalId) {
+  const dialog = document.getElementById("add-task");
+  if (!dialog || !/^\d*$/.test(String(goalId))) return;
+  htmx
+    .ajax("GET", `/learning/tasks/new?goal=${goalId}`, {
+      target: "#add-task-body",
+      swap: "innerHTML",
+    })
+    .then(() => {
+      if (!dialog.open) dialog.showModal();
+      dialog.querySelector("input[name=title]")?.focus();
+    });
+}
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-task-open]");
+  if (button) openTaskForm(button.dataset.taskOpen);
+});
+
 // A toast from the previous request (templating.set_flash), e.g. after deleting a CV
 // in the editor the Documents page opens and offers Undo.
 document.addEventListener("alpine:initialized", () => {

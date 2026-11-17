@@ -15,7 +15,8 @@
 {% endmacro %}
 
 {#- `id_prefix` keeps ids unique when several forms are on one page (e.g. /profile). -#}
-{% macro text_field(name, label, type="text", value="", error=None, hint=None, autocomplete=None, required=True, maxlength=None, id_prefix="field", placeholder=None) %}
+{#- step/min/max: for type="number" and type="date" (the server checks the values again). -#}
+{% macro text_field(name, label, type="text", value="", error=None, hint=None, autocomplete=None, required=True, maxlength=None, id_prefix="field", placeholder=None, step=None, min=None, max=None) %}
   {%- set field_id = id_prefix ~ "-" ~ name %}
   {%- set described_by = [] %}
   {%- if hint %}{% set _ = described_by.append(field_id ~ "-hint") %}{% endif %}
@@ -27,6 +28,9 @@
            {%- if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}
            {%- if maxlength %} maxlength="{{ maxlength }}"{% endif %}
            {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}
+           {%- if step %} step="{{ step }}"{% endif %}
+           {%- if min %} min="{{ min }}"{% endif %}
+           {%- if max %} max="{{ max }}"{% endif %}
            {%- if required %} required{% endif %}
            {%- if error %} aria-invalid="true"{% endif %}
            {%- if described_by %} aria-describedby="{{ described_by | join(' ') }}"{% endif %}>

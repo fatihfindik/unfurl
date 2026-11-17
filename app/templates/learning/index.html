@@ -1,14 +1,28 @@
 {% extends "base.html" %}
 {% from "components/page_header.html" import page_header, page_width %}
+{% from "components/modal.html" import modal %}
+{% from "components/icons.html" import icon %}
 
 {% block title %}Learning{% endblock %}
 
 {#- docs/prototype/Learning.dc.html, SPEC §6.10. -#}
 {% block content %}
-  {{ page_header("Learning", subtitle="Your goals, where you study and what is next.") }}
+  {% call page_header("Learning", subtitle="Your goals, where you study and what is next.") %}
+    <button type="button" data-dialog-open="new-goal"
+            class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]">{{ icon("plus") }}New goal</button>
+  {% endcall %}
   <div class="w-full px-4 pt-6 pb-10 md:px-8">
     <div class="{{ page_width() }}">
       {% include "learning/_region.html" %}
     </div>
   </div>
+
+  {% call modal("new-goal", "New goal") %}
+    {% include "learning/_goal_form.html" %}
+  {% endcall %}
+
+  {#- The form is loaded when the modal opens (app.js openTaskForm). -#}
+  {% call modal("add-task", "Add task") %}
+    <div id="add-task-body"></div>
+  {% endcall %}
 {% endblock %}

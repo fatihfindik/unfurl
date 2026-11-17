@@ -5,15 +5,21 @@ request, calls the service and turns the results into words for the templates.
 """
 
 import datetime as dt
+import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from pydantic import ValidationError
 from sqlmodel import Session
+from starlette.datastructures import FormData
 
 from app.db import get_session
-from app.models import User
-from app.models.learning import WEEKDAYS
+from app.models import LearningGoal, User
+from app.models.learning import UNIT_LABELS, WEEKDAYS
+from app.schemas.learning import GoalForm, TaskForm
+from app.schemas.profile import form_errors
+from app.security import limiter
 from app.services import clock
 from app.services import learning_service as learning
 from app.services.auth_service import require_user
@@ -24,6 +30,15 @@ router = APIRouter(dependencies=[Depends(require_user)])
 
 DbSession = Annotated[Session, Depends(get_session)]
 RequiredUser = Annotated[User, Depends(require_user)]
+
+
+async def read_form_data(request: Request) -> FormData:
+    """The submitted form. An async dependency, so the routes can stay normal (sync)
+    functions that FastAPI runs in a worker thread, next to the database calls."""
+    return await request.form()
+
+
+SubmittedForm = Annotated[FormData, Depends(read_form_data)]
 
 VIEW_TITLES = {"today": "Today", "week": "Next 7 days", "all": "All tasks", "catchup": "Catch-up"}
 DAY_NAMES = dict(zip(WEEKDAYS, ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"), strict=True))
@@ -142,4 +157,123 @@ def learning_page(request: Request, session: DbSession, user: RequiredUser, view
     if is_htmx(request):
         # A tab was picked, or the page asks again after a change: only the region.
         return templates.TemplateResponse(request, "learning/_region.html", context)
-    return templates.TemplateResponse(request, "learning/index.html", context)
+    return templates.TemplateResponse(request, "learning/index.html", context | goal_form_context())
+
+
+def page_events(*, toast: str, undo_url: str = "", undo_token: str = "", **more) -> dict:
+    """The HX-Trigger header after a change (D-065): a toast, and the region reloads
+    itself so the cards, the plan and the goals show the new numbers."""
+    events = {
+        "toast": {"message": toast, "undo_url": undo_url, "undo_token": undo_token},
+        "learning-changed": True,
+    } | more
+    return {"HX-Trigger": json.dumps(events)}
+
+
+# --- New goal (D-093) ---------------------------------------------------------------------
+
+UNIT_CHOICES = [(label, f"{label}s") for label in UNIT_LABELS]  # "Week" shown as "Weeks"
+
+
+def too_many(what: str) -> str:
+    """The message when a limit of D-094 is reached ("goals" or "tasks")."""
+    limit = learning.MAX_GOALS if what == "goals" else learning.MAX_TASKS
+    return f"You have reached the limit of {limit} {what}."
+
+
+def goal_form_context(values: dict | None = None, errors: dict | None = None) -> dict:
+    return {
+        "goal_values": values or {"plan_weekly": "yes"},  # the box starts ticked
+        "goal_errors": errors or {},
+        "unit_choices": UNIT_CHOICES,
+    }
+
+
+def goal_form(request: Request, values=None, errors=None) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request, "learning/_goal_form.html", goal_form_context(values, errors)
+    )
+
+
+@router.post("/learning/goals", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def goal_create(request: Request, session: DbSession, user: RequiredUser, data: SubmittedForm):
+    """The "New goal" form in the modal (htmx). Errors come back as the form."""
+    values = dict(data)
+    try:
+        form = GoalForm.model_validate(values)
+    except ValidationError as exc:
+        return goal_form(request, values, form_errors(exc))
+    if errors := form.field_errors():
+        return goal_form(request, values, errors)
+
+    try:
+        learning.create_goal(
+            session,
+            user,
+            title=form.title,
+            target_date=form.target_date,
+            weekly_hours=form.weekly_hours,
+            resource=form.resource,
+            plan_weekly=form.plan_weekly,
+        )
+    except learning.TooMany:
+        # Either the goals are full, or the planned tasks would pass the task limit.
+        full = len(learning.goals(session, user)) >= learning.MAX_GOALS
+        return goal_form(request, values, {"form": too_many("goals" if full else "tasks")})
+
+    response = goal_form(request)
+    response.headers.update(page_events(toast="Goal created.", **{"close-dialog": "new-goal"}))
+    return response
+
+
+# --- Add task -----------------------------------------------------------------------------
+
+DURATION_CHOICES = [("25", "25 min"), ("45", "45 min"), ("60", "1 h"), ("120", "2 h")]
+
+
+def task_form(request: Request, session: Session, user: User, values: dict, errors=None):
+    goals = learning.goals(session, user)
+    return templates.TemplateResponse(
+        request,
+        "learning/_task_form.html",
+        {
+            "values": values,
+            "errors": errors or {},
+            "goal_choices": [(str(goal.id), goal.title) for goal in goals],
+            "duration_choices": DURATION_CHOICES,
+        },
+    )
+
+
+@router.get("/learning/tasks/new", response_class=HTMLResponse)
+def task_new(request: Request, session: DbSession, user: RequiredUser, goal: str = ""):
+    """The "Add task" form, loaded into the modal when it opens. "+ Add task" on a
+    goal card passes that goal; an unknown id simply preselects nothing."""
+    values = {"goal_id": goal, "due_date": clock.today().isoformat(), "minutes": "45"}
+    return task_form(request, session, user, values)
+
+
+@router.post("/learning/tasks", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def task_create(request: Request, session: DbSession, user: RequiredUser, data: SubmittedForm):
+    values = dict(data)
+    try:
+        form = TaskForm.model_validate(values)
+    except ValidationError as exc:
+        return task_form(request, session, user, values, form_errors(exc))
+    try:
+        goal = learning.get_owned(session, user, LearningGoal, form.goal_id)
+    except HTTPException:
+        return task_form(request, session, user, values, {"goal_id": "Choose a goal."})
+
+    try:
+        learning.add_task(
+            session, user, goal, title=form.title, due_date=form.due_date, minutes=form.minutes
+        )
+    except learning.TooMany:
+        return task_form(request, session, user, values, {"form": too_many("tasks")})
+
+    response = task_form(request, session, user, {})
+    response.headers.update(page_events(toast="Task added.", **{"close-dialog": "add-task"}))
+    return response
