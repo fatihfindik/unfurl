@@ -10,12 +10,13 @@ from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, delete, func, select
 
-from app.models import Application, ApplicationEvent, User
+from app.models import Application, ApplicationDocument, ApplicationEvent, CVDocument, User
 from app.models.application import BOARD_STATUSES, INTERVIEW_TYPES, NEXT_ACTION_TYPES
 from app.models.base import as_utc, utcnow
-from app.services import clock, profile_service
+from app.services import clock, document_service, profile_service
 from app.services import next_step_service as next_step_text
 
 MAX_APPLICATIONS_PER_USER = 2000  # archived ones count too (D-061)
@@ -37,6 +38,11 @@ class TooManyApplications(Exception):
 
 class NotOnBoard(Exception):
     """The status is not a column of the board, or the card is archived."""
+
+
+class CannotLink(Exception):
+    """This CV can't be linked or unlinked here (locked, a master, someone else's, or
+    used by another application)."""
 
 
 class NothingToUndo(Exception):
@@ -308,6 +314,8 @@ def move(
             session, application, "status_changed", from_status=old_status, to_status=status
         )
         clear_next_step(application)  # a new status starts with its automatic next step
+        if status in SENT_STATUSES:
+            lock_sent_cv(session, user, application)  # D-082, same transaction
     _place(session, user, application, status, index)
     session.add(application)
     session.commit()
@@ -351,6 +359,7 @@ NOTE_FIELDS = (
     "interview_type",
     "interview_with",
     "snoozed_until",
+    "cv_id",
 )
 _DATETIME_FIELDS = ("last_activity_at", "next_action_at", "interview_at", "snoozed_until")
 _BOOL_FIELDS = ("archived", "next_action_manual")
@@ -384,6 +393,8 @@ def _from_text(field: str, value):
         return dt.date.fromisoformat(value) if isinstance(value, str) else _bad(field)
     if field in _BOOL_FIELDS:
         return value if isinstance(value, bool) else _bad(field)
+    if field == "cv_id":
+        return value if type(value) is int else _bad(field)
     if field == "next_action_type":  # only known kinds: the page looks up their label
         return value if value in NEXT_ACTION_TYPES else _bad(field)
     if field == "interview_type":
@@ -401,6 +412,10 @@ def note(session: Session, user: User, application: Application) -> dict:
     """The values an undoable action may change, plus "index": the card's place in
     its column (None while archived)."""
     values = {field: _to_text(getattr(application, field)) for field in NOTE_FIELDS}
+    # Where the timeline and the "sent" records stood: everything newer belongs to the
+    # action (it may write more than one event, e.g. a status change and a lock).
+    values["_newest"] = newest_event_id(session, application) or 0
+    values["_sent"] = max((d.id for d in sent_documents(session, user, application)), default=0)
     index = None
     if not application.archived:
         column = [card.id for card in column_of(session, user, application.status)]
@@ -431,6 +446,19 @@ def changes(before: dict, after: dict) -> dict:
     return changed
 
 
+def made_since(session: Session, user: User, application: Application, before: dict) -> dict:
+    """What an action added after the note `before` was taken: its events, the "sent"
+    records and the CVs it locked (for the Undo token, D-079/D-082)."""
+    events = [e.id for e in events_of(session, application) if e.id > before.get("_newest", 0)]
+    sent = [d for d in sent_documents(session, user, application) if d.id > before.get("_sent", 0)]
+    locked = []
+    for record in sent:
+        cv = session.get(CVDocument, record.document_id) if record.document_id else None
+        if cv is not None and cv.locked_at is not None:
+            locked.append([cv.id, as_utc(cv.locked_at).isoformat()])
+    return {"events": events, "sent": [d.id for d in sent], "locked": locked}
+
+
 def newest_event_id(session: Session, application: Application) -> int | None:
     return session.exec(
         select(func.max(ApplicationEvent.id)).where(
@@ -440,7 +468,13 @@ def newest_event_id(session: Session, application: Application) -> int | None:
 
 
 def undo_change(
-    session: Session, user: User, application_id, event_ids: list[int], newest, fields: dict
+    session: Session,
+    user: User,
+    application_id,
+    event_ids: list[int],
+    newest,
+    fields: dict,
+    extra: dict | None = None,
 ) -> Application:
     """Take back one action (D-079): delete its events and write back the "before"
     values of `fields`. Raises NothingToUndo if the application changed since."""
@@ -448,7 +482,9 @@ def undo_change(
         application = get_owned_application(session, user, application_id, lock=True)
     except HTTPException:
         raise NothingToUndo from None
-    if not fields or newest_event_id(session, application) != newest:
+    # An action may change only documents ("Lock as sent"): then fields are empty but
+    # it still made events and records to take back.
+    if not (fields or event_ids or extra) or newest_event_id(session, application) != newest:
         raise NothingToUndo
     current = note(session, user, application)
     if any(_after(f, current[f]) != values[1] for f, values in fields.items() if f != "index"):
@@ -474,15 +510,65 @@ def undo_change(
             session.rollback()  # another Undo was faster
             raise NothingToUndo
 
+    if restored.get("cv_id") is not None:
+        cv = session.get(CVDocument, restored["cv_id"])
+        if cv is None or cv.user_id != user.id:
+            session.rollback()
+            raise NothingToUndo
+    _undo_documents(session, user, application, extra or {})
+
     status = restored.pop("status", application.status)
     for field, value in restored.items():
         setattr(application, field, value)
     if "index" in fields:
         _place(session, user, application, status, None if application.archived else index or 0)
     session.add(application)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:  # e.g. the CV was taken by another application meanwhile
+        session.rollback()
+        raise NothingToUndo from None
     session.refresh(application)
     return application
+
+
+def _undo_documents(session: Session, user: User, application: Application, extra: dict) -> None:
+    """The document side of an Undo (D-080, D-082): delete the "sent" records the action
+    made, unlock the CVs it locked (only the same lock), and delete a copy it created
+    if that copy is still untouched. Raises NothingToUndo if a record is gone."""
+    sent = [i for i in extra.get("sent", []) if type(i) is int]
+    if sent:
+        deleted = session.exec(
+            delete(ApplicationDocument).where(
+                col(ApplicationDocument.id).in_(sent),
+                ApplicationDocument.user_id == user.id,
+                ApplicationDocument.application_id == application.id,
+            )
+        )
+        if deleted.rowcount != len(set(sent)):
+            session.rollback()
+            raise NothingToUndo
+    for pair in extra.get("locked", []):
+        if not (isinstance(pair, list) and len(pair) == 2 and type(pair[0]) is int):
+            continue
+        cv = session.get(CVDocument, pair[0])
+        if cv is not None and cv.user_id == user.id and cv.application_id == application.id:
+            document_service.unlock_after_undo(session, cv, pair[1])
+    created = extra.get("created_cv")
+    if type(created) is int:
+        cv = session.get(CVDocument, created)
+        if (
+            cv is not None
+            and cv.user_id == user.id
+            and cv.application_id == application.id
+            and not cv.is_locked
+            and document_service.never_edited(cv)
+        ):
+            if application.cv_id == cv.id:
+                application.cv_id = None
+                session.add(application)
+                session.flush()
+            session.delete(cv)
 
 
 # --- Undo (D-064, M4a tokens; still used for "add") -------------------------------------
@@ -511,7 +597,7 @@ def before_note(session: Session, user: User, application: Application) -> dict:
 def creation_fingerprint(application: Application) -> str:
     """What "add" left behind, for its Undo: if details or a snooze changed since (they
     write no event), Undo of "add" must not delete them (security review M4b, 3)."""
-    values = [getattr(application, field) for field in (*DETAIL_FIELDS, "snoozed_until")]
+    values = [getattr(application, f) for f in (*DETAIL_FIELDS, "snoozed_until", "cv_id")]
     return fingerprint("|".join(str(_to_text(value)) for value in values))
 
 
@@ -586,6 +672,111 @@ def undo(
     session.commit()
     session.refresh(application)
     return application
+
+
+# A job in one of these has been sent: its CV is locked (D-082).
+SENT_STATUSES = ("applied", "interview", "offer")
+
+
+def lock_sent_cv(
+    session: Session, user: User, application: Application
+) -> ApplicationDocument | None:
+    """Lock the application's CV if it is still a draft and keep a copy of what was
+    sent (D-082, D-083). Not committed: part of the status change."""
+    if application.cv_id is None:
+        return None
+    cv = session.get(CVDocument, application.cv_id)
+    if cv is None or cv.user_id != user.id or cv.is_locked:
+        return None
+    document_service.lock(session, cv, commit=False)
+    sent = ApplicationDocument(
+        user_id=user.id,
+        application_id=application.id,
+        doc_type="cv",
+        document_id=cv.id,
+        content_snapshot=dict(cv.content),
+        sent_at=cv.locked_at,
+    )
+    session.add(sent)
+    _add_event(
+        session,
+        application,
+        "document_linked",
+        message=f"{cv.title} locked: this is what you sent",
+    )
+    return sent
+
+
+def link_cv(
+    session: Session, user: User, application: Application, cv: CVDocument
+) -> ApplicationEvent:
+    """Use `cv` for `application` (D-080): a draft copy of the user that belongs to no
+    other application. Linking to a job that was sent already does not lock it; the
+    "Lock as sent" button does (D-082)."""
+    if cv.user_id != user.id or cv.is_master or cv.is_locked:
+        raise CannotLink
+    if cv.application_id not in (None, application.id):
+        raise CannotLink
+    cv.application_id = application.id
+    application.cv_id = cv.id
+    session.add(cv)
+    session.add(application)
+    event = _add_event(session, application, "document_linked", message=f"CV: {cv.title}")
+    try:
+        session.commit()
+    except IntegrityError:  # another application took this CV at the same moment
+        session.rollback()
+        raise CannotLink from None
+    session.refresh(application)
+    return event
+
+
+def unlink_cv(session: Session, user: User, application: Application) -> ApplicationEvent:
+    """Stop using the current CV (only a draft: a sent CV stays, D-082)."""
+    cv = session.get(CVDocument, application.cv_id) if application.cv_id else None
+    if cv is None or cv.user_id != user.id or cv.is_locked:
+        raise CannotLink
+    application.cv_id = None
+    session.add(application)
+    event = _add_event(session, application, "document_linked", message=f"CV removed: {cv.title}")
+    session.commit()
+    session.refresh(application)
+    return event
+
+
+def send_cv(session: Session, user: User, application: Application) -> ApplicationEvent:
+    """ "Lock as sent" (D-082): for a CV linked after the job was sent already."""
+    if application.status not in SENT_STATUSES or application.archived:
+        raise CannotLink
+    if lock_sent_cv(session, user, application) is None:
+        raise CannotLink
+    session.commit()
+    session.refresh(application)
+    return newest_event(session, application)
+
+
+def newest_event(session: Session, application: Application) -> ApplicationEvent:
+    return session.exec(
+        select(ApplicationEvent)
+        .where(ApplicationEvent.application_id == application.id)
+        .order_by(col(ApplicationEvent.id).desc())
+    ).first()
+
+
+def sent_documents(
+    session: Session, user: User, application: Application
+) -> list[ApplicationDocument]:
+    """What was sent with this application, newest first (SPEC §5.4b)."""
+    return list(
+        session.exec(
+            select(ApplicationDocument)
+            .where(
+                ApplicationDocument.user_id == user.id,
+                ApplicationDocument.application_id == application.id,
+            )
+            .order_by(col(ApplicationDocument.id).desc())
+        )
+    )
 
 
 def clear_next_step(application: Application) -> None:

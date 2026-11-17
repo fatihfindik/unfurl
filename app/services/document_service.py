@@ -281,6 +281,8 @@ def _copy_of(source: CVDocument, title: str) -> CVDocument:
             show_nationality=source.show_nationality,
             source_profile_version=source.source_profile_version,
             parent_id=source.id if source.is_master else source.parent_id,
+            # A new version stays with the application it was made for (D-080).
+            application_id=source.application_id,
         )
     )
 
@@ -320,7 +322,58 @@ def duplicate(session: Session, user: User, source: CVDocument) -> CVDocument:
         title = source.title
     else:
         title = f"{source.title[: SHORT_TEXT - len(' (copy)')]} (copy)"
-    return _save_copy(session, _copy_of(source, title))
+    copy = _copy_of(source, title)
+    copy.application_id = None  # "Duplicate" is a copy for another application (D-050, D-080)
+    return _save_copy(session, copy)
+
+
+# --- Applications (D-080, D-082) -------------------------------------------------------
+
+
+def copy_for_application(
+    session: Session, user: User, master: CVDocument, application, title: str
+) -> CVDocument:
+    """A new copy of `master` made for `application` (D-080). The caller links it."""
+    if not master.is_master or master.user_id != user.id:
+        raise ValueError("Copies are made from the user's own master.")
+    _check_room(session, user)
+    copy = _copy_of(master, title[:SHORT_TEXT])
+    copy.application_id = application.id
+    return _save_copy(session, copy)
+
+
+def copies_for_linking(session: Session, user: User, application) -> list[CVDocument]:
+    """Drafts that may be used for `application`: the user's copies (never a master,
+    never a sent one) that belong to no other application."""
+    return list(
+        session.exec(
+            select(CVDocument)
+            .where(
+                CVDocument.user_id == user.id,
+                CVDocument.is_master.is_(False),
+                CVDocument.status == "draft",
+                or_(
+                    CVDocument.application_id.is_(None),
+                    CVDocument.application_id == application.id,
+                ),
+            )
+            .order_by(CVDocument.language, CVDocument.parent_id, CVDocument.version)
+        )
+    )
+
+
+def unlock_after_undo(session: Session, cv: CVDocument, locked_at) -> bool:
+    """The only way back from "locked" (D-082): Undo of the action that locked it,
+    within its minute. The content never changes; only the status goes back to draft,
+    and only if the lock is the one that action made (same locked_at)."""
+    if not cv.is_locked or cv.locked_at is None:
+        return False
+    if as_utc(cv.locked_at).isoformat() != locked_at:
+        return False
+    cv.status = "draft"
+    cv.locked_at = None
+    session.add(cv)
+    return True
 
 
 # --- Changing -----------------------------------------------------------------------
@@ -430,15 +483,17 @@ def delete_cv(session: Session, cv: CVDocument) -> None:
     session.commit()
 
 
-def lock(session: Session, cv: CVDocument) -> CVDocument:
-    """Lock a copy for good (M4 calls this when an application is marked "applied").
-    Masters are never locked: only copies are sent (SPEC §5.3)."""
+def lock(session: Session, cv: CVDocument, *, commit: bool = True) -> CVDocument:
+    """Lock a copy for good: it was sent with an application (D-082). Masters are never
+    locked: only copies are sent (SPEC §5.3). commit=False: part of a bigger change
+    (status + lock + sent copy in one transaction)."""
     if cv.is_master:
         raise ValueError("A master CV is never locked; lock the copy that was sent.")
     if not cv.is_locked:
         cv.status = "locked"
         cv.locked_at = utcnow()
         session.add(cv)
-        session.commit()
-        session.refresh(cv)
+        if commit:
+            session.commit()
+            session.refresh(cv)
     return cv

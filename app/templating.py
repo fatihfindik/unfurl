@@ -118,3 +118,13 @@ templates.env.globals["safe_redirect_path"] = safe_redirect_path
 templates.env.globals["static_url"] = static_url
 templates.env.filters["month_year"] = month_year
 templates.env.filters["time_ago"] = time_ago
+
+
+def local_day(value) -> str:
+    """A stored time as the user's day: "Tue, 17 Nov 2026" (D-071)."""
+    from app.services import clock  # here, not at the top: clock imports the settings
+
+    return clock.local(value).strftime("%a, %-d %b %Y") if value else ""
+
+
+templates.env.filters["local_day"] = local_day
