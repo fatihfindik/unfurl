@@ -272,3 +272,11 @@ def test_logged_out_visitors_go_to_login(client, session, user):
 
     assert response.status_code == 303
     assert response.headers["location"].startswith("/login")
+
+
+def test_buttons_inside_the_page_do_not_inherit_its_hx_select(auth_client, session, user):
+    # Without hx-disinherit, "Change" on the Next step card took over hx-select and its
+    # answer was filtered down to nothing: the card disappeared (found in the browser).
+    html = page(auth_client, add(session, user))
+
+    assert 'hx-select="#application-page" hx-swap="outerHTML" hx-disinherit="*"' in html

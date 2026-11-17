@@ -16,7 +16,13 @@ from starlette.datastructures import FormData
 from app.db import get_session
 from app.models import User
 from app.models.application import BOARD_STATUSES, MAX_DESCRIPTION
-from app.schemas.application import ADD_JOB_STATUSES, AddJobForm, BoardQuery, InterviewForm
+from app.schemas.application import (
+    ADD_JOB_STATUSES,
+    AddJobForm,
+    BoardQuery,
+    InterviewForm,
+    NextStepForm,
+)
 from app.schemas.profile import form_errors
 from app.security import limiter
 from app.services import application_service, clock, next_step_service, undo_service
@@ -370,16 +376,28 @@ def initials(company: str) -> str:
     return "".join(word[0] for word in words[:2]).upper() or "?"
 
 
+def next_step_context(application) -> dict:
+    """What the Next step card needs (_next_step.html)."""
+    step = next_step_service.next_step(application, clock.now())
+    return {
+        "application": application,
+        "step": step,
+        "step_title": next_step_service.title(step) if step else "No next step",
+        "step_reason": (
+            next_step_service.reason(step, application)
+            if step
+            else next_step_service.no_step_reason(application)
+        ),
+    }
+
+
 def detail_context(session: Session, user: User, application) -> dict:
-    now = clock.now()
-    step = next_step_service.next_step(application, now)
     source_name = SOURCE_NAMES.get(application.source, "Other")
     events = application_service.events_of(session, application)
     position, total, before_id, after_id = application_service.neighbours(
         session, user, application
     )
-    return {
-        "application": application,
+    return next_step_context(application) | {
         "initials": initials(application.company),
         "status_title": STATUS_TITLES.get(application.status, application.status),
         "source_name": source_name,
@@ -389,13 +407,6 @@ def detail_context(session: Session, user: User, application) -> dict:
         "total": total,
         "before_url": f"/applications/{before_id}" if before_id else "",
         "after_url": f"/applications/{after_id}" if after_id else "",
-        "step": step,
-        "step_title": next_step_service.title(step) if step else "No next step",
-        "step_reason": (
-            next_step_service.reason(step, application)
-            if step
-            else next_step_service.no_step_reason(application)
-        ),
         "timeline": [
             {
                 "text": timeline_text(event, source_name),
@@ -527,3 +538,92 @@ def interview_save(
         )
     )
     return response
+
+
+# --- Next step: Change and Done (D-073) ----------------------------------------------------
+
+
+@router.get("/applications/{application_id}/next-step", response_class=HTMLResponse)
+def next_step_card(request: Request, session: DbSession, user: RequiredUser, application_id: str):
+    """The Next step card ("Cancel" in the form comes back here)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    return templates.TemplateResponse(
+        request, "applications/_next_step.html", next_step_context(application)
+    )
+
+
+def next_step_form(request: Request, application, values: dict, errors: dict) -> HTMLResponse:
+    context = {
+        "application": application,
+        "values": values,
+        "errors": errors,
+        "type_choices": list(next_step_service.LABELS.items()),
+    }
+    return templates.TemplateResponse(request, "applications/_next_step_form.html", context)
+
+
+@router.get("/applications/{application_id}/next-step/edit", response_class=HTMLResponse)
+def next_step_edit(request: Request, session: DbSession, user: RequiredUser, application_id: str):
+    """ "Change": the form in place of the card, filled with the current next step."""
+    application = application_service.get_owned_application(session, user, application_id)
+    step = next_step_service.next_step(application, clock.now())
+    values = {"next_action_type": step.type if step else "custom", "note": ""}
+    if step and step.at:
+        values["date"] = clock.local(step.at).date().isoformat()
+        if not step.all_day:
+            values["time"] = clock.local(step.at).strftime("%H:%M")
+    if step and step.type == "custom":
+        values["note"] = step.note or ""
+    return next_step_form(request, application, values, {})
+
+
+@router.post("/applications/{application_id}/next-step", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def next_step_save(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    application = application_service.get_owned_application(session, user, application_id)
+    if application.archived:
+        raise HTTPException(status_code=409)  # archived jobs have no next step
+    values = dict(data)
+    try:
+        form = NextStepForm.model_validate(values)
+    except ValidationError as exc:
+        return next_step_form(request, application, values, form_errors(exc))
+
+    before = application_service.note(session, user, application)
+    event = application_service.change_next_step(
+        session,
+        user,
+        application,
+        next_action_type=form.next_action_type,
+        at=clock.to_utc(form.date, form.time),
+        note=form.note,
+    )
+    response = templates.TemplateResponse(
+        request, "applications/_next_step.html", next_step_context(application)
+    )
+    response.headers.update(
+        undo_events(session, user, application, [event], before, "Next step saved.")
+    )
+    return response
+
+
+@router.post("/applications/{application_id}/next-step/done")
+@limiter.limit("60/minute")
+def next_step_done(request: Request, session: DbSession, user: RequiredUser, application_id: str):
+    """ "Done": finish the current step (D-073). Toast with Undo."""
+    application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.note(session, user, application)
+    try:
+        event = application_service.finish_next_step(session, user, application)
+    except application_service.NoNextStep:
+        return Response(status_code=204, headers={"HX-Trigger": "application-changed"})
+    return Response(
+        status_code=204,
+        headers=undo_events(session, user, application, [event], before, f"{event.message}."),
+    )

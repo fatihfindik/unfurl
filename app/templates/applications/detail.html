@@ -9,10 +9,12 @@
 {% block content %}
   {#- After a change (status, Undo, …) the server sends "application-changed"; the page
       then asks for itself again and keeps only this part (hx-select), so the header,
-      the next step and the timeline always show what is stored (D-076). -#}
+      the next step and the timeline always show what is stored (D-076). hx-disinherit:
+      the buttons inside must not take over hx-select (they swap their own parts).
+      -#}
   <div id="application-page" class="flex flex-1 flex-col"
        hx-get="/applications/{{ application.id }}" hx-trigger="application-changed from:body"
-       hx-select="#application-page" hx-swap="outerHTML">
+       hx-select="#application-page" hx-swap="outerHTML" hx-disinherit="*">
   <header class="flex flex-col gap-3.5 border-b border-border bg-surface px-4 pt-4 pb-[18px] md:px-8">
     <div class="flex items-center justify-between gap-3">
       {#- The same back link as every inner page (components/page_header.html, SPEC §6.0/3). -#}

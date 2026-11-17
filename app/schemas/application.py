@@ -4,13 +4,14 @@ import datetime as dt
 from dataclasses import dataclass, replace
 from urllib.parse import urlencode
 
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationInfo, field_validator
 
 from app.models.application import (
     BOARD_STATUSES,
     INTERVIEW_TYPES,
     JOB_URL_TEXT,
     MAX_DESCRIPTION,
+    NEXT_ACTION_TYPES,
     REMOTE_TYPES,
     SOURCES,
 )
@@ -114,6 +115,37 @@ class InterviewForm(ProfileForm):
         if value is not None and value not in INTERVIEW_TYPES:
             raise ValueError("Choose a type from the list.")
         return value
+
+
+class NextStepForm(ProfileForm):
+    """ "Change" on the Next step card (D-073): a kind, a date (time optional) and, for
+    "Custom", what to do."""
+
+    next_action_type: str
+    date: dt.date
+    time: dt.time | None = None
+    note: str | None = Field(default=None, max_length=SHORT_TEXT)
+
+    @field_validator("next_action_type")
+    @classmethod
+    def check_type(cls, value):
+        if value not in NEXT_ACTION_TYPES:
+            raise ValueError("Choose a next step from the list.")
+        return value
+
+    @field_validator("date")
+    @classmethod
+    def check_date(cls, value):
+        return check_date_range(value)
+
+    @field_validator("note")
+    @classmethod
+    def custom_needs_a_note(cls, value, info: ValidationInfo):
+        # Fields are checked in order, so the kind is known here (if it was valid).
+        kind = info.data.get("next_action_type")
+        if kind == "custom" and not value:
+            raise ValueError("Write what you want to do.")
+        return value if kind == "custom" else None  # only a custom step has its own text
 
 
 @dataclass(frozen=True)

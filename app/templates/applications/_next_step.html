@@ -1,8 +1,21 @@
-{#- The Next step card (SPEC §6.13, D-073): one thing to do and when. "Change" and
-    "Done" come in step 5 of plan M4b. Context: application, step, step_title, step_reason. -#}
+{#- The Next step card (SPEC §6.13, D-073): one thing to do and when. "Change" swaps
+    the card for a form (_next_step_form.html); "Done" finishes the step (toast + Undo).
+    Context: application, step, step_title, step_reason. -#}
 <section id="next-step" aria-labelledby="next-step-title" class="flex flex-col gap-2 rounded-xl border border-border bg-surface p-5">
-  <h2 id="next-step-title" class="m-0 text-sm font-bold">Next step</h2>
-  <span class="text-base font-bold text-text">{{ step_title }}</span>
+  <div class="flex items-center justify-between gap-3">
+    <h2 id="next-step-title" class="m-0 text-sm font-bold">Next step</h2>
+    {%- if not application.archived %}
+      <span class="flex items-center gap-3">
+        {%- if step %}
+          <button type="button" hx-post="/applications/{{ application.id }}/next-step/done" hx-swap="none"
+                  class="text-[13px] font-semibold text-link hover:underline">Done</button>
+        {%- endif %}
+        <button type="button" hx-get="/applications/{{ application.id }}/next-step/edit" hx-target="#next-step" hx-swap="outerHTML"
+                class="text-[13px] font-semibold text-link hover:underline">Change</button>
+      </span>
+    {%- endif %}
+  </div>
+  <span class="break-words text-base font-bold text-text">{{ step_title }}</span>
   <span class="text-xs text-text-3">{{ step_reason }}</span>
   {%- if step and step.automatic %}
     <span class="text-xs text-text-3">Set automatically from the status.</span>

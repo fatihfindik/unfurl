@@ -590,6 +590,67 @@ def set_interview(
     return events
 
 
+class NoNextStep(Exception):
+    """There is no next step to finish."""
+
+
+def change_next_step(
+    session: Session,
+    user: User,
+    application: Application,
+    *,
+    next_action_type: str,
+    at: dt.datetime,
+    note: str | None,
+) -> ApplicationEvent:
+    """ "Change" on the Next step card (D-073): set it by hand. It stays until the
+    status changes; a snooze ends."""
+    application.next_action_manual = True
+    application.next_action_type = next_action_type
+    application.next_action_at = at
+    application.next_action_note = note
+    application.snoozed_until = None
+    step = next_step_text.next_step(application, utcnow())
+    event = _add_event(
+        session,
+        application,
+        "next_step_changed",
+        message=f"Next step: {next_step_text.title(step)}",
+    )
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return event
+
+
+def finish_next_step(session: Session, user: User, application: Application) -> ApplicationEvent:
+    """ "Done" (D-073): after the thank-you note a follow-up 5 days later, after
+    anything else no next step until the status changes."""
+    now = utcnow()
+    step = next_step_text.next_step(application, now)
+    if step is None:
+        raise NoNextStep
+    next_type, next_at = next_step_text.after_done(application, now)
+    application.next_action_manual = True
+    application.next_action_type = next_type
+    application.next_action_at = next_at
+    application.next_action_note = None
+    application.snoozed_until = None
+    event = _add_event(session, application, "next_step_changed", message=f"Done: {step.label}")
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return event
+
+
+def add_note(session: Session, user: User, application: Application, text: str) -> ApplicationEvent:
+    """A note on the timeline (event "note_added"). The text was checked by NoteForm."""
+    event = _add_event(session, application, "note_added", message=text)
+    session.commit()
+    session.refresh(event)
+    return event
+
+
 def set_status(
     session: Session, user: User, application: Application, status: str
 ) -> list[ApplicationEvent]:
