@@ -51,7 +51,29 @@ def request_context(request: Request) -> dict:
     return {
         "csrf_token": get_csrf_token(request),
         "current_user": getattr(request.state, "user", None),
+        "flash": take_flash(request),
     }
+
+
+FLASH_KEY = "flash"
+
+
+def set_flash(request: Request, message: str, undo_url: str = "", undo_token: str = "") -> None:
+    """A toast for the next full page (e.g. after a delete that opens another page).
+    Kept in the signed session cookie; the message is short and the token small."""
+    request.session[FLASH_KEY] = {
+        "message": message[:200],
+        "undo_url": undo_url,
+        "undo_token": undo_token,
+    }
+
+
+def take_flash(request: Request) -> dict | None:
+    """The waiting toast, once, on a full page load (never on an htmx piece)."""
+    if request.method != "GET" or is_htmx(request) or "session" not in request.scope:
+        return None
+    flash = request.session.pop(FLASH_KEY, None)
+    return flash if isinstance(flash, dict) else None
 
 
 # Autoescape is on for .html files, so user and AI text is always HTML-escaped (SPEC §10.1).

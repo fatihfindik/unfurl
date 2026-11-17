@@ -7,10 +7,10 @@
 
 {#- docs/prototype/Documents.dc.html, SPEC §6.5. Masters (one per language) on top,
     then the copies, grouped by the application they were made for (D-084). -#}
-{#- A trash button that opens this CV's delete confirmation (D-046). Locked copies
+{#- A trash button: deletes right away, the toast offers Undo (D-086). Locked copies
     have none: they can never be deleted. -#}
 {% macro delete_button(cv) %}
-  <button type="button" data-tooltip="Delete" data-dialog-open="delete-cv-{{ cv.id }}"
+  <button type="button" data-tooltip="Delete" hx-delete="/cvs/{{ cv.id }}" hx-swap="none"
           class="inline-flex size-7 items-center justify-center rounded-md text-red-text hover:bg-red-bg">{{ icon("trash") }}<span class="sr-only">Delete {{ cv.title }}</span></button>
 {% endmacro %}
 
@@ -112,18 +112,6 @@
   </div>
 
   {%- if tab == "cvs" %}
-    {%- for cv in masters + copies if not cv.is_locked %}
-      {% call modal("delete-cv-" ~ cv.id, "Delete this CV?") %}
-        <p class="m-0 text-sm text-text-2">"{{ cv.title }}" will be deleted. This can't be undone.</p>
-        {#- A master with copies stays; the reason appears here (D-047). -#}
-        <div id="delete-cv-{{ cv.id }}-message"></div>
-        <div class="flex justify-end gap-2">
-          <form method="dialog" class="m-0"><button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold hover:bg-muted">Cancel</button></form>
-          <button type="button" hx-delete="/cvs/{{ cv.id }}" hx-target="#delete-cv-{{ cv.id }}-message"
-                  class="inline-flex h-9 items-center rounded-lg bg-[#D92D20] px-3 text-sm font-semibold text-white hover:bg-[#B42318]">Delete</button>
-        </div>
-      {% endcall %}
-    {%- endfor %}
     {% call modal("new-cv", "New CV") %}
       {% include "cvs/_new_cv_form.html" %}
     {% endcall %}

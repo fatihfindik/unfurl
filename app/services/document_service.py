@@ -470,17 +470,77 @@ def refresh_from_profile(
     return cv
 
 
-def delete_cv(session: Session, cv: CVDocument) -> None:
-    """Delete a draft. Locked documents can't be deleted; a master only when it has
-    no copies (D-047). No Undo until M4 (D-046: the user confirmed in a modal)."""
+def delete_cv(session: Session, cv: CVDocument, user: User) -> int:
+    """Delete a draft, keeping a short-lived copy for Undo (D-086, closes D-046).
+    Locked documents can't be deleted; a master only when it has no copies (D-047).
+    Returns the copy's id for the Undo token."""
+    from app.models import Application
+    from app.services import trash_service
+
     if cv.is_locked:
         raise DocumentLocked
     if cv.is_master:
         copies = copy_count(session, cv)
         if copies:
             raise MasterHasCopies(copies)
+    payload = trash_service.payload_of(cv)
+    used_by = session.exec(
+        select(Application.id).where(Application.cv_id == cv.id, Application.user_id == user.id)
+    ).first()
+    payload["_used_by"] = used_by  # to give the application its CV back on Undo
+    copy = trash_service.remember(session, user, "cv", payload)
     session.delete(cv)
     session.commit()
+    return copy.id
+
+
+def restore_cv(session: Session, user: User, payload: dict) -> CVDocument:
+    """Undo of a delete (D-086): the CV comes back as a new row, if that still fits.
+    A master only while its language has no master again; a copy only while its
+    master exists; its version number if free, else the next one."""
+    from app.models import Application
+    from app.services import trash_service
+
+    if payload.get("user_id") != user.id:
+        raise trash_service.CannotRestore
+    cv = trash_service.row_from(CVDocument, payload)
+    if cv.is_master:
+        if current_master(session, user, cv.language) is not None:
+            raise trash_service.CannotRestore
+    else:
+        parent = session.get(CVDocument, cv.parent_id) if cv.parent_id else None
+        if parent is None or parent.user_id != user.id:
+            raise trash_service.CannotRestore
+        taken = session.exec(
+            select(CVDocument.id).where(
+                CVDocument.parent_id == cv.parent_id, CVDocument.version == cv.version
+            )
+        ).first()
+        if taken is not None:
+            cv.version = _next_version(session, user.id, cv.parent_id)
+    if cv.application_id is not None:
+        owner = session.get(Application, cv.application_id)
+        if owner is None or owner.user_id != user.id:
+            cv.application_id = None
+    try:
+        _check_room(session, user)
+    except TooManyDocuments:
+        raise trash_service.CannotRestore from None
+    session.add(cv)
+    session.flush()
+    used_by = payload.get("_used_by")
+    if type(used_by) is int:
+        application = session.get(Application, used_by)
+        # Only into an empty place, and not into a job that was sent meanwhile.
+        if (
+            application is not None
+            and application.user_id == user.id
+            and application.cv_id is None
+            and application.status == "saved"
+        ):
+            application.cv_id = cv.id
+            session.add(application)
+    return cv
 
 
 def lock(session: Session, cv: CVDocument, *, commit: bool = True) -> CVDocument:

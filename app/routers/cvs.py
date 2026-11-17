@@ -6,6 +6,7 @@ the routes here only read forms, call the service and pick the template.
 
 import base64
 import binascii
+import json
 import logging
 from typing import Annotated
 
@@ -23,9 +24,9 @@ from app.models.cv import CV_LANGUAGES, CV_TEMPLATES
 from app.schemas.cv import CV_SECTIONS, LANGUAGE_NAMES, CVContent, CVEditForm, NewCVForm
 from app.schemas.profile import form_errors
 from app.security import limiter
-from app.services import document_service, pdf_service, profile_service
+from app.services import document_service, pdf_service, profile_service, undo_service
 from app.services.auth_service import require_user
-from app.templating import is_htmx, templates
+from app.templating import is_htmx, set_flash, templates
 
 router = APIRouter(dependencies=[Depends(require_user)])
 logger = logging.getLogger("unfurl.cvs")
@@ -349,18 +350,26 @@ def cv_refresh(
 
 @router.delete("/cvs/{cv_id}", response_class=HTMLResponse)
 def cv_delete(request: Request, session: DbSession, user: RequiredUser, cv_id: str):
-    """Delete, after the confirmation modal (D-046). Locked copies never; a master
-    only when it has no copies (D-047)."""
+    """Delete right away, with Undo in the toast (D-086; the confirmation modal of
+    D-046 is gone). Locked copies never; a master only when it has no copies (D-047).
+    The Documents page opens and shows the toast (a one-time "flash" in the session)."""
     cv = document_service.get_owned_cv(session, user, cv_id)
     try:
-        document_service.delete_cv(session, cv)
+        copy_id = document_service.delete_cv(session, cv, user)
     except document_service.DocumentLocked:
         raise HTTPException(status_code=409) from None
     except document_service.MasterHasCopies as exc:
         word = "copy" if exc.copies == 1 else "copies"
-        return action_message(
-            request, f"This master has {exc.copies} {word}. Delete the {word} first."
-        )
+        message = f"This master has {exc.copies} {word}. Delete the {word} first."
+        toast = {"toast": {"message": message, "undo_url": "", "undo_token": ""}}
+        return Response(status_code=204, headers={"HX-Trigger": json.dumps(toast)})
+    title = cv.title if len(cv.title) <= 60 else cv.title[:57] + "…"
+    set_flash(
+        request,
+        f'"{title}" deleted.',
+        "/undo/delete",
+        undo_service.make_delete_token(user, copy_id),
+    )
     return go_to(request, "/documents")
 
 

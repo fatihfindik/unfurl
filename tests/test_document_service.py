@@ -264,7 +264,7 @@ def test_a_locked_copy_can_never_change_or_be_deleted(session, user, profile):
     with pytest.raises(docs.DocumentLocked):
         docs.refresh_from_profile(session, user, copy)
     with pytest.raises(docs.DocumentLocked):
-        docs.delete_cv(session, copy)
+        docs.delete_cv(session, copy, user)
 
     stored = reload(session, copy)
     assert stored is not None
@@ -305,7 +305,7 @@ def test_a_draft_copy_can_be_deleted(session, user, profile):
     new_cv(session, user)
     copy = new_cv(session, user)
 
-    docs.delete_cv(session, copy)
+    docs.delete_cv(session, copy, user)
 
     assert reload(session, copy) is None
 
@@ -316,7 +316,7 @@ def test_a_master_with_copies_cannot_be_deleted(session, user, profile):
     new_cv(session, user)
 
     with pytest.raises(docs.MasterHasCopies) as error:
-        docs.delete_cv(session, master)
+        docs.delete_cv(session, master, user)
 
     assert error.value.copies == 2
     assert reload(session, master) is not None
@@ -325,9 +325,9 @@ def test_a_master_with_copies_cannot_be_deleted(session, user, profile):
 def test_after_its_copies_are_gone_a_master_can_be_deleted(session, user, profile):
     master = new_cv(session, user)
     copy = new_cv(session, user)
-    docs.delete_cv(session, copy)
+    docs.delete_cv(session, copy, user)
 
-    docs.delete_cv(session, reload(session, master))
+    docs.delete_cv(session, reload(session, master), user)
 
     assert reload(session, master) is None
     assert new_cv(session, user).is_master  # the next CV in English is the master again

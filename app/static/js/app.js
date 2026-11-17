@@ -385,6 +385,16 @@ document.addEventListener("click", (event) => {
   if (button) openInterview(button.dataset.interviewOpen);
 });
 
+// A toast from the previous request (templating.set_flash), e.g. after deleting a CV
+// in the editor the Documents page opens and offers Undo.
+document.addEventListener("alpine:initialized", () => {
+  const flash = document.getElementById("page-flash");
+  if (flash) {
+    const { message, undoUrl, undoToken } = flash.dataset;
+    Alpine.store("toast").show(message, undoUrl || "", undoToken || "");
+  }
+});
+
 document.addEventListener("close-dialog", (event) => {
   const dialog = document.getElementById(event.detail.value);
   if (dialog instanceof HTMLDialogElement && dialog.open) dialog.close();

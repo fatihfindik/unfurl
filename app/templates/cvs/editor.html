@@ -77,8 +77,9 @@
                 data-dialog-open="refresh-cv">{{ icon("refresh") }}<span class="sr-only">Refresh from profile</span></button>
       {%- endif %}
       {%- if not cv.is_locked %}
+        {#- Deletes right away; Documents opens with Undo in the toast (D-086). -#}
         <button type="button" data-tooltip="Delete" class="{{ icon_button_class }} text-red-text hover:bg-red-bg"
-                data-dialog-open="delete-cv">{{ icon("trash") }}<span class="sr-only">Delete this CV</span></button>
+                hx-delete="/cvs/{{ cv.id }}" hx-swap="none">{{ icon("trash") }}<span class="sr-only">Delete this CV</span></button>
       {%- endif %}
     </div>
     <div id="cv-action-message"></div>
@@ -137,16 +138,5 @@
     {% endcall %}
   {%- endif %}
 
-  {%- if not cv.is_locked %}
-    {#- A confirmation until Undo arrives with M4 (D-046). -#}
-    {% call modal("delete-cv", "Delete this CV?") %}
-      <p class="m-0 text-sm text-text-2">"{{ cv.title }}" will be deleted. This can't be undone.</p>
-      <div id="delete-cv-message"></div>
-      <div class="flex justify-end gap-2">
-        <form method="dialog" class="m-0"><button type="submit" class="{{ button }}">Cancel</button></form>
-        <button type="button" hx-delete="/cvs/{{ cv.id }}" hx-target="#delete-cv-message"
-                class="inline-flex h-9 items-center rounded-lg bg-[#D92D20] px-3 text-sm font-semibold text-white hover:bg-[#B42318]">Delete</button>
-      </div>
-    {% endcall %}
-  {%- endif %}
+
 {% endblock %}

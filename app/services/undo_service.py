@@ -103,3 +103,28 @@ def read_token(user: User, token: str) -> dict | None:
         "before": before,
         "created": created,
     }
+
+
+# --- Deletes (D-086): a separate salt, so these tokens never pass as change tokens.
+_DELETE_SALT = "undo-delete"
+
+
+def make_delete_token(user: User, item_id: int) -> str:
+    return URLSafeTimedSerializer(
+        get_settings().secret_key.get_secret_value(), salt=_DELETE_SALT
+    ).dumps({"u": user.id, "d": item_id})
+
+
+def read_delete_token(user: User, token: str) -> int | None:
+    """The DeletedItem id of a delete token of `user`, or None."""
+    if not token or len(token) > TOKEN_MAX_LENGTH:
+        return None
+    try:
+        data = URLSafeTimedSerializer(
+            get_settings().secret_key.get_secret_value(), salt=_DELETE_SALT
+        ).loads(token, max_age=UNDO_SECONDS)
+    except BadSignature:
+        return None
+    if not isinstance(data, dict) or data.get("u") != user.id or type(data.get("d")) is not int:
+        return None
+    return data["d"]

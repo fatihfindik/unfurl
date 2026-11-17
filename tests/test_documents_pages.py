@@ -168,7 +168,8 @@ def test_time_ago_reads_sqlite_dates_as_utc():
 # --- Delete from the list, layout -----------------------------------------------------
 
 
-def test_each_draft_row_can_be_deleted_after_a_confirmation(auth_client, session, user):
+def test_each_draft_row_can_be_deleted_with_undo(auth_client, session, user):
+    # Since M4c the delete happens right away and the toast offers Undo (D-086).
     master = new_cv(session, user, title="Main CV")
     copy = new_cv(session, user, title="For Acme")
     sent = docs.lock(session, docs.duplicate(session, user, copy))
@@ -176,9 +177,9 @@ def test_each_draft_row_can_be_deleted_after_a_confirmation(auth_client, session
     page = auth_client.get("/documents").text
 
     for cv in (master, copy):
-        assert f'data-dialog-open="delete-cv-{cv.id}"' in page
-        assert f'hx-delete="/cvs/{cv.id}"' in page
-    assert f'data-dialog-open="delete-cv-{sent.id}"' not in page  # locked: never deleted
+        assert f'hx-delete="/cvs/{cv.id}" hx-swap="none"' in page
+    assert f'hx-delete="/cvs/{sent.id}"' not in page  # locked: never deleted
+    assert "This can't be undone." not in page
 
 
 def test_deleting_from_the_list_reloads_it(auth_client, session, user):

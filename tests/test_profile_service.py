@@ -60,7 +60,7 @@ def test_every_change_raises_the_version(session, user, profile):
     assert version(session, profile) == 1
     update_item(session, item, {"name": "PostgreSQL"})
     assert version(session, profile) == 2
-    delete_item(session, item)
+    delete_item(session, item, user, "skills")
     assert version(session, profile) == 3
     profile_service.update_summary(session, profile, SummaryForm(summary="Hi"))
     assert version(session, profile) == 4

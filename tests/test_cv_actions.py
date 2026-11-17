@@ -51,8 +51,8 @@ def test_draft_copy_has_its_actions_as_icon_buttons(auth_client, copy):
     assert f'hx-post="/cvs/{copy.id}/versions"' in page
     assert 'data-tooltip="Save as new version"' in page
     assert 'data-tooltip="Refresh from profile"' in page and 'data-dialog-open="refresh-cv"' in page
-    assert 'data-tooltip="Delete"' in page and 'data-dialog-open="delete-cv"' in page
-    assert "This can't be undone." in page  # the delete confirmation (D-046)
+    assert 'data-tooltip="Delete"' in page and f'hx-delete="/cvs/{copy.id}"' in page
+    assert "This can't be undone." not in page  # no confirmation since M4c: Undo (D-086)
 
 
 def test_duplicate_is_back_and_all_documents_needs_an_application(auth_client, copy):
@@ -191,7 +191,7 @@ def test_a_master_with_copies_says_why_it_stays(auth_client, session, master, co
     response = htmx_send(auth_client, "DELETE", f"/cvs/{master.id}")
 
     assert "HX-Redirect" not in response.headers
-    assert "This master has 1 copy. Delete the copy first." in response.text
+    assert "This master has 1 copy. Delete the copy first." in response.headers["HX-Trigger"]
     assert len(all_cvs(session)) == 2
 
 
