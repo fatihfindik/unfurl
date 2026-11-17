@@ -89,6 +89,14 @@ def remember(session: Session, user: User, kind: str, payload: dict) -> DeletedI
     return item
 
 
+def claim(session: Session, item: DeletedItem) -> bool:
+    """Delete the copy before it is restored (not committed). Only the first of two
+    Undo requests at the same moment deletes a row; the other gets False and restores
+    nothing (security review M10, L1). The payload stays readable on `item`."""
+    result = session.exec(delete(DeletedItem).where(DeletedItem.id == item.id))
+    return result.rowcount == 1
+
+
 def take(session: Session, user: User, item_id) -> DeletedItem | None:
     """The user's copy `item_id` if it is still there and recent, else None. Taken
     copies are deleted by the caller in the same commit as the restore."""

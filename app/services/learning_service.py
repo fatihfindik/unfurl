@@ -8,6 +8,7 @@ import datetime as dt
 from dataclasses import dataclass
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
 from app.models import (
@@ -46,7 +47,14 @@ def preferences(session: Session, user: User) -> NotificationPreference:
     if row is None:
         row = NotificationPreference(user_id=user.id, rest_days=list(DEFAULT_REST_DAYS))
         session.add(row)
-        session.commit()
+        try:
+            session.commit()
+        except IntegrityError:
+            # Another request created it at the same moment (security review M10, L2).
+            session.rollback()
+            return session.exec(
+                select(NotificationPreference).where(NotificationPreference.user_id == user.id)
+            ).one()
         session.refresh(row)
     return row
 
@@ -471,7 +479,7 @@ def _relink_logs(session: Session, user: User, links: list, goal_id: int, task_i
     for log_id, old_task_id in links:
         log = session.exec(
             select(StudyLog).where(
-                StudyLog.id == int(log_id),
+                StudyLog.id == _copy_id(log_id),
                 StudyLog.user_id == user.id,
                 col(StudyLog.task_id).is_(None),
             )
@@ -483,8 +491,18 @@ def _relink_logs(session: Session, user: User, links: list, goal_id: int, task_i
         session.add(log)
 
 
+def _copy_id(value) -> int:
+    """An id read from a copy, checked like a database id (M10 test gaps): anything
+    else means the copy is broken and can't come back."""
+    if type(value) is not int or not 0 < value <= MAX_ID:
+        raise trash_service.CannotRestore
+    return value
+
+
 def _new_row(model, payload: dict, user: User, **fields):
     """A restored row: the copy's values, always for this user, with new links."""
+    if not isinstance(payload, dict):
+        raise trash_service.CannotRestore
     row = trash_service.row_from(model, {k: v for k, v in payload.items() if k != "old_id"})
     row.user_id = user.id
     for name, value in fields.items():
@@ -498,7 +516,7 @@ def restore_task(session: Session, user: User, payload: dict) -> None:
     data = payload["task"]
     goal = session.exec(
         select(LearningGoal).where(
-            LearningGoal.id == int(data["goal_id"]), LearningGoal.user_id == user.id
+            LearningGoal.id == _copy_id(data["goal_id"]), LearningGoal.user_id == user.id
         )
     ).first()
     if goal is None:
@@ -511,7 +529,7 @@ def restore_task(session: Session, user: User, payload: dict) -> None:
     if resource_id is not None:
         resource = session.exec(
             select(LearningResource.id).where(
-                LearningResource.id == int(resource_id), LearningResource.user_id == user.id
+                LearningResource.id == _copy_id(resource_id), LearningResource.user_id == user.id
             )
         ).first()
         resource_id = resource
@@ -534,7 +552,7 @@ def restore_goal(session: Session, user: User, payload: dict) -> None:
         # Keep the link only to an application that is still this user's.
         goal.source_application_id = session.exec(
             select(Application.id).where(
-                Application.id == int(goal.source_application_id),
+                Application.id == _copy_id(goal.source_application_id),
                 Application.user_id == user.id,
             )
         ).first()
