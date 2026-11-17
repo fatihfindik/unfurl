@@ -403,7 +403,7 @@ Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
   - **Done:** event `next_step_changed` ("Done: Follow up"). Thank-you Done → elle konmuş **Follow up, tıklamadan 5 gün sonra** (manual true). Diğer her Done (mülakat saatinden önce Interview Done dahil) → manual true, tür boş: durum değişene kadar next step yok. Böylece sonsuz döngü yok (follow-up Done → yok).
   - **Temizleme:** Durum değişince `next_action_*` ve `snoozed_until` temizlenir (manual false), kurallar yeniden işler. Yeni mülakat kaydetmek de temizler (yeniden planlama). Arşiv ve restore temizlemez: arşivliyken next step gösterilmez, restore'dan sonra eski elle konan adım geri gelir. Interview'dan çıkıp geri dönünce eski `interview_at` kalır ve modal onunla dolu açılır.
   - **Neden hesaplanıyor:** "mülakat saati geçti" gibi zamanla değişen kurallar için zamanlanmış iş gerekmez ve gösterilen hep doğru. SPEC §5.5'teki `next_action_*` notu buna göre güncellenir ("elle konan next step; otomatik olan hesaplanır").
-  - **M11 için:** zamanlayıcı önce SQL'de daraltır (durum, `applied_at`, `interview_at`, `next_action_at` tarih aralığı), sonra aynı `next_step()`'i çağırır; bildirim tekrarını `(application_id, type, at)` anahtarı önler.
+  - **M11 için:** zamanlayıcı önce SQL'de daraltır (durum, `applied_at`, `interview_at`, `next_action_at` tarih aralığı), sonra aynı `next_step()`'i çağırır; bildirim tekrarını `(application_id, type, at)` anahtarı önler. **Uygulandı:** M11a, D-099 ve D-100 (anahtar adımın gününü içerir, 7 günlük pencere).
 
 ### D-074 · Snooze `snoozed_until` kolonunda, event yazmaz
 Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
@@ -519,3 +519,46 @@ Kaynak: Fatih, 2026-11-18 (sohbet: "elle testi uygulama bitince yapıcam").
 - **Karar:** M10'dan başlayarak Definition of Done'daki "Kabul kriterlerini Fatih elle denedi" maddesi ertelenir: Fatih tüm uygulamayı sonda bir kez elle dener. Bir milestone, testler, lint, CI ve security-reviewer temiz olunca merge edilir ve etiketlenir. Elle testte bulunan sorunlar düzeltme PR'ı olarak gelir. Her PR açıklamasında elle test listesi yine yazılır, sondaki test için toplanır.
 - **Gerekçe:** Fatih'in zamanı; PR'ları açık bırakıp üst üste branch açmak birleştirmeyi zorlaştırır.
 - **Alternatifler:** Her milestone sonunda elle test (WORKFLOW'daki kural); PR'ları açık bırakıp sonraki milestone'u onların üstüne kurmak.
+
+### D-098 · M11 ikiye bölünür
+Kaynak: Fatih, 2026-11-18 (M11 Plan fazı).
+- **Karar:** M11a: Notification tablosu, zil ve panel, zamanlayıcı, iş arama bildirimleri (follow_up, interview_tomorrow, stale_saved), temizlik. M11b: Settings › Notifications, `User.timezone`, günlük çalışma hatırlatması (uygulama içi + e-posta), kapatma linki, `streak_milestone`, Learning'de "Next reminder". Aynı gün Fatih'in diğer kararları: kapatma linki giriş istemeyen bir sayfa + buton açar; zildeki sayı sayfa açılınca ve 2 dakikada bir güncellenir; "Streak and weekly goal" kapalıyken sadece kutlama bildirimleri gelmez ve hatırlatma metninde seri geçmez.
+- **Gerekçe:** Tek M11, WORKFLOW'daki 1-2 haftalık sınırı aşma riski taşıyordu (D-024 gibi).
+- **Alternatifler:** Tek M11.
+
+### D-099 · Bildirimler `next_step()`'ten üretilir
+Kaynak: M11a Design fazı, plan-reviewer; Fatih onayladı (2026-11-18). D-073'ü uygular.
+- **Karar:** Kaynak, Needs attention'ın kullandığı `next_step_service.next_step()`. Elle konmuş adımlar ve "Done" dikkate alınır; bildirim ve Needs attention aynı günü söyler. Her yeni next step için en fazla bir bildirim (ör. thank-you "Done" olup yeni bir follow-up doğarsa bir kez daha).
+- **Alternatifler:** Son hareketten (`last_activity_at`) saymak; başvuru başına bir kez.
+
+### D-100 · Tekrar engelleme ve 7 günlük pencere
+Kaynak: M11a Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-11-18).
+- **Karar:** `Notification.dedupe_key` adımın gününü içerir (`follow_up:{id}:{yyyy-mm-dd}`, `stale_saved:…`, `interview:…`); `(user_id, dedupe_key)` unique. follow_up ve stale_saved sadece adımın günü son 7 gün içindeyse, interview_tomorrow sadece mülakat yarınsa üretilir; böylece temizlenen bir bildirim yeniden üretilmez. Ertelenmiş başvuru atlanır, erteleme bitince pencere içindeyse gelir. Arşivlenmiş başvurunun adımı, dolayısıyla bildirimi yok.
+- **Alternatifler:** Anahtarı ayrı bir "gönderildi" tablosunda tutmak (bir tablo daha); anahtarda tarih olmadan (temizlikten sonra yeniden üretim).
+
+### D-101 · Bildirim kuralları ve metinleri
+Kaynak: M11a Design fazı; Fatih plan onayıyla onayladı (2026-11-18).
+- **Karar:** follow_up: adım `follow_up`, durum `applied`; "Time to follow up" / "{Company} · no reply for {n} days" (n = bugün − başvuru günü). stale_saved: durum `saved`, adım "Waiting"; "Saved {n} days ago" / "{Company} · apply or archive?". interview_tomorrow: durum `interview`, `interview_at` yarın; "Interview tomorrow, {HH:MM}" (tüm gün: saatsiz) / "{Company} · {Role}". Link `/applications/{id}`; `Notification.application_id` FK `ON DELETE CASCADE`. Metin üretim anında yazılır (başlık 200, metin 300 karakter). Tarihler `DEFAULT_TIMEZONE`'da (D-089).
+
+### D-102 · Tercihler M11a'da: iş arama türleri
+Kaynak: M11a Design fazı; Fatih plan onayıyla onayladı (2026-11-18).
+- **Karar:** `NotificationPreference`'a `follow_up_enabled`, `interview_enabled`, `stale_saved_enabled` (`server_default` true). Üretici kapalı türü atlar; arayüz M11b'de. Diğer kolonlar kendi milestone'larında (D-025 kalıbı).
+
+### D-103 · Zamanlayıcı
+Kaynak: M11a Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-11-18).
+- **Karar:** APScheduler 3.x `BackgroundScheduler`, FastAPI `lifespan` içinde sadece `SCHEDULER_ENABLED=true` ise; kapanışta `shutdown(wait=False)`. `timezone=DEFAULT_TIMEZONE`, `max_instances=1`, `coalesce=True`. Her 15 dakikada `generate_due(now)`, her gün 03:00'te `purge(now)`. Her iş kendi Session'ını açar, her kullanıcıdan sonra commit eder; `IntegrityError` → rollback, sonraki kullanıcı. Hata log'unda kişisel veri yok (user id ve iş adı). Mantık `now` alan saf fonksiyonlar; testler onları çağırır. Birden fazla worker/instance'ta sadece biri `SCHEDULER_ENABLED=true`.
+- **Alternatifler:** Ayrı bir worker süreci (M13'te gerekirse); cron + CLI komutu.
+
+### D-104 · Bildirim temizliği ve sınırları
+Kaynak: M11a Design fazı; Fatih onayladı (2026-11-18).
+- **Karar:** Okunmuş ve 30 günden eski bildirimler silinir. Kullanıcı başına en fazla 200; aşılırsa sadece okunmuşlar en eskiden silinir. Panel en yeni 20'yi gösterir. Hesap silinince cascade.
+- **Alternatifler:** 200 sınırında okunmamışları da silmek (görülmemiş hatırlatma kaybolur).
+
+### D-105 · Zil ve panel
+Kaynak: M11a Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-11-18).
+- **Karar:** Rozet `GET /notifications/badge`, `hx-trigger="load, every 120s"` (0 gizli, 99'dan büyükse "99+"). Panel açılınca `GET /notifications/panel` ile yüklenir (Alpine dropdown). Satır düz bir `<form method="post">`: `POST /notifications/{id}/open` okundu yapar ve 303 ile `safe_redirect_path(link_url)`'e gönderir. "Mark all as read" htmx ile; rozet "notifications-changed" olayıyla yenilenir. "Notification settings" linki M11b'de (D-060).
+- **Bilinçli kabul:** 2 dakikalık rozet isteği oturum cookie'sini yeniler; açık bir sekme oturumu canlı tutar. Boşta kalma süresi M13'te ele alınır.
+
+### D-106 · M11a'da e-posta yok
+Kaynak: M11a Design fazı; Fatih plan onayıyla onayladı (2026-11-18).
+- **Karar:** follow_up, interview_tomorrow ve stale_saved SPEC §6.11'e göre sadece uygulama içi. E-posta M11b'de, sadece çalışma hatırlatması için.
