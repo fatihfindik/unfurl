@@ -1,19 +1,25 @@
 """Forms and query parameters of the Applications page (SPEC §6.7, D-062)."""
 
+import datetime as dt
 from dataclasses import dataclass, replace
 from urllib.parse import urlencode
 
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationInfo, field_validator
 
 from app.models.application import (
     BOARD_STATUSES,
+    INTERVIEW_TYPES,
     JOB_URL_TEXT,
     MAX_DESCRIPTION,
+    MAX_NOTE,
+    MAX_NOTES,
+    NEXT_ACTION_TYPES,
     REMOTE_TYPES,
     SOURCES,
 )
 from app.models.profile import SHORT_TEXT
-from app.schemas.profile import ProfileForm, check_url
+from app.schemas.profile import ProfileForm, check_email_address, check_url
+from app.services import clock
 from app.services.application_service import Filters
 
 # A new job starts in one of these two columns (the prototype's Status field).
@@ -78,6 +84,117 @@ SORTS = ("", "company", "-company")
 MAX_PAGE = 10_000  # far more than 2,000 jobs / 25 per page; keeps the number small
 MAX_SEARCH = 100  # characters of search text (D-067)
 FILTER_MODES = ("remote", "hybrid", "onsite")
+
+
+def check_date_range(value: dt.date | None) -> dt.date | None:
+    """Dates people type for a job: from a year ago to two years ahead. Keeps typos
+    like 2062 out, and 9999-12-31 + 10 days can't overflow (plan-reviewer M4b #7)."""
+    if value is None:
+        return None
+    today = clock.today()
+    if not today - dt.timedelta(days=365) <= value <= today + dt.timedelta(days=730):
+        raise ValueError("Pick a date between last year and two years from now.")
+    return value
+
+
+class InterviewForm(ProfileForm):
+    """The interview modal (D-076). Only the date is needed; without a time the
+    interview counts as "all day"."""
+
+    date: dt.date
+    time: dt.time | None = None
+    interview_type: str | None = None
+    interview_with: str | None = Field(default=None, max_length=SHORT_TEXT)
+
+    @field_validator("date")
+    @classmethod
+    def check_date(cls, value):
+        return check_date_range(value)
+
+    @field_validator("interview_type")
+    @classmethod
+    def check_type(cls, value):
+        if value is not None and value not in INTERVIEW_TYPES:
+            raise ValueError("Choose a type from the list.")
+        return value
+
+
+class NextStepForm(ProfileForm):
+    """ "Change" on the Next step card (D-073): a kind, a date (time optional) and, for
+    "Custom", what to do."""
+
+    next_action_type: str
+    date: dt.date
+    time: dt.time | None = None
+    note: str | None = Field(default=None, max_length=SHORT_TEXT)
+
+    @field_validator("next_action_type")
+    @classmethod
+    def check_type(cls, value):
+        if value not in NEXT_ACTION_TYPES:
+            raise ValueError("Choose a next step from the list.")
+        return value
+
+    @field_validator("date")
+    @classmethod
+    def check_date(cls, value):
+        return check_date_range(value)
+
+    @field_validator("note")
+    @classmethod
+    def custom_needs_a_note(cls, value, info: ValidationInfo):
+        # Fields are checked in order, so the kind is known here (if it was valid).
+        kind = info.data.get("next_action_type")
+        if kind == "custom" and not value:
+            raise ValueError("Write what you want to do.")
+        return value if kind == "custom" else None  # only a custom step has its own text
+
+
+class NoteForm(ProfileForm):
+    """A note on the timeline: spaces around it are removed; it can't be empty."""
+
+    text: str = Field(max_length=MAX_NOTE)
+
+
+class DetailsForm(ProfileForm):
+    """The Details form on the detail page (D-075)."""
+
+    company: str = Field(max_length=SHORT_TEXT)
+    job_title: str = Field(max_length=SHORT_TEXT)
+    location: str | None = Field(default=None, max_length=SHORT_TEXT)
+    remote_type: str = "unknown"
+    job_url: str | None = Field(default=None, max_length=JOB_URL_TEXT)
+    posting_closes_at: dt.date | None = None
+    contact_name: str | None = Field(default=None, max_length=SHORT_TEXT)
+    contact_email: str | None = Field(default=None, max_length=320)
+    salary_text: str | None = Field(default=None, max_length=SHORT_TEXT)
+    notes: str | None = Field(default=None, max_length=MAX_NOTES)
+
+    @field_validator("remote_type", mode="before")
+    @classmethod
+    def check_remote_type(cls, value):
+        value = (value or "").strip() or "unknown"
+        if value not in REMOTE_TYPES:
+            raise ValueError("Choose a work mode from the list.")
+        return value
+
+    @field_validator("job_url")
+    @classmethod
+    def check_job_url(cls, value):
+        # Only a single http(s) link, as in "Add job" (D-062): it becomes a link on the page.
+        if value is not None and not is_link(value):
+            raise ValueError("Enter a full link starting with https://.")
+        return check_url(value)
+
+    @field_validator("posting_closes_at")
+    @classmethod
+    def check_closing_date(cls, value):
+        return check_date_range(value)
+
+    @field_validator("contact_email")
+    @classmethod
+    def check_contact_email(cls, value):
+        return check_email_address(value)
 
 
 @dataclass(frozen=True)

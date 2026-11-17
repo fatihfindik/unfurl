@@ -4,6 +4,7 @@ Routes only call this module. Every query filters by user_id (CLAUDE.md).
 """
 
 import datetime as dt
+import hashlib
 import unicodedata
 from dataclasses import dataclass
 from urllib.parse import urlsplit
@@ -12,9 +13,10 @@ from fastapi import HTTPException
 from sqlmodel import Session, col, delete, func, select
 
 from app.models import Application, ApplicationEvent, User
-from app.models.application import BOARD_STATUSES
+from app.models.application import BOARD_STATUSES, INTERVIEW_TYPES, NEXT_ACTION_TYPES
 from app.models.base import as_utc, utcnow
-from app.services import profile_service
+from app.services import clock, profile_service
+from app.services import next_step_service as next_step_text
 
 MAX_APPLICATIONS_PER_USER = 2000  # archived ones count too (D-061)
 MAX_ID = profile_service.MAX_ID
@@ -23,6 +25,10 @@ MAX_ID = profile_service.MAX_ID
 # country domains (stepstone.at, at.indeed.com), so any label of the host may match.
 _SOURCE_BY_DOMAIN = {"linkedin.com": "linkedin", "karriere.at": "karriere_at", "xing.com": "xing"}
 _SOURCE_BY_LABEL = {"stepstone": "stepstone", "indeed": "indeed"}
+
+
+# Sources that only come from a link: without a link they become "manual" again.
+SOURCES_FROM_LINKS = ("linkedin", "stepstone", "karriere_at", "indeed", "xing", "company_site")
 
 
 class TooManyApplications(Exception):
@@ -38,8 +44,8 @@ class NothingToUndo(Exception):
 
 
 def today() -> dt.date:
-    """Today's date in UTC (users get their own time zone in M10/M11, D-061)."""
-    return utcnow().date()
+    """Today's date where the user is (D-071; was UTC in M4a)."""
+    return clock.today()
 
 
 def detect_source(job_url: str | None) -> str:
@@ -63,7 +69,9 @@ def detect_source(job_url: str | None) -> str:
     return "company_site"
 
 
-def get_owned_application(session: Session, user: User, application_id) -> Application:
+def get_owned_application(
+    session: Session, user: User, application_id, *, lock: bool = False
+) -> Application:
     """The application `application_id` if it belongs to `user`, otherwise 404.
 
     Another user's application and one that doesn't exist give the same answer
@@ -76,9 +84,13 @@ def get_owned_application(session: Session, user: User, application_id) -> Appli
         raise HTTPException(status_code=404) from None
     if not 0 < number <= MAX_ID:
         raise HTTPException(status_code=404)
-    application = session.exec(
-        select(Application).where(Application.id == number, Application.user_id == user.id)
-    ).first()
+    query = select(Application).where(Application.id == number, Application.user_id == user.id)
+    if lock:
+        # Undo reads, compares and writes: on Postgres the row stays locked until the
+        # commit, so a change at the same moment waits (security review M4b, 2).
+        # SQLite has no row locks and runs one write at a time anyway.
+        query = query.with_for_update()
+    application = session.exec(query).first()
     if application is None:
         raise HTTPException(status_code=404)
     return application
@@ -295,6 +307,7 @@ def move(
         event = _add_event(
             session, application, "status_changed", from_status=old_status, to_status=status
         )
+        clear_next_step(application)  # a new status starts with its automatic next step
     _place(session, user, application, status, index)
     session.add(application)
     session.commit()
@@ -318,7 +331,161 @@ def _place(session: Session, user: User, application: Application, status: str, 
         _renumber(cards)
 
 
-# --- Undo (D-064) ---------------------------------------------------------------------
+# --- Undo, version 2 (D-079) ------------------------------------------------------------
+# Before an undoable action the router takes a note() of the application, and another
+# one after it. changes() keeps the fields that differ, as [before, after]. Undo writes
+# the "before" values back, but only while those fields still have the "after" values
+# and no newer event exists: a newer change is never overwritten, and a token can't be
+# used twice (the second time the fields are no longer at "after").
+
+NOTE_FIELDS = (
+    "status",
+    "archived",
+    "applied_at",
+    "last_activity_at",
+    "next_action_type",
+    "next_action_at",
+    "next_action_note",
+    "next_action_manual",
+    "interview_at",
+    "interview_type",
+    "interview_with",
+    "snoozed_until",
+)
+_DATETIME_FIELDS = ("last_activity_at", "next_action_at", "interview_at", "snoozed_until")
+_BOOL_FIELDS = ("archived", "next_action_manual")
+_TEXT_FIELDS = (
+    "status",
+    "next_action_type",
+    "next_action_note",
+    "interview_type",
+    "interview_with",
+)
+
+
+def _to_text(value):
+    """A field value as JSON-friendly text for the token (UTC for times)."""
+    if isinstance(value, dt.datetime):
+        return as_utc(value).isoformat()
+    if isinstance(value, dt.date):
+        return value.isoformat()
+    return value
+
+
+def _from_text(field: str, value):
+    """The other way round. Raises ValueError for a value of the wrong kind."""
+    if value is None:
+        if field in _BOOL_FIELDS or field in ("status", "last_activity_at"):
+            raise ValueError(field)
+        return None
+    if field in _DATETIME_FIELDS:
+        return dt.datetime.fromisoformat(value) if isinstance(value, str) else _bad(field)
+    if field == "applied_at":
+        return dt.date.fromisoformat(value) if isinstance(value, str) else _bad(field)
+    if field in _BOOL_FIELDS:
+        return value if isinstance(value, bool) else _bad(field)
+    if field == "next_action_type":  # only known kinds: the page looks up their label
+        return value if value in NEXT_ACTION_TYPES else _bad(field)
+    if field == "interview_type":
+        return value if value in INTERVIEW_TYPES else _bad(field)
+    if field in _TEXT_FIELDS:
+        return value if isinstance(value, str) and len(value) <= 200 else _bad(field)
+    return _bad(field)
+
+
+def _bad(field: str):
+    raise ValueError(field)
+
+
+def note(session: Session, user: User, application: Application) -> dict:
+    """The values an undoable action may change, plus "index": the card's place in
+    its column (None while archived)."""
+    values = {field: _to_text(getattr(application, field)) for field in NOTE_FIELDS}
+    index = None
+    if not application.archived:
+        column = [card.id for card in column_of(session, user, application.status)]
+        index = column.index(application.id) if application.id in column else 0
+    return values | {"index": index}
+
+
+def fingerprint(value) -> str | None:
+    """A short stand-in for a text: the token only compares the "after" text, it never
+    writes it back, so a hash is enough and keeps the token small (security review
+    M4b, 1)."""
+    if value is None:
+        return None
+    return "#" + hashlib.sha256(str(value).encode()).hexdigest()[:16]
+
+
+def _after(field: str, value):
+    return fingerprint(value) if field in _TEXT_FIELDS and field != "status" else value
+
+
+def changes(before: dict, after: dict) -> dict:
+    """{field: [before, after]} for the fields an action changed (texts after the
+    change only as a fingerprint). The place in the column ("index") only matters when
+    the card changed column or was archived."""
+    changed = {f: [before[f], _after(f, after[f])] for f in NOTE_FIELDS if before[f] != after[f]}
+    if "status" in changed or "archived" in changed:
+        changed["index"] = [before["index"], None]
+    return changed
+
+
+def newest_event_id(session: Session, application: Application) -> int | None:
+    return session.exec(
+        select(func.max(ApplicationEvent.id)).where(
+            ApplicationEvent.application_id == application.id
+        )
+    ).one()
+
+
+def undo_change(
+    session: Session, user: User, application_id, event_ids: list[int], newest, fields: dict
+) -> Application:
+    """Take back one action (D-079): delete its events and write back the "before"
+    values of `fields`. Raises NothingToUndo if the application changed since."""
+    try:
+        application = get_owned_application(session, user, application_id, lock=True)
+    except HTTPException:
+        raise NothingToUndo from None
+    if not fields or newest_event_id(session, application) != newest:
+        raise NothingToUndo
+    current = note(session, user, application)
+    if any(_after(f, current[f]) != values[1] for f, values in fields.items() if f != "index"):
+        raise NothingToUndo  # something changed these fields since: keep it
+    try:
+        restored = {f: _from_text(f, values[0]) for f, values in fields.items() if f != "index"}
+        index = fields.get("index", [None])[0]
+        if index is not None and (not isinstance(index, int) or isinstance(index, bool)):
+            raise ValueError("index")
+        if restored.get("status", application.status) not in BOARD_STATUSES:
+            raise ValueError("status")
+    except (TypeError, ValueError, IndexError):
+        raise NothingToUndo from None  # never with our own tokens
+
+    if event_ids:
+        deleted = session.exec(
+            delete(ApplicationEvent).where(
+                col(ApplicationEvent.id).in_(event_ids),
+                ApplicationEvent.application_id == application.id,
+            )
+        )
+        if deleted.rowcount != len(set(event_ids)):
+            session.rollback()  # another Undo was faster
+            raise NothingToUndo
+
+    status = restored.pop("status", application.status)
+    for field, value in restored.items():
+        setattr(application, field, value)
+    if "index" in fields:
+        _place(session, user, application, status, None if application.archived else index or 0)
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return application
+
+
+# --- Undo (D-064, M4a tokens; still used for "add") -------------------------------------
 # An undoable action returns its events and a "before" note: the values it changed.
 # The note travels inside a signed token (app/services/undo_service.py) and comes
 # back when the user clicks Undo. Only these fields are ever written back.
@@ -341,8 +508,20 @@ def before_note(session: Session, user: User, application: Application) -> dict:
     }
 
 
+def creation_fingerprint(application: Application) -> str:
+    """What "add" left behind, for its Undo: if details or a snooze changed since (they
+    write no event), Undo of "add" must not delete them (security review M4b, 3)."""
+    values = [getattr(application, field) for field in (*DETAIL_FIELDS, "snoozed_until")]
+    return fingerprint("|".join(str(_to_text(value)) for value in values))
+
+
 def undo(
-    session: Session, user: User, application_id, event_ids: list[int], before: dict | None
+    session: Session,
+    user: User,
+    application_id,
+    event_ids: list[int],
+    before: dict | None,
+    created: str | None = None,
 ) -> Application | None:
     """Take back the action that wrote `event_ids`. `before` is the note from before_note,
     or None when the action created the application (then it is deleted again).
@@ -378,6 +557,9 @@ def undo(
         raise NothingToUndo
 
     if before is None:
+        if created is not None and creation_fingerprint(application) != created:
+            session.rollback()
+            raise NothingToUndo  # edited since it was added: keep it
         session.delete(application)  # undo "add": its events go with it (cascade)
         _renumber(
             [c for c in column_of(session, user, application.status) if c.id != application.id]
@@ -404,6 +586,243 @@ def undo(
     session.commit()
     session.refresh(application)
     return application
+
+
+def clear_next_step(application: Application) -> None:
+    """Forget a next step set by hand and a snooze (D-073, D-074): the rules for the
+    new situation apply again."""
+    application.next_action_type = None
+    application.next_action_at = None
+    application.next_action_note = None
+    application.next_action_manual = False
+    application.snoozed_until = None
+
+
+def set_interview(
+    session: Session,
+    user: User,
+    application: Application,
+    *,
+    at: dt.datetime,
+    interview_type: str | None,
+    interview_with: str | None,
+) -> list[ApplicationEvent]:
+    """Save the interview from the modal (D-076). A job that isn't in Interview yet is
+    moved there first. A new date also clears a next step set by hand: the interview
+    is the next step again (D-073). Returns the events written."""
+    events = []
+    if application.archived:
+        events.append(restore(session, user, application))
+    if application.status != "interview":
+        events.append(move(session, user, application, "interview"))
+    application.interview_at = at
+    application.interview_type = interview_type
+    application.interview_with = interview_with
+    application.last_activity_at = utcnow()
+    clear_next_step(application)
+    events.append(
+        _add_event(
+            session,
+            application,
+            "interview_scheduled",
+            message=f"Interview set for {next_step_text.when_text(at)}",
+        )
+    )
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return events
+
+
+class NoNextStep(Exception):
+    """There is no next step to finish."""
+
+
+def change_next_step(
+    session: Session,
+    user: User,
+    application: Application,
+    *,
+    next_action_type: str,
+    at: dt.datetime,
+    note: str | None,
+) -> ApplicationEvent:
+    """ "Change" on the Next step card (D-073): set it by hand. It stays until the
+    status changes; a snooze ends."""
+    application.next_action_manual = True
+    application.next_action_type = next_action_type
+    application.next_action_at = at
+    application.next_action_note = note
+    application.snoozed_until = None
+    step = next_step_text.next_step(application, utcnow())
+    event = _add_event(
+        session,
+        application,
+        "next_step_changed",
+        message=f"Next step: {next_step_text.title(step)}",
+    )
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return event
+
+
+def finish_next_step(session: Session, user: User, application: Application) -> ApplicationEvent:
+    """ "Done" (D-073): after the thank-you note a follow-up 5 days later, after
+    anything else no next step until the status changes."""
+    now = utcnow()
+    step = next_step_text.next_step(application, now)
+    if step is None:
+        raise NoNextStep
+    next_type, next_at = next_step_text.after_done(application, now)
+    application.next_action_manual = True
+    application.next_action_type = next_type
+    application.next_action_at = next_at
+    application.next_action_note = None
+    application.snoozed_until = None
+    event = _add_event(session, application, "next_step_changed", message=f"Done: {step.label}")
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return event
+
+
+DETAIL_FIELDS = (
+    "company",
+    "job_title",
+    "location",
+    "remote_type",
+    "job_url",
+    "posting_closes_at",
+    "contact_name",
+    "contact_email",
+    "salary_text",
+    "notes",
+)
+
+
+def update_details(
+    session: Session, user: User, application: Application, values: dict
+) -> Application:
+    """The Details form (D-075). `values` were checked by DetailsForm; only the
+    DETAIL_FIELDS are taken. A new link also gives a new source. No event: details
+    are not part of the timeline, and the form can simply be edited again."""
+    for field in DETAIL_FIELDS:
+        setattr(application, field, values.get(field))
+    application.source = (
+        detect_source(application.job_url)
+        if application.job_url
+        else ("manual" if application.source in SOURCES_FROM_LINKS else application.source)
+    )
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return application
+
+
+# --- Needs attention (SPEC §6.3, D-077) ---------------------------------------------------
+
+SNOOZE_DAYS = 3
+
+
+@dataclass(frozen=True)
+class Attention:
+    """One line of "Needs attention"."""
+
+    application: Application
+    step: "next_step_text.NextStep"
+    group: int  # 0 deadlines and offers, 1 interview, 2 follow up, 3 waiting
+    tag: str  # "Overdue", "Due today", "Offer", "Interview", "Follow up", "Waiting"
+
+
+def needs_attention(session: Session, user: User, now: dt.datetime) -> list[Attention]:
+    """The user's jobs whose next step is due today or overdue, most urgent first
+    (SPEC §6.3): deadlines and offers → interviews → follow-ups → waiting saved jobs;
+    in each group the oldest date first. Snoozed and archived jobs are left out.
+    Worked out in Python: at most 2,000 jobs, the next step is computed (D-073)."""
+    jobs = session.exec(
+        select(Application).where(
+            Application.user_id == user.id,
+            col(Application.status).in_(BOARD_STATUSES),
+            col(Application.archived).is_(False),
+        )
+    )
+    today = clock.local(now).date()
+    items = []
+    for job in jobs:
+        if job.snoozed_until is not None and as_utc(job.snoozed_until) > as_utc(now):
+            continue
+        step = next_step_text.next_step(job, now)
+        if step is None or not step.is_due(today):
+            continue
+        items.append(Attention(job, step, *_attention_group(step, today)))
+    items.sort(key=lambda item: (item.group, as_utc(item.step.at), item.application.id))
+    return items
+
+
+def _attention_group(step, today: dt.date) -> tuple[int, str]:
+    if step.waiting:
+        return 3, "Waiting"
+    if step.type in ("interview", "thank_you"):
+        return 1, "Interview"
+    if step.type == "follow_up":
+        return 2, "Follow up"
+    if step.type == "reply_offer":
+        return 0, "Offer"
+    overdue = clock.local(step.at).date() < today
+    return 0, "Overdue" if overdue else "Due today"
+
+
+def snooze(session: Session, user: User, application: Application, now: dt.datetime) -> None:
+    """ "Snooze" (D-074): hide from Needs attention for 3 days. No event."""
+    if application.archived:
+        raise NotOnBoard
+    application.snoozed_until = as_utc(now) + dt.timedelta(days=SNOOZE_DAYS)
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+
+
+MAX_NOTES_PER_APPLICATION = 500  # keeps the timeline of one job a reasonable size
+
+
+class TooManyNotes(Exception):
+    """The application has MAX_NOTES_PER_APPLICATION notes already."""
+
+
+def add_note(session: Session, user: User, application: Application, text: str) -> ApplicationEvent:
+    """A note on the timeline (event "note_added"). The text was checked by NoteForm."""
+    count = session.exec(
+        select(func.count())
+        .select_from(ApplicationEvent)
+        .where(
+            ApplicationEvent.application_id == application.id,
+            ApplicationEvent.type == "note_added",
+        )
+    ).one()
+    if count >= MAX_NOTES_PER_APPLICATION:
+        raise TooManyNotes
+    event = _add_event(session, application, "note_added", message=text)
+    session.commit()
+    session.refresh(event)
+    return event
+
+
+def set_status(
+    session: Session, user: User, application: Application, status: str
+) -> list[ApplicationEvent]:
+    """The status picker on the detail page (D-076): a board status, or "archived".
+    From the archive the job is restored first. Returns the events written."""
+    if status != "archived" and status not in BOARD_STATUSES:
+        raise NotOnBoard
+    if status == "archived":
+        return [] if application.archived else [archive(session, user, application)]
+    events = []
+    if application.archived:
+        events.append(restore(session, user, application))
+    if status != application.status:
+        events.append(move(session, user, application, status))
+    return events
 
 
 def archive(session: Session, user: User, application: Application) -> ApplicationEvent:
@@ -442,6 +861,34 @@ def archived_count(session: Session, user: User) -> int:
         .select_from(Application)
         .where(Application.user_id == user.id, col(Application.archived).is_(True))
     ).one()
+
+
+def neighbours(
+    session: Session, user: User, application: Application
+) -> tuple[int, int, int | None, int | None]:
+    """Where the application sits among its column for "‹ 1 of 10 in Saved ›" (D-078):
+    (position from 1, how many, id before, id after). Archived jobs are counted among
+    the archived ones of their status, newest first."""
+    if application.archived:
+        siblings = list(
+            session.exec(
+                select(Application.id)
+                .where(
+                    Application.user_id == user.id,
+                    Application.status == application.status,
+                    col(Application.archived).is_(True),
+                )
+                .order_by(col(Application.last_activity_at).desc(), col(Application.id).desc())
+            )
+        )
+    else:
+        siblings = [card.id for card in column_of(session, user, application.status)]
+    if application.id not in siblings:
+        return 1, 1, None, None
+    index = siblings.index(application.id)
+    before = siblings[index - 1] if index > 0 else None
+    after = siblings[index + 1] if index + 1 < len(siblings) else None
+    return index + 1, len(siblings), before, after
 
 
 def events_of(session: Session, application: Application) -> list[ApplicationEvent]:

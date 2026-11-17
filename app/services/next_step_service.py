@@ -1,0 +1,213 @@
+"""The next step of an application (SPEC §6.13, D-073): one thing to do and its date.
+
+The automatic next step is worked out from the status every time it is needed, not
+stored: rules like "the interview time has passed, now send a thank-you note" then
+need no background job and are always right. Only a next step the user set by hand
+("Change", "Done") is stored, in Application.next_action_*.
+
+Plain functions: nothing here reads or writes the database.
+"""
+
+import datetime as dt
+from dataclasses import dataclass
+
+from app.models import Application
+from app.models.base import as_utc
+from app.services import clock
+
+# Days in the rules of SPEC §6.13.
+APPLY_BY_DAYS_BEFORE_CLOSING = 1
+APPLY_BY_DAYS_AFTER_SAVING = 7  # when the posting's closing date is not known
+FOLLOW_UP_DAYS_AFTER_APPLYING = 10
+FOLLOW_UP_DAYS_AFTER_THANK_YOU = 5
+
+LABELS = {
+    "apply_by": "Apply by",
+    "follow_up": "Follow up",
+    "interview": "Interview",
+    "thank_you": "Send thank-you note",
+    "reply_offer": "Reply to offer",
+    "custom": "Custom",
+}
+
+
+@dataclass(frozen=True)
+class NextStep:
+    type: str  # one of LABELS
+    at: dt.datetime | None  # UTC; None = no date yet (e.g. an offer without a deadline)
+    automatic: bool  # True: from the status; False: set by hand
+    note: str | None = None  # the text of a "custom" step
+    # True for the automatic "Apply by, 7 days after saving": nothing is really due,
+    # the job is just waiting (Needs attention calls it "Waiting", D-077).
+    waiting: bool = False
+
+    @property
+    def label(self) -> str:
+        return self.note if self.type == "custom" and self.note else LABELS[self.type]
+
+    @property
+    def all_day(self) -> bool:
+        """True if the step has a date but no time."""
+        return self.at is not None and clock.is_start_of_day(self.at)
+
+    def is_due(self, today: dt.date) -> bool:
+        """True if its day is today or has passed (SPEC §6.13 rule 4)."""
+        return self.at is not None and clock.local(self.at).date() <= today
+
+
+def next_step(application: Application, now: dt.datetime) -> NextStep | None:
+    """The next step of `application` at the time `now` (UTC), or None."""
+    if application.archived:
+        return None  # archived jobs have no next step (a hand-set one comes back on Restore)
+    if application.next_action_manual:
+        if application.next_action_type is None:
+            return None  # "Done": nothing until the status changes
+        return NextStep(
+            type=application.next_action_type,
+            at=application.next_action_at,
+            automatic=False,
+            note=application.next_action_note,
+        )
+    return _automatic(application, now)
+
+
+def _automatic(application: Application, now: dt.datetime) -> NextStep | None:
+    status = application.status
+    if status == "saved":
+        if application.posting_closes_at:
+            day = application.posting_closes_at - dt.timedelta(days=APPLY_BY_DAYS_BEFORE_CLOSING)
+            return NextStep("apply_by", clock.to_utc(day), automatic=True)
+        saved_on = clock.local(application.created_at).date()
+        day = saved_on + dt.timedelta(days=APPLY_BY_DAYS_AFTER_SAVING)
+        return NextStep("apply_by", clock.to_utc(day), automatic=True, waiting=True)
+
+    if status == "applied":
+        applied_on = application.applied_at or clock.local(application.created_at).date()
+        day = applied_on + dt.timedelta(days=FOLLOW_UP_DAYS_AFTER_APPLYING)
+        return NextStep("follow_up", clock.to_utc(day), automatic=True)
+
+    if status == "interview":
+        interview = application.interview_at
+        if interview is None:
+            return NextStep("interview", None, automatic=True)  # date not given yet
+        if not interview_has_passed(interview, now):
+            return NextStep("interview", interview, automatic=True)
+        # After the interview: a thank-you note, the same day (an all-day interview:
+        # the day after, because it only counts as over when that day ends).
+        day = clock.local(interview).date()
+        if clock.is_start_of_day(interview):
+            day += dt.timedelta(days=1)
+        return NextStep("thank_you", clock.to_utc(day), automatic=True)
+
+    if status == "offer":
+        return NextStep("reply_offer", None, automatic=True)  # the deadline comes from the user
+
+    return None  # rejected, withdrawn
+
+
+def interview_has_passed(interview_at: dt.datetime, now: dt.datetime) -> bool:
+    """A timed interview has passed at its start time; an interview without a time
+    (00:00, "all day") when its day is over."""
+    if clock.is_start_of_day(interview_at):
+        return clock.local(now).date() > clock.local(interview_at).date()
+    return as_utc(now) >= as_utc(interview_at)  # SQLite gives times back without a zone
+
+
+def after_done(application: Application, now: dt.datetime) -> tuple[str | None, dt.datetime | None]:
+    """What "Done" leaves as the hand-set next step (type, date): after the thank-you
+    note a follow-up 5 days later, after anything else nothing (D-073)."""
+    step = next_step(application, now)
+    if step is not None and step.type == "thank_you":
+        day = clock.local(now).date() + dt.timedelta(days=FOLLOW_UP_DAYS_AFTER_THANK_YOU)
+        return "follow_up", clock.to_utc(day)
+    return None, None
+
+
+# --- Words for the Next step card ------------------------------------------------------
+
+
+def day_text(value: dt.datetime) -> str:
+    """ "Wed, 18 Nov" in the user's time zone."""
+    return clock.local(value).strftime("%a, %-d %b")
+
+
+def when_text(value: dt.datetime) -> str:
+    """ "Wed, 18 Nov" for a whole day, "Wed, 18 Nov, 10:00" with a time."""
+    if clock.is_start_of_day(value):
+        return day_text(value)
+    return clock.local(value).strftime("%a, %-d %b, %H:%M")
+
+
+def title(step: NextStep) -> str:
+    """The card's main line: "Apply by Wed, 11 Nov", "Interview · Wed, 18 Nov, 10:00"."""
+    if step.at is None:
+        return {"reply_offer": "Reply to the offer", "interview": "Interview"}.get(
+            step.type, step.label
+        )
+    if step.type in ("apply_by",):
+        return f"Apply by {day_text(step.at)}"
+    if step.type in ("follow_up", "thank_you"):
+        return f"{step.label} on {day_text(step.at)}"
+    if step.type == "reply_offer":
+        return f"Reply to the offer by {day_text(step.at)}"
+    return f"{step.label} · {when_text(step.at)}"
+
+
+INTERVIEW_TYPE_NAMES = {"video": "Video call", "phone": "Phone call", "onsite": "On site"}
+
+
+def reason(step: NextStep, application: Application) -> str:
+    """The small line under the title: why this step and this date."""
+    if not step.automatic:
+        return "Set by you. It stays until the status changes."
+    if step.type == "apply_by":
+        if step.waiting:
+            return "Saved a week ago. Apply, or archive it if it's not for you."
+        return f"The posting closes on {day_text(clock.to_utc(application.posting_closes_at))}."
+    if step.type == "follow_up":
+        return "10 days after applying, if you hear nothing."
+    if step.type == "interview":
+        if step.at is None:
+            return "Add the date when you know it."
+        kind = INTERVIEW_TYPE_NAMES.get(application.interview_type or "", "")
+        who = f" with {application.interview_with}" if application.interview_with else ""
+        return f"{kind or 'Interview'}{who}." if kind or who else "Good luck!"
+    if step.type == "thank_you":
+        return "The interview is over. A short thank-you note helps."
+    if step.type == "reply_offer":
+        return "Add the deadline from the offer letter."
+    return ""
+
+
+def no_step_reason(application: Application) -> str:
+    """Why there is no next step."""
+    if application.archived:
+        return "Archived jobs have no next step."
+    if application.next_action_manual:
+        return "Done. Change the status or set a new next step."
+    return f"{application.status.capitalize()} jobs have no next step."
+
+
+def attention_text(step: NextStep, application: Application, today: dt.date) -> str:
+    """The short line after the company in Needs attention, e.g. "applied 12 days ago,
+    no reply yet"."""
+    day = clock.local(step.at).date() if step.at else today
+    when = "today" if day == today else day_text(step.at)
+    if step.waiting:
+        saved_days = (today - clock.local(application.created_at).date()).days
+        return f"saved {saved_days} days ago, apply or archive?"
+    if step.type == "apply_by":
+        return f"apply by {when}" if day >= today else f"the apply-by date was {when}"
+    if step.type == "interview":
+        time = "" if step.all_day else f" at {clock.local(step.at).strftime('%H:%M')}"
+        return f"interview {when}{time}"
+    if step.type == "thank_you":
+        return "send a thank-you note after the interview"
+    if step.type == "follow_up":
+        if not step.automatic:
+            return f"follow up, planned for {when}"
+        applied = application.applied_at or clock.local(application.created_at).date()
+        return f"applied {(today - applied).days} days ago, no reply yet"
+    if step.type == "reply_offer":
+        return f"reply to the offer by {when}" if day >= today else f"the offer deadline was {when}"
+    return f"{step.label} ({when})"

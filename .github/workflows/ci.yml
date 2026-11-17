@@ -84,6 +84,14 @@ jobs:
           print('PDF bytes:', len(pdf))
           "
 
+      # Dates are shown in DEFAULT_TIMEZONE (D-071): the image must know the time zones.
+      - name: Time zones work in the image
+        run: |
+          docker compose exec -T app python -c "
+          from app.services import clock
+          print('Today in', clock.tz().key, clock.today())
+          "
+
       - name: Migrations ran on Postgres
         run: |
           version=$(docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select version_num from alembic_version"')

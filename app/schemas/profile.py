@@ -54,6 +54,16 @@ def check_url(value: str | None) -> str | None:
     return value
 
 
+def check_email_address(value: str | None) -> str | None:
+    """A field's email, if filled in, must look like an email address."""
+    if value is not None:
+        try:
+            _email_adapter.validate_python(value)
+        except ValidationError:
+            raise ValueError("Enter a valid email address.") from None
+    return value
+
+
 def check_dates_in_order(start: dt.date | None, end: dt.date | None) -> None:
     if start and end and end < start:
         raise ValueError("The end date must be after the start date.")
@@ -77,12 +87,7 @@ class PersonalInfoForm(ProfileForm):
     @field_validator("email")
     @classmethod
     def check_email(cls, value):
-        if value is not None:
-            try:
-                _email_adapter.validate_python(value)
-            except ValidationError:
-                raise ValueError("Enter a valid email address.") from None
-        return value
+        return check_email_address(value)
 
     @field_validator("website", "linkedin_url", "github_url")
     @classmethod
@@ -259,4 +264,8 @@ def _message(error: dict) -> str:
         return str(error["ctx"]["error"])
     if kind in ("int_parsing", "int_type", "greater_than_equal", "less_than_equal"):
         return "Choose a level from 1 to 5."
+    if kind in ("date_parsing", "date_from_datetime_parsing", "date_type"):
+        return "Use the format YYYY-MM-DD."
+    if kind in ("time_parsing", "time_type"):
+        return "Use the format HH:MM."
     return "Check this field."

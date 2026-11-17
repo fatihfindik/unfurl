@@ -16,10 +16,18 @@ from starlette.datastructures import FormData
 from app.db import get_session
 from app.models import User
 from app.models.application import BOARD_STATUSES, MAX_DESCRIPTION
-from app.schemas.application import ADD_JOB_STATUSES, AddJobForm, BoardQuery
+from app.schemas.application import (
+    ADD_JOB_STATUSES,
+    AddJobForm,
+    BoardQuery,
+    DetailsForm,
+    InterviewForm,
+    NextStepForm,
+    NoteForm,
+)
 from app.schemas.profile import form_errors
 from app.security import limiter
-from app.services import application_service, undo_service
+from app.services import application_service, clock, next_step_service, undo_service
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
 
@@ -93,6 +101,7 @@ def board_context(session: Session, user: User, query: BoardQuery) -> dict:
     cards = application_service.board(session, user, query.filters)
     context = {
         "query": query,
+        "attention": attention_items(session, user),
         "counts": application_service.counts(session, user),  # summary cards: unfiltered
         "status_titles": STATUS_TITLES,
         "status_hints": STATUS_HINTS,
@@ -122,6 +131,23 @@ def board_context(session: Session, user: User, query: BoardQuery) -> dict:
             }
         )
     return context | {"columns": columns}
+
+
+ATTENTION_SHOWN = 3  # the most urgent ones; the rest under "Show all (n)" (SPEC §6.3)
+
+
+def attention_items(session: Session, user: User) -> list[dict]:
+    """Needs attention (D-077): one dict per line, most urgent first."""
+    now = clock.now()
+    today = clock.local(now).date()
+    return [
+        {
+            "application": item.application,
+            "tag": item.tag,
+            "text": next_step_service.attention_text(item.step, item.application, today),
+        }
+        for item in application_service.needs_attention(session, user, now)
+    ]
 
 
 def list_context(session: Session, user: User, query: BoardQuery) -> dict:
@@ -163,9 +189,30 @@ def page_events(*, toast: str, undo_url: str = "", undo_token: str = "", **more)
     "Şişecam" is safe in an HTTP header."""
     events = {
         "toast": {"message": toast, "undo_url": undo_url, "undo_token": undo_token},
-        "applications-changed": True,
+        "applications-changed": True,  # the board and list reload themselves
+        "application-changed": True,  # so does an open detail page (D-076)
     } | more
     return {"HX-Trigger": json.dumps(events)}
+
+
+def undo_events(
+    session: Session, user: User, application, events: list, before: dict, toast: str, **more
+) -> dict:
+    """The HX-Trigger for an undoable change (D-079): the toast with a token that
+    holds what changed, from the note taken before the action."""
+    after = application_service.note(session, user, application)
+    token = undo_service.make_change_token(
+        user,
+        application.id,
+        [event.id for event in events],
+        application_service.newest_event_id(session, application),
+        application_service.changes(before, after),
+    )
+    if len(token) > undo_service.TOKEN_MAX_LENGTH:
+        # Very long texts (e.g. emoji) can make the token too big for an HTTP header;
+        # then the change simply has no Undo (security review M4b, 1).
+        return page_events(toast=toast, **more)
+    return page_events(toast=toast, undo_url=UNDO_URL, undo_token=token, **more)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -213,7 +260,13 @@ def application_create(
     response = add_job_form(request, None, None)
     toast = f"{application.company} saved to {STATUS_TITLES[application.status]}."
     created = application_service.events_of(session, application)[-1]
-    token = undo_service.make_token(user, application.id, [created.id], before=None)
+    token = undo_service.make_token(
+        user,
+        application.id,
+        [created.id],
+        before=None,
+        created=application_service.creation_fingerprint(application),
+    )
     response.headers.update(
         page_events(toast=toast, undo_url=UNDO_URL, undo_token=token, **{"close-dialog": "add-job"})
     )
@@ -239,7 +292,7 @@ def application_move(
     card above it (empty at the top). The answer has no HTML: the page reloads the
     board itself, so it always shows what is stored."""
     application = application_service.get_owned_application(session, user, application_id)
-    before = application_service.before_note(session, user, application)
+    before = application_service.note(session, user, application)
     try:
         event = application_service.move(
             session, user, application, str(data.get("status", "")), data.get("after_id") or None
@@ -250,9 +303,10 @@ def application_move(
     if event is None:  # only the order changed: no toast (D-065)
         return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
     toast = f"{application.company} moved to {STATUS_TITLES[application.status]}."
-    token = undo_service.make_token(user, application.id, [event.id], before)
+    more = {"open-interview": application.id} if application.status == "interview" else {}
     return Response(
-        status_code=204, headers=page_events(toast=toast, undo_url=UNDO_URL, undo_token=token)
+        status_code=204,
+        headers=undo_events(session, user, application, [event], before, toast, **more),
     )
 
 
@@ -265,9 +319,24 @@ def application_undo(request: Request, session: DbSession, user: RequiredUser, d
     try:
         if note is None:
             raise application_service.NothingToUndo
-        application_service.undo(
-            session, user, note["application_id"], note["event_ids"], note["before"]
-        )
+        if note["version"] == 2:
+            application_service.undo_change(
+                session,
+                user,
+                note["application_id"],
+                note["event_ids"],
+                note["newest"],
+                note["fields"],
+            )
+        else:  # "add", and M4a tokens still within their minute
+            application_service.undo(
+                session,
+                user,
+                note["application_id"],
+                note["event_ids"],
+                note["before"],
+                note["created"],
+            )
     except application_service.NothingToUndo:
         return Response(status_code=204, headers=page_events(toast="Nothing to undo."))
     return Response(status_code=204, headers=page_events(toast="Undone."))
@@ -280,15 +349,14 @@ def application_archive(
 ):
     """ "Archive" in the list (D-066): off the board, not deleted. Toast with Undo."""
     application = application_service.get_owned_application(session, user, application_id)
-    before = application_service.before_note(session, user, application)
+    before = application_service.note(session, user, application)
     try:
         event = application_service.archive(session, user, application)
     except application_service.NotOnBoard:  # archived already (another tab)
         return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
-    token = undo_service.make_token(user, application.id, [event.id], before)
     toast = f"{application.company} archived."
     return Response(
-        status_code=204, headers=page_events(toast=toast, undo_url=UNDO_URL, undo_token=token)
+        status_code=204, headers=undo_events(session, user, application, [event], before, toast)
     )
 
 
@@ -299,13 +367,448 @@ def application_restore(
 ):
     """ "Restore" on an archived card or row: back to the top of its column. Toast with Undo."""
     application = application_service.get_owned_application(session, user, application_id)
-    before = application_service.before_note(session, user, application)
+    before = application_service.note(session, user, application)
     try:
         event = application_service.restore(session, user, application)
     except application_service.NotOnBoard:  # not archived (restored in another tab)
         return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
-    token = undo_service.make_token(user, application.id, [event.id], before)
     toast = f"{application.company} restored."
     return Response(
-        status_code=204, headers=page_events(toast=toast, undo_url=UNDO_URL, undo_token=token)
+        status_code=204, headers=undo_events(session, user, application, [event], before, toast)
+    )
+
+
+# --- Detail page (SPEC §6.7, M4b) --------------------------------------------------------
+
+
+def timeline_text(event, source_name: str) -> str:
+    """One line of the timeline, newest first on the page."""
+    if event.type == "created":
+        where = "Added by hand" if source_name == "Added by hand" else f"Saved from {source_name}"
+        if event.to_status and event.to_status != "saved":
+            return f"{where} as {STATUS_TITLES.get(event.to_status, event.to_status)}"
+        return where
+    if event.type == "status_changed":
+        before = STATUS_TITLES.get(event.from_status or "", event.from_status)
+        after = STATUS_TITLES.get(event.to_status or "", event.to_status)
+        return f"Status: {before} → {after}"
+    if event.type == "note_added":
+        return f"Note: {event.message or ''}"
+    return {"archived": "Archived", "restored": "Restored"}.get(event.type, event.message or "")
+
+
+def timeline_context(events, source_name: str, values=None, errors=None) -> dict:
+    """What _timeline.html needs: the lines (newest first) and the note form."""
+    return {
+        "timeline": [
+            {
+                "text": timeline_text(event, source_name),
+                "when": when_text(event.created_at),
+                "type": event.type,
+            }
+            for event in reversed(events)
+        ],
+        "note_values": values or {},
+        "note_errors": errors or {},
+    }
+
+
+def when_text(value) -> str:
+    """When an event happened: "Today, 09:12", "Yesterday, 18:40", "Mon, 9 Nov, 10:05"."""
+    local = clock.local(value)
+    days = (clock.today() - local.date()).days
+    day = {0: "Today", 1: "Yesterday"}.get(days, local.strftime("%a, %-d %b"))
+    return f"{day}, {local.strftime('%H:%M')}"
+
+
+def initials(company: str) -> str:
+    """ "Kranich Health GmbH" -> "KH": the company avatar."""
+    words = [word for word in company.split() if word[:1].isalnum()]
+    return "".join(word[0] for word in words[:2]).upper() or "?"
+
+
+def next_step_context(application) -> dict:
+    """What the Next step card needs (_next_step.html)."""
+    step = next_step_service.next_step(application, clock.now())
+    return {
+        "application": application,
+        "step": step,
+        "step_title": next_step_service.title(step) if step else "No next step",
+        "step_reason": (
+            next_step_service.reason(step, application)
+            if step
+            else next_step_service.no_step_reason(application)
+        ),
+    }
+
+
+def detail_context(session: Session, user: User, application) -> dict:
+    source_name = SOURCE_NAMES.get(application.source, "Other")
+    events = application_service.events_of(session, application)
+    position, total, before_id, after_id = application_service.neighbours(
+        session, user, application
+    )
+    return (
+        next_step_context(application)
+        | details_context(application)
+        | {
+            "initials": initials(application.company),
+            "status_title": STATUS_TITLES.get(application.status, application.status),
+            "saved_when": application.created_at,
+            "position": position,
+            "total": total,
+            "before_url": f"/applications/{before_id}" if before_id else "",
+            "after_url": f"/applications/{after_id}" if after_id else "",
+            **timeline_context(events, source_name),
+            "interview_type_names": next_step_service.INTERVIEW_TYPE_NAMES,
+            "status_choices": [*STATUS_TITLES.items(), ("archived", "Archived")],
+        }
+    )
+
+
+@router.get("/applications/{application_id}", response_class=HTMLResponse)
+def application_detail(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """One application: header, details, saved posting, next step and timeline."""
+    application = application_service.get_owned_application(session, user, application_id)
+    return templates.TemplateResponse(
+        request, "applications/detail.html", detail_context(session, user, application)
+    )
+
+
+PICKER_STATUSES = (*BOARD_STATUSES, "archived")
+
+
+@router.post("/applications/{application_id}/status")
+@limiter.limit("60/minute")
+def application_status(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """The status picker on the detail page (D-076): works with the keyboard, unlike
+    dragging (D-069). Toast with Undo; the page reloads its parts (application-changed)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    status = str(data.get("status", ""))
+    if status not in PICKER_STATUSES:
+        raise HTTPException(status_code=422)
+    before = application_service.note(session, user, application)
+    events = application_service.set_status(session, user, application, status)
+    if not events:  # it already had that status (another tab)
+        return Response(status_code=204, headers={"HX-Trigger": "application-changed"})
+    if status == "archived":
+        toast = f"{application.company} archived."
+    else:
+        toast = f"{application.company} moved to {STATUS_TITLES[status]}."
+    # Interview: the modal asks for the date next; the status is already changed, so
+    # "Skip" leaves it as it is (SPEC M4b acceptance, D-076).
+    more = {"open-interview": application.id} if status == "interview" else {}
+    return Response(
+        status_code=204,
+        headers=undo_events(session, user, application, events, before, toast, **more),
+    )
+
+
+# --- Interview modal (D-076) -------------------------------------------------------------
+
+
+def interview_form(request: Request, application, values: dict, errors: dict) -> HTMLResponse:
+    context = {
+        "application": application,
+        "values": values,
+        "errors": errors,
+        "type_choices": list(next_step_service.INTERVIEW_TYPE_NAMES.items()),
+    }
+    return templates.TemplateResponse(request, "applications/_interview_form.html", context)
+
+
+@router.get("/applications/{application_id}/interview", response_class=HTMLResponse)
+def interview_form_page(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """The modal's form, filled with what is known (an earlier interview date)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    values = {
+        "interview_type": application.interview_type or "",
+        "interview_with": application.interview_with or "",
+    }
+    if application.interview_at:
+        local = clock.local(application.interview_at)
+        values["date"] = local.date().isoformat()
+        if not clock.is_start_of_day(application.interview_at):
+            values["time"] = local.strftime("%H:%M")
+    return interview_form(request, application, values, {})
+
+
+@router.post("/applications/{application_id}/interview", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def interview_save(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """ "Save interview": errors come back in the form (200); saved, the modal closes
+    with a toast and Undo, and the page reloads its parts."""
+    application = application_service.get_owned_application(session, user, application_id)
+    values = dict(data)
+    try:
+        form = InterviewForm.model_validate(values)
+    except ValidationError as exc:
+        return interview_form(request, application, values, form_errors(exc))
+
+    before = application_service.note(session, user, application)
+    at = clock.to_utc(form.date, form.time)
+    events = application_service.set_interview(
+        session,
+        user,
+        application,
+        at=at,
+        interview_type=form.interview_type,
+        interview_with=form.interview_with,
+    )
+    toast = f"Interview saved for {next_step_service.when_text(at)}."
+    response = interview_form(request, application, {}, {})
+    response.headers.update(
+        undo_events(
+            session, user, application, events, before, toast, **{"close-dialog": "interview"}
+        )
+    )
+    return response
+
+
+# --- Next step: Change and Done (D-073) ----------------------------------------------------
+
+
+@router.get("/applications/{application_id}/next-step", response_class=HTMLResponse)
+def next_step_card(request: Request, session: DbSession, user: RequiredUser, application_id: str):
+    """The Next step card ("Cancel" in the form comes back here)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    return templates.TemplateResponse(
+        request, "applications/_next_step.html", next_step_context(application)
+    )
+
+
+def next_step_form(request: Request, application, values: dict, errors: dict) -> HTMLResponse:
+    context = {
+        "application": application,
+        "values": values,
+        "errors": errors,
+        "type_choices": list(next_step_service.LABELS.items()),
+    }
+    return templates.TemplateResponse(request, "applications/_next_step_form.html", context)
+
+
+@router.get("/applications/{application_id}/next-step/edit", response_class=HTMLResponse)
+def next_step_edit(request: Request, session: DbSession, user: RequiredUser, application_id: str):
+    """ "Change": the form in place of the card, filled with the current next step."""
+    application = application_service.get_owned_application(session, user, application_id)
+    step = next_step_service.next_step(application, clock.now())
+    values = {"next_action_type": step.type if step else "custom", "note": ""}
+    if step and step.at:
+        values["date"] = clock.local(step.at).date().isoformat()
+        if not step.all_day:
+            values["time"] = clock.local(step.at).strftime("%H:%M")
+    if step and step.type == "custom":
+        values["note"] = step.note or ""
+    return next_step_form(request, application, values, {})
+
+
+@router.post("/applications/{application_id}/next-step", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def next_step_save(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    application = application_service.get_owned_application(session, user, application_id)
+    if application.archived:
+        raise HTTPException(status_code=409)  # archived jobs have no next step
+    values = dict(data)
+    try:
+        form = NextStepForm.model_validate(values)
+    except ValidationError as exc:
+        return next_step_form(request, application, values, form_errors(exc))
+
+    before = application_service.note(session, user, application)
+    event = application_service.change_next_step(
+        session,
+        user,
+        application,
+        next_action_type=form.next_action_type,
+        at=clock.to_utc(form.date, form.time),
+        note=form.note,
+    )
+    response = templates.TemplateResponse(
+        request, "applications/_next_step.html", next_step_context(application)
+    )
+    response.headers.update(
+        undo_events(session, user, application, [event], before, "Next step saved.")
+    )
+    return response
+
+
+@router.post("/applications/{application_id}/next-step/done")
+@limiter.limit("60/minute")
+def next_step_done(request: Request, session: DbSession, user: RequiredUser, application_id: str):
+    """ "Done": finish the current step (D-073). Toast with Undo."""
+    application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.note(session, user, application)
+    try:
+        event = application_service.finish_next_step(session, user, application)
+    except application_service.NoNextStep:
+        return Response(status_code=204, headers={"HX-Trigger": "application-changed"})
+    return Response(
+        status_code=204,
+        headers=undo_events(session, user, application, [event], before, f"{event.message}."),
+    )
+
+
+# --- Notes on the timeline -------------------------------------------------------------------
+
+
+@router.post("/applications/{application_id}/notes", response_class=HTMLResponse)
+@limiter.limit("30/minute")
+def note_add(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """ "Add" under the timeline: the timeline comes back with the note on top (or the
+    form with its error). No Undo: a note changes nothing else."""
+    application = application_service.get_owned_application(session, user, application_id)
+    source_name = SOURCE_NAMES.get(application.source, "Other")
+    values = dict(data)
+    try:
+        form = NoteForm.model_validate(values)
+    except ValidationError as exc:
+        events = application_service.events_of(session, application)
+        context = {"application": application} | timeline_context(
+            events, source_name, values, form_errors(exc)
+        )
+        return templates.TemplateResponse(request, "applications/_timeline.html", context)
+
+    try:
+        application_service.add_note(session, user, application, form.text)
+    except application_service.TooManyNotes:
+        events = application_service.events_of(session, application)
+        limit = application_service.MAX_NOTES_PER_APPLICATION
+        context = {"application": application} | timeline_context(
+            events, source_name, values, {"text": f"This job has {limit} notes already."}
+        )
+        return templates.TemplateResponse(request, "applications/_timeline.html", context)
+    events = application_service.events_of(session, application)
+    context = {"application": application} | timeline_context(events, source_name)
+    response = templates.TemplateResponse(request, "applications/_timeline.html", context)
+    response.headers["HX-Trigger"] = json.dumps(
+        {"toast": {"message": "Note added.", "undo_url": "", "undo_token": ""}}
+    )
+    return response
+
+
+# --- Details form (D-075) -------------------------------------------------------------------
+
+
+def details_context(application) -> dict:
+    """What _details.html needs."""
+    return {
+        "application": application,
+        "source_name": SOURCE_NAMES.get(application.source, "Other"),
+        "remote_name": REMOTE_NAMES.get(application.remote_type),
+        "closes_text": (
+            next_step_service.day_text(clock.to_utc(application.posting_closes_at))
+            if application.posting_closes_at
+            else ""
+        ),
+    }
+
+
+def details_form(request: Request, application, values: dict, errors: dict) -> HTMLResponse:
+    context = {
+        "application": application,
+        "values": values,
+        "errors": errors,
+        "remote_choices": list(REMOTE_NAMES.items()),
+    }
+    return templates.TemplateResponse(request, "applications/_details_form.html", context)
+
+
+@router.get("/applications/{application_id}/details", response_class=HTMLResponse)
+def details_card(request: Request, session: DbSession, user: RequiredUser, application_id: str):
+    """The Details card ("Cancel" in the form comes back here)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    return templates.TemplateResponse(
+        request, "applications/_details.html", details_context(application)
+    )
+
+
+@router.get("/applications/{application_id}/details/edit", response_class=HTMLResponse)
+def details_edit(request: Request, session: DbSession, user: RequiredUser, application_id: str):
+    application = application_service.get_owned_application(session, user, application_id)
+    values = {field: getattr(application, field) for field in application_service.DETAIL_FIELDS}
+    if application.remote_type == "unknown":
+        values["remote_type"] = ""
+    if application.posting_closes_at:
+        values["posting_closes_at"] = application.posting_closes_at.isoformat()
+    return details_form(request, application, values, {})
+
+
+@router.post("/applications/{application_id}/details", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def details_save(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """ "Save" in the Details form: the card comes back and the page reloads its header
+    (company and title may have changed). No Undo: the form can be edited again."""
+    application = application_service.get_owned_application(session, user, application_id)
+    values = dict(data)
+    try:
+        form = DetailsForm.model_validate(values)
+    except ValidationError as exc:
+        return details_form(request, application, values, form_errors(exc))
+    application_service.update_details(session, user, application, form.model_dump())
+    response = templates.TemplateResponse(
+        request, "applications/_details.html", details_context(application)
+    )
+    response.headers["HX-Trigger"] = json.dumps(
+        {
+            "toast": {"message": "Details saved.", "undo_url": "", "undo_token": ""},
+            "application-changed": True,
+            "applications-changed": True,
+        }
+    )
+    return response
+
+
+# --- Snooze (D-074) --------------------------------------------------------------------------
+
+
+@router.post("/applications/{application_id}/snooze")
+@limiter.limit("60/minute")
+def application_snooze(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """ "Snooze" in Needs attention: hidden for 3 days. Toast with Undo (no event, so
+    the token holds only snoozed_until, D-079)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.note(session, user, application)
+    try:
+        application_service.snooze(session, user, application, clock.now())
+    except application_service.NotOnBoard:
+        return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
+    toast = f"{application.company} snoozed for {application_service.SNOOZE_DAYS} days."
+    return Response(
+        status_code=204, headers=undo_events(session, user, application, [], before, toast)
     )

@@ -342,6 +342,7 @@ Kaynak: Plan fazı, Fatih onayı (2026-11-16).
 ### D-061 · M4a'da `Application` kolonları (D-025 kalıbı)
 Kaynak: M4a Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
 - **Karar:** `user_id` (FK, index), `company` (≤200), `job_title` (≤200), `location` (≤200, nullable), `remote_type` (onsite/hybrid/remote/unknown), `job_url` (≤2000, nullable), `source`, `description_raw` (text, ≤50.000), `status`, `position`, `applied_at`, `archived`, `last_activity_at`, `created_at`, `updated_at`. **`last_activity_at`** kartta ve listede "Updated" olarak gösterilen ve varsayılan sıralamada kullanılan tarihtir: sadece ekleme, durum değişikliği, arşiv ve restore'da değişir, Undo eski değerine döndürür. `updated_at` bunun için kullanılamaz, çünkü bir sütunu yeniden numaralamak komşu kartların `updated_at`'ini de değiştirir (plan-reviewer #1). `applied_at` şimdilik UTC tarihidir (`User.timezone` M10/M11'de). `description_raw` boşsa `""`. `user_id` FK'si `ON DELETE CASCADE`. Enum'lar User.plan gibi düz metin + Python'da izinli değer listesi. Sonraki parçalarda eklenecekler (hepsi nullable veya `server_default`'lu): `employment_type` (M5), `next_action_*`, `interview_*`, `contact_*`, `notes`, `salary_text` (M4b); `cv_id` (M4c); `cover_letter_id` (M8); `canonical_url` (M6, §8.5; mevcut satırlar `job_url`'den doldurulur); `description_structured`, `language`, `posting_closes_at` (M5). `ApplicationEvent`: `application_id` (FK, cascade), `type`, `from_status`, `to_status`, `message`, `created_at`, `updated_at`. Event'ler sadece sahibi doğrulanmış bir başvuru üzerinden, `(id, application_id)` ile okunur; asla sadece id ile. Kullanıcı başına en fazla `MAX_APPLICATIONS_PER_USER = 2000` başvuru (arşivliler dahil; `MAX_CVS_PER_USER` kalıbı). Sınır önce sayıp sonra eklediği için aynı anda gelen isteklerle birkaç kayıt aşılabilir; `POST /applications` dakikada 30 ile sınırlı olduğu için kabul (security review M4a, B; #22'deki gibi).
+- **Güncelleme (D-071, D-072):** "Bugün" artık `DEFAULT_TIMEZONE`'daki tarih (UTC değil); `posting_closes_at` M5 yerine M4b'de (Details formundan elle) gelir.
 
 ### D-062 · "Add job" formu (AI'sız)
 Kaynak: M4a Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
@@ -381,3 +382,49 @@ Kaynak: M4a Build, Fatih'in geri bildirimi (2026-11-16).
 - **Gerekçe:** Board'da kartlar ve sütun başlıkları aynı sırada aynı bilgiyi iki kez gösteriyordu ("Saved 1" üstte, "Saved 1" altta). Board'u duruma göre filtrelemek de anlamsız: sütunlar zaten duruma göre gruplar, diğer dört sütun boş kalırdı. Liste görünümünde sütun olmadığı için sayıları ve durum filtresini kartlar taşır.
 - **Alternatifler:** Prototipteki gibi ikisini de göstermek. Kartları sütun başlığıyla birleştirmek (liste görünümünde yine ayrı kart gerekir).
 
+### D-071 · Tarih ve saatler `DEFAULT_TIMEZONE`'da
+Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
+- **Karar:** Veritabanında her zaman UTC. Kullanıcıya gösterilen ve kullanıcının girdiği tarih/saatler `settings.default_timezone` (Europe/Vienna) ile çevrilir (`zoneinfo`). "Bugün" (Needs attention, `applied_at`) bu saat dilimindeki tarihtir; D-061'deki "UTC tarihi" bununla değişir. `User.timezone` M10/M11'de gelince tek bir fonksiyon (`app/services/clock.py`: `today()`, `local(dt)`, `to_utc(date, time)`) kullanıcıya bakar. Docker imajında `zoneinfo` verisi yoksa `tzdata` paketi eklenir (Adım 1'de CI docker job'u kontrol eder; gerekirse D-071'e yazılır). Yaz/kış saati: girilen saat iki kez yaşanıyorsa (Ekim) ilki (`fold=0`), hiç yaşanmıyorsa (Mart, 02:30) UTC'ye çevrilip geri çevrilerek bir saat ileri kayar; ikisi de test edilir. D-061'e "D-071 ile güncellendi" notu düşülür.
+
+### D-072 · M4b kolonları (D-025 kalıbı)
+Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
+- **Karar:** `Application`'a: `next_action_type` (apply_by/follow_up/interview/thank_you/reply_offer/custom, nullable), `next_action_at` (datetime, nullable), `next_action_note` (≤200, nullable), `next_action_manual` (bool, `server_default false`), `interview_at` (datetime, nullable), `interview_type` (video/phone/onsite, nullable), `interview_with` (≤200, nullable), `posting_closes_at` (date, nullable; SPEC'te M5'te AI'dan dolar, M4b'de Details formundan; D-061'deki "M5" notu güncellenir), `contact_name` (≤200), `contact_email` (≤320), `salary_text` (≤200), `notes` (text, ≤5.000), `snoozed_until` (datetime, nullable; SPEC'te yok, D-074). `ApplicationEvent.message` 200'den `Text`'e (≤2.000) çıkar: notlar timeline'da tam görünür. Hepsi tek migration `0009`; downgrade `message`'ı 200 karaktere keser (Postgres uzun satırı kısa kolona sığdıramaz), bu bilerek kabul edilir.
+
+### D-073 · Next step hesaplanır; sadece elle konan saklanır
+Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
+- **Karar:** `app/services/next_step_service.py` saf fonksiyonlarla (veritabanına dokunmaz) `next_step(application, now) -> NextStep | None` döner (tür, tarih, kısa metin, gerekçe, otomatik mi). Kurallar (SPEC §6.13):
+  - Saved → **Apply by**: `posting_closes_at` − 1 gün; yoksa eklemeden 7 gün sonra (bu ikincisi Needs attention'da "Waiting").
+  - Applied → **Follow up**: `applied_at` + 10 gün.
+  - Interview → **Interview** (`interview_at`; tarih yoksa tarihsiz "Add the interview date"); mülakat geçince → **Send thank-you note** (aynı gün). Saati olmayan (tüm gün) mülakat o günün sonunda geçmiş sayılır, thank-you ertesi gün görünür.
+  - Offer → **Reply to offer** (tarihsiz: "Add the deadline from the offer letter."; tarihi "Change" ile kullanıcı girer).
+  - Rejected ve arşivli → yok.
+  - **Elle konan** (`next_action_manual = true`): saklanan tür/tarih/not kullanılır (kural 3). `next_action_type` boşsa "yok" demektir (Done sonrası).
+  - **Change:** tür (SPEC'teki 6 tür) + tarih (+ Custom için not) → manual true, event `next_step_changed`.
+  - **Done:** event `next_step_changed` ("Done: Follow up"). Thank-you Done → elle konmuş **Follow up, tıklamadan 5 gün sonra** (manual true). Diğer her Done (mülakat saatinden önce Interview Done dahil) → manual true, tür boş: durum değişene kadar next step yok. Böylece sonsuz döngü yok (follow-up Done → yok).
+  - **Temizleme:** Durum değişince `next_action_*` ve `snoozed_until` temizlenir (manual false), kurallar yeniden işler. Yeni mülakat kaydetmek de temizler (yeniden planlama). Arşiv ve restore temizlemez: arşivliyken next step gösterilmez, restore'dan sonra eski elle konan adım geri gelir. Interview'dan çıkıp geri dönünce eski `interview_at` kalır ve modal onunla dolu açılır.
+  - **Neden hesaplanıyor:** "mülakat saati geçti" gibi zamanla değişen kurallar için zamanlanmış iş gerekmez ve gösterilen hep doğru. SPEC §5.5'teki `next_action_*` notu buna göre güncellenir ("elle konan next step; otomatik olan hesaplanır").
+  - **M11 için:** zamanlayıcı önce SQL'de daraltır (durum, `applied_at`, `interview_at`, `next_action_at` tarih aralığı), sonra aynı `next_step()`'i çağırır; bildirim tekrarını `(application_id, type, at)` anahtarı önler.
+
+### D-074 · Snooze `snoozed_until` kolonunda, event yazmaz
+Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
+- **Karar:** "Snooze" `snoozed_until = now + 3 gün` yazar; o tarihe kadar başvuru Needs attention'da görünmez. Durum veya next step değişince temizlenir. Timeline'a event yazmaz (gürültü). Toast: "{Company} snoozed for 3 days." + Undo.
+
+### D-075 · Details formu
+Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
+- **Karar:** `GET/POST /applications/{id}/details` (htmx, profil formlarındaki kalıp), alanlar yukarıdaki gibi, `job_url` M4a'daki gibi sadece http(s). Kaydedince event yazmaz, toast "Details saved." (Undo yok; form zaten iptal edilebilir).
+
+### D-076 · Durum seçici ve mülakat modalı
+Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
+- **Karar:** Detay sayfasında `<select>` (Saved/Applied/Interview/Offer/Rejected/Archived), klavyeyle kullanılır (D-069'u kapatır). Seçim değişince `POST /applications/{id}/status`: board durumu ise M4a'daki `move` (yeni sütunun en üstü), "Archived" ise `archive`, arşivliden bir duruma geçiş `restore` + `move`. Toast + Undo. **Interview'a geçiş** (board'da sürükleme veya seçici) önce durumu değiştirir, sonra yanıttaki `HX-Trigger: {"open-interview": id}` mülakat modalını açar (tarih, saat, tür, kiminle). "Save interview" → `POST /applications/{id}/interview` (event `interview_scheduled`, toast + Undo), "Skip, I will add it later" sadece kapatır: durum zaten değişmiştir (SPEC kabul kriteri). Detay sayfasında next step kartındaki "Add interview details" aynı modalı açar. Detay sayfasındaki değişiklikler ve Undo `HX-Trigger`'a `application-changed` da ekler; detay sayfasının başlığı, next step kartı ve timeline'ı bu olayla kendini sunucudan yeniler (board'daki `applications-changed` kalıbı).
+
+### D-077 · Needs attention
+Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
+- **Karar:** Ana sayfada board ve listenin üstünde, sadece maddesi varsa. Madde = next step tarihi bugün veya geçmişte olan, arşivli olmayan, snooze'lanmamış başvuru. Etiket ve sıra (SPEC §6.3'ün yorumu): önce tarihli işler — **Overdue / Due today** (elle ya da kapanış tarihinden gelen apply_by, custom) ve **Offer** (reply_offer, kendi etiketi) → **Interview** (interview, thank_you) → **Follow up** → **Waiting** (sadece otomatik "eklemeden 7 gün sonra" apply_by: "saved 9 days ago, apply or archive?"); grup içinde eski tarih önce. Needs attention kutusu board'un yenilenen bölgesinin içindedir, değişikliklerden sonra kendini yeniler. İlk 3 + "Show all (n)" (aynı sayfada açılır, sunucu tarafında). Her maddede "Open" (detay sayfası; "Draft a follow-up" gibi AI eylemleri M5+) ve "Snooze". Python'da hesaplanır (en fazla 2.000 başvuru, D-061).
+
+### D-078 · Detay sayfasında "‹ 1 of n ›"
+Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
+- **Karar:** Aynı durum sütunundaki kartlar arasında (`column_of(user, …)`, `user_id` filtreli), board sırasıyla (arşivli başvuruda arşivliler arasında, en yeni önce). "1 of 10 in Saved".
+
+### D-079 · Undo token v2 (D-064'ü genişletir, Adım 3'te)
+Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
+- **Karar:** Token `{u, a, e, n, f}`: `e` işlemin yazdığı event'ler (boş olabilir), `n` işlemden hemen sonraki en yeni event id'si, `f` işlemin değiştirdiği alanlar için `{alan: [önce, sonra]}` (izinli liste; Snooze sadece `snoozed_until` taşır). Undo şartları: imza, süre, kullanıcı, sahiplik; en yeni event hâlâ `n`; **alanlar hâlâ "sonra" değerinde** (karşılaştır-ve-yaz). Sonra `e` silinir (sayı tutmalı) ve sadece `f`'teki alanlar "önce"ye döner. Böylece event yazmayan bir işlemin token'ı tekrar oynatılamaz (ikinci seferde alanlar artık "sonra"da değil) ve araya giren bir değişiklik ezilmez. M4a token'ları (60 sn ömür) `n`/`f` taşımaz: `n` yoksa `max(e)`, `f` yoksa eski `before` yolu. `TOKEN_MAX_LENGTH` 4.000'e çıkar (en kötü durum: iki 200 karakterlik Türkçe metin, testle).

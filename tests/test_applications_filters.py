@@ -14,7 +14,8 @@ def add(session, user, company, **fields):
 
 
 def rows(html: str) -> list[str]:
-    return re.findall(r'<tr data-row="\d+"[^>]*>\s*<td[^>]*>([^<]*)</td>', html)
+    # The company cell holds a link to the detail page (M4b).
+    return re.findall(r'<tr data-row="\d+"[^>]*>\s*<td[^>]*>\s*<a [^>]*>([^<]*)</a>', html)
 
 
 def cards(html: str) -> list[str]:

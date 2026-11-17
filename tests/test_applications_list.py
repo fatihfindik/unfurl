@@ -24,7 +24,8 @@ def add(session, user, company, days_ago=0, **fields):
 
 def rows(html: str) -> list[str]:
     """The company of every row, top to bottom."""
-    return re.findall(r'<tr data-row="\d+"[^>]*>\s*<td[^>]*>([^<]*)</td>', html)
+    # The company cell holds a link to the detail page (M4b).
+    return re.findall(r'<tr data-row="\d+"[^>]*>\s*<td[^>]*>\s*<a [^>]*>([^<]*)</a>', html)
 
 
 def get_list(client, query="") -> str:

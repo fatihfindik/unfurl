@@ -1,0 +1,22 @@
+{#- "Change" on the Next step card (D-073): kind, date, optional time and, for Custom,
+    what to do. Saved, the card comes back with a toast and Undo; errors come back
+    as this form. Context: application, values, errors, type_choices. -#}
+{%- from "components/forms.html" import text_field, select_field, primary_button -%}
+<section id="next-step" aria-labelledby="next-step-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+  <h2 id="next-step-title" class="m-0 text-sm font-bold">Change the next step</h2>
+  <form class="m-0 flex flex-col gap-3" novalidate
+        hx-post="/applications/{{ application.id }}/next-step" hx-target="#next-step" hx-swap="outerHTML">
+    {{ select_field("next_action_type", "What", type_choices, value=values.next_action_type, error=errors.next_action_type, id_prefix="next-step") }}
+    <div class="grid grid-cols-2 gap-3">
+      {{ text_field("date", "Date", type="date", value=values.date or "", error=errors.date, id_prefix="next-step") }}
+      {{ text_field("time", "Time (optional)", type="time", value=values.time or "", error=errors.time, required=False, id_prefix="next-step") }}
+    </div>
+    {{ text_field("note", "For Custom: what to do", value=values.note or "", error=errors.note, required=False, maxlength=200, id_prefix="next-step", placeholder="e.g. Ask Lukas for a referral") }}
+    <p class="m-0 text-xs text-text-3">It stays until the status changes.</p>
+    <div class="flex justify-end gap-2.5">
+      <button type="button" hx-get="/applications/{{ application.id }}/next-step" hx-target="#next-step" hx-swap="outerHTML"
+              class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Cancel</button>
+      {{ primary_button("Save", size="sm") }}
+    </div>
+  </form>
+</section>

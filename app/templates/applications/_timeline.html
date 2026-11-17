@@ -1,0 +1,43 @@
+{#- The timeline (SPEC §6.7): what happened to this application, newest first, and a
+    box to add a note. "Add" sends the note and gets this whole section back.
+    Context: application, timeline (text, when, type), note_values, note_errors. -#}
+{%- set dots = {
+  "created": "bg-border-strong",
+  "status_changed": "bg-[#2563EB]",
+  "interview_scheduled": "bg-[#7C3AED]",
+  "next_step_changed": "bg-[#4F46E5]",
+  "note_added": "bg-amber-text",
+  "archived": "bg-text-3",
+  "restored": "bg-text-3",
+} %}
+<section id="timeline" aria-labelledby="timeline-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+  <h2 id="timeline-title" class="m-0 text-sm font-bold">Timeline</h2>
+  <ol class="m-0 flex list-none flex-col p-0">
+    {%- for item in timeline %}
+      <li class="flex gap-3">
+        <span aria-hidden="true" class="flex flex-none flex-col items-center">
+          <span class="mt-1 size-2.5 rounded-full {{ dots.get(item.type, 'bg-border-strong') }}"></span>
+          {%- if not loop.last %}<span class="min-h-[18px] w-0.5 flex-1 bg-border"></span>{% endif %}
+        </span>
+        <span class="flex min-w-0 flex-col gap-px pb-3">
+          <span class="whitespace-pre-line break-words text-[13px] text-text">{{ item.text }}</span>
+          <span class="text-xs text-text-3">{{ item.when }}</span>
+        </span>
+      </li>
+    {%- endfor %}
+  </ol>
+  <form class="m-0 flex flex-col gap-1.5" novalidate
+        hx-post="/applications/{{ application.id }}/notes" hx-target="#timeline" hx-swap="outerHTML">
+    <label for="timeline-note" class="sr-only">Add a note</label>
+    <div class="flex gap-2">
+      <input id="timeline-note" name="text" type="text" maxlength="2000" autocomplete="off"
+             placeholder="Add a note, e.g. Called Mira, she replies Friday"
+             value="{{ note_values.text or '' }}" class="h-9 min-w-0 flex-1"
+             {%- if note_errors.text %} aria-invalid="true" aria-describedby="timeline-note-error"{% endif %}>
+      <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3.5 text-sm font-medium text-text-2 hover:bg-muted">Add</button>
+    </div>
+    {%- if note_errors.text %}
+      <span id="timeline-note-error" class="text-xs font-medium text-red-text">{{ note_errors.text }}</span>
+    {%- endif %}
+  </form>
+</section>

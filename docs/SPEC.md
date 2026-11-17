@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.11 — 2026-11-16
+> **Durum:** MVP planı, v2.1.12 — 2026-11-16
+> v2.1.12: M4b Design kararları. Otomatik next step hesaplanır, `next_action_*` sadece elle konan adımı tutar; "Done" kuralı (thank-you → 5 gün sonra follow-up, diğerleri durum değişene kadar yok). Tarih ve saatler `DEFAULT_TIMEZONE`'da. `snoozed_until`. Needs attention etiketleri. Details düzenleme formu ve `posting_closes_at` M4b'de; Apply sekmesi M7'de. Kararlar: DECISIONS D-071…D-079.
 > v2.1.11: Özet kartları sadece liste görünümünde gösterilir; board'da sütun başlıkları aynı bilgiyi (durum + sayı) zaten verir. Duruma göre filtre de liste görünümündedir. Karar: DECISIONS D-070.
 > v2.1.10: M4a Design kararları. `Application.last_activity_at` (kartta ve listede "Updated"). "Add job"da Work mode alanı; kaynak linkten türetilir. M4a'da arşivleme liste satırından. Aynı sütunda sıra değiştirmenin Undo'su yok. Kullanıcı başına en fazla 2.000 başvuru. Klavyeyle durum değiştirme M4b'nin kabul kriteri. Kararlar: DECISIONS D-061…D-069.
 > v2.1.9: M4 üçe bölündü (M4a board + Undo altyapısı + tema, M4b detay sayfası + next step + mülakat, M4c başvuruda belgeler + M2/M3'ten ertelenenler). Sonraki milestone'lara bağlı parçalar (uyum skoru rozeti, minimum skor filtresi, Fit sıralaması: M7; "Auto-fill with AI": M5) M4'te gösterilmez. Karar: DECISIONS D-060.
@@ -416,18 +417,19 @@ Profilin **anlık görüntüsüdür** (snapshot). Bir ilana göre uyarlanan CV, 
 | status | enum saved/applied/interview/offer/rejected/withdrawn | |
 | position | int | Kanban sütunu içindeki sıra |
 | applied_at | date, nullable | |
-| next_action_type | enum apply_by/follow_up/interview/thank_you/reply_offer/custom, nullable | Bkz. 6.13 |
+| next_action_type | enum apply_by/follow_up/interview/thank_you/reply_offer/custom, nullable | Bkz. 6.13. Sadece **elle konan** next step saklanır; otomatik olan durumdan hesaplanır (D-073) |
 | next_action_at | datetime, nullable | Next step tarihi (interview için saat dahil) |
 | next_action_note | str, nullable | Custom için metin |
 | next_action_manual | bool | Kullanıcı elle değiştirdiyse true; durum değişene kadar otomatik kurallar ezmez |
 | interview_at | datetime, nullable | Interview modalından |
 | interview_type | enum video/phone/onsite, nullable | |
 | interview_with | str, nullable | |
-| posting_closes_at | date, nullable | AI ilandan çıkarırsa; "Apply by" için |
+| posting_closes_at | date, nullable | "Apply by" için. M4b'de Details formundan elle, M5'ten itibaren AI ilandan da çıkarır |
 | contact_name, contact_email | str, nullable | |
 | notes | text, nullable | |
 | cv_id | FK, nullable | Bu başvuruda kullanılan CV |
 | cover_letter_id | FK, nullable | |
+| snoozed_until | datetime, nullable | Needs attention'da "Snooze": bu tarihe kadar gizli; durum veya next step değişince temizlenir (D-074) |
 | archived | bool | Arşivlenen ilan board'da görünmez, "Show archived" ile görünür ve geri alınabilir. Silinmez. |
 | last_activity_at | datetime | Kartta ve listede "Updated": ekleme, durum değişikliği, arşiv ve restore'da değişir (sıra değişince değişmez; D-061) |
 
@@ -556,7 +558,7 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 ### 6.3 Applications – ana sayfa (/)
 Giriş sonrası açılan sayfa Applications'tır (ayrı bir Dashboard yok).
 - **Özet kartları (sadece liste görünümünde, D-070):** 5 durum (Saved, Applied, Interview, Offer, Rejected), her biri sayı + kısa açıklama ("Waiting for a reply"). Karta tıklamak listeyi o duruma göre filtreler, tekrar tıklamak filtreyi kaldırır. Arşivlenenler sayılmaz. Board görünümünde kartlar gösterilmez: sütun başlıkları durumu ve sayıyı zaten verir.
-- **Needs attention:** Next step tarihi bugün veya geçmiş olan başvurular (6.13). Sıralama: bugün/geçmiş tarihli → mülakat → follow-up → bekleyen kayıt. En acil 3 madde gösterilir, fazlası "Show all (n)" ile açılır. Her maddede eylem linki ve "Snooze" (3 gün gizler, toast + Undo).
+- **Needs attention:** Next step tarihi bugün veya geçmiş olan başvurular (6.13). Sıralama: bugün/geçmiş tarihli (etiket "Overdue"/"Due today"; teklif "Offer") → mülakat ("Interview") → follow-up ("Follow up") → bekleyen kayıt ("Waiting": sadece otomatik "eklemeden 7 gün sonra" Apply by) (D-077). En acil 3 madde gösterilir, fazlası "Show all (n)" ile açılır. Her maddede eylem linki ve "Snooze" (3 gün gizler, toast + Undo).
 - Filtreler ve görünüm 6.7'de.
 - Seri ve haftalık saat Learning sayfasında, profil gücü Documents sayfasında gösterilir.
 
@@ -670,7 +672,7 @@ Next step, bir başvuru için yapılacak **tek sonraki iş ve tarihidir**. Hatı
 
 **Kurallar**
 1. Bir başvurunun aynı anda en fazla **1** next step'i olur.
-2. Next step otomatik dolar. Kullanıcı "Change" ile türü (Apply by · Follow up · Interview · Send thank-you note · Reply to offer · Custom) ve tarihi değiştirebilir veya "Done" ile tamamlar.
+2. Next step otomatik dolar. Kullanıcı "Change" ile türü (Apply by · Follow up · Interview · Send thank-you note · Reply to offer · Custom) ve tarihi değiştirebilir veya "Done" ile tamamlar. "Done" sonrası durum değişene kadar next step yoktur; tek istisna: "Send thank-you note" Done olunca 5 gün sonrası için "Follow up" gelir (D-073). Tarih ve saatler `DEFAULT_TIMEZONE`'dadır (kullanıcı saat dilimi M10/M11'de, D-071).
 3. Kullanıcı elle değiştirdiyse (`next_action_manual=true`), durum değişene kadar otomatik kurallar onun seçimini ezmez.
 4. Tarihi bugün veya geçmiş olan next step, başvuruyu **Needs attention**'a sokar. Interview için ayrıca bir gün önce bildirim gider (6.11).
 5. Asistan next step'i okuyabilir ve `set_next_action` ile değiştirebilir.
@@ -1117,7 +1119,7 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
   - Tema seçimi hesaba kaydediliyor ve başka bir tarayıcıda girişte aynı geliyor (test).
 
 ### M4b — Detay sayfası ve next step
-- Başvuru detay sayfası iskeleti (/applications/{id}, 6.7): başlık kalıbı (6.0/3: "← Applications", şirket avatarı, "‹ 1 of 10 ›"), durum seçici (Saved/Applied/Interview/Offer/Rejected/Archived), "View posting ↗", **Job & details** sekmesi (Details + "Original posting (saved copy)"; yapılandırılmış ilan M5'te), sağ panel: **Next step** kartı ve **Timeline** (+ not ekleme). Apply / Progress sekmesi M7–M9'da dolar.
+- Başvuru detay sayfası iskeleti (/applications/{id}, 6.7): başlık kalıbı (6.0/3: "← Applications", şirket avatarı, "‹ 1 of 10 ›"), durum seçici (Saved/Applied/Interview/Offer/Rejected/Archived), "View posting ↗", **Job & details** içeriği (Details + "Edit" formu + "Original posting (saved copy)"; yapılandırılmış ilan M5'te), sağ panel: **Next step** kartı ve **Timeline** (+ not ekleme). Apply / Progress sekmesi M7–M9'da içerikle gelir, M4b'de gösterilmez (D-060).
 - `next_step_service` (6.13): otomatik kurallar, "Change" (tür + tarih), "Done", manual override.
 - **Interview modalı** (board, detay): tarih, saat, tür, kiminle; "Skip, I will add it later".
 - Ana sayfada **Needs attention** (6.3): en acil 3 + "Show all (n)", eylem linki, **Snooze** (3 gün, toast + Undo).
