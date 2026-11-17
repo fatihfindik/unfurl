@@ -466,13 +466,8 @@ Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (202
 - **Güncelleme (plan-reviewer):** Silinen veri `UNDO_SECONDS` + 60 sn (2 dakika) tutulur; her silme, geri yükleme ve Undo isteğinde eskiler temizlenir; `user_id` FK `ON DELETE CASCADE`. Ayrı token tuzu (`undo-delete`), giriş + CSRF, `DeletedItem` `user_id` + `kind` ile aranır. Flash toast'ta başlık 60 karaktere kesilir, flash sadece tam sayfa GET'te okunur.
 
 ### D-087 · Gece yetkisi
-Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
-- **Karar:** Fatih 2026-11-17'de M4c için ürün kararlarını, PR merge'ünü ve etiketi Claude'a bıraktı. WORKFLOW'daki "Fatih merge eder" ve "kabul kriterlerini Fatih elle dener" maddeleri bu milestone için ertelendi: elle test sabah yapılır, gerekirse düzeltme PR'ı açılır.
-- **Güncelleme (plan-reviewer):** Fatih 2026-11-17'de M4c için ürün kararlarını, PR merge'ünü ve etiketi Claude'a bıraktı. WORKFLOW'daki "Fatih merge eder" ve "kabul kriterlerini Fatih elle dener" maddeleri bu milestone için ertelendi: elle test sabah yapılır, gerekirse düzeltme PR'ı açılır.
-
-### D-087 · Gece yetkisi
 Kaynak: Fatih, 2026-11-17 (sohbet).
-- **Karar:** Fatih 2026-11-17'de M4c için ürün kararlarını, PR merge'ünü ve etiketi Claude'a bıraktı. WORKFLOW'daki "Fatih merge eder" ve "kabul kriterlerini Fatih elle dener" maddeleri bu milestone için ertelendi: elle test sabah yapılır, gerekirse düzeltme PR'ı açılır.
+- **Karar:** Fatih 2026-11-17 gecesi ürün kararlarını, PR merge'ünü ve etiketi Claude'a bıraktı ("bana ihtiyacın olmayacak şekilde"; M4c ve sonraki AI'sız milestone'lar, D-088). WORKFLOW'daki "Fatih merge eder" ve "kabul kriterlerini Fatih elle dener" maddeleri bu milestone için ertelendi: elle test sabah yapılır, gerekirse düzeltme PR'ı açılır.
 
 ### D-088 · AI'ya bağlı milestone'lar sonraya (sıra değişikliği)
 Kaynak: Fatih, 2026-11-17 (sohbet: "ai ile olan adımı atlayıp devam etsen?").
