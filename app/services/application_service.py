@@ -26,6 +26,10 @@ _SOURCE_BY_DOMAIN = {"linkedin.com": "linkedin", "karriere.at": "karriere_at", "
 _SOURCE_BY_LABEL = {"stepstone": "stepstone", "indeed": "indeed"}
 
 
+# Sources that only come from a link: without a link they become "manual" again.
+SOURCES_FROM_LINKS = ("linkedin", "stepstone", "karriere_at", "indeed", "xing", "company_site")
+
+
 class TooManyApplications(Exception):
     """The user already has MAX_APPLICATIONS_PER_USER applications."""
 
@@ -641,6 +645,39 @@ def finish_next_step(session: Session, user: User, application: Application) -> 
     session.commit()
     session.refresh(application)
     return event
+
+
+DETAIL_FIELDS = (
+    "company",
+    "job_title",
+    "location",
+    "remote_type",
+    "job_url",
+    "posting_closes_at",
+    "contact_name",
+    "contact_email",
+    "salary_text",
+    "notes",
+)
+
+
+def update_details(
+    session: Session, user: User, application: Application, values: dict
+) -> Application:
+    """The Details form (D-075). `values` were checked by DetailsForm; only the
+    DETAIL_FIELDS are taken. A new link also gives a new source. No event: details
+    are not part of the timeline, and the form can simply be edited again."""
+    for field in DETAIL_FIELDS:
+        setattr(application, field, values.get(field))
+    application.source = (
+        detect_source(application.job_url)
+        if application.job_url
+        else ("manual" if application.source in SOURCES_FROM_LINKS else application.source)
+    )
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return application
 
 
 def add_note(session: Session, user: User, application: Application, text: str) -> ApplicationEvent:

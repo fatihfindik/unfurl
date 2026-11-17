@@ -1,0 +1,26 @@
+{#- The Details form (D-075) in place of the Details card. Saved, the card comes back;
+    errors come back as this form. Context: application, values, errors, remote_choices. -#}
+{%- from "components/forms.html" import text_field, select_field, textarea_field, primary_button -%}
+<section id="application-details" aria-labelledby="details-title" class="flex flex-col gap-3.5 rounded-xl border border-border bg-surface p-5">
+  <h2 id="details-title" class="m-0 text-base font-bold">Edit details</h2>
+  <form class="m-0 flex flex-col gap-4" novalidate
+        hx-post="/applications/{{ application.id }}/details" hx-target="#application-details" hx-swap="outerHTML">
+    <div class="grid gap-4 sm:grid-cols-2">
+      {{ text_field("company", "Company", value=values.company or "", error=errors.company, maxlength=200, id_prefix="details") }}
+      {{ text_field("job_title", "Role", value=values.job_title or "", error=errors.job_title, maxlength=200, id_prefix="details") }}
+      {{ text_field("location", "Location", value=values.location or "", error=errors.location, maxlength=200, required=False, id_prefix="details") }}
+      {{ select_field("remote_type", "Work mode", remote_choices, value=values.remote_type or "", error=errors.remote_type, placeholder="Not sure", id_prefix="details") }}
+      {{ text_field("job_url", "Link to the posting", type="url", value=values.job_url or "", error=errors.job_url, maxlength=2000, required=False, id_prefix="details", placeholder="https://") }}
+      {{ text_field("posting_closes_at", "Posting closes", type="date", value=values.posting_closes_at or "", error=errors.posting_closes_at, required=False, id_prefix="details", hint="Your next step is to apply the day before.") }}
+      {{ text_field("contact_name", "Contact person", value=values.contact_name or "", error=errors.contact_name, maxlength=200, required=False, id_prefix="details") }}
+      {{ text_field("contact_email", "Contact email", type="email", value=values.contact_email or "", error=errors.contact_email, maxlength=320, required=False, id_prefix="details") }}
+      {{ text_field("salary_text", "Salary (from posting)", value=values.salary_text or "", error=errors.salary_text, maxlength=200, required=False, id_prefix="details", placeholder="e.g. ab € 4.000 brutto/Monat") }}
+    </div>
+    {{ textarea_field("notes", "Notes", value=values.notes, error=errors.notes, maxlength=5000, rows=4, id_prefix="details") }}
+    <div class="flex justify-end gap-2.5">
+      <button type="button" hx-get="/applications/{{ application.id }}/details" hx-target="#application-details" hx-swap="outerHTML"
+              class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Cancel</button>
+      {{ primary_button("Save", size="sm") }}
+    </div>
+  </form>
+</section>

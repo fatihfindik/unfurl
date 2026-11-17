@@ -20,6 +20,7 @@ from app.schemas.application import (
     ADD_JOB_STATUSES,
     AddJobForm,
     BoardQuery,
+    DetailsForm,
     InterviewForm,
     NextStepForm,
     NoteForm,
@@ -414,25 +415,22 @@ def detail_context(session: Session, user: User, application) -> dict:
     position, total, before_id, after_id = application_service.neighbours(
         session, user, application
     )
-    return next_step_context(application) | {
-        "initials": initials(application.company),
-        "status_title": STATUS_TITLES.get(application.status, application.status),
-        "source_name": source_name,
-        "remote_name": REMOTE_NAMES.get(application.remote_type),
-        "saved_when": application.created_at,
-        "position": position,
-        "total": total,
-        "before_url": f"/applications/{before_id}" if before_id else "",
-        "after_url": f"/applications/{after_id}" if after_id else "",
-        **timeline_context(events, source_name),
-        "interview_type_names": next_step_service.INTERVIEW_TYPE_NAMES,
-        "status_choices": [*STATUS_TITLES.items(), ("archived", "Archived")],
-        "closes_text": (
-            next_step_service.day_text(clock.to_utc(application.posting_closes_at))
-            if application.posting_closes_at
-            else ""
-        ),
-    }
+    return (
+        next_step_context(application)
+        | details_context(application)
+        | {
+            "initials": initials(application.company),
+            "status_title": STATUS_TITLES.get(application.status, application.status),
+            "saved_when": application.created_at,
+            "position": position,
+            "total": total,
+            "before_url": f"/applications/{before_id}" if before_id else "",
+            "after_url": f"/applications/{after_id}" if after_id else "",
+            **timeline_context(events, source_name),
+            "interview_type_names": next_step_service.INTERVIEW_TYPE_NAMES,
+            "status_choices": [*STATUS_TITLES.items(), ("archived", "Archived")],
+        }
+    )
 
 
 @router.get("/applications/{application_id}", response_class=HTMLResponse)
@@ -671,5 +669,83 @@ def note_add(
     response = templates.TemplateResponse(request, "applications/_timeline.html", context)
     response.headers["HX-Trigger"] = json.dumps(
         {"toast": {"message": "Note added.", "undo_url": "", "undo_token": ""}}
+    )
+    return response
+
+
+# --- Details form (D-075) -------------------------------------------------------------------
+
+
+def details_context(application) -> dict:
+    """What _details.html needs."""
+    return {
+        "application": application,
+        "source_name": SOURCE_NAMES.get(application.source, "Other"),
+        "remote_name": REMOTE_NAMES.get(application.remote_type),
+        "closes_text": (
+            next_step_service.day_text(clock.to_utc(application.posting_closes_at))
+            if application.posting_closes_at
+            else ""
+        ),
+    }
+
+
+def details_form(request: Request, application, values: dict, errors: dict) -> HTMLResponse:
+    context = {
+        "application": application,
+        "values": values,
+        "errors": errors,
+        "remote_choices": list(REMOTE_NAMES.items()),
+    }
+    return templates.TemplateResponse(request, "applications/_details_form.html", context)
+
+
+@router.get("/applications/{application_id}/details", response_class=HTMLResponse)
+def details_card(request: Request, session: DbSession, user: RequiredUser, application_id: str):
+    """The Details card ("Cancel" in the form comes back here)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    return templates.TemplateResponse(
+        request, "applications/_details.html", details_context(application)
+    )
+
+
+@router.get("/applications/{application_id}/details/edit", response_class=HTMLResponse)
+def details_edit(request: Request, session: DbSession, user: RequiredUser, application_id: str):
+    application = application_service.get_owned_application(session, user, application_id)
+    values = {field: getattr(application, field) for field in application_service.DETAIL_FIELDS}
+    if application.remote_type == "unknown":
+        values["remote_type"] = ""
+    if application.posting_closes_at:
+        values["posting_closes_at"] = application.posting_closes_at.isoformat()
+    return details_form(request, application, values, {})
+
+
+@router.post("/applications/{application_id}/details", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def details_save(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """ "Save" in the Details form: the card comes back and the page reloads its header
+    (company and title may have changed). No Undo: the form can be edited again."""
+    application = application_service.get_owned_application(session, user, application_id)
+    values = dict(data)
+    try:
+        form = DetailsForm.model_validate(values)
+    except ValidationError as exc:
+        return details_form(request, application, values, form_errors(exc))
+    application_service.update_details(session, user, application, form.model_dump())
+    response = templates.TemplateResponse(
+        request, "applications/_details.html", details_context(application)
+    )
+    response.headers["HX-Trigger"] = json.dumps(
+        {
+            "toast": {"message": "Details saved.", "undo_url": "", "undo_token": ""},
+            "application-changed": True,
+            "applications-changed": True,
+        }
     )
     return response
