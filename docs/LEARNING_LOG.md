@@ -298,3 +298,40 @@
 - WORKFLOW: no. Notes for M13: key the rate limits by user behind a proxy, the
   2,000-job cap can be passed by a few with parallel requests (D-061).
 
+## M4b — Application detail and next step (2026-11-17)
+
+**What I learned**
+- Compute instead of store: the next step ("Apply by", "Follow up", "Send a
+  thank-you note") is worked out from the status every time. Rules that change
+  with time ("the interview is over") then need no background job and are never out
+  of date. Only what the user sets by hand is saved.
+- Pure functions are easy to test: the rules get the application and "now" as
+  arguments and never read the clock or the database, so 30 tests run in a tenth of
+  a second without freezing time.
+- Time zones: store UTC, show local. "Today" is the user's today (00:30 in Vienna is
+  still yesterday in UTC), and twice a year a local time happens twice or not at all.
+- A safer Undo: each token keeps only the fields its action changed, with their
+  values before and after. Undo writes the old values back only while the fields
+  still hold the "after" values (compare-and-set), so a token works once and never
+  overwrites a newer change, even for actions that write no timeline entry (Snooze).
+- htmx attributes are inherited: an `hx-select` on the page wrapper also applied to
+  the buttons inside and swallowed their answers. `hx-disinherit="*"` stops that.
+
+**What was hard**
+- Getting "Done" right: one "done" timestamp could not tell which step was finished
+  and the thank-you → follow-up rule looped. The plan reviewer caught it before code.
+- Testing the browser parts while the dev server was off: they are listed for the
+  manual test.
+
+**What I will do differently**
+- Write the edge cases of a rule (Done, all-day, DST) into the plan as a table, then
+  turn each row into a test.
+- Keep the dev server running (or ask) before a long build session, so every step can
+  be checked in the browser.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.12 (computed next step, Done rule, time zone, `snoozed_until`,
+  Needs attention labels, Details form, no Apply tab until M7). Decisions D-071…D-079.
+- WORKFLOW: no. Notes for M11: reminders narrow down in SQL, then call the same
+  `next_step()`; deduplicate notifications by (application, type, date).
+
