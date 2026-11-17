@@ -1,0 +1,41 @@
+{#- Needs attention (SPEC §6.3, D-077): jobs whose next step is due today or overdue,
+    most urgent first. The first three are shown, the rest under "Show all (n)".
+    Inside the region, so it reloads after every change. Context: attention. -#}
+{%- set tag_colours = {
+  "Overdue": "bg-red-bg text-red-text",
+  "Due today": "bg-red-bg text-red-text",
+  "Offer": "bg-green-bg text-green-text",
+  "Interview": "bg-purple-bg text-purple-text",
+  "Follow up": "bg-amber-bg text-amber-text",
+  "Waiting": "bg-muted text-text-3",
+} %}
+{% macro attention_row(item) %}
+  <li class="flex flex-wrap items-center gap-3 rounded-[10px] bg-surface px-3 py-2.5">
+    <span class="rounded-md px-2 py-[3px] text-[11px] font-bold uppercase tracking-[0.04em] {{ tag_colours.get(item.tag, 'bg-muted text-text-3') }}">{{ item.tag }}</span>
+    <span class="min-w-0 flex-[1_1_240px] break-words text-sm text-text"><b>{{ item.application.company }}</b> · {{ item.text }}</span>
+    <a href="/applications/{{ item.application.id }}" class="text-[13px] font-semibold text-link no-underline hover:underline">Open<span class="sr-only"> {{ item.application.company }}</span></a>
+    <button type="button" hx-post="/applications/{{ item.application.id }}/snooze" hx-swap="none"
+            class="text-[13px] text-text-3 hover:text-text hover:underline">Snooze<span class="sr-only"> {{ item.application.company }}</span></button>
+  </li>
+{%- endmacro %}
+{%- if attention %}
+  <section aria-labelledby="attention-title" class="flex flex-col gap-2.5 rounded-xl border border-border bg-amber-bg px-4 py-3.5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 id="attention-title" class="m-0 text-sm font-bold text-amber-text">Needs attention · {{ attention | length }}</h2>
+      <span class="text-xs text-text-3">Most urgent first. Snooze hides an item for 3 days.</span>
+    </div>
+    <ul class="m-0 flex list-none flex-col gap-2.5 p-0">
+      {%- for item in attention[:3] %}{{ attention_row(item) }}{% endfor %}
+    </ul>
+    {%- if attention | length > 3 %}
+      <details class="group">
+        <summary class="cursor-pointer list-none text-[13px] font-semibold text-link">
+          <span class="group-open:hidden">Show all ({{ attention | length }})</span><span class="hidden group-open:inline">Show less</span>
+        </summary>
+        <ul class="m-0 mt-2.5 flex list-none flex-col gap-2.5 p-0">
+          {%- for item in attention[3:] %}{{ attention_row(item) }}{% endfor %}
+        </ul>
+      </details>
+    {%- endif %}
+  </section>
+{%- endif %}

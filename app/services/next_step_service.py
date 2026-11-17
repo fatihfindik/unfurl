@@ -186,3 +186,28 @@ def no_step_reason(application: Application) -> str:
     if application.next_action_manual:
         return "Done. Change the status or set a new next step."
     return f"{application.status.capitalize()} jobs have no next step."
+
+
+def attention_text(step: NextStep, application: Application, today: dt.date) -> str:
+    """The short line after the company in Needs attention, e.g. "applied 12 days ago,
+    no reply yet"."""
+    day = clock.local(step.at).date() if step.at else today
+    when = "today" if day == today else day_text(step.at)
+    if step.waiting:
+        saved_days = (today - clock.local(application.created_at).date()).days
+        return f"saved {saved_days} days ago, apply or archive?"
+    if step.type == "apply_by":
+        return f"apply by {when}" if day >= today else f"the apply-by date was {when}"
+    if step.type == "interview":
+        time = "" if step.all_day else f" at {clock.local(step.at).strftime('%H:%M')}"
+        return f"interview {when}{time}"
+    if step.type == "thank_you":
+        return "send a thank-you note after the interview"
+    if step.type == "follow_up":
+        if not step.automatic:
+            return f"follow up, planned for {when}"
+        applied = application.applied_at or clock.local(application.created_at).date()
+        return f"applied {(today - applied).days} days ago, no reply yet"
+    if step.type == "reply_offer":
+        return f"reply to the offer by {when}" if day >= today else f"the offer deadline was {when}"
+    return f"{step.label} ({when})"

@@ -680,6 +680,69 @@ def update_details(
     return application
 
 
+# --- Needs attention (SPEC §6.3, D-077) ---------------------------------------------------
+
+SNOOZE_DAYS = 3
+
+
+@dataclass(frozen=True)
+class Attention:
+    """One line of "Needs attention"."""
+
+    application: Application
+    step: "next_step_text.NextStep"
+    group: int  # 0 deadlines and offers, 1 interview, 2 follow up, 3 waiting
+    tag: str  # "Overdue", "Due today", "Offer", "Interview", "Follow up", "Waiting"
+
+
+def needs_attention(session: Session, user: User, now: dt.datetime) -> list[Attention]:
+    """The user's jobs whose next step is due today or overdue, most urgent first
+    (SPEC §6.3): deadlines and offers → interviews → follow-ups → waiting saved jobs;
+    in each group the oldest date first. Snoozed and archived jobs are left out.
+    Worked out in Python: at most 2,000 jobs, the next step is computed (D-073)."""
+    jobs = session.exec(
+        select(Application).where(
+            Application.user_id == user.id,
+            col(Application.status).in_(BOARD_STATUSES),
+            col(Application.archived).is_(False),
+        )
+    )
+    today = clock.local(now).date()
+    items = []
+    for job in jobs:
+        if job.snoozed_until is not None and as_utc(job.snoozed_until) > as_utc(now):
+            continue
+        step = next_step_text.next_step(job, now)
+        if step is None or not step.is_due(today):
+            continue
+        items.append(Attention(job, step, *_attention_group(step, today)))
+    items.sort(key=lambda item: (item.group, as_utc(item.step.at), item.application.id))
+    return items
+
+
+def _attention_group(step, today: dt.date) -> tuple[int, str]:
+    if step.waiting:
+        return 3, "Waiting"
+    if step.type in ("interview", "thank_you"):
+        return 1, "Interview"
+    if step.type == "follow_up":
+        return 2, "Follow up"
+    if step.type == "reply_offer":
+        return 0, "Offer"
+    overdue = clock.local(step.at).date() < today
+    return 0, "Overdue" if overdue else "Due today"
+
+
+def snooze(session: Session, user: User, application: Application, now: dt.datetime) -> None:
+    """ "Snooze" (D-074): hide from Needs attention for 3 days. No event."""
+    if application.archived:
+        raise NotOnBoard
+    application.snoozed_until = as_utc(now) + dt.timedelta(days=SNOOZE_DAYS)
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+
+
 def add_note(session: Session, user: User, application: Application, text: str) -> ApplicationEvent:
     """A note on the timeline (event "note_added"). The text was checked by NoteForm."""
     event = _add_event(session, application, "note_added", message=text)

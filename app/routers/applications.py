@@ -101,6 +101,7 @@ def board_context(session: Session, user: User, query: BoardQuery) -> dict:
     cards = application_service.board(session, user, query.filters)
     context = {
         "query": query,
+        "attention": attention_items(session, user),
         "counts": application_service.counts(session, user),  # summary cards: unfiltered
         "status_titles": STATUS_TITLES,
         "status_hints": STATUS_HINTS,
@@ -130,6 +131,23 @@ def board_context(session: Session, user: User, query: BoardQuery) -> dict:
             }
         )
     return context | {"columns": columns}
+
+
+ATTENTION_SHOWN = 3  # the most urgent ones; the rest under "Show all (n)" (SPEC §6.3)
+
+
+def attention_items(session: Session, user: User) -> list[dict]:
+    """Needs attention (D-077): one dict per line, most urgent first."""
+    now = clock.now()
+    today = clock.local(now).date()
+    return [
+        {
+            "application": item.application,
+            "tag": item.tag,
+            "text": next_step_service.attention_text(item.step, item.application, today),
+        }
+        for item in application_service.needs_attention(session, user, now)
+    ]
 
 
 def list_context(session: Session, user: User, query: BoardQuery) -> dict:
@@ -749,3 +767,25 @@ def details_save(
         }
     )
     return response
+
+
+# --- Snooze (D-074) --------------------------------------------------------------------------
+
+
+@router.post("/applications/{application_id}/snooze")
+@limiter.limit("60/minute")
+def application_snooze(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """ "Snooze" in Needs attention: hidden for 3 days. Toast with Undo (no event, so
+    the token holds only snoozed_until, D-079)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.note(session, user, application)
+    try:
+        application_service.snooze(session, user, application, clock.now())
+    except application_service.NotOnBoard:
+        return Response(status_code=204, headers={"HX-Trigger": "applications-changed"})
+    toast = f"{application.company} snoozed for {application_service.SNOOZE_DAYS} days."
+    return Response(
+        status_code=204, headers=undo_events(session, user, application, [], before, toast)
+    )

@@ -19,6 +19,7 @@
     {%- endif %}
   </div>
   {%- if oob %}{{ filter_extras(query, clear_url, archived_count, oob=True) }}{% endif %}
+  {% include "applications/_attention.html" %}
   {%- if not has_applications %}
     <div class="flex flex-col items-start gap-1 rounded-xl border border-dashed border-border-strong bg-surface p-5">
       <p class="m-0 text-sm font-semibold text-text">No applications yet.</p>

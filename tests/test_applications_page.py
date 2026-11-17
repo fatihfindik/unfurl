@@ -136,7 +136,8 @@ def test_things_from_later_milestones_are_not_on_the_page(auth_client, session, 
 
     html = auth_client.get("/").text
 
-    for later in ["Fit", "fit score", "Auto-fill", "Needs attention", "Snooze", "extension"]:
+    # (Needs attention came with M4b: it shows only when something is due, not here.)
+    for later in ["Fit", "fit score", "Auto-fill", "extension"]:
         assert later not in html
     # Since M4b the company name links to the detail page; nothing else links on.
     assert set(re.findall(r'href="(/applications/[^"]*)"', html)) <= {
