@@ -6,8 +6,9 @@ value (e.g. `SMTP_PORT=abc`) is caught when the app starts, not later.
 
 from functools import lru_cache
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The placeholder value from .env.example. It must never be used in production.
@@ -60,6 +61,17 @@ class Settings(BaseSettings):
 
     # Uploads
     upload_dir: str = "./uploads"
+
+    @field_validator("default_timezone")
+    @classmethod
+    def check_timezone(cls, value: str) -> str:
+        """A wrong name (e.g. "Europe/Viena") stops the app at start, instead of a
+        500 on every page that shows a date (security review M4b, 4)."""
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError(f"DEFAULT_TIMEZONE is not a known time zone: {value!r}") from None
+        return value
 
     @model_validator(mode="after")
     def check_production_settings(self) -> "Settings":

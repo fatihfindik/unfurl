@@ -22,10 +22,16 @@ def _serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(get_settings().secret_key.get_secret_value(), salt=_SALT)
 
 
-def make_token(user: User, application_id: int, event_ids: list[int], before: dict | None) -> str:
+def make_token(
+    user: User,
+    application_id: int,
+    event_ids: list[int],
+    before: dict | None,
+    created: str | None = None,
+) -> str:
     """A token for taking back one action. `before` is None for "the application
-    was created" (Undo deletes it)."""
-    data = {"u": user.id, "a": application_id, "e": event_ids, "b": before}
+    was created" (Undo deletes it); `created` is then its creation_fingerprint."""
+    data = {"u": user.id, "a": application_id, "e": event_ids, "b": before, "c": created}
     return _serializer().dumps(data)
 
 
@@ -75,4 +81,13 @@ def read_token(user: User, token: str) -> dict | None:
         if not isinstance(before, dict):
             return None
         before = {field: before.get(field) for field in UNDO_FIELDS}
-    return {"version": 1, "application_id": data.get("a"), "event_ids": events, "before": before}
+    created = data.get("c")
+    if created is not None and not isinstance(created, str):
+        return None
+    return {
+        "version": 1,
+        "application_id": data.get("a"),
+        "event_ids": events,
+        "before": before,
+        "created": created,
+    }

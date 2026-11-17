@@ -208,6 +208,10 @@ def undo_events(
         application_service.newest_event_id(session, application),
         application_service.changes(before, after),
     )
+    if len(token) > undo_service.TOKEN_MAX_LENGTH:
+        # Very long texts (e.g. emoji) can make the token too big for an HTTP header;
+        # then the change simply has no Undo (security review M4b, 1).
+        return page_events(toast=toast, **more)
     return page_events(toast=toast, undo_url=UNDO_URL, undo_token=token, **more)
 
 
@@ -256,7 +260,13 @@ def application_create(
     response = add_job_form(request, None, None)
     toast = f"{application.company} saved to {STATUS_TITLES[application.status]}."
     created = application_service.events_of(session, application)[-1]
-    token = undo_service.make_token(user, application.id, [created.id], before=None)
+    token = undo_service.make_token(
+        user,
+        application.id,
+        [created.id],
+        before=None,
+        created=application_service.creation_fingerprint(application),
+    )
     response.headers.update(
         page_events(toast=toast, undo_url=UNDO_URL, undo_token=token, **{"close-dialog": "add-job"})
     )
@@ -320,7 +330,12 @@ def application_undo(request: Request, session: DbSession, user: RequiredUser, d
             )
         else:  # "add", and M4a tokens still within their minute
             application_service.undo(
-                session, user, note["application_id"], note["event_ids"], note["before"]
+                session,
+                user,
+                note["application_id"],
+                note["event_ids"],
+                note["before"],
+                note["created"],
             )
     except application_service.NothingToUndo:
         return Response(status_code=204, headers=page_events(toast="Nothing to undo."))
@@ -681,7 +696,15 @@ def note_add(
         )
         return templates.TemplateResponse(request, "applications/_timeline.html", context)
 
-    application_service.add_note(session, user, application, form.text)
+    try:
+        application_service.add_note(session, user, application, form.text)
+    except application_service.TooManyNotes:
+        events = application_service.events_of(session, application)
+        limit = application_service.MAX_NOTES_PER_APPLICATION
+        context = {"application": application} | timeline_context(
+            events, source_name, values, {"text": f"This job has {limit} notes already."}
+        )
+        return templates.TemplateResponse(request, "applications/_timeline.html", context)
     events = application_service.events_of(session, application)
     context = {"application": application} | timeline_context(events, source_name)
     response = templates.TemplateResponse(request, "applications/_timeline.html", context)

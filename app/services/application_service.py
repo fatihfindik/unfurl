@@ -4,6 +4,7 @@ Routes only call this module. Every query filters by user_id (CLAUDE.md).
 """
 
 import datetime as dt
+import hashlib
 import unicodedata
 from dataclasses import dataclass
 from urllib.parse import urlsplit
@@ -12,7 +13,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, col, delete, func, select
 
 from app.models import Application, ApplicationEvent, User
-from app.models.application import BOARD_STATUSES
+from app.models.application import BOARD_STATUSES, INTERVIEW_TYPES, NEXT_ACTION_TYPES
 from app.models.base import as_utc, utcnow
 from app.services import clock, profile_service
 from app.services import next_step_service as next_step_text
@@ -68,7 +69,9 @@ def detect_source(job_url: str | None) -> str:
     return "company_site"
 
 
-def get_owned_application(session: Session, user: User, application_id) -> Application:
+def get_owned_application(
+    session: Session, user: User, application_id, *, lock: bool = False
+) -> Application:
     """The application `application_id` if it belongs to `user`, otherwise 404.
 
     Another user's application and one that doesn't exist give the same answer
@@ -81,9 +84,13 @@ def get_owned_application(session: Session, user: User, application_id) -> Appli
         raise HTTPException(status_code=404) from None
     if not 0 < number <= MAX_ID:
         raise HTTPException(status_code=404)
-    application = session.exec(
-        select(Application).where(Application.id == number, Application.user_id == user.id)
-    ).first()
+    query = select(Application).where(Application.id == number, Application.user_id == user.id)
+    if lock:
+        # Undo reads, compares and writes: on Postgres the row stays locked until the
+        # commit, so a change at the same moment waits (security review M4b, 2).
+        # SQLite has no row locks and runs one write at a time anyway.
+        query = query.with_for_update()
+    application = session.exec(query).first()
     if application is None:
         raise HTTPException(status_code=404)
     return application
@@ -377,6 +384,10 @@ def _from_text(field: str, value):
         return dt.date.fromisoformat(value) if isinstance(value, str) else _bad(field)
     if field in _BOOL_FIELDS:
         return value if isinstance(value, bool) else _bad(field)
+    if field == "next_action_type":  # only known kinds: the page looks up their label
+        return value if value in NEXT_ACTION_TYPES else _bad(field)
+    if field == "interview_type":
+        return value if value in INTERVIEW_TYPES else _bad(field)
     if field in _TEXT_FIELDS:
         return value if isinstance(value, str) and len(value) <= 200 else _bad(field)
     return _bad(field)
@@ -397,10 +408,24 @@ def note(session: Session, user: User, application: Application) -> dict:
     return values | {"index": index}
 
 
+def fingerprint(value) -> str | None:
+    """A short stand-in for a text: the token only compares the "after" text, it never
+    writes it back, so a hash is enough and keeps the token small (security review
+    M4b, 1)."""
+    if value is None:
+        return None
+    return "#" + hashlib.sha256(str(value).encode()).hexdigest()[:16]
+
+
+def _after(field: str, value):
+    return fingerprint(value) if field in _TEXT_FIELDS and field != "status" else value
+
+
 def changes(before: dict, after: dict) -> dict:
-    """{field: [before, after]} for the fields an action changed. The place in the
-    column ("index") only matters when the card changed column or was archived."""
-    changed = {f: [before[f], after[f]] for f in NOTE_FIELDS if before[f] != after[f]}
+    """{field: [before, after]} for the fields an action changed (texts after the
+    change only as a fingerprint). The place in the column ("index") only matters when
+    the card changed column or was archived."""
+    changed = {f: [before[f], _after(f, after[f])] for f in NOTE_FIELDS if before[f] != after[f]}
     if "status" in changed or "archived" in changed:
         changed["index"] = [before["index"], None]
     return changed
@@ -420,13 +445,13 @@ def undo_change(
     """Take back one action (D-079): delete its events and write back the "before"
     values of `fields`. Raises NothingToUndo if the application changed since."""
     try:
-        application = get_owned_application(session, user, application_id)
+        application = get_owned_application(session, user, application_id, lock=True)
     except HTTPException:
         raise NothingToUndo from None
     if not fields or newest_event_id(session, application) != newest:
         raise NothingToUndo
     current = note(session, user, application)
-    if any(current[f] != values[1] for f, values in fields.items() if f != "index"):
+    if any(_after(f, current[f]) != values[1] for f, values in fields.items() if f != "index"):
         raise NothingToUndo  # something changed these fields since: keep it
     try:
         restored = {f: _from_text(f, values[0]) for f, values in fields.items() if f != "index"}
@@ -483,8 +508,20 @@ def before_note(session: Session, user: User, application: Application) -> dict:
     }
 
 
+def creation_fingerprint(application: Application) -> str:
+    """What "add" left behind, for its Undo: if details or a snooze changed since (they
+    write no event), Undo of "add" must not delete them (security review M4b, 3)."""
+    values = [getattr(application, field) for field in (*DETAIL_FIELDS, "snoozed_until")]
+    return fingerprint("|".join(str(_to_text(value)) for value in values))
+
+
 def undo(
-    session: Session, user: User, application_id, event_ids: list[int], before: dict | None
+    session: Session,
+    user: User,
+    application_id,
+    event_ids: list[int],
+    before: dict | None,
+    created: str | None = None,
 ) -> Application | None:
     """Take back the action that wrote `event_ids`. `before` is the note from before_note,
     or None when the action created the application (then it is deleted again).
@@ -520,6 +557,9 @@ def undo(
         raise NothingToUndo
 
     if before is None:
+        if created is not None and creation_fingerprint(application) != created:
+            session.rollback()
+            raise NothingToUndo  # edited since it was added: keep it
         session.delete(application)  # undo "add": its events go with it (cascade)
         _renumber(
             [c for c in column_of(session, user, application.status) if c.id != application.id]
@@ -743,8 +783,25 @@ def snooze(session: Session, user: User, application: Application, now: dt.datet
     session.refresh(application)
 
 
+MAX_NOTES_PER_APPLICATION = 500  # keeps the timeline of one job a reasonable size
+
+
+class TooManyNotes(Exception):
+    """The application has MAX_NOTES_PER_APPLICATION notes already."""
+
+
 def add_note(session: Session, user: User, application: Application, text: str) -> ApplicationEvent:
     """A note on the timeline (event "note_added"). The text was checked by NoteForm."""
+    count = session.exec(
+        select(func.count())
+        .select_from(ApplicationEvent)
+        .where(
+            ApplicationEvent.application_id == application.id,
+            ApplicationEvent.type == "note_added",
+        )
+    ).one()
+    if count >= MAX_NOTES_PER_APPLICATION:
+        raise TooManyNotes
     event = _add_event(session, application, "note_added", message=text)
     session.commit()
     session.refresh(event)
