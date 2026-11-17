@@ -70,7 +70,7 @@
       {%- endif %}
       {%- if not cv.is_master %}
         <button type="button" data-tooltip="Duplicate" class="{{ icon_button_class }}"
-                hx-post="/cvs/{{ cv.id }}/duplicate" hx-target="#cv-action-message">{{ icon("new-version") }}<span class="sr-only">Duplicate for another application</span></button>
+                hx-post="/cvs/{{ cv.id }}/duplicate" hx-target="#cv-action-message">{{ icon("duplicate") }}<span class="sr-only">Duplicate for another application</span></button>
       {%- endif %}
       {%- if editable %}
         <button type="button" data-tooltip="Refresh from profile" class="{{ icon_button_class }}"

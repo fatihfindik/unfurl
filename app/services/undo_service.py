@@ -125,6 +125,9 @@ def read_delete_token(user: User, token: str) -> int | None:
         ).loads(token, max_age=UNDO_SECONDS)
     except BadSignature:
         return None
-    if not isinstance(data, dict) or data.get("u") != user.id or type(data.get("d")) is not int:
+    item_id = data.get("d") if isinstance(data, dict) else None
+    if data.get("u") != user.id if isinstance(data, dict) else True:
         return None
-    return data["d"]
+    if type(item_id) is not int or not 0 < item_id <= 2**31 - 1:  # a database id
+        return None
+    return item_id

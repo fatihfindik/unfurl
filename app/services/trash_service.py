@@ -61,6 +61,25 @@ def purge_old(session: Session) -> None:
     session.exec(delete(DeletedItem).where(DeletedItem.created_at < utcnow() - KEEP))
 
 
+# purge_if_due runs at most this often (it is called on every logged-in request).
+PURGE_EVERY = dt.timedelta(seconds=30)
+_last_purge: dt.datetime | None = None
+
+
+def purge_if_due(session: Session) -> None:
+    """Delete expired copies, committed, at most every PURGE_EVERY. Called on every
+    logged-in request, so deleted personal data (a CV's photo, date of birth) is gone
+    a few minutes after the delete even if nobody deletes anything else (security
+    review M4c, F1; SPEC §10.2)."""
+    global _last_purge
+    now = utcnow()
+    if _last_purge is not None and now - _last_purge < PURGE_EVERY:
+        return
+    _last_purge = now
+    purge_old(session)
+    session.commit()
+
+
 def remember(session: Session, user: User, kind: str, payload: dict) -> DeletedItem:
     """Keep a copy before a delete (not committed: part of the delete)."""
     purge_old(session)
@@ -74,7 +93,7 @@ def take(session: Session, user: User, item_id) -> DeletedItem | None:
     """The user's copy `item_id` if it is still there and recent, else None. Taken
     copies are deleted by the caller in the same commit as the restore."""
     purge_old(session)
-    if type(item_id) is not int:
+    if type(item_id) is not int or not 0 < item_id <= 2**31 - 1:
         return None
     item = session.exec(
         select(DeletedItem).where(DeletedItem.id == item_id, DeletedItem.user_id == user.id)

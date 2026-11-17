@@ -36,6 +36,9 @@ SubmittedForm = Annotated[FormData, Depends(read_form_data)]
 @limiter.limit("60/minute")
 def undo_delete(request: Request, session: DbSession, user: RequiredUser, data: SubmittedForm):
     item_id = undo_service.read_delete_token(user, str(data.get("token", "")))
+    # Purge first, in its own commit: a failed restore rolls back, the purge must stay.
+    trash_service.purge_old(session)
+    session.commit()
     item = trash_service.take(session, user, item_id)
     message = "Nothing to undo."
     if item is not None:

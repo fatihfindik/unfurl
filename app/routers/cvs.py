@@ -24,7 +24,13 @@ from app.models.cv import CV_LANGUAGES, CV_TEMPLATES
 from app.schemas.cv import CV_SECTIONS, LANGUAGE_NAMES, CVContent, CVEditForm, NewCVForm
 from app.schemas.profile import form_errors
 from app.security import limiter
-from app.services import document_service, pdf_service, profile_service, undo_service
+from app.services import (
+    application_service,
+    document_service,
+    pdf_service,
+    profile_service,
+    undo_service,
+)
 from app.services.auth_service import require_user
 from app.templating import is_htmx, set_flash, templates
 
@@ -315,7 +321,13 @@ def cv_new_version(request: Request, session: DbSession, user: RequiredUser, cv_
     # A new draft of the CV an application uses becomes the one it uses (D-080); the
     # sent version stays in "what you sent".
     application = linked_application(session, user, cv)
-    if application is not None and application.cv_id == cv.id:
+    # Not for a job that was sent: then the sent CV stays its CV, and a new draft can't
+    # be locked later as if it had been sent (security review M4c, E1).
+    if (
+        application is not None
+        and application.cv_id == cv.id
+        and application.status not in application_service.SENT_STATUSES
+    ):
         application.cv_id = new.id
         session.add(application)
         session.commit()
@@ -349,6 +361,7 @@ def cv_refresh(
 
 
 @router.delete("/cvs/{cv_id}", response_class=HTMLResponse)
+@limiter.limit("60/minute")
 def cv_delete(request: Request, session: DbSession, user: RequiredUser, cv_id: str):
     """Delete right away, with Undo in the toast (D-086; the confirmation modal of
     D-046 is gone). Locked copies never; a master only when it has no copies (D-047).

@@ -902,6 +902,8 @@ def application_cv(
         created = {"created_cv": cv.id}
     else:
         cv = document_service.get_owned_cv(session, user, data.get("cv"))
+        # Undo gives the copy back its old application (security review M4c, E2).
+        created = {"linked_cv": [cv.id, cv.application_id]}
     try:
         event = application_service.link_cv(session, user, application, cv)
     except application_service.CannotLink:

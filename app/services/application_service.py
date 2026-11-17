@@ -394,7 +394,7 @@ def _from_text(field: str, value):
     if field in _BOOL_FIELDS:
         return value if isinstance(value, bool) else _bad(field)
     if field == "cv_id":
-        return value if type(value) is int else _bad(field)
+        return value if type(value) is int and 0 < value <= MAX_ID else _bad(field)
     if field == "next_action_type":  # only known kinds: the page looks up their label
         return value if value in NEXT_ACTION_TYPES else _bad(field)
     if field == "interview_type":
@@ -532,11 +532,47 @@ def undo_change(
     return application
 
 
+def _token_id(value) -> int:
+    """An id from an undo token: an int in the database's range, else NothingToUndo
+    (never with our own tokens; a guard so a broken one isn't a 500, test-writer M4c)."""
+    if type(value) is not int or not 0 < value <= MAX_ID:
+        raise NothingToUndo
+    return value
+
+
+def _token_ids(value) -> list[int]:
+    if not isinstance(value, list):
+        raise NothingToUndo
+    return [_token_id(item) for item in value]
+
+
 def _undo_documents(session: Session, user: User, application: Application, extra: dict) -> None:
     """The document side of an Undo (D-080, D-082): delete the "sent" records the action
     made, unlock the CVs it locked (only the same lock), and delete a copy it created
     if that copy is still untouched. Raises NothingToUndo if a record is gone."""
-    sent = [i for i in extra.get("sent", []) if type(i) is int]
+    try:
+        # A key that is there must hold a list: never undo half an action.
+        sent = _token_ids(extra["sent"]) if "sent" in extra else []
+        locked = extra["locked"] if "locked" in extra else []
+        if not isinstance(locked, list):
+            raise NothingToUndo
+        for pair in locked:
+            if not (isinstance(pair, list) and len(pair) == 2):
+                raise NothingToUndo
+            _token_id(pair[0])
+        for key in ("created_cv",):
+            if extra.get(key) is not None:
+                _token_id(extra[key])
+        linked_extra = extra.get("linked_cv")
+        if linked_extra is not None:
+            if not (isinstance(linked_extra, list) and len(linked_extra) == 2):
+                raise NothingToUndo
+            _token_id(linked_extra[0])
+            if linked_extra[1] is not None:
+                _token_id(linked_extra[1])
+    except NothingToUndo:
+        session.rollback()
+        raise
     if sent:
         deleted = session.exec(
             delete(ApplicationDocument).where(
@@ -548,12 +584,18 @@ def _undo_documents(session: Session, user: User, application: Application, extr
         if deleted.rowcount != len(set(sent)):
             session.rollback()
             raise NothingToUndo
-    for pair in extra.get("locked", []):
-        if not (isinstance(pair, list) and len(pair) == 2 and type(pair[0]) is int):
-            continue
+    for pair in locked:
         cv = session.get(CVDocument, pair[0])
         if cv is not None and cv.user_id == user.id and cv.application_id == application.id:
             document_service.unlock_after_undo(session, cv, pair[1])
+    linked = extra.get("linked_cv")  # [cv id, its application_id before the link]
+    if isinstance(linked, list) and len(linked) == 2 and type(linked[0]) is int:
+        cv = session.get(CVDocument, linked[0])
+        previous = linked[1] if type(linked[1]) is int else None
+        if cv is not None and cv.user_id == user.id and cv.application_id == application.id:
+            if previous is None or session.get(Application, previous) is not None:
+                cv.application_id = previous
+                session.add(cv)
     created = extra.get("created_cv")
     if type(created) is int:
         cv = session.get(CVDocument, created)
@@ -733,6 +775,8 @@ def link_cv(
 
 def unlink_cv(session: Session, user: User, application: Application) -> ApplicationEvent:
     """Stop using the current CV (only a draft: a sent CV stays, D-082)."""
+    if application.archived:
+        raise CannotLink  # like linking and "Lock as sent" (test-writer M4c)
     cv = session.get(CVDocument, application.cv_id) if application.cv_id else None
     if cv is None or cv.user_id != user.id or cv.is_locked:
         raise CannotLink

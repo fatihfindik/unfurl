@@ -513,7 +513,9 @@ def restore_cv(session: Session, user: User, payload: dict) -> CVDocument:
             raise trash_service.CannotRestore
         taken = session.exec(
             select(CVDocument.id).where(
-                CVDocument.parent_id == cv.parent_id, CVDocument.version == cv.version
+                CVDocument.user_id == user.id,
+                CVDocument.parent_id == cv.parent_id,
+                CVDocument.version == cv.version,
             )
         ).first()
         if taken is not None:

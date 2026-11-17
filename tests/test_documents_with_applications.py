@@ -58,10 +58,12 @@ def test_the_version_picker_shows_this_applications_versions(
     assert f'href="/cvs/{other.id}"' not in picker
 
 
-def test_a_new_version_of_the_sent_cv_becomes_the_one_in_use(
+def test_a_new_version_becomes_the_one_in_use_before_sending(
     auth_client, session, user, linked, job
 ):
-    apps.move(session, user, job, "applied")  # locks it
+    # Only while the job is not sent (security review M4c, E1; see test_m4c_review_fixes).
+    content = docs.CVContent.model_validate(linked.content)
+    docs.update_content(session, linked, title="Edited", content=content, user=user)
 
     response = auth_client.post(
         f"/cvs/{linked.id}/versions",
@@ -72,7 +74,6 @@ def test_a_new_version_of_the_sent_cv_becomes_the_one_in_use(
     session.expire_all()
     assert session.get(Application, job.id).cv_id == new_id
     assert session.get(CVDocument, new_id).application_id == job.id
-    assert len(apps.sent_documents(session, user, job)) == 1  # what was sent stays
 
 
 def test_the_documents_page_groups_copies_by_application(auth_client, session, user, linked):

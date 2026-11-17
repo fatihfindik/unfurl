@@ -136,6 +136,10 @@ def current_user(
         end_session(request)
         return None
     request.state.user = user
+    # Expired "deleted" copies go away here, a little at a time (D-086).
+    from app.services import trash_service  # here: trash_service imports undo_service
+
+    trash_service.purge_if_due(session)
     return user
 
 
