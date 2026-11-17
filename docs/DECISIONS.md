@@ -494,7 +494,7 @@ Kaynak: M10 Design fazı, plan-reviewer; Fatih onayladı (2026-11-17). SPEC §5.
 
 ### D-092 · Görev tamamlama
 Kaynak: M10 Design fazı; Fatih plan onayıyla onayladı (2026-11-17).
-- **Karar:** İşaretlenince `done=true`, `done_at=now`, görevin tahmini süresiyle bugüne bir `StudyLog`, göreve bağlı kaynak varsa `units_done += 1` (en fazla `units_total`). İşareti kaldırmak bunların tersini yapar. Toast + Undo (`undo-learning` tuzu, 60 sn, karşılaştır-ve-yaz). Haftalık saat: bu haftanın (Pzt–Paz) StudyLog dakikaları; hedefi: aktif hedeflerin `weekly_hours_target` toplamı. Üst kartlar ve Goals kartı aynı yanıtta `hx-swap-oob` ile güncellenir.
+- **Karar:** İşaretlenince `done=true`, `done_at=now`, görevin tahmini süresiyle bugüne bir `StudyLog`, göreve bağlı kaynak varsa `units_done += 1` (en fazla `units_total`). İşareti kaldırmak bunların tersini yapar. Toast + Undo (`undo-learning` tuzu, 60 sn, karşılaştır-ve-yaz). Haftalık saat: bu haftanın (Pzt–Paz) StudyLog dakikaları; hedefi: aktif hedeflerin `weekly_hours_target` toplamı. Üst kartlar, plan ve Goals kartı D-065 düzeniyle güncellenir: yanıt `learning-changed` olayını gönderir, `#learning-region` aynı sekmeyle kendini yeniden yükler (sayılar hep sunucudan).
 
 ### D-093 · "Create one task per week"
 Kaynak: M10 Design fazı; Fatih plan onayıyla onayladı (2026-11-17).

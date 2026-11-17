@@ -1,0 +1,60 @@
+{#- Small pieces of the Learning page (SPEC §6.10).
+
+    Goal colors (D-096): not stored, picked by the goal's position. The classes are
+    written out here so Tailwind finds them; app/routers/learning.py GOAL_COLORS is
+    the number of entries. -#}
+{% from "components/icons.html" import icon %}
+
+{%- set goal_badge_classes = [
+  "bg-blue-bg text-blue-text",
+  "bg-amber-bg text-amber-text",
+  "bg-purple-bg text-purple-text",
+  "bg-green-bg text-green-text",
+  "bg-red-bg text-red-text",
+  "bg-accent-bg text-accent-text",
+] -%}
+{%- set goal_dot_classes = [
+  "bg-[#2563EB]",
+  "bg-[#F79009]",
+  "bg-[#7C3AED]",
+  "bg-[#079455]",
+  "bg-[#D92D20]",
+  "bg-[#4F46E5]",
+] -%}
+
+{% macro goal_badge(title, color) -%}
+  <span class="rounded-[10px] px-2 py-0.5 font-semibold {{ goal_badge_classes[color] }}">{{ title }}</span>
+{%- endmacro %}
+
+{% macro goal_dot(color) -%}
+  <span aria-hidden="true" class="size-2.5 shrink-0 rounded-full {{ goal_dot_classes[color] }}"></span>
+{%- endmacro %}
+
+{#- A link to a lesson. The url was checked to be http(s) when it was saved (D-094). -#}
+{% macro lesson_link(url, title) -%}
+  <a href="{{ url }}" target="_blank" rel="noopener noreferrer" aria-label="Open lesson for {{ title }}" title="Open lesson"
+     class="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border text-text-2 no-underline hover:border-border-strong">{{ icon("external") }}</a>
+{%- endmacro %}
+
+{#- One open task in the plan. `row`: see app/routers/learning.py task_row. -#}
+{% macro task_item(row) %}
+  <li data-task="{{ row.id }}" class="flex items-center gap-3 border-t border-muted py-3">
+    <div class="flex min-w-0 flex-1 flex-col gap-1">
+      <span class="text-sm font-medium text-text [overflow-wrap:anywhere]">{{ row.title }}</span>
+      <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs text-text-3">
+        {{ goal_badge(row.goal, row.color) }}
+        <span>{{ row.when }}</span>
+        <span>{{ row.duration }}</span>
+      </div>
+    </div>
+    {%- if row.url %}{{ lesson_link(row.url, row.title) }}{% endif %}
+  </li>
+{%- endmacro %}
+
+{#- One completed task in the collapsed "Done (n)" section. -#}
+{% macro done_item(row) %}
+  <li data-task="{{ row.id }}" class="flex items-center gap-3 border-t border-muted py-2.5">
+    <span class="flex-1 text-sm text-text-3 line-through [overflow-wrap:anywhere]">{{ row.title }}</span>
+    <span class="text-xs text-text-3">{{ row.duration }}</span>
+  </li>
+{%- endmacro %}

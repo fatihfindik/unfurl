@@ -1,8 +1,8 @@
 """Temporary "Coming soon" pages for menu items that are not built yet.
 
 Each route is removed when its milestone adds the real page:
-/learning (M10), /settings (M11, first section: Notifications). /documents is in
-app/routers/cvs.py since M3a.
+/settings (M11, first section: Notifications). /documents is in app/routers/cvs.py
+since M3a, /learning in app/routers/learning.py since M10.
 """
 
 from fastapi import APIRouter, Depends, Request
@@ -17,11 +17,6 @@ router = APIRouter(dependencies=[Depends(require_user)])
 
 def coming_soon(request: Request, section: str) -> HTMLResponse:
     return templates.TemplateResponse(request, "coming_soon.html", {"section": section})
-
-
-@router.get("/learning", response_class=HTMLResponse)
-def learning(request: Request):
-    return coming_soon(request, "Learning")
 
 
 @router.get("/settings", response_class=HTMLResponse)

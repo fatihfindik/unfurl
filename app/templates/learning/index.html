@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "components/page_header.html" import page_header, page_width %}
+
+{% block title %}Learning{% endblock %}
+
+{#- docs/prototype/Learning.dc.html, SPEC §6.10. -#}
+{% block content %}
+  {{ page_header("Learning", subtitle="Your goals, where you study and what is next.") }}
+  <div class="w-full px-4 pt-6 pb-10 md:px-8">
+    <div class="{{ page_width() }}">
+      {% include "learning/_region.html" %}
+    </div>
+  </div>
+{% endblock %}
