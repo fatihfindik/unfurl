@@ -366,3 +366,35 @@
   version" has one exception now (Undo of the lock within 60 s, D-082); Fatih may want
   to add that sentence to CLAUDE.md himself.
 
+
+## M10 — Learning (2026-11-18, log written by Claude at Fatih's request)
+
+**What I learned**
+- A computed value can't go stale: the streak and a goal's progress are worked out on
+  every request instead of being stored, so ticking or deleting a task never leaves an
+  old number behind (D-091, D-096).
+- `CASCADE` and `SET NULL` mean different things on delete: a goal takes its tasks
+  with it, but the study logs stay with an empty link, so past hours and the streak
+  don't change (D-095).
+- Send the wanted state, not "toggle": the task box posts `done=yes` or `done=no`, so a
+  double click can't flip it twice.
+- Compare, then write: Undo only acts if the task is still as the action left it;
+  otherwise it says "Nothing to undo." instead of overwriting a newer change.
+- A separate salt per kind of undo token keeps one kind from passing as another.
+
+**What was hard**
+- Code was started before the plan was approved; the plan-reviewer caught it, and the
+  draft was reviewed again in step 1.
+- Restoring a goal is more than one row: goal, resource, tasks and logs come back with
+  new ids and have to be linked to each other again.
+
+**What I will do differently**
+- Write the plan and the decisions first, code only after approval (WORKFLOW Design).
+- Keep test helpers tied to clear markers in the HTML; a helper that cut the page at
+  the first `<details>` broke when the task menu (also `<details>`) was added.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.14 (streak computed per request, rest days count when studied,
+  NotificationPreference with `rest_days` only, reschedule and delete with Undo,
+  fit-gap goals moved to M7, Next reminder to M11). D-089…D-096.
+- WORKFLOW: no.

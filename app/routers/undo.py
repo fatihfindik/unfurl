@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 from starlette.datastructures import FormData
 
@@ -15,7 +15,13 @@ from app.db import get_session
 from app.models import User
 from app.routers.profile import SECTIONS
 from app.security import limiter
-from app.services import document_service, profile_service, trash_service, undo_service
+from app.services import (
+    document_service,
+    learning_service,
+    profile_service,
+    trash_service,
+    undo_service,
+)
 from app.services.auth_service import require_user
 from app.templating import set_flash
 
@@ -42,17 +48,34 @@ def undo_delete(request: Request, session: DbSession, user: RequiredUser, data: 
     item = trash_service.take(session, user, item_id)
     message = "Nothing to undo."
     if item is not None:
+        payload, kind = item.payload, item.kind
         try:
-            if item.kind == "cv":
-                document_service.restore_cv(session, user, item.payload)
-            elif item.kind in SECTIONS:
-                profile_service.restore_item(session, user, SECTIONS[item.kind].model, item.payload)
+            # Used once: the copy is deleted first, in the same commit as the restore.
+            if not trash_service.claim(session, item):
+                raise trash_service.CannotRestore
+            if kind == "cv":
+                document_service.restore_cv(session, user, payload)
+            elif kind in SECTIONS:
+                profile_service.restore_item(session, user, SECTIONS[kind].model, payload)
+            elif kind == "learning_task":  # D-095
+                learning_service.restore_task(session, user, payload)
+            elif kind == "learning_goal":
+                learning_service.restore_goal(session, user, payload)
             else:
                 raise trash_service.CannotRestore
-            session.delete(item)  # used once
             session.commit()
             message = "Undone."
-        except (trash_service.CannotRestore, IntegrityError, TypeError, ValueError):
+        # A broken copy is "Nothing to undo.", never an error page. SQLAlchemyError
+        # covers IntegrityError (a place taken) and wrong values for a column.
+        except (
+            trash_service.CannotRestore,
+            SQLAlchemyError,
+            AttributeError,
+            KeyError,
+            OverflowError,
+            TypeError,
+            ValueError,
+        ):
             session.rollback()
     set_flash(request, message)
     return Response(status_code=204, headers={"HX-Refresh": "true"})

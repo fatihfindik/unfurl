@@ -1,0 +1,31 @@
+{#- The "New goal" form inside the modal (index.html; SPEC §6.10, D-093). htmx sends
+    it; errors come back as this form, a saved goal as an empty form (the modal is
+    then closed by the "close-dialog" event).
+    Context: goal_values, goal_errors, unit_choices. -#}
+{%- from "components/forms.html" import text_field, select_field, checkbox_field, primary_button -%}
+{%- set values = goal_values %}
+{%- set errors = goal_errors %}
+<form id="new-goal-form" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/learning/goals" hx-target="this" hx-swap="outerHTML">
+  {%- if errors.form %}
+    <p role="alert" class="m-0 rounded-[10px] bg-red-bg px-3 py-2.5 text-sm font-medium text-red-text">{{ errors.form }}</p>
+  {%- endif %}
+  {{ text_field("title", "What do you want to reach?", value=values.title or "", error=errors.title, maxlength=200, id_prefix="goal", placeholder="e.g. Pass the AWS Cloud Practitioner exam") }}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ text_field("target_date", "Target date", type="date", value=values.target_date or "", error=errors.target_date, required=False, id_prefix="goal") }}
+    {{ text_field("weekly_hours", "Hours per week", type="number", value=values.weekly_hours or "", error=errors.weekly_hours, required=False, id_prefix="goal", step="0.5", min="0.5", max="40") }}
+  </div>
+  <h3 class="m-0 pt-1 text-sm font-bold">Where will you study?</h3>
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ text_field("resource_name", "Course, book or platform", value=values.resource_name or "", error=errors.resource_name, maxlength=200, required=False, id_prefix="goal", placeholder="e.g. AWS Skill Builder") }}
+    {{ text_field("resource_url", "Link", type="url", value=values.resource_url or "", error=errors.resource_url, maxlength=500, required=False, id_prefix="goal", placeholder="https://") }}
+    {{ select_field("unit_label", "Progress is counted in", unit_choices, value=values.unit_label or "Week", error=errors.unit_label, id_prefix="goal") }}
+    {{ text_field("units_total", "How many in total?", type="number", value=values.units_total or "", error=errors.units_total, required=False, id_prefix="goal", step="1", min="1", max="52") }}
+  </div>
+  {{ checkbox_field("plan_weekly", "Create one task per week for me", checked=values.plan_weekly == "yes", error=errors.plan_weekly, required=False, id_prefix="goal") }}
+  <div class="flex justify-end gap-2.5">
+    <button type="button" data-dialog-close
+            class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Cancel</button>
+    {{ primary_button("Create goal", size="sm") }}
+  </div>
+</form>

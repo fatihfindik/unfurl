@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.13 — 2026-11-17
+> **Durum:** MVP planı, v2.1.14 — 2026-11-17
+> v2.1.14: M10 Design kararları (Fatih onayladı). Seri her istekte hesaplanır, dinlenme gününde çalışılırsa sayılır. `progress_pct` ve hedef rengi hesaplanır, saklanmaz. Learning tablolarının hepsinde `user_id`. NotificationPreference M10'da sadece `rest_days` ile açılır. Görev tarihini değiştirme ve hedef/görev silme (Undo ile). "Add to learning plan" ve eksikten oluşturulan hedef M7'ye, Next reminder M11'e, asistan linki M12'ye. Kararlar: DECISIONS D-089…D-096.
 > v2.1.13: M4c Design kararları (Claude, Fatih'in yetkisiyle): `application_id` = başvurunun kopyaları (soy), `Application.cv_id` = şu anki CV; Applied/Interview/Offer'a her geçişte bağlı taslak CV kilitlenir; versiyon numarası master başına; silmede Undo için kısa süreli çöp tablosu. AI'ya bağlı milestone'lar (M5, M7, M8, M9, M12) sonraya, M10/M11 önce (D-088). Kararlar: DECISIONS D-080…D-088.
 > v2.1.12: M4b Design kararları. Otomatik next step hesaplanır, `next_action_*` sadece elle konan adımı tutar; "Done" kuralı (thank-you → 5 gün sonra follow-up, diğerleri durum değişene kadar yok). Tarih ve saatler `DEFAULT_TIMEZONE`'da. `snoozed_until`. Needs attention etiketleri. Details düzenleme formu ve `posting_closes_at` M4b'de; Apply sekmesi M7'de. Kararlar: DECISIONS D-071…D-079.
 > v2.1.11: Özet kartları sadece liste görünümünde gösterilir; board'da sütun başlıkları aynı bilgiyi (durum + sayı) zaten verir. Duruma göre filtre de liste görünümündedir. Karar: DECISIONS D-070.
@@ -491,21 +492,23 @@ Asistan toplu değişiklik önerdiğinde değişiklikler hemen uygulanmaz, burad
 | applied_at | datetime, nullable | Undo bu kayıttaki `before` değerleriyle yapılır (24 saat içinde) |
 
 ### 5.10 Learning tabloları
-**LearningGoal:** title, description, status (active/paused/done), target_date (nullable), weekly_hours_target (float, nullable), progress_pct (int, görevlerden veya kaynak ilerlemesinden hesaplanır), source (manual/fit_gap/assistant), source_application_id (FK, nullable, eksikten oluşturulduysa), source_requirement (str, nullable, ör. "German C1"), sort_order.
+Beş Learning tablosunun (NotificationPreference dahil) hepsinde `user_id` (FK, cascade, index) vardır; her sorgu onunla filtrelenir (D-094).
+
+**LearningGoal:** title, description, status (active/paused/done), target_date (nullable), weekly_hours_target (float, nullable), progress_pct (saklanmaz; kaynakta toplam birim varsa birimlerden, yoksa görevlerden hesaplanır, D-096), source (manual/fit_gap/assistant), source_application_id (FK, nullable, eksikten oluşturulduysa), source_requirement (str, nullable, ör. "German C1"), sort_order.
 
 **LearningResource:** goal_id (FK), name (ör. "CS50's Introduction to Programming with Python"), provider (ör. "Harvard"), url, kind (course/book/video/platform/class/other), unit_label (ör. "Week", "Module", "Lesson"), units_total (int, nullable), units_done (int).
 
 **LearningTask:** goal_id (FK), resource_id (FK, nullable), title, due_date (date), estimated_minutes (int), url (nullable), done (bool), done_at (datetime, nullable), sort_order.
-- Görünümler: **Today** (due_date = bugün), **Next 7 days**, **Catch-up** (geçmiş ve tamamlanmamış).
+- Görünümler: **Today** (due_date = bugün), **Next 7 days** (bugün … +6), **Catch-up** (geçmiş ve tamamlanmamış).
 
-**StudyLog:** goal_id (FK, nullable), task_id (FK, nullable), date, minutes. Görev tamamlanınca tahmini süre otomatik kaydedilir, kullanıcı düzeltebilir.
+**StudyLog:** goal_id (FK, nullable, `SET NULL`), task_id (FK, nullable, `SET NULL`), date, minutes. Görev tamamlanınca tahmini süre otomatik kaydedilir. Hedef veya görev silinince log kalır (geçmiş saat ve seri değişmez, D-095). Kullanıcının logu elle düzeltmesi M10'dan sonra gelir (D-089).
 
-**Seri (streak) kuralı:** Bir gün, en az bir görev tamamlandıysa veya en az 10 dakikalık StudyLog varsa "aktif" sayılır. Kullanıcının seçtiği **dinlenme günleri** (ör. Cumartesi-Pazar) seriyi bozmaz. Seri her istekte hesaplanmaz, `learning_service` günlük olarak önbelleğe alır.
+**Seri (streak) kuralı:** Bir gün, en az bir görev tamamlandıysa veya StudyLog toplamı en az 10 dakikaysa "aktif" sayılır. Bugünden geriye sayılır: aktif gün +1 (dinlenme günü de dahil); kullanıcının seçtiği **dinlenme günleri** (ör. Cumartesi-Pazar) aktif değilse atlanır, seriyi bozmaz; aktif olmayan normal gün seriyi bitirir; bugün henüz aktif değilse seri dünden başlar. Seri her istekte `learning_service` tarafından son 400 günden hesaplanır (D-091; önbellek gerekirse M11'in zamanlayıcısıyla eklenir). Tarihler `DEFAULT_TIMEZONE`'da; kullanıcı saat dilimi M11'de.
 
 ### 5.11 Notification ve NotificationPreference
 **Notification:** user_id, type (study_reminder/follow_up/interview_tomorrow/stale_saved/ai_result/streak_milestone), title, body, link_url, read_at (nullable), created_at. 30 günden eski okunmuş bildirimler silinir.
 
-**NotificationPreference** (her kullanıcıya 1 satır): study_reminder_enabled (bool, varsayılan true), study_reminder_time (time, varsayılan 19:00), study_reminder_email (bool, varsayılan true), rest_days (JSON list, varsayılan ["sat","sun"]), streak_enabled (bool), follow_up_enabled, interview_enabled, stale_saved_enabled, ai_result_enabled (bool).
+**NotificationPreference** (her kullanıcıya 1 satır): study_reminder_enabled (bool, varsayılan true), study_reminder_time (time, varsayılan 19:00), study_reminder_email (bool, varsayılan true), rest_days (JSON list, varsayılan ["sat","sun"]), streak_enabled (bool), follow_up_enabled, interview_enabled, stale_saved_enabled, ai_result_enabled (bool). M10'da tablo sadece `user_id` ve `rest_days` ile açılır; kalan kolonlar M11'de gelir (D-090).
 
 ### 5.12 ApiToken (Chrome eklentisi için)
 | Alan | Tip | Not |
@@ -639,9 +642,9 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 - **Privacy:** "Export my data" (JSON indir), "Delete my account" (şifre ile onay → tüm veriler ve yüklenen dosyalar kalıcı olarak silinir).
 
 ### 6.10 Learning (/learning)
-- **Üst özet kartları:** Streak (🔥 ikonlu, "12 days" + dinlenme günü notu), This week (saat / haftalık hedef, ilerleme çubuğu), Tasks done (x / y), Next reminder (saat + "Change reminder" linki).
-- **Plan kartı (sol, geniş):** sekmeler **Today / Next 7 days / All tasks / Catch-up (n)**. All tasks haftalara göre gruplanır (Overdue, This week, Next week). Her görev satırı: tamamlandı kutusu, başlık, hedef rozeti (renkli), tarih, süre ve dersi açan ↗ ikonu (kaynak adı tekrar yazılmaz, hedeften gelir). Tamamlanan görevler listenin altında daraltılmış **"Done (n)"** bölümüne iner (toast + Undo). Catch-up sekmesinde suçlamayan bir bilgi bandı ve "✨ Ask the assistant to reschedule" linki (asistan panelini açar). Altta "Add task".
-- **Goals kartı (sağ):** her hedef için renk, ad, yüzde, ilerleme çubuğu, **kaynak satırı** (ad, link, "Week 3 / 10"), özet (kaydedilen saat · hedef tarih), eksikten oluşturulduysa "From a fit gap: {company}" rozeti ve "+ Add task". Ayrı bir "Where I study" kartı yoktur.
+- **Üst özet kartları:** Streak (🔥 ikonlu, "12 days" + seçilen günlerden yazılan dinlenme günü notu ve "Change" linki: 7 gün kutulu küçük modal, en fazla 6 gün, D-090), This week (bu haftanın Pzt–Paz saati / aktif hedeflerin haftalık hedef toplamı, ilerleme çubuğu), Tasks done (x / y), Next reminder (saat + "Change reminder" linki; M11'de gelir, D-089).
+- **Plan kartı (sol, geniş):** sekmeler **Today / Next 7 days / All tasks / Catch-up (n)**. All tasks haftalara göre gruplanır (Overdue, This week, Next week, Later; boş grup gösterilmez). Her görev satırı: tamamlandı kutusu, başlık, hedef rozeti (renkli), tarih, süre, dersi açan ↗ ikonu (kaynak adı tekrar yazılmaz, hedeften gelir), "Reschedule" (tarih seçici, açık görevlerde) ve "Delete" (toast + Undo, D-095). Tamamlanan görevler listenin altında daraltılmış **"Done (n)"** bölümüne iner (toast + Undo; All tasks'ta son 30 gün). Catch-up sekmesinde suçlamayan bir bilgi bandı ("These are overdue. No stress, you can reschedule them.") ve "✨ Ask the assistant to reschedule" linki (asistan panelini açar; M12'de gelir). Altta "Add task".
+- **Goals kartı (sağ):** her hedef için renk (sıraya göre sabit paletten), ad, yüzde, ilerleme çubuğu, **kaynak satırı** (ad, link, "Week 3 / 10"), özet (kaydedilen saat · hedef tarih), eksikten oluşturulduysa "From a fit gap: {company}" rozeti (M7), "+ Add task" ve "Delete" (onay modalı: "This also deletes its tasks", toast + Undo). Ayrı bir "Where I study" kartı yoktur.
 - **New goal modalı:** hedef, hedef tarih, haftalık saat, kaynak (ad, link, birim türü, toplam birim), "Create one task per week for me". **Add task modalı:** hedef seçimi (zorunlu), görev, tarih, süre.
 - Görev işaretlemek HTMX ile anında olur ve üst kartlardaki sayılar güncellenir.
 
@@ -674,7 +677,7 @@ Next step, bir başvuru için yapılacak **tek sonraki iş ve tarihidir**. Hatı
 
 **Kurallar**
 1. Bir başvurunun aynı anda en fazla **1** next step'i olur.
-2. Next step otomatik dolar. Kullanıcı "Change" ile türü (Apply by · Follow up · Interview · Send thank-you note · Reply to offer · Custom) ve tarihi değiştirebilir veya "Done" ile tamamlar. "Done" sonrası durum değişene kadar next step yoktur; tek istisna: "Send thank-you note" Done olunca 5 gün sonrası için "Follow up" gelir (D-073). Tarih ve saatler `DEFAULT_TIMEZONE`'dadır (kullanıcı saat dilimi M10/M11'de, D-071).
+2. Next step otomatik dolar. Kullanıcı "Change" ile türü (Apply by · Follow up · Interview · Send thank-you note · Reply to offer · Custom) ve tarihi değiştirebilir veya "Done" ile tamamlar. "Done" sonrası durum değişene kadar next step yoktur; tek istisna: "Send thank-you note" Done olunca 5 gün sonrası için "Follow up" gelir (D-073). Tarih ve saatler `DEFAULT_TIMEZONE`'dadır (kullanıcı saat dilimi M11'de, D-071, D-089).
 3. Kullanıcı elle değiştirdiyse (`next_action_manual=true`), durum değişene kadar otomatik kurallar onun seçimini ezmez.
 4. Tarihi bugün veya geçmiş olan next step, başvuruyu **Needs attention**'a sokar. Interview için ayrıca bir gün önce bildirim gider (6.11).
 5. Asistan next step'i okuyabilir ve `set_next_action` ile değiştirebilir.
@@ -1166,7 +1169,8 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 ### M7 — Uyum analizi
 - `fit_analysis` özelliği, önbellekleme (profile_version), Apply › **Should I apply?** adımı (archive, "prepare" geçişi), Kanban kartında skor rozeti, eklentide "Analyze fit"
 - `evals/fit_analysis`
-- **Kabul:** Sonuç kaydediliyor ve önbellekten dönüyor. Profil değişince "Profile changed – re-analyze?" uyarısı çıkıyor. Eval'de verdict'lerin en az 4/5'i beklenen aralıkta.
+- Should I apply? eksiklerinde "Add to learning plan" modalı (M10'dan taşındı, D-089)
+- **Kabul:** Sonuç kaydediliyor ve önbellekten dönüyor. Profil değişince "Profile changed – re-analyze?" uyarısı çıkıyor. Eval'de verdict'lerin en az 4/5'i beklenen aralıkta. Eksikten oluşturulan hedef başvuruya bağlı.
 
 ### M8 — Motivasyon mektubu
 - CoverLetter modeli, Documents › Cover letters sekmesi, editör, AI ile oluşturma, PDF şablonu (DACH formatı)
@@ -1181,12 +1185,12 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 - **Kabul:** Hiçbir öneri onay olmadan uygulanmıyor. Belge hazırlama ve düzeltmeler master'a veya kilitli belgeye asla dokunmuyor (test var). "Mark as applied" sonrası Progress görünümü geliyor ve belgeler kilitleniyor. Örnek bir LinkedIn PDF'i ve normal bir CV PDF'i başarıyla içe aktarılıyor.
 
 ### M10 — Learning
-- Learning tabloları (5.10), `learning_service` (seri, haftalık saat, görünümler), Learning sayfası (6.10: All tasks, Done bölümü, New goal ve Add task modalları)
-- Should I apply? eksiklerinde "Add to learning plan" modalı
-- **Kabul:** Görev işaretlenince saat ve sayaçlar güncelleniyor. Seri kuralı (dinlenme günleri dahil) birim testleriyle doğrulanmış. Eksikten oluşturulan hedef başvuruya bağlı.
+- Learning tabloları (5.10) ve NotificationPreference (sadece `rest_days`, D-090), `learning_service` (seri, haftalık saat, görünümler), Learning sayfası (6.10: All tasks, Done bölümü, New goal ve Add task modalları, Reschedule, silme + Undo, dinlenme günleri modalı)
+- "Add to learning plan" modalı ve eksikten oluşturulan hedef M7'de (D-089)
+- **Kabul:** Görev işaretlenince saat ve sayaçlar güncelleniyor. Seri kuralı (dinlenme günleri dahil) birim testleriyle doğrulanmış.
 
 ### M11 — Bildirimler ve hatırlatmalar
-- Notification ve NotificationPreference, bildirim zili ve paneli, Settings › Notifications
+- Notification, NotificationPreference'ın kalan kolonları (`rest_days` M10'da geldi), `User.timezone`, bildirim zili ve paneli, Settings › Notifications, Learning'de "Next reminder" kartı
 - `scheduler.py` (APScheduler): günlük çalışma hatırlatması (uygulama içi + e-posta), follow_up / interview_tomorrow / stale_saved üretimi
 - **Kabul:** Hatırlatma kullanıcının saat diliminde ve seçtiği saatte, dinlenme günlerinde gönderilmiyor. O gün görev tamamlandıysa gönderilmiyor. Aynı bildirim iki kez üretilmiyor. E-postadaki kapatma linki çalışıyor. Zamanlayıcı mantığı saat dondurularak (`freezegun` veya enjekte edilen saat) test edilmiş.
 

@@ -1,0 +1,33 @@
+{#- The "Add task" form, loaded into the modal when it opens (app.js openLoadedDialog)
+    so the goals are always the current ones. Errors come back as this form; a saved
+    task closes the modal ("close-dialog").
+    Context: values, errors, goal_choices, duration_choices. -#}
+{%- from "components/forms.html" import text_field, select_field, primary_button -%}
+<form id="add-task-form" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/learning/tasks" hx-target="this" hx-swap="outerHTML">
+  {%- if errors.form %}
+    <p role="alert" class="m-0 rounded-[10px] bg-red-bg px-3 py-2.5 text-sm font-medium text-red-text">{{ errors.form }}</p>
+  {%- endif %}
+  {%- if goal_choices %}
+    <div class="flex flex-col gap-1.5">
+      {{ select_field("goal_id", "Goal", goal_choices, value=values.goal_id or "", error=errors.goal_id, placeholder="Choose a goal", id_prefix="task") }}
+      <span class="text-xs text-text-3">Every task belongs to a goal, so your progress adds up.</span>
+    </div>
+    {{ text_field("title", "Task", value=values.title or "", error=errors.title, maxlength=200, id_prefix="task", placeholder="e.g. CS50P Week 4 – Lecture") }}
+    <div class="grid gap-4 sm:grid-cols-2">
+      {{ text_field("due_date", "Date", type="date", value=values.due_date or "", error=errors.due_date, id_prefix="task") }}
+      {{ select_field("minutes", "Duration", duration_choices, value=values.minutes or "45", error=errors.minutes, id_prefix="task") }}
+    </div>
+    <div class="flex justify-end gap-2.5">
+      <button type="button" data-dialog-close
+              class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Cancel</button>
+      {{ primary_button("Add task", size="sm") }}
+    </div>
+  {%- else %}
+    <p class="m-0 text-sm text-text-2">A task belongs to a goal. Create a goal first.</p>
+    <div class="flex justify-end">
+      <button type="button" data-dialog-close
+              class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Close</button>
+    </div>
+  {%- endif %}
+</form>

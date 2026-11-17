@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import Settings, get_settings
-from app.routers import applications, auth, cvs, legal, placeholders, profile, undo
+from app.routers import applications, auth, cvs, learning, legal, placeholders, profile, undo
 from app.routers import settings as settings_routes  # `settings` is the app config below
 from app.security import hide_tokens_in_access_log, limiter, verify_csrf
 from app.services.auth_service import LoginRequired, login_required_response
@@ -87,6 +87,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     app.include_router(auth.router)
     app.include_router(applications.router)
+    app.include_router(learning.router)
     app.include_router(placeholders.router)
     app.include_router(settings_routes.router)
     app.include_router(undo.router)

@@ -48,7 +48,7 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - [ ] M7 Fit analysis (Apply › Should I apply?)
 - [ ] M8 Cover letter
 - [ ] M9 Apply flow: prepare documents, document drawer, final check, Progress + CV import
-- [ ] M10 Learning
+- [x] M10 Learning
 - [ ] M11 Notifications and reminders
 - [ ] M12a AI assistant: floating panel, application + learning tools
 - [ ] M12b AI assistant: document editing

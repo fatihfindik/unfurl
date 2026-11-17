@@ -1,0 +1,143 @@
+{#- Everything below the title: summary cards, the plan and the goals. After a change
+    the server sends the "learning-changed" event and the region asks for itself again
+    with the same tab (D-065 pattern), so every number is the server's. A tab link
+    loads the region too and updates the address bar.
+    hx-history="false": htmx keeps no copy of the page in the browser's storage.
+    Context: app/routers/learning.py page_context. -#}
+{% from "components/icons.html" import icon %}
+{% from "learning/_parts.html" import goal_dot, task_item, done_item %}
+{%- set region_url = "/learning?view=" ~ view %}
+<div id="learning-region" class="flex flex-col gap-6" hx-history="false"
+     hx-get="{{ region_url }}" hx-trigger="learning-changed from:body" hx-swap="outerHTML">
+
+  <section aria-label="This week at a glance" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div data-card="streak" class="flex flex-col gap-1.5 rounded-xl border border-border bg-surface px-5 py-[18px]">
+      <span class="text-[13px] font-semibold text-text-3">Streak</span>
+      <span class="flex items-center gap-2 text-[30px] font-bold leading-tight">{{ icon("flame") }}{{ streak }} {{ "day" if streak == 1 else "days" }}</span>
+      <span class="text-xs text-text-3">{{ rest_note }}
+        <button type="button" data-dialog-open="rest-days"
+                class="border-0 bg-transparent p-0 text-xs font-semibold text-link hover:underline">Change</button></span>
+    </div>
+    <div data-card="week" class="flex flex-col gap-1.5 rounded-xl border border-border bg-surface px-5 py-[18px]">
+      <span class="text-[13px] font-semibold text-text-3">This week</span>
+      <span class="text-[30px] font-bold leading-tight">{{ week_hours }} h{% if week_target %} <span class="text-base font-medium text-text-3">/ {{ week_target }} h</span>{% endif %}</span>
+      {%- if week_target %}
+        {#- A native <progress>: no inline style for the width (strict CSP, M13). -#}
+        <progress value="{{ week_pct }}" max="100" aria-label="Hours this week"
+                  class="h-1.5 w-full appearance-none overflow-hidden rounded-full bg-border [&::-moz-progress-bar]:bg-[#4F46E5] [&::-webkit-progress-bar]:bg-border [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-[#4F46E5]"></progress>
+      {%- else %}
+        <span class="text-xs text-text-3">Set hours per week on a goal to see a target.</span>
+      {%- endif %}
+    </div>
+    <div data-card="tasks" class="flex flex-col gap-1.5 rounded-xl border border-border bg-surface px-5 py-[18px]">
+      <span class="text-[13px] font-semibold text-text-3">Tasks done</span>
+      <span class="text-[30px] font-bold leading-tight">{{ tasks_done }} <span class="text-base font-medium text-text-3">/ {{ tasks_total }}</span></span>
+      <span class="text-xs text-text-3">{{ week_range }}</span>
+    </div>
+  </section>
+
+  <div class="flex flex-wrap items-start gap-6">
+    <section aria-labelledby="plan-title" class="flex min-w-0 flex-[3_1_560px] flex-col gap-3.5 rounded-xl border border-border bg-surface p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="plan-title" class="m-0 text-base font-bold">Plan</h2>
+        <nav aria-label="Plan view" class="flex flex-wrap gap-0.5 rounded-[10px] bg-muted p-[3px]">
+          {%- for key, title in views %}
+            {%- set url = "/learning?view=" ~ key %}
+            <a href="{{ url }}" hx-get="{{ url }}" hx-target="#learning-region" hx-swap="outerHTML" hx-push-url="true"
+               {% if key == view %}aria-current="page"{% endif %}
+               class="rounded-[7px] px-3 py-1.5 text-[13px] font-semibold text-text-3 no-underline hover:text-text aria-[current=page]:bg-surface aria-[current=page]:text-text aria-[current=page]:shadow-sm">{{ title }}</a>
+          {%- endfor %}
+        </nav>
+      </div>
+
+      {%- if view == "catchup" and groups[0].rows %}
+        <p class="m-0 rounded-lg bg-amber-bg px-3 py-2.5 text-[13px] leading-normal text-amber-text">These are overdue. No stress, you can reschedule them.</p>
+      {%- endif %}
+
+      {%- set open_count = groups | map(attribute="rows") | map("length") | sum %}
+      {%- if open_count %}
+        <ul class="m-0 flex list-none flex-col p-0">
+          {%- for group in groups %}
+            {%- if group.label %}
+              <li class="pt-3.5 pb-1.5 text-xs font-bold uppercase tracking-[0.04em] text-text-3">{{ group.label }}</li>
+            {%- endif %}
+            {%- for row in group.rows %}{{ task_item(row) }}{% endfor %}
+          {%- endfor %}
+        </ul>
+      {%- elif not goal_cards %}
+        <p class="m-0 rounded-lg border border-dashed border-border-strong px-4 py-5 text-sm text-text-3">No goals yet. A goal is what you want to reach; its tasks show up here. Start with "New goal".</p>
+      {%- else %}
+        <p class="m-0 border-t border-muted pt-3.5 text-sm text-text-3">
+          {%- if view == "today" %}Nothing planned for today.
+          {%- elif view == "week" %}Nothing planned for the next 7 days.
+          {%- elif view == "catchup" %}Nothing to catch up on. Nice.
+          {%- else %}No open tasks.{% endif -%}
+        </p>
+      {%- endif %}
+
+      {%- if done_rows %}
+        <details class="group border-t border-muted pt-3">
+          <summary class="flex cursor-pointer list-none items-center justify-between text-text-3">
+            <span class="text-[13px] font-bold">Done ({{ done_rows | length }})</span>
+            <span class="text-xs font-semibold text-link group-open:hidden">Show</span>
+            <span class="hidden text-xs font-semibold text-link group-open:inline">Hide</span>
+          </summary>
+          <ul class="m-0 flex list-none flex-col p-0">
+            {%- for row in done_rows %}{{ done_item(row) }}{% endfor %}
+          </ul>
+        </details>
+      {%- endif %}
+
+      {%- if goal_cards %}
+        <div class="flex flex-wrap gap-2 border-t border-muted pt-3.5">
+          <button type="button" data-dialog-load="add-task" data-dialog-url="/learning/tasks/new"
+                  class="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-3.5 text-[13px] font-medium text-text-2 hover:bg-muted">{{ icon("plus") }}Add task</button>
+        </div>
+      {%- endif %}
+    </section>
+
+    <section aria-labelledby="goals-title" class="flex min-w-0 flex-[2_1_340px] flex-col gap-3.5 rounded-xl border border-border bg-surface p-5">
+      <div class="flex items-center justify-between gap-3">
+        <h2 id="goals-title" class="m-0 text-base font-bold">Goals</h2>
+        <span class="text-xs text-text-3">Goal → where you study → tasks</span>
+      </div>
+      {%- for goal in goal_cards %}
+        <article data-goal="{{ goal.id }}" class="flex flex-col gap-2 rounded-[10px] border border-border p-3.5">
+          <div class="flex items-baseline justify-between gap-2.5">
+            <h3 class="m-0 flex min-w-0 items-center gap-2 text-sm font-bold [overflow-wrap:anywhere]">{{ goal_dot(goal.color) }}{{ goal.title }}</h3>
+            <span class="text-[13px] font-bold text-link">{{ goal.pct }}%</span>
+          </div>
+          <progress value="{{ goal.pct }}" max="100" aria-label="Progress of {{ goal.title }}"
+                    class="h-1.5 w-full appearance-none overflow-hidden rounded-full bg-border [&::-moz-progress-bar]:bg-[#4F46E5] [&::-webkit-progress-bar]:bg-border [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-[#4F46E5]"></progress>
+          {%- set resource = goal.resource %}
+          {%- if resource %}
+            {%- set resource_name = resource.name ~ (" · " ~ resource.provider if resource.provider else "") %}
+            <div class="flex justify-between gap-2 rounded-lg bg-surface-2 px-2.5 py-2 text-xs text-text">
+              {%- if resource.url %}
+                <a href="{{ resource.url }}" target="_blank" rel="noopener noreferrer" class="flex min-w-0 items-center gap-1.5 text-text no-underline hover:underline">{{ icon("external") }}<span class="[overflow-wrap:anywhere]">{{ resource_name }}</span></a>
+              {%- else %}
+                <span class="min-w-0 [overflow-wrap:anywhere]">{{ resource_name }}</span>
+              {%- endif %}
+              {%- if goal.progress %}<span class="shrink-0 font-semibold text-text-3">{{ goal.progress }}</span>{% endif %}
+            </div>
+          {%- endif %}
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs text-text-3">{{ goal.meta }}</span>
+            <span class="ml-auto flex items-center gap-3">
+              <button type="button" data-dialog-load="delete-goal" data-dialog-url="/learning/goals/{{ goal.id }}/delete"
+                      aria-label="Delete {{ goal.title }}"
+                      class="border-0 bg-transparent p-0 text-xs font-semibold text-text-3 hover:text-red-text hover:underline">Delete</button>
+              <button type="button" data-dialog-load="add-task" data-dialog-url="/learning/tasks/new?goal={{ goal.id }}"
+                      aria-label="Add a task to {{ goal.title }}"
+                      class="border-0 bg-transparent p-0 text-xs font-semibold text-link hover:underline">+ Add task</button>
+            </span>
+          </div>
+        </article>
+      {%- else %}
+        <p class="m-0 text-sm text-text-3">Your goals and where you study for them show up here.</p>
+      {%- endfor %}
+      <button type="button" data-dialog-open="new-goal"
+              class="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-3.5 text-[13px] font-medium text-text-2 hover:bg-muted">{{ icon("plus") }}New goal</button>
+    </section>
+  </div>
+</div>

@@ -131,3 +131,33 @@ def read_delete_token(user: User, token: str) -> int | None:
     if type(item_id) is not int or not 0 < item_id <= 2**31 - 1:  # a database id
         return None
     return item_id
+
+
+# --- Learning tasks (D-092): ticking a task off, or back on. Its own salt again.
+_LEARNING_SALT = "undo-learning"
+
+
+def _learning_serializer() -> URLSafeTimedSerializer:
+    return URLSafeTimedSerializer(get_settings().secret_key.get_secret_value(), salt=_LEARNING_SALT)
+
+
+def make_learning_token(user: User, task_id: int, done: bool) -> str:
+    """`done` is the task's state right after the action; Undo only acts while the
+    task is still in that state (compare, then write)."""
+    return _learning_serializer().dumps({"u": user.id, "t": task_id, "d": done})
+
+
+def read_learning_token(user: User, token: str) -> tuple[int, bool] | None:
+    """(task id, state after the action) of a learning token of `user`, or None."""
+    if not token or len(token) > TOKEN_MAX_LENGTH:
+        return None
+    try:
+        data = _learning_serializer().loads(token, max_age=UNDO_SECONDS)
+    except BadSignature:
+        return None
+    if not isinstance(data, dict) or data.get("u") != user.id:
+        return None
+    task_id, done = data.get("t"), data.get("d")
+    if type(task_id) is not int or not 0 < task_id <= 2**31 - 1 or type(done) is not bool:
+        return None
+    return task_id, done
