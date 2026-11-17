@@ -513,3 +513,9 @@ Kaynak: M10 Design fazı, plan-reviewer; Fatih onayladı (2026-11-17).
 ### D-096 · Learning görünüm detayları
 Kaynak: M10 Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-11-17).
 - **Karar:** `progress_pct` saklanmaz: kaynakta `units_total` varsa `units_done/units_total`, yoksa tamamlanan/tüm görevler, görev yoksa 0. Hedef rengi saklanmaz, hedeflerin sırasına göre 6 renklik sabit paletten gelir. All tasks grupları: Overdue, This week (bugün … Pazar), Next week, Later; boş grup gösterilmez. Tamamlananlar her sekmenin altında daraltılmış "Done (n)" bölümünde: Today ve Next 7 days'te o tarih aralığındakiler, Catch-up'ta bugün tamamlanan eski görevler, All tasks'ta son 30 gün. Today: bugün; Next 7 days: bugün … +6; Catch-up: geçmiş ve açık.
+
+### D-097 · Elle test uygulamanın sonunda
+Kaynak: Fatih, 2026-11-18 (sohbet: "elle testi uygulama bitince yapıcam").
+- **Karar:** M10'dan başlayarak Definition of Done'daki "Kabul kriterlerini Fatih elle denedi" maddesi ertelenir: Fatih tüm uygulamayı sonda bir kez elle dener. Bir milestone, testler, lint, CI ve security-reviewer temiz olunca merge edilir ve etiketlenir. Elle testte bulunan sorunlar düzeltme PR'ı olarak gelir. Her PR açıklamasında elle test listesi yine yazılır, sondaki test için toplanır.
+- **Gerekçe:** Fatih'in zamanı; PR'ları açık bırakıp üst üste branch açmak birleştirmeyi zorlaştırır.
+- **Alternatifler:** Her milestone sonunda elle test (WORKFLOW'daki kural); PR'ları açık bırakıp sonraki milestone'u onların üstüne kurmak.
