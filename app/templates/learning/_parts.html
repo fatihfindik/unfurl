@@ -46,6 +46,27 @@
          hx-vals='{"done": "{{ "no" if row.done else "yes" }}"}'>
 {%- endmacro %}
 
+{#- The task's small menu (D-095): a native <details>, no script. An open task can
+    get a new date; any task can be deleted (toast + Undo). -#}
+{% macro task_menu(row) %}
+  <details class="relative shrink-0">
+    <summary aria-label="More for {{ row.title }}" title="More"
+             class="flex size-8 cursor-pointer list-none items-center justify-center rounded-lg border border-border text-text-2 hover:border-border-strong">⋯</summary>
+    <div class="absolute right-0 z-10 mt-1 flex w-60 flex-col gap-3 rounded-lg border border-border bg-surface p-3 shadow-[0_8px_24px_rgba(16,24,40,0.18)]">
+      {%- if not row.done %}
+        <form class="m-0 flex items-end gap-2" hx-post="/learning/tasks/{{ row.id }}/reschedule" hx-swap="none">
+          <label class="flex min-w-0 flex-1 flex-col gap-1 text-xs font-semibold text-text-2">Reschedule
+            <input type="date" name="due_date" value="{{ row.due }}" required class="w-full">
+          </label>
+          <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-[13px] font-semibold text-text hover:bg-muted">Save</button>
+        </form>
+      {%- endif %}
+      <button type="button" hx-post="/learning/tasks/{{ row.id }}/delete" hx-swap="none"
+              class="self-start border-0 bg-transparent p-0 text-[13px] font-semibold text-red-text hover:underline">Delete task</button>
+    </div>
+  </details>
+{%- endmacro %}
+
 {#- One open task in the plan. `row`: see app/routers/learning.py task_row. -#}
 {% macro task_item(row) %}
   <li data-task="{{ row.id }}" class="flex items-center gap-3 border-t border-muted py-3">
@@ -59,6 +80,7 @@
       </div>
     </div>
     {%- if row.url %}{{ lesson_link(row.url, row.title) }}{% endif %}
+    {{ task_menu(row) }}
   </li>
 {%- endmacro %}
 
@@ -68,5 +90,6 @@
     {{ done_box(row) }}
     <span class="flex-1 text-sm text-text-3 line-through [overflow-wrap:anywhere]">{{ row.title }}</span>
     <span class="text-xs text-text-3">{{ row.duration }}</span>
+    {{ task_menu(row) }}
   </li>
 {%- endmacro %}

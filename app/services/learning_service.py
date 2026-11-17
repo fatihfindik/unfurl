@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, col, func, select
 
 from app.models import (
+    Application,
     LearningGoal,
     LearningResource,
     LearningTask,
@@ -19,7 +20,7 @@ from app.models import (
     User,
 )
 from app.models.learning import DEFAULT_REST_DAYS, WEEKDAYS
-from app.services import clock, profile_service
+from app.services import clock, profile_service, trash_service
 
 MAX_GOALS = 50
 MAX_TASKS = 1000
@@ -403,3 +404,158 @@ def set_rest_days(session: Session, user: User, days: list[str]) -> Notification
     session.commit()
     session.refresh(prefs)
     return prefs
+
+
+# --- Reschedule and delete (D-095) --------------------------------------------------------
+
+
+def reschedule(session: Session, user: User, task: LearningTask, due_date: dt.date) -> None:
+    """A new date for an open task (the route refuses done ones)."""
+    task.due_date = due_date
+    session.add(task)
+    session.commit()
+
+
+def _log_ids(session: Session, user: User, column, value: int) -> list[int]:
+    return list(
+        session.exec(select(StudyLog.id).where(StudyLog.user_id == user.id, column == value))
+    )
+
+
+def delete_task(session: Session, user: User, task: LearningTask) -> int:
+    """Delete a task, keeping a copy for Undo (D-086). Its study logs stay (SET NULL),
+    so the hours and the streak of the past don't change. Returns the copy's id."""
+    payload = {
+        "task": trash_service.payload_of(task) | {"old_id": task.id},
+        "logs": [
+            [log_id, task.id] for log_id in _log_ids(session, user, StudyLog.task_id, task.id)
+        ],
+    }
+    copy = trash_service.remember(session, user, "learning_task", payload)
+    session.delete(task)
+    session.commit()
+    return copy.id
+
+
+def delete_goal(session: Session, user: User, goal: LearningGoal) -> int:
+    """Delete a goal with its resources and tasks (the database cascades), keeping one
+    copy of all of them for Undo. The logs stay, like for a task."""
+    resources = session.exec(
+        select(LearningResource).where(
+            LearningResource.user_id == user.id, LearningResource.goal_id == goal.id
+        )
+    ).all()
+    goal_tasks = session.exec(
+        select(LearningTask).where(LearningTask.user_id == user.id, LearningTask.goal_id == goal.id)
+    ).all()
+    logs = session.exec(
+        select(StudyLog).where(StudyLog.user_id == user.id, StudyLog.goal_id == goal.id)
+    ).all()
+    payload = {
+        "goal": trash_service.payload_of(goal),
+        # The old ids, to link tasks to resources and logs to tasks again on Undo.
+        "resources": [trash_service.payload_of(r) | {"old_id": r.id} for r in resources],
+        "tasks": [trash_service.payload_of(t) | {"old_id": t.id} for t in goal_tasks],
+        "logs": [[log.id, log.task_id] for log in logs],
+    }
+    copy = trash_service.remember(session, user, "learning_goal", payload)
+    session.delete(goal)
+    session.commit()
+    return copy.id
+
+
+def _relink_logs(session: Session, user: User, links: list, goal_id: int, task_ids: dict) -> None:
+    """Point the kept logs back at the restored goal and tasks. `links` holds
+    [log id, old task id or None]. Only the user's logs that are still unlinked (no
+    task, and no goal or this goal) are touched."""
+    for log_id, old_task_id in links:
+        log = session.exec(
+            select(StudyLog).where(
+                StudyLog.id == int(log_id),
+                StudyLog.user_id == user.id,
+                col(StudyLog.task_id).is_(None),
+            )
+        ).first()
+        if log is None or log.goal_id not in (None, goal_id):
+            continue
+        log.goal_id = goal_id
+        log.task_id = task_ids.get(old_task_id)
+        session.add(log)
+
+
+def _new_row(model, payload: dict, user: User, **fields):
+    """A restored row: the copy's values, always for this user, with new links."""
+    row = trash_service.row_from(model, {k: v for k, v in payload.items() if k != "old_id"})
+    row.user_id = user.id
+    for name, value in fields.items():
+        setattr(row, name, value)
+    return row
+
+
+def restore_task(session: Session, user: User, payload: dict) -> None:
+    """Undo a task delete. Its goal must still be there (else CannotRestore); a
+    resource that is gone is simply left out."""
+    data = payload["task"]
+    goal = session.exec(
+        select(LearningGoal).where(
+            LearningGoal.id == int(data["goal_id"]), LearningGoal.user_id == user.id
+        )
+    ).first()
+    if goal is None:
+        raise trash_service.CannotRestore
+    try:
+        _check_room(session, user, LearningTask, MAX_TASKS)
+    except TooMany:
+        raise trash_service.CannotRestore from None
+    resource_id = data.get("resource_id")
+    if resource_id is not None:
+        resource = session.exec(
+            select(LearningResource.id).where(
+                LearningResource.id == int(resource_id), LearningResource.user_id == user.id
+            )
+        ).first()
+        resource_id = resource
+    task = _new_row(LearningTask, data, user, goal_id=goal.id, resource_id=resource_id)
+    session.add(task)
+    session.flush()
+    _relink_logs(session, user, payload.get("logs", []), goal.id, {data["old_id"]: task.id})
+
+
+def restore_goal(session: Session, user: User, payload: dict) -> None:
+    """Undo a goal delete: the goal, its resources and tasks come back with new ids,
+    linked to each other again, and its logs point at them again."""
+    try:
+        _check_room(session, user, LearningGoal, MAX_GOALS)
+        _check_room(session, user, LearningTask, MAX_TASKS, adding=len(payload["tasks"]))
+    except TooMany:
+        raise trash_service.CannotRestore from None
+    goal = _new_row(LearningGoal, payload["goal"], user)
+    if goal.source_application_id is not None:
+        # Keep the link only to an application that is still this user's.
+        goal.source_application_id = session.exec(
+            select(Application.id).where(
+                Application.id == int(goal.source_application_id),
+                Application.user_id == user.id,
+            )
+        ).first()
+    session.add(goal)
+    session.flush()
+    resource_ids = {}
+    for data in payload["resources"]:
+        resource = _new_row(LearningResource, data, user, goal_id=goal.id)
+        session.add(resource)
+        session.flush()
+        resource_ids[data["old_id"]] = resource.id
+    task_ids = {}
+    for data in payload["tasks"]:
+        task = _new_row(
+            LearningTask,
+            data,
+            user,
+            goal_id=goal.id,
+            resource_id=resource_ids.get(data.get("resource_id")),
+        )
+        session.add(task)
+        session.flush()
+        task_ids[data["old_id"]] = task.id
+    _relink_logs(session, user, payload.get("logs", []), goal.id, task_ids)

@@ -15,7 +15,13 @@ from app.db import get_session
 from app.models import User
 from app.routers.profile import SECTIONS
 from app.security import limiter
-from app.services import document_service, profile_service, trash_service, undo_service
+from app.services import (
+    document_service,
+    learning_service,
+    profile_service,
+    trash_service,
+    undo_service,
+)
 from app.services.auth_service import require_user
 from app.templating import set_flash
 
@@ -47,12 +53,16 @@ def undo_delete(request: Request, session: DbSession, user: RequiredUser, data: 
                 document_service.restore_cv(session, user, item.payload)
             elif item.kind in SECTIONS:
                 profile_service.restore_item(session, user, SECTIONS[item.kind].model, item.payload)
+            elif item.kind == "learning_task":  # D-095
+                learning_service.restore_task(session, user, item.payload)
+            elif item.kind == "learning_goal":
+                learning_service.restore_goal(session, user, item.payload)
             else:
                 raise trash_service.CannotRestore
             session.delete(item)  # used once
             session.commit()
             message = "Undone."
-        except (trash_service.CannotRestore, IntegrityError, TypeError, ValueError):
+        except (trash_service.CannotRestore, IntegrityError, KeyError, TypeError, ValueError):
             session.rollback()
     set_flash(request, message)
     return Response(status_code=204, headers={"HX-Refresh": "true"})

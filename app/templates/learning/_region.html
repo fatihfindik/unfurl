@@ -90,7 +90,7 @@
 
       {%- if goal_cards %}
         <div class="flex flex-wrap gap-2 border-t border-muted pt-3.5">
-          <button type="button" data-task-open=""
+          <button type="button" data-dialog-load="add-task" data-dialog-url="/learning/tasks/new"
                   class="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-3.5 text-[13px] font-medium text-text-2 hover:bg-muted">{{ icon("plus") }}Add task</button>
         </div>
       {%- endif %}
@@ -123,8 +123,14 @@
           {%- endif %}
           <div class="flex flex-wrap items-center justify-between gap-2">
             <span class="text-xs text-text-3">{{ goal.meta }}</span>
-            <button type="button" data-task-open="{{ goal.id }}" aria-label="Add a task to {{ goal.title }}"
-                    class="ml-auto border-0 bg-transparent p-0 text-xs font-semibold text-link hover:underline">+ Add task</button>
+            <span class="ml-auto flex items-center gap-3">
+              <button type="button" data-dialog-load="delete-goal" data-dialog-url="/learning/goals/{{ goal.id }}/delete"
+                      aria-label="Delete {{ goal.title }}"
+                      class="border-0 bg-transparent p-0 text-xs font-semibold text-text-3 hover:text-red-text hover:underline">Delete</button>
+              <button type="button" data-dialog-load="add-task" data-dialog-url="/learning/tasks/new?goal={{ goal.id }}"
+                      aria-label="Add a task to {{ goal.title }}"
+                      class="border-0 bg-transparent p-0 text-xs font-semibold text-link hover:underline">+ Add task</button>
+            </span>
           </div>
         </article>
       {%- else %}

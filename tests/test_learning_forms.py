@@ -61,15 +61,15 @@ def test_page_has_the_buttons_and_modals(auth_client, session, user):
     assert '<dialog id="new-goal"' in html and '<dialog id="add-task"' in html
     assert 'name="plan_weekly"' in html and "checked" in html.split('name="plan_weekly"')[1][:80]
     # No goals yet: no "Add task" (a task needs a goal).
-    assert "data-task-open" not in html
+    assert 'data-dialog-load="add-task"' not in html
 
     goal = learning.create_goal(
         session, user, title="G", target_date=None, weekly_hours=None, resource=None,
         plan_weekly=False,
     )  # fmt: skip
     html = auth_client.get("/learning").text
-    assert 'data-task-open=""' in html
-    assert f'data-task-open="{goal.id}"' in html
+    assert 'data-dialog-url="/learning/tasks/new"' in html
+    assert f'data-dialog-url="/learning/tasks/new?goal={goal.id}"' in html
 
 
 # --- New goal -----------------------------------------------------------------------------

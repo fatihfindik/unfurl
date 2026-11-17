@@ -1,0 +1,15 @@
+{#- The goal delete confirmation, loaded into its modal (index.html; D-095). The delete
+    has Undo; the logged hours stay either way. Context: goal, task_count. -#}
+<div class="flex flex-col gap-4">
+  <p class="m-0 text-sm text-text-2">
+    Delete <strong class="text-text [overflow-wrap:anywhere]">{{ goal.title }}</strong>?
+    {%- if task_count %} This also deletes its tasks ({{ task_count }}).{% endif %}
+    The hours you logged still count for your week and streak.
+  </p>
+  <div class="flex justify-end gap-2.5">
+    <button type="button" data-dialog-close
+            class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Cancel</button>
+    <button type="submit" hx-post="/learning/goals/{{ goal.id }}/delete" hx-swap="none"
+            class="inline-flex h-9 items-center justify-center rounded-lg bg-[#D92D20] px-3 text-sm font-semibold text-white hover:bg-[#B42318]">Delete goal</button>
+  </div>
+</div>

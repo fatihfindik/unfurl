@@ -385,25 +385,22 @@ document.addEventListener("click", (event) => {
   if (button) openInterview(button.dataset.interviewOpen);
 });
 
-// The "Add task" modal on the Learning page: the form is loaded first, with the
-// user's current goals (a "+ Add task" on a goal card picks that goal), then the
-// modal opens. data-task-open is "" or a goal id.
-function openTaskForm(goalId) {
-  const dialog = document.getElementById("add-task");
-  if (!dialog || !/^\d*$/.test(String(goalId))) return;
-  htmx
-    .ajax("GET", `/learning/tasks/new?goal=${goalId}`, {
-      target: "#add-task-body",
-      swap: "innerHTML",
-    })
-    .then(() => {
-      if (!dialog.open) dialog.showModal();
-      dialog.querySelector("input[name=title]")?.focus();
-    });
+// A modal whose content comes from the server when it opens (Learning page: "Add
+// task" with the current goals, the goal delete confirmation):
+//   <button data-dialog-load="add-task" data-dialog-url="/learning/tasks/new?goal=3">
+// The content goes into "#<dialog id>-body", then the modal opens. The URLs are
+// written by our templates; only /learning/ pages are loaded.
+function openLoadedDialog(dialogId, url) {
+  const dialog = document.getElementById(dialogId);
+  if (!(dialog instanceof HTMLDialogElement) || !String(url).startsWith("/learning/")) return;
+  htmx.ajax("GET", url, { target: `#${dialogId}-body`, swap: "innerHTML" }).then(() => {
+    if (!dialog.open) dialog.showModal();
+    dialog.querySelector("input[type=text], button[type=submit]")?.focus();
+  });
 }
 document.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-task-open]");
-  if (button) openTaskForm(button.dataset.taskOpen);
+  const button = event.target.closest("[data-dialog-load]");
+  if (button) openLoadedDialog(button.dataset.dialogLoad, button.dataset.dialogUrl);
 });
 
 // A toast from the previous request (templating.set_flash), e.g. after deleting a CV

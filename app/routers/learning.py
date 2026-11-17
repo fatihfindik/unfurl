@@ -17,7 +17,7 @@ from starlette.datastructures import FormData
 from app.db import get_session
 from app.models import LearningGoal, LearningTask, User
 from app.models.learning import UNIT_LABELS, WEEKDAYS
-from app.schemas.learning import GoalForm, TaskForm, check_rest_days
+from app.schemas.learning import GoalForm, TaskForm, check_rest_days, check_task_date
 from app.schemas.profile import form_errors
 from app.security import limiter
 from app.services import clock, undo_service
@@ -83,6 +83,7 @@ def task_row(task, today: dt.date, goal_info: dict) -> dict:
         "id": task.id,
         "title": task.title,
         "done": task.done,
+        "due": task.due_date.isoformat(),  # the reschedule form starts with it
         "goal": goal["title"],
         "color": goal["color"],
         "when": when,
@@ -346,3 +347,64 @@ def rest_days_save(request: Request, session: DbSession, user: RequiredUser, dat
     response = rest_days_form(request, days)
     response.headers.update(page_events(toast="Rest days saved.", **{"close-dialog": "rest-days"}))
     return response
+
+
+# --- Reschedule and delete (D-095) --------------------------------------------------------
+
+DELETE_UNDO_URL = "/undo/delete"  # app/routers/undo.py, shared with profile rows and CVs
+
+
+@router.post("/learning/tasks/{task_id}/reschedule")
+@limiter.limit("60/minute")
+def task_reschedule(
+    request: Request, session: DbSession, user: RequiredUser, task_id: str, data: SubmittedForm
+):
+    """A new date for an open task (the small form in the task's menu). Problems are
+    said in the toast; nothing changes then."""
+    task = learning.get_owned(session, user, LearningTask, task_id)
+    if task.done:
+        return Response(status_code=204, headers=page_events(toast="A done task keeps its date."))
+    try:
+        due_date = check_task_date(data.get("due_date") or None)
+    except ValueError as exc:
+        return Response(status_code=204, headers=page_events(toast=str(exc)))
+    learning.reschedule(session, user, task, due_date)
+    toast = f"Moved to {day_text(due_date, clock.today())}."
+    return Response(status_code=204, headers=page_events(toast=toast))
+
+
+@router.post("/learning/tasks/{task_id}/delete")
+@limiter.limit("60/minute")
+def task_delete(request: Request, session: DbSession, user: RequiredUser, task_id: str):
+    task = learning.get_owned(session, user, LearningTask, task_id)
+    copy_id = learning.delete_task(session, user, task)
+    token = undo_service.make_delete_token(user, copy_id)
+    return Response(
+        status_code=204,
+        headers=page_events(toast="Task deleted.", undo_url=DELETE_UNDO_URL, undo_token=token),
+    )
+
+
+@router.get("/learning/goals/{goal_id}/delete", response_class=HTMLResponse)
+def goal_delete_confirm(request: Request, session: DbSession, user: RequiredUser, goal_id: str):
+    """The confirmation, loaded into its modal (app.js data-dialog-load)."""
+    goal = learning.get_owned(session, user, LearningGoal, goal_id)
+    task_count = sum(1 for task in learning.tasks(session, user) if task.goal_id == goal.id)
+    return templates.TemplateResponse(
+        request, "learning/_goal_delete.html", {"goal": goal, "task_count": task_count}
+    )
+
+
+@router.post("/learning/goals/{goal_id}/delete")
+@limiter.limit("60/minute")
+def goal_delete(request: Request, session: DbSession, user: RequiredUser, goal_id: str):
+    goal = learning.get_owned(session, user, LearningGoal, goal_id)
+    copy_id = learning.delete_goal(session, user, goal)
+    token = undo_service.make_delete_token(user, copy_id)
+    headers = page_events(
+        toast="Goal deleted.",
+        undo_url=DELETE_UNDO_URL,
+        undo_token=token,
+        **{"close-dialog": "delete-goal"},
+    )
+    return Response(status_code=204, headers=headers)

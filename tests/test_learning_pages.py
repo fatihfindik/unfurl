@@ -115,7 +115,7 @@ def planned(session, user):
 
 def plan_titles(html: str) -> list[str]:
     plan = html.split('id="plan-title"', 1)[1].split('id="goals-title"', 1)[0]
-    plan = plan.split("<details", 1)[0]  # open tasks only
+    plan = plan.split('<details class="group', 1)[0]  # open tasks only, not "Done (n)"
     return re.findall(r'<span class="text-sm font-medium[^"]*">([^<]+)</span>', plan)
 
 
