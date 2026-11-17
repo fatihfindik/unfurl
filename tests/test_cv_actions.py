@@ -55,10 +55,12 @@ def test_draft_copy_has_its_actions_as_icon_buttons(auth_client, copy):
     assert "This can't be undone." in page  # the delete confirmation (D-046)
 
 
-def test_duplicate_and_all_documents_wait_for_m4(auth_client, copy):
+def test_duplicate_is_back_and_all_documents_needs_an_application(auth_client, copy):
+    # M4c (D-084): "Duplicate" makes a copy for another application; "All documents"
+    # shows when the back link points to an application instead of Documents.
     page = auth_client.get(f"/cvs/{copy.id}").text
 
-    assert f'hx-post="/cvs/{copy.id}/duplicate"' not in page  # D-050
+    assert f'hx-post="/cvs/{copy.id}/duplicate"' in page
     assert "All documents" not in page
 
 

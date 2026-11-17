@@ -17,7 +17,12 @@
     read-only. -#}
 {% block content %}
   {%- set button = "inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted" %}
-  {{ page_header(cv.title, back_url="/documents", back_label="Documents", wide=True) }}
+  {#- Back to the application the CV was made for, or to Documents (SPEC §6.0/3, D-084). -#}
+  {%- if application %}
+    {{ page_header(cv.title, back_url="/applications/" ~ application.id, back_label=application.company, wide=True) }}
+  {%- else %}
+    {{ page_header(cv.title, back_url="/documents", back_label="Documents", wide=True) }}
+  {%- endif %}
   <div class="flex w-full {{ page_width(wide=True) }} flex-col gap-4 px-4 pt-5 pb-8 md:px-8">
     <div class="flex flex-wrap items-center gap-2 text-sm">
       {%- if cv.is_master %}
@@ -28,8 +33,9 @@
         <span class="rounded-full bg-blue-bg px-2 py-0.5 text-xs font-semibold text-blue-text">Draft · v{{ cv.version }}</span>
       {%- endif %}
       <span class="text-text-3">{{ language_names.get(cv.language, cv.language) }} · {{ template_names.get(cv.template, cv.template) }} template</span>
-      {#- "All documents" (SPEC §6.5) comes with M4, when the back link can point to an
-          application; until then "← Documents" above does the same. -#}
+      {%- if application %}
+        <a href="/documents" class="font-semibold text-link no-underline hover:underline">All documents</a>
+      {%- endif %}
     </div>
 
     {#- Version picker and actions (SPEC §6.5). The picker is a <details> menu of
@@ -53,8 +59,7 @@
         </ul>
       </details>
       {#- Icon buttons with a tooltip (data-tooltip) and a name for screen readers.
-          "Duplicate" comes back with M4 (copy for another application); without
-          applications it would do the same as "Save as new version" (D-050). -#}
+          "Duplicate" makes a copy for another application (D-050, D-084). -#}
       {%- set icon_button_class = "inline-flex size-9 items-center justify-center rounded-lg border border-border-strong bg-surface text-text hover:bg-muted" %}
       {#- A link, so it works without JavaScript too; app.js first saves a pending
           edit, so the PDF has the latest text (D-057). -#}
@@ -62,6 +67,10 @@
       {%- if not cv.is_locked %}
         <button type="button" data-tooltip="Save as new version" class="{{ icon_button_class }}"
                 hx-post="/cvs/{{ cv.id }}/versions" hx-target="#cv-action-message">{{ icon("new-version") }}<span class="sr-only">Save as new version</span></button>
+      {%- endif %}
+      {%- if not cv.is_master %}
+        <button type="button" data-tooltip="Duplicate" class="{{ icon_button_class }}"
+                hx-post="/cvs/{{ cv.id }}/duplicate" hx-target="#cv-action-message">{{ icon("new-version") }}<span class="sr-only">Duplicate for another application</span></button>
       {%- endif %}
       {%- if editable %}
         <button type="button" data-tooltip="Refresh from profile" class="{{ icon_button_class }}"
@@ -88,7 +97,7 @@
         <button type="button" hx-post="/cvs/{{ cv.id }}/versions" hx-target="#cv-action-message"
                 class="inline-flex h-9 items-center rounded-lg bg-[#4F46E5] px-3 font-semibold text-white hover:bg-[#4338CA]">Duplicate as new version</button>
       {%- else %}
-        <p class="m-0">Copy{% if master %} based on {{ master.title }}{% endif %}. Your master CV stays unchanged.</p>
+        <p class="m-0">{% if application %}Copy for {{ application.company }}{% if master %}, based on {{ master.title }}{% endif %}{% else %}Copy{% if master %} based on {{ master.title }}{% endif %}{% endif %}. Your master CV stays unchanged.</p>
       {%- endif %}
     </div>
 

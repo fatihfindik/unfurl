@@ -12,12 +12,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
-from sqlmodel import Session
+from sqlmodel import Session, col, select
 from starlette.datastructures import FormData
 
 from app.billing.entitlements import allowed_templates
 from app.db import get_session
-from app.models import CVDocument, User
+from app.models import Application, CVDocument, User
+from app.models.base import as_utc
 from app.models.cv import CV_LANGUAGES, CV_TEMPLATES
 from app.schemas.cv import CV_SECTIONS, LANGUAGE_NAMES, CVContent, CVEditForm, NewCVForm
 from app.schemas.profile import form_errors
@@ -77,6 +78,7 @@ def documents_page(request: Request, session: DbSession, user: RequiredUser, tab
         "masters": [cv for cv in cvs if cv.is_master],
         "copies": [cv for cv in cvs if not cv.is_master],
         "by_id": {cv.id: cv for cv in cvs},  # to name the master a copy is based on
+        "copy_groups": copy_groups(session, user, [cv for cv in cvs if not cv.is_master]),
         "language_names": LANGUAGE_NAMES,
         "template_names": TEMPLATE_NAMES,
         "strength": profile_service.profile_strength(session, profile),
@@ -171,9 +173,52 @@ def cv_editor(
     context = editor_context(
         cv, master_unlocked=unlocked, master=master, template_choices=template_choices(user)
     )
-    # The version picker: the master and every copy under it.
-    context["versions"] = document_service.versions_in_lineage(session, user, cv)
+    # The application this copy was made for (D-084): from the CV itself, never from
+    # the address, so a link can't put another job's name on this page.
+    application = linked_application(session, user, cv)
+    context["application"] = application
+    # The version picker: the master and the copies of the same application (or, for
+    # copies of no application, every copy under the master).
+    versions = document_service.versions_in_lineage(session, user, cv)
+    if not cv.is_master:
+        versions = [v for v in versions if v.is_master or v.application_id == cv.application_id]
+    context["versions"] = versions
     return templates.TemplateResponse(request, "cvs/editor.html", context)
+
+
+def copy_groups(session: Session, user: User, copies: list[CVDocument]) -> list[tuple]:
+    """Copies grouped by the application they were made for (D-084): [(application,
+    [copies])], the latest active applications first, then (None, copies of none)."""
+    ids = {cv.application_id for cv in copies if cv.application_id is not None}
+    applications = (
+        {
+            app.id: app
+            for app in session.exec(
+                select(Application).where(
+                    Application.user_id == user.id, col(Application.id).in_(ids)
+                )
+            )
+        }
+        if ids
+        else {}
+    )
+    linked = sorted(
+        applications.values(), key=lambda app: as_utc(app.last_activity_at), reverse=True
+    )
+    groups = [(app, [cv for cv in copies if cv.application_id == app.id]) for app in linked]
+    unlinked = [cv for cv in copies if cv.application_id not in applications]
+    return groups + ([(None, unlinked)] if unlinked else [])
+
+
+def linked_application(session: Session, user: User, cv: CVDocument):
+    """The user's application this CV was made for, or None."""
+    if cv.application_id is None:
+        return None
+    return session.exec(
+        select(Application).where(
+            Application.id == cv.application_id, Application.user_id == user.id
+        )
+    ).first()
 
 
 @router.post("/cvs/{cv_id}", response_class=HTMLResponse)
@@ -266,6 +311,13 @@ def cv_new_version(request: Request, session: DbSession, user: RequiredUser, cv_
             "Nothing changed since this version. Make a change first, "
             "then save it as a new version.",
         )
+    # A new draft of the CV an application uses becomes the one it uses (D-080); the
+    # sent version stays in "what you sent".
+    application = linked_application(session, user, cv)
+    if application is not None and application.cv_id == cv.id:
+        application.cv_id = new.id
+        session.add(application)
+        session.commit()
     return go_to(request, f"/cvs/{new.id}")
 
 
@@ -331,7 +383,9 @@ def cv_pdf(request: Request, session: DbSession, user: RequiredUser, cv_id: str)
         content=pdf,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": pdf_service.content_disposition(cv),
+            "Content-Disposition": pdf_service.content_disposition(
+                cv, company=getattr(linked_application(session, user, cv), "company", None)
+            ),
             "Cache-Control": "private, no-store",
         },
     )
