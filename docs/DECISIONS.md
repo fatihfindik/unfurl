@@ -158,7 +158,7 @@ Kaynak: claude.ai Plan fazı (`docs/plans/M1-handoff.md`), Fatih onayı.
 - **Alternatifler:** Tek M1.
 
 ### D-025 · User tablosu sadece M1 kolonlarıyla
-- **Karar:** M1a migration'ı User'a sadece M1'in kullandığı kolonları ekler: `email`, `password_hash`, `full_name`, `is_verified`, `privacy_accepted_at`, `last_login_at`, `session_version`, `plan`, `plan_expires_at`, `created_at`, `updated_at`. Diğer §5.1 kolonları kendi milestone'larında küçük migration'larla gelir: `theme` (M4), `default_doc_language` (M3'ten Settings sayfasına ertelendi, Fatih 2026-11-15), `timezone` (M10/M11), `anthropic_api_key_encrypted` (M7), `ui_locale` (ihtiyaç olunca).
+- **Karar:** M1a migration'ı User'a sadece M1'in kullandığı kolonları ekler: `email`, `password_hash`, `full_name`, `is_verified`, `privacy_accepted_at`, `last_login_at`, `session_version`, `plan`, `plan_expires_at`, `created_at`, `updated_at`. Diğer §5.1 kolonları kendi milestone'larında küçük migration'larla gelir: `theme` (M4), `default_doc_language` (M3'ten Settings sayfasına ertelendi, Fatih 2026-11-15), `timezone` (M11; M10 `DEFAULT_TIMEZONE` kullanır, D-089), `anthropic_api_key_encrypted` (M7), `ui_locale` (ihtiyaç olunca).
 - **Gerekçe:** Her kolon onu kullanan kodla birlikte gelir; kullanılmayan kolon olmaz.
 - **Not:** `created_at` ve `updated_at` uygulama tarafında SQLAlchemy `default` / `onupdate` ile dolar. Ham SQL ile yapılan güncellemeler `updated_at`'i değiştirmez; DB trigger'ı kullanılmaz.
 - **Alternatifler:** SPEC §5.1'in tamamını şimdi eklemek.
@@ -474,3 +474,42 @@ Kaynak: Fatih, 2026-11-17 (sohbet: "ai ile olan adımı atlayıp devam etsen?").
 - **Karar:** M4c'den sonra AI'ya bağlı milestone'lar (M5, M7, M8, M9, M12a, M12b) gerçek API anahtarı, maliyet ve prompt kararları gerektirdiği için Fatih dönene kadar atlanır; AI'sız olanlar (M10 Learning, M11 Bildirimler, M13'ün deploy dışı parçaları) önce yapılır. M6 (eklenti) Chrome'da elle kurulup denenmesi gerektiği için Fatih'le yapılır. CLAUDE.md'deki "sırayla" kuralına bu bir istisnadır.
 - **Gerekçe:** Fatih yokken ilerlenebilecek işler bunlar; AI özellikleri gerçek çağrı ve kalite değerlendirmesi olmadan "bitti" sayılamaz.
 - **Alternatifler:** Sırayı korumak ve M5'i `FakeAIClient` ile yazıp PR'ı açık bırakmak.
+
+### D-089 · M10'da olmayanlar
+Kaynak: M10 Design fazı, plan-reviewer; Fatih onayladı (2026-11-17).
+- **Karar:** "Add to learning plan" modalı ve "eksikten oluşturulan hedef başvuruya bağlı" kabul kriteri fit analizine bağlı olduğu için M7'ye taşınır; `source`, `source_application_id`, `source_requirement` kolonları M10'da eklenir. "Next reminder" kartı ve "Change reminder" M11'de (D-060: çalışmayan şey gösterilmez). Catch-up'taki "Ask the assistant to reschedule" M12'de. StudyLog'u elle düzeltme M10'da yok (issue). Tarihler `DEFAULT_TIMEZONE`'da; `User.timezone` M11'de (D-025).
+- **Gerekçe:** Bu parçalar henüz olmayan özelliklere (fit analizi, zamanlayıcı, asistan) dayanıyor.
+- **Alternatifler:** M10'u M7 bitene kadar açık bırakmak.
+
+### D-090 · Dinlenme günleri `NotificationPreference.rest_days`'te
+Kaynak: M10 Design fazı; Fatih plan onayıyla onayladı (2026-11-17).
+- **Karar:** SPEC §5.11'deki tablo M10'da sadece `user_id` (unique) ve `rest_days` (varsayılan `["sat","sun"]`) ile açılır; kalan kolonlar M11'de (D-025 kalıbı). Streak kartındaki not seçilen günlerden yazılır, yanında "Change" linki küçük bir modal açar (7 gün kutusu, en fazla 6 gün). M11'de aynı ayar Settings › Notifications'a da gelir.
+- **Alternatifler:** Ayarı M11'e bırakıp M10'da sabit Cumartesi-Pazar kullanmak.
+
+### D-091 · Seri her istekte hesaplanır
+Kaynak: M10 Design fazı, plan-reviewer; Fatih onayladı (2026-11-17). SPEC §5.10'daki "günlük önbellek" cümlesini değiştirir.
+- **Karar:** Son 400 günün tamamlanan görevleri (`done_at >= since`) ve StudyLog'ları okunur, seri Python'da sayılır. Aktif gün: en az bir görev tamamlanmış veya StudyLog toplamı en az 10 dakika. Bugünden geriye: aktif gün +1 (dinlenme günü dahil); aktif olmayan dinlenme günü atlanır; aktif olmayan normal gün seriyi bitirir; bugün henüz aktif değilse seri dünden başlar.
+- **Gerekçe:** Kullanıcı başına veri küçük; önbellek, görev işaretlenince ayrıca güncellenmesi gereken ikinci bir doğruluk kaynağı olurdu. Gerekirse M11'in zamanlayıcısıyla eklenir.
+- **Alternatifler:** SPEC'teki gibi günlük önbellek.
+
+### D-092 · Görev tamamlama
+Kaynak: M10 Design fazı; Fatih plan onayıyla onayladı (2026-11-17).
+- **Karar:** İşaretlenince `done=true`, `done_at=now`, görevin tahmini süresiyle bugüne bir `StudyLog`, göreve bağlı kaynak varsa `units_done += 1` (en fazla `units_total`). İşareti kaldırmak bunların tersini yapar. Toast + Undo (`undo-learning` tuzu, 60 sn, karşılaştır-ve-yaz). Haftalık saat: bu haftanın (Pzt–Paz) StudyLog dakikaları; hedefi: aktif hedeflerin `weekly_hours_target` toplamı. Üst kartlar ve Goals kartı aynı yanıtta `hx-swap-oob` ile güncellenir.
+
+### D-093 · "Create one task per week"
+Kaynak: M10 Design fazı; Fatih plan onayıyla onayladı (2026-11-17).
+- **Karar:** Kaynakta `units_total` varsa her birim için bir görev: "{unit_label} {n}", `due_date` = bugün + 7·(n−1), süre = haftalık saat × 60 (yoksa 60 dk, en fazla 600), kaynak bağlı. En fazla 52 görev.
+
+### D-094 · Learning sınırları ve sahiplik
+Kaynak: M10 Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-11-17).
+- **Karar:** Kullanıcı başına en fazla 50 hedef ve 1.000 görev. Beş tablonun hepsinde `user_id` (FK cascade + index); her sorgu `user_id` ile filtrelenir. URL'ler sadece http(s), linkler `rel="noopener noreferrer"`. Alan sınırları: hedef başlığı 1–200, açıklama ≤ 2.000, `target_date` bugün … +5 yıl, `weekly_hours_target` 0,5–40, kaynak adı 1–200, sağlayıcı ≤ 200, URL ≤ 500, `kind` ve `unit_label` listeden, `units_total` 1–52, görev başlığı 1–200, `due_date` bugün −30 gün … +2 yıl, `estimated_minutes` 5–600, `rest_days` tekrarsız en fazla 6 gün.
+
+### D-095 · Görev tarihini değiştirme ve silme
+Kaynak: M10 Design fazı, plan-reviewer; Fatih onayladı (2026-11-17).
+- **Karar:** Görev satırında "Reschedule" (tamamlanmış görevde yok) ve "Delete"; Goals kartında hedef için "Delete" (onay modalı: "This also deletes its tasks"). Silme D-086'daki `DeletedItem` düzeniyle yapılır (`kind`: `learning_goal`, `learning_task`); hedef payload'ı kaynaklarını ve görevlerini de taşır, Undo yeni id'lerle geri koyup birbirine bağlar. `StudyLog.goal_id` ve `task_id` `SET NULL`: silmek geçmiş saati ve seriyi değiştirmez; Undo logları payload'daki id'lerle (`user_id` filtresiyle) yeniden bağlar. Tam düzenleme ve hedef durumu değiştirme M10'da yok.
+- **Gerekçe:** Catch-up bandı "you can reschedule them" diyor; yanlış hedef silinebilmeli.
+- **Alternatifler:** Hiç düzenleme olmaması ve band metnini değiştirmek.
+
+### D-096 · Learning görünüm detayları
+Kaynak: M10 Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-11-17).
+- **Karar:** `progress_pct` saklanmaz: kaynakta `units_total` varsa `units_done/units_total`, yoksa tamamlanan/tüm görevler, görev yoksa 0. Hedef rengi saklanmaz, hedeflerin sırasına göre 6 renklik sabit paletten gelir. All tasks grupları: Overdue, This week (bugün … Pazar), Next week, Later; boş grup gösterilmez. Tamamlananlar her sekmenin altında daraltılmış "Done (n)" bölümünde (All tasks'ta son 30 gün). Today: bugün; Next 7 days: bugün … +6; Catch-up: geçmiş ve açık.
