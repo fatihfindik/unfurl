@@ -27,6 +27,7 @@ from app.models.learning import (  # noqa: E402
     NotificationPreference,
     StudyLog,
 )
+from app.models.notification import Notification  # noqa: E402
 from app.models.profile import (  # noqa: E402
     Certification,
     Education,
@@ -52,6 +53,7 @@ __all__ = [
     "LearningGoal",
     "LearningResource",
     "LearningTask",
+    "Notification",
     "NotificationPreference",
     "Profile",
     "Project",
