@@ -11,6 +11,7 @@ from app.models.application import (
     INTERVIEW_TYPES,
     JOB_URL_TEXT,
     MAX_DESCRIPTION,
+    MAX_NOTE,
     NEXT_ACTION_TYPES,
     REMOTE_TYPES,
     SOURCES,
@@ -146,6 +147,12 @@ class NextStepForm(ProfileForm):
         if kind == "custom" and not value:
             raise ValueError("Write what you want to do.")
         return value if kind == "custom" else None  # only a custom step has its own text
+
+
+class NoteForm(ProfileForm):
+    """A note on the timeline: spaces around it are removed; it can't be empty."""
+
+    text: str = Field(max_length=MAX_NOTE)
 
 
 @dataclass(frozen=True)

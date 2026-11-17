@@ -1,5 +1,6 @@
-{#- The timeline (SPEC §6.7): what happened to this application, newest first.
-    Adding a note comes in step 6 of plan M4b. Context: timeline (text, when, type). -#}
+{#- The timeline (SPEC §6.7): what happened to this application, newest first, and a
+    box to add a note. "Add" sends the note and gets this whole section back.
+    Context: application, timeline (text, when, type), note_values, note_errors. -#}
 {%- set dots = {
   "created": "bg-border-strong",
   "status_changed": "bg-[#2563EB]",
@@ -25,4 +26,18 @@
       </li>
     {%- endfor %}
   </ol>
+  <form class="m-0 flex flex-col gap-1.5" novalidate
+        hx-post="/applications/{{ application.id }}/notes" hx-target="#timeline" hx-swap="outerHTML">
+    <label for="timeline-note" class="sr-only">Add a note</label>
+    <div class="flex gap-2">
+      <input id="timeline-note" name="text" type="text" maxlength="2000" autocomplete="off"
+             placeholder="Add a note, e.g. Called Mira, she replies Friday"
+             value="{{ note_values.text or '' }}" class="h-9 min-w-0 flex-1"
+             {%- if note_errors.text %} aria-invalid="true" aria-describedby="timeline-note-error"{% endif %}>
+      <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3.5 text-sm font-medium text-text-2 hover:bg-muted">Add</button>
+    </div>
+    {%- if note_errors.text %}
+      <span id="timeline-note-error" class="text-xs font-medium text-red-text">{{ note_errors.text }}</span>
+    {%- endif %}
+  </form>
 </section>

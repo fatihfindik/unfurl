@@ -22,6 +22,7 @@ from app.schemas.application import (
     BoardQuery,
     InterviewForm,
     NextStepForm,
+    NoteForm,
 )
 from app.schemas.profile import form_errors
 from app.security import limiter
@@ -362,6 +363,22 @@ def timeline_text(event, source_name: str) -> str:
     return {"archived": "Archived", "restored": "Restored"}.get(event.type, event.message or "")
 
 
+def timeline_context(events, source_name: str, values=None, errors=None) -> dict:
+    """What _timeline.html needs: the lines (newest first) and the note form."""
+    return {
+        "timeline": [
+            {
+                "text": timeline_text(event, source_name),
+                "when": when_text(event.created_at),
+                "type": event.type,
+            }
+            for event in reversed(events)
+        ],
+        "note_values": values or {},
+        "note_errors": errors or {},
+    }
+
+
 def when_text(value) -> str:
     """When an event happened: "Today, 09:12", "Yesterday, 18:40", "Mon, 9 Nov, 10:05"."""
     local = clock.local(value)
@@ -407,14 +424,7 @@ def detail_context(session: Session, user: User, application) -> dict:
         "total": total,
         "before_url": f"/applications/{before_id}" if before_id else "",
         "after_url": f"/applications/{after_id}" if after_id else "",
-        "timeline": [
-            {
-                "text": timeline_text(event, source_name),
-                "when": when_text(event.created_at),
-                "type": event.type,
-            }
-            for event in reversed(events)
-        ],
+        **timeline_context(events, source_name),
         "interview_type_names": next_step_service.INTERVIEW_TYPE_NAMES,
         "status_choices": [*STATUS_TITLES.items(), ("archived", "Archived")],
         "closes_text": (
@@ -627,3 +637,39 @@ def next_step_done(request: Request, session: DbSession, user: RequiredUser, app
         status_code=204,
         headers=undo_events(session, user, application, [event], before, f"{event.message}."),
     )
+
+
+# --- Notes on the timeline -------------------------------------------------------------------
+
+
+@router.post("/applications/{application_id}/notes", response_class=HTMLResponse)
+@limiter.limit("30/minute")
+def note_add(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """ "Add" under the timeline: the timeline comes back with the note on top (or the
+    form with its error). No Undo: a note changes nothing else."""
+    application = application_service.get_owned_application(session, user, application_id)
+    source_name = SOURCE_NAMES.get(application.source, "Other")
+    values = dict(data)
+    try:
+        form = NoteForm.model_validate(values)
+    except ValidationError as exc:
+        events = application_service.events_of(session, application)
+        context = {"application": application} | timeline_context(
+            events, source_name, values, form_errors(exc)
+        )
+        return templates.TemplateResponse(request, "applications/_timeline.html", context)
+
+    application_service.add_note(session, user, application, form.text)
+    events = application_service.events_of(session, application)
+    context = {"application": application} | timeline_context(events, source_name)
+    response = templates.TemplateResponse(request, "applications/_timeline.html", context)
+    response.headers["HX-Trigger"] = json.dumps(
+        {"toast": {"message": "Note added.", "undo_url": "", "undo_token": ""}}
+    )
+    return response
