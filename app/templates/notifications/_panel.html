@@ -1,0 +1,44 @@
+{#- The bell's panel (docs/prototype bell, D-105): the newest notifications first.
+    A row is a plain form: the POST marks it read and the browser then opens the
+    page it is about. Text is escaped like everywhere (company names come from users).
+    Context: rows [{note, when}], unread. -#}
+{% from "components/forms.html" import csrf_field %}
+{%- set glyphs = {
+  "follow_up": ("!", "bg-amber-bg text-amber-text"),
+  "interview_tomorrow": ("I", "bg-purple-bg text-purple-text"),
+  "stale_saved": ("S", "bg-muted text-text-3"),
+} %}
+<div class="flex items-center justify-between px-4 py-3.5">
+  <h2 class="m-0 text-[15px] font-bold text-text">Notifications</h2>
+  {%- if unread %}
+    <button type="button" hx-post="/notifications/read-all" hx-target="#notification-panel-body" hx-swap="innerHTML"
+            class="border-0 bg-transparent p-1 text-[13px] font-semibold text-link hover:underline">Mark all as read</button>
+  {%- endif %}
+</div>
+{%- if rows %}
+  <ul class="m-0 flex max-h-[420px] list-none flex-col overflow-y-auto p-0">
+    {%- for row in rows %}
+      {%- set note = row.note %}
+      {%- set glyph, colors = glyphs.get(note.type, ("•", "bg-muted text-text-3")) %}
+      <li data-notification="{{ note.id }}">
+        <form method="post" action="/notifications/{{ note.id }}/open" class="m-0">
+          {{ csrf_field(csrf_token) }}
+          <button type="submit"
+                  class="flex w-full gap-3 border-0 border-t border-muted px-4 py-3 text-left text-text hover:bg-muted {{ 'bg-surface-2' if note.read_at is none else 'bg-transparent' }}">
+            <span aria-hidden="true" class="flex size-[34px] shrink-0 items-center justify-center rounded-full text-[13px] font-bold {{ colors }}">{{ glyph }}</span>
+            <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span class="text-sm font-semibold [overflow-wrap:anywhere]">{{ note.title }}</span>
+              <span class="text-[13px] text-text-3 [overflow-wrap:anywhere]">{{ note.body }}</span>
+              <span class="text-xs text-text-3">{{ row.when }}</span>
+            </span>
+            {%- if note.read_at is none %}
+              <span class="mt-1.5 size-2 shrink-0 rounded-full bg-[#4F46E5]"><span class="sr-only">Unread</span></span>
+            {%- endif %}
+          </button>
+        </form>
+      </li>
+    {%- endfor %}
+  </ul>
+{%- else %}
+  <p class="m-0 border-t border-muted px-4 py-5 text-sm text-text-3">No notifications yet. Reminders about your applications show up here.</p>
+{%- endif %}

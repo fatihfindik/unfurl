@@ -60,11 +60,23 @@
 
       {{ theme_picker(theme, save_url="/settings/theme" if current_user) }}
 
-      {#- Static in M0; the unread badge and the panel come in M11. -#}
-      <button type="button" aria-label="Notifications"
-              class="flex h-10 w-10 items-center justify-center rounded-[10px] text-text-2 hover:bg-muted hover:text-text">
-        {{ icon("bell") }}
-      </button>
+      {#- The bell (D-105): the unread count loads after the page (no query while the
+          page is built) and every two minutes; the panel loads when it is opened. -#}
+      {%- if current_user %}
+        <div class="relative" x-data="dropdown" x-on:click.outside="close" x-on:keydown.escape="close">
+          <button type="button" aria-controls="notification-panel" aria-expanded="false"
+                  x-bind:aria-expanded="open" x-on:click="toggle"
+                  hx-get="/notifications/panel" hx-target="#notification-panel-body" hx-swap="innerHTML"
+                  class="relative flex h-10 w-10 items-center justify-center rounded-[10px] text-text-2 hover:bg-muted hover:text-text aria-expanded:bg-muted">
+            {{ icon("bell") }}<span class="sr-only">Notifications</span>
+            <span id="notification-badge" hx-get="/notifications/badge" hx-trigger="load, every 120s" hx-swap="outerHTML"></span>
+          </button>
+          <div id="notification-panel" x-show="open" x-cloak role="dialog" aria-label="Notifications"
+               class="absolute right-0 top-12 z-30 w-[380px] max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border border-border bg-surface shadow-[0_16px_40px_rgba(16,24,40,0.22)]">
+            <div id="notification-panel-body"></div>
+          </div>
+        </div>
+      {%- endif %}
 
       {#- Account menu: a disclosure button with a list of links. Esc or a click outside closes it. -#}
       <div class="relative" x-data="dropdown" x-on:click.outside="close" x-on:keydown.escape="close">
