@@ -14,7 +14,7 @@ from sqlmodel import Session
 from starlette.datastructures import FormData
 
 from app.db import get_session
-from app.models import User
+from app.models import CVDocument, User
 from app.models.application import BOARD_STATUSES, MAX_DESCRIPTION
 from app.schemas.application import (
     ADD_JOB_STATUSES,
@@ -27,7 +27,13 @@ from app.schemas.application import (
 )
 from app.schemas.profile import form_errors
 from app.security import limiter
-from app.services import application_service, clock, next_step_service, undo_service
+from app.services import (
+    application_service,
+    clock,
+    document_service,
+    next_step_service,
+    undo_service,
+)
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
 
@@ -196,17 +202,27 @@ def page_events(*, toast: str, undo_url: str = "", undo_token: str = "", **more)
 
 
 def undo_events(
-    session: Session, user: User, application, events: list, before: dict, toast: str, **more
+    session: Session,
+    user: User,
+    application,
+    events: list,
+    before: dict,
+    toast: str,
+    created: dict | None = None,
+    **more,
 ) -> dict:
     """The HX-Trigger for an undoable change (D-079): the toast with a token that
     holds what changed, from the note taken before the action."""
     after = application_service.note(session, user, application)
+    made = application_service.made_since(session, user, application, before)
+    extra = {key: made[key] for key in ("sent", "locked") if made[key]} | (created or {})
     token = undo_service.make_change_token(
         user,
         application.id,
-        [event.id for event in events],
+        sorted({event.id for event in events} | set(made["events"])),
         application_service.newest_event_id(session, application),
         application_service.changes(before, after),
+        extra,
     )
     if len(token) > undo_service.TOKEN_MAX_LENGTH:
         # Very long texts (e.g. emoji) can make the token too big for an HTTP header;
@@ -327,6 +343,7 @@ def application_undo(request: Request, session: DbSession, user: RequiredUser, d
                 note["event_ids"],
                 note["newest"],
                 note["fields"],
+                note["extra"],
             )
         else:  # "add", and M4a tokens still within their minute
             application_service.undo(
@@ -451,6 +468,7 @@ def detail_context(session: Session, user: User, application) -> dict:
     return (
         next_step_context(application)
         | details_context(application)
+        | documents_context(session, user, application)
         | {
             "initials": initials(application.company),
             "status_title": STATUS_TITLES.get(application.status, application.status),
@@ -811,4 +829,125 @@ def application_snooze(
     toast = f"{application.company} snoozed for {application_service.SNOOZE_DAYS} days."
     return Response(
         status_code=204, headers=undo_events(session, user, application, [], before, toast)
+    )
+
+
+# --- Documents card (D-080, D-082) ----------------------------------------------------------
+
+LANGUAGE_LABELS = {"en": "EN", "de": "DE", "tr": "TR"}
+
+
+def documents_context(session: Session, user: User, application) -> dict:
+    """What _documents.html needs: the CV in use, the masters to copy from, the drafts
+    that may be linked, and what was sent."""
+    cv = session.get(CVDocument, application.cv_id) if application.cv_id else None
+    if cv is not None and cv.user_id != user.id:
+        cv = None  # never show someone else's document
+    cvs = document_service.list_cvs(session, user)
+    return {
+        "application": application,
+        "current_cv": cv,
+        "masters": [doc for doc in cvs if doc.is_master],
+        "linkable": [
+            doc
+            for doc in document_service.copies_for_linking(session, user, application)
+            if cv is None or doc.id != cv.id
+        ],
+        "sent_documents": application_service.sent_documents(session, user, application),
+        "language_labels": LANGUAGE_LABELS,
+        "can_send": (
+            cv is not None
+            and not cv.is_locked
+            and application.status in application_service.SENT_STATUSES
+            and not application.archived
+        ),
+    }
+
+
+def copy_title(application) -> str:
+    """ "Kranich Health · CV", the company cut to fit the 200-character title."""
+    suffix = " · CV"
+    return f"{application.company[: 200 - len(suffix)]}{suffix}"
+
+
+@router.post("/applications/{application_id}/cv")
+@limiter.limit("60/minute")
+def application_cv(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """Use a CV for this application (D-080): `master` = make a new copy of that
+    master, `cv` = an existing draft copy. Toast with Undo."""
+    application = application_service.get_owned_application(session, user, application_id)
+    if application.archived:
+        raise HTTPException(status_code=409)
+    before = application_service.note(session, user, application)
+    created = None
+    if data.get("master"):
+        master = document_service.get_owned_cv(session, user, data.get("master"))
+        if not master.is_master:
+            raise HTTPException(status_code=422)
+        try:
+            cv = document_service.copy_for_application(
+                session, user, master, application, copy_title(application)
+            )
+        except document_service.TooManyDocuments:
+            return Response(
+                status_code=204,
+                headers=page_events(toast="You have reached the limit of CVs."),
+            )
+        created = {"created_cv": cv.id}
+    else:
+        cv = document_service.get_owned_cv(session, user, data.get("cv"))
+        # Undo gives the copy back its old application (security review M4c, E2).
+        created = {"linked_cv": [cv.id, cv.application_id]}
+    try:
+        event = application_service.link_cv(session, user, application, cv)
+    except application_service.CannotLink:
+        raise HTTPException(status_code=409) from None
+    toast = f"{cv.title} is used for {application.company}."
+    return Response(
+        status_code=204,
+        headers=undo_events(session, user, application, [event], before, toast, created),
+    )
+
+
+@router.delete("/applications/{application_id}/cv")
+@limiter.limit("60/minute")
+def application_cv_unlink(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """Stop using the current CV (drafts only; a sent CV stays, D-082)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.note(session, user, application)
+    try:
+        event = application_service.unlink_cv(session, user, application)
+    except application_service.CannotLink:
+        raise HTTPException(status_code=409) from None
+    return Response(
+        status_code=204,
+        headers=undo_events(session, user, application, [event], before, "CV removed."),
+    )
+
+
+@router.post("/applications/{application_id}/cv/send")
+@limiter.limit("60/minute")
+def application_cv_send(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """ "Lock as sent" (D-082): the CV was linked after the job was sent."""
+    application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.note(session, user, application)
+    try:
+        event = application_service.send_cv(session, user, application)
+    except application_service.CannotLink:
+        raise HTTPException(status_code=409) from None
+    return Response(
+        status_code=204,
+        headers=undo_events(
+            session, user, application, [event], before, "CV locked: this is what you sent."
+        ),
     )

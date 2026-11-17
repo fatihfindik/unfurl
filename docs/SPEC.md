@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.12 — 2026-11-16
+> **Durum:** MVP planı, v2.1.13 — 2026-11-17
+> v2.1.13: M4c Design kararları (Claude, Fatih'in yetkisiyle): `application_id` = başvurunun kopyaları (soy), `Application.cv_id` = şu anki CV; Applied/Interview/Offer'a her geçişte bağlı taslak CV kilitlenir; versiyon numarası master başına; silmede Undo için kısa süreli çöp tablosu. AI'ya bağlı milestone'lar (M5, M7, M8, M9, M12) sonraya, M10/M11 önce (D-088). Kararlar: DECISIONS D-080…D-088.
 > v2.1.12: M4b Design kararları. Otomatik next step hesaplanır, `next_action_*` sadece elle konan adımı tutar; "Done" kuralı (thank-you → 5 gün sonra follow-up, diğerleri durum değişene kadar yok). Tarih ve saatler `DEFAULT_TIMEZONE`'da. `snoozed_until`. Needs attention etiketleri. Details düzenleme formu ve `posting_closes_at` M4b'de; Apply sekmesi M7'de. Kararlar: DECISIONS D-071…D-079.
 > v2.1.11: Özet kartları sadece liste görünümünde gösterilir; board'da sütun başlıkları aynı bilgiyi (durum + sayı) zaten verir. Duruma göre filtre de liste görünümündedir. Karar: DECISIONS D-070.
 > v2.1.10: M4a Design kararları. `Application.last_activity_at` (kartta ve listede "Updated"). "Add job"da Work mode alanı; kaynak linkten türetilir. M4a'da arşivleme liste satırından. Aynı sütunda sıra değiştirmenin Undo'su yok. Kullanıcı başına en fazla 2.000 başvuru. Klavyeyle durum değiştirme M4b'nin kabul kriteri. Kararlar: DECISIONS D-061…D-069.
@@ -368,10 +369,10 @@ Profilin **anlık görüntüsüdür** (snapshot). Bir ilana göre uyarlanan CV, 
 | content | JSON | Profil verisinin kopyası + kullanıcı düzenlemeleri (şema: `CVContent` Pydantic modeli) |
 | show_photo, show_birth_date, show_nationality | bool | Varsayılan kapalı. Değer (fotoğraf, doğum tarihi, uyruk) CV içeriğine sadece kutusu açıkken kopyalanır (D-052, D-053) |
 | source_profile_version | int | |
-| application_id | FK, nullable | Belirli bir başvuru için uyarlandıysa |
+| application_id | FK, nullable | Belirli bir başvuru için yapıldıysa (bir başvurunun birden çok versiyonu olabilir; şu an kullanılan `Application.cv_id`, D-080) |
 | is_master | bool | |
 | parent_id | FK → cvdocument.id, nullable | Kopyalandığı belge (genelde master) |
-| version | int | Aynı başvuru için 1, 2, 3… |
+| version | int | Master başına 1, 2, 3… (ekranda başvurunun adıyla, D-081) |
 | status | enum draft/locked | |
 | locked_at | datetime, nullable | |
 
@@ -393,7 +394,8 @@ Profilin **anlık görüntüsüdür** (snapshot). Bir ilana göre uyarlanan CV, 
 "Ben bu şirkete tam olarak ne göndermiştim?" sorusunun cevabı.
 | Alan | Tip | Not |
 |---|---|---|
-| application_id | FK | |
+| application_id | FK (cascade) | |
+| user_id | FK | Her sorgu bununla filtrelenir (D-083) |
 | doc_type | enum cv/cover_letter | |
 | document_id | FK | Kilitlenen belge |
 | content_snapshot | JSON | Gönderim anındaki içeriğin tam kopyası (belge sonradan silinse bile kalır) |

@@ -335,3 +335,34 @@
 - WORKFLOW: no. Notes for M11: reminders narrow down in SQL, then call the same
   `next_step()`; deduplicate notifications by (application, type, date).
 
+## M4c — Documents in applications (2026-11-17, built overnight by Claude)
+
+**What I learned**
+- Two links that look the same can mean different things: `CVDocument.application_id`
+  says "made for this job" (several versions), `Application.cv_id` says "the one used
+  now" (one). Writing that rule down first kept the code simple.
+- "What did I send?" needs a frozen copy: locking the CV is not enough, because a
+  document could later be deleted. `ApplicationDocument` keeps the content itself.
+- Undo of a delete without soft-delete flags: the row goes to a small trash table for
+  two minutes and comes back as a new row. No query anywhere has to learn about
+  "deleted" rows, and deleted personal data really goes away soon after.
+- Putting a row back is harder than deleting it: its version number, its master or
+  its language's master may have been taken meanwhile. Each case needs a rule and a test.
+- One transaction for one user action: status change, lock, sent copy and timeline
+  entry are saved together, or not at all.
+
+**What was hard**
+- Deciding alone: Fatih was asleep, so every product choice is written in the plan as
+  "Claude karar verdi", for him to review in the morning.
+
+**What I will do differently**
+- Fatih: read `docs/plans/M4c.md` (decisions) and try the manual list in the PR.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.13 (application_id vs cv_id, lock on every move into a sent status,
+  version numbers per master, trash for undo, AI milestones later). D-080…D-088.
+- WORKFLOW: D-087 (overnight: Claude merges) and D-088 (AI milestones after M10/M11)
+  are exceptions to discuss in the retro. CLAUDE.md: the rule "never edit a locked
+  version" has one exception now (Undo of the lock within 60 s, D-082); Fatih may want
+  to add that sentence to CLAUDE.md himself.
+

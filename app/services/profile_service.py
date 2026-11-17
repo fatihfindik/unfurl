@@ -129,12 +129,36 @@ def update_item(session: Session, item: SQLModel, data: dict) -> SQLModel:
     return item
 
 
-def delete_item(session: Session, item: SQLModel) -> None:
-    """Delete a row that get_owned_item returned. No Undo until M4 (D-035)."""
+def delete_item(session: Session, item: SQLModel, user: User, kind: str) -> int:
+    """Delete a row that get_owned_item returned, keeping a short-lived copy for Undo
+    (D-086, closes D-035). Returns the copy's id for the Undo token."""
+    from app.services import trash_service  # here: trash_service imports undo_service
+
+    copy = trash_service.remember(session, user, kind, trash_service.payload_of(item))
     profile_id = item.profile_id
     session.delete(item)
     _touch(session, profile_id)
     session.commit()
+    return copy.id
+
+
+def restore_item(session: Session, user: User, model: type[SQLModel], payload: dict) -> SQLModel:
+    """Undo of a delete: the row comes back as a new row of the user's own profile, at
+    its old place in the order. The section limit still applies."""
+    from app.services import trash_service
+
+    profile = get_or_create_profile(session, user)
+    if payload.get("profile_id") != profile.id:
+        raise trash_service.CannotRestore
+    count = session.exec(
+        select(func.count()).select_from(model).where(model.profile_id == profile.id)
+    ).one()
+    if count >= MAX_ITEMS_PER_SECTION:
+        raise trash_service.CannotRestore
+    row = trash_service.row_from(model, payload)
+    session.add(row)
+    _touch(session, profile.id)
+    return row
 
 
 def _write_order(session: Session, items: list) -> None:

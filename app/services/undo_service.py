@@ -36,11 +36,19 @@ def make_token(
 
 
 def make_change_token(
-    user: User, application_id: int, event_ids: list[int], newest: int | None, fields: dict
+    user: User,
+    application_id: int,
+    event_ids: list[int],
+    newest: int | None,
+    fields: dict,
+    extra: dict | None = None,
 ) -> str:
     """A version 2 token (D-079): the events to delete, the newest event id right after
-    the action, and {field: [before, after]} of what it changed."""
+    the action, {field: [before, after]} of what it changed, and the document side
+    (D-080/D-082): "sent" records, locked CVs, a created copy."""
     data = {"u": user.id, "a": application_id, "e": event_ids, "n": newest, "f": fields}
+    if extra:
+        data["x"] = extra
     return _serializer().dumps(data)
 
 
@@ -69,12 +77,16 @@ def read_token(user: User, token: str) -> dict | None:
             for name, pair in fields.items()
         ):
             return None
+        extra = data.get("x") or {}
+        if not isinstance(extra, dict):
+            return None
         return {
             "version": 2,
             "application_id": data.get("a"),
             "event_ids": events,
             "newest": newest,
             "fields": fields,
+            "extra": extra,
         }
     before = data.get("b")
     if before is not None:
@@ -91,3 +103,31 @@ def read_token(user: User, token: str) -> dict | None:
         "before": before,
         "created": created,
     }
+
+
+# --- Deletes (D-086): a separate salt, so these tokens never pass as change tokens.
+_DELETE_SALT = "undo-delete"
+
+
+def make_delete_token(user: User, item_id: int) -> str:
+    return URLSafeTimedSerializer(
+        get_settings().secret_key.get_secret_value(), salt=_DELETE_SALT
+    ).dumps({"u": user.id, "d": item_id})
+
+
+def read_delete_token(user: User, token: str) -> int | None:
+    """The DeletedItem id of a delete token of `user`, or None."""
+    if not token or len(token) > TOKEN_MAX_LENGTH:
+        return None
+    try:
+        data = URLSafeTimedSerializer(
+            get_settings().secret_key.get_secret_value(), salt=_DELETE_SALT
+        ).loads(token, max_age=UNDO_SECONDS)
+    except BadSignature:
+        return None
+    item_id = data.get("d") if isinstance(data, dict) else None
+    if data.get("u") != user.id if isinstance(data, dict) else True:
+        return None
+    if type(item_id) is not int or not 0 < item_id <= 2**31 - 1:  # a database id
+        return None
+    return item_id

@@ -2,7 +2,7 @@
 
 **Grow while you apply.** A free web app + Chrome extension for job seekers: build ATS-friendly CVs and cover letters (DE / EN / TR), save job postings with one click, see how well you fit, check your documents before you apply, and turn skill gaps into a learning plan you actually keep, with an AI assistant powered by Claude.
 
-> Status: specification v2.1.12 and clickable prototype done; M0 (project skeleton), M1a (sign in, sessions, plans), M1b (email verification, password reset, login lockout), M2a (profile sections), M2b (profile order, photo, strength), M3a (CV documents: masters, versions, locks, editor with live preview), M3b (CV PDF: 3 templates × DE/EN/TR), M4a (applications board: add job, drag and drop, list, search and filters, archive, undo, theme saved with the account) and M4b (application detail page: status picker, interview, next step, notes, details, Needs attention) done.
+> Status: specification v2.1.13 and clickable prototype done; M0 (project skeleton), M1a (sign in, sessions, plans), M1b (email verification, password reset, login lockout), M2a (profile sections), M2b (profile order, photo, strength), M3a (CV documents: masters, versions, locks, editor with live preview), M3b (CV PDF: 3 templates × DE/EN/TR), M4a (applications board: add job, drag and drop, list, search and filters, archive, undo, theme saved with the account), M4b (application detail page: status picker, interview, next step, notes, details, Needs attention) and M4c (CVs in applications: link, lock the one sent, undo for deletes) done. AI milestones (M5, M7–M9, M12) wait for an API key; M10/M11 come first (D-088).
 
 - Specification: [`docs/SPEC.md`](docs/SPEC.md)
 - Prototype (design reference): [`docs/prototype/`](docs/prototype/)

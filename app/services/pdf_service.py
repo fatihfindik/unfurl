@@ -142,29 +142,44 @@ _NOT_SAFE = re.compile(r"[^A-Za-z0-9_-]+")
 MAX_NAME = 80
 
 
-def pdf_filename(cv: CVDocument) -> tuple[str, str]:
+MAX_COMPANY = 40
+
+
+def _ascii_part(text: str, limit: int) -> str:
+    plain = unicodedata.normalize("NFKD", text.translate(_ASCII_LETTERS))
+    plain = plain.encode("ascii", "ignore").decode()
+    return _NOT_SAFE.sub("_", plain).strip("_")[:limit]
+
+
+def _real_part(text: str, limit: int) -> str:
+    return re.sub(r"[^\w-]+", "_", text).strip("_")[:limit]
+
+
+def pdf_filename(cv: CVDocument, company: str | None = None) -> tuple[str, str]:
     """The download name, from the name on the CV (so a sent CV keeps the name it
     was sent with): ("CV_Fatih_Findik_en.pdf", "CV_Fatih_Fındık_en.pdf").
 
     The first is plain ASCII for old browsers; the second keeps the real letters
     (sent as filename*=UTF-8''…). Only letters, digits, "_" and "-" survive, so
     quotes, slashes, ";" or line breaks in a name can't break the header.
-    The company name comes in M4.
+    With the application's company when the CV is used for one (D-085):
+    "CV_Fatih_Findik_Kranich_Health_en.pdf". The same cleaning applies to it.
     """
     name = CVContent.model_validate(cv.content).personal.full_name or ""
-    ascii_name = unicodedata.normalize("NFKD", name.translate(_ASCII_LETTERS))
-    ascii_name = ascii_name.encode("ascii", "ignore").decode()
-    ascii_name = _NOT_SAFE.sub("_", ascii_name).strip("_")[:MAX_NAME]
-    real_name = re.sub(r"[^\w-]+", "_", name).strip("_")[:MAX_NAME]
     language = cv.language if cv.language.isalpha() else "cv"
 
-    def file(part: str) -> str:
-        return f"CV_{part}_{language}.pdf" if part else f"CV_{language}.pdf"
+    def file(person: str, firm: str) -> str:
+        parts = [part for part in ("CV", person, firm, language) if part]
+        return "_".join(parts) + ".pdf"
 
-    return file(ascii_name), file(real_name)
+    firm = company or ""
+    return (
+        file(_ascii_part(name, MAX_NAME), _ascii_part(firm, MAX_COMPANY)),
+        file(_real_part(name, MAX_NAME), _real_part(firm, MAX_COMPANY)),
+    )
 
 
-def content_disposition(cv: CVDocument) -> str:
+def content_disposition(cv: CVDocument, company: str | None = None) -> str:
     """The Content-Disposition header for downloading the PDF (RFC 6266)."""
-    ascii_name, real_name = pdf_filename(cv)
+    ascii_name, real_name = pdf_filename(cv, company)
     return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(real_name, safe='')}"

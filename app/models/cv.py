@@ -57,6 +57,12 @@ class CVDocument(SQLModel, table=True):
     show_nationality: bool = Field(default=False)  # its own box (D-053)
     source_profile_version: int = Field(default=0)  # Profile.version at the snapshot
 
+    # The application this copy was made for (D-080): all versions for one application
+    # share it; Application.cv_id says which one is used now. Masters have none.
+    application_id: int | None = Field(
+        default=None, foreign_key="application.id", ondelete="SET NULL", index=True
+    )
+
     is_master: bool = Field(default=False)
     # The master this copy belongs to. SET NULL is only a safety net: a master
     # with copies can't be deleted (D-047).

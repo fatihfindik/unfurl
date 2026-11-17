@@ -176,4 +176,5 @@ def test_edit_and_delete_tell_the_page_the_profile_changed(auth_client, session,
     url = f"/profile/projects/{project.id}"
 
     assert htmx_post(auth_client, url, {"name": "B"}).headers["HX-Trigger"] == "profile-changed"
-    assert htmx_send(auth_client, "DELETE", url).headers["HX-Trigger"] == "profile-changed"
+    # A delete also offers Undo in a toast (M4c, D-086); profile-changed is still sent.
+    assert '"profile-changed": true' in htmx_send(auth_client, "DELETE", url).headers["HX-Trigger"]

@@ -6,25 +6,33 @@ the routes here only read forms, call the service and pick the template.
 
 import base64
 import binascii
+import json
 import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
-from sqlmodel import Session
+from sqlmodel import Session, col, select
 from starlette.datastructures import FormData
 
 from app.billing.entitlements import allowed_templates
 from app.db import get_session
-from app.models import CVDocument, User
+from app.models import Application, CVDocument, User
+from app.models.base import as_utc
 from app.models.cv import CV_LANGUAGES, CV_TEMPLATES
 from app.schemas.cv import CV_SECTIONS, LANGUAGE_NAMES, CVContent, CVEditForm, NewCVForm
 from app.schemas.profile import form_errors
 from app.security import limiter
-from app.services import document_service, pdf_service, profile_service
+from app.services import (
+    application_service,
+    document_service,
+    pdf_service,
+    profile_service,
+    undo_service,
+)
 from app.services.auth_service import require_user
-from app.templating import is_htmx, templates
+from app.templating import is_htmx, set_flash, templates
 
 router = APIRouter(dependencies=[Depends(require_user)])
 logger = logging.getLogger("unfurl.cvs")
@@ -77,6 +85,7 @@ def documents_page(request: Request, session: DbSession, user: RequiredUser, tab
         "masters": [cv for cv in cvs if cv.is_master],
         "copies": [cv for cv in cvs if not cv.is_master],
         "by_id": {cv.id: cv for cv in cvs},  # to name the master a copy is based on
+        "copy_groups": copy_groups(session, user, [cv for cv in cvs if not cv.is_master]),
         "language_names": LANGUAGE_NAMES,
         "template_names": TEMPLATE_NAMES,
         "strength": profile_service.profile_strength(session, profile),
@@ -171,9 +180,52 @@ def cv_editor(
     context = editor_context(
         cv, master_unlocked=unlocked, master=master, template_choices=template_choices(user)
     )
-    # The version picker: the master and every copy under it.
-    context["versions"] = document_service.versions_in_lineage(session, user, cv)
+    # The application this copy was made for (D-084): from the CV itself, never from
+    # the address, so a link can't put another job's name on this page.
+    application = linked_application(session, user, cv)
+    context["application"] = application
+    # The version picker: the master and the copies of the same application (or, for
+    # copies of no application, every copy under the master).
+    versions = document_service.versions_in_lineage(session, user, cv)
+    if not cv.is_master:
+        versions = [v for v in versions if v.is_master or v.application_id == cv.application_id]
+    context["versions"] = versions
     return templates.TemplateResponse(request, "cvs/editor.html", context)
+
+
+def copy_groups(session: Session, user: User, copies: list[CVDocument]) -> list[tuple]:
+    """Copies grouped by the application they were made for (D-084): [(application,
+    [copies])], the latest active applications first, then (None, copies of none)."""
+    ids = {cv.application_id for cv in copies if cv.application_id is not None}
+    applications = (
+        {
+            app.id: app
+            for app in session.exec(
+                select(Application).where(
+                    Application.user_id == user.id, col(Application.id).in_(ids)
+                )
+            )
+        }
+        if ids
+        else {}
+    )
+    linked = sorted(
+        applications.values(), key=lambda app: as_utc(app.last_activity_at), reverse=True
+    )
+    groups = [(app, [cv for cv in copies if cv.application_id == app.id]) for app in linked]
+    unlinked = [cv for cv in copies if cv.application_id not in applications]
+    return groups + ([(None, unlinked)] if unlinked else [])
+
+
+def linked_application(session: Session, user: User, cv: CVDocument):
+    """The user's application this CV was made for, or None."""
+    if cv.application_id is None:
+        return None
+    return session.exec(
+        select(Application).where(
+            Application.id == cv.application_id, Application.user_id == user.id
+        )
+    ).first()
 
 
 @router.post("/cvs/{cv_id}", response_class=HTMLResponse)
@@ -266,6 +318,19 @@ def cv_new_version(request: Request, session: DbSession, user: RequiredUser, cv_
             "Nothing changed since this version. Make a change first, "
             "then save it as a new version.",
         )
+    # A new draft of the CV an application uses becomes the one it uses (D-080); the
+    # sent version stays in "what you sent".
+    application = linked_application(session, user, cv)
+    # Not for a job that was sent: then the sent CV stays its CV, and a new draft can't
+    # be locked later as if it had been sent (security review M4c, E1).
+    if (
+        application is not None
+        and application.cv_id == cv.id
+        and application.status not in application_service.SENT_STATUSES
+    ):
+        application.cv_id = new.id
+        session.add(application)
+        session.commit()
     return go_to(request, f"/cvs/{new.id}")
 
 
@@ -296,19 +361,28 @@ def cv_refresh(
 
 
 @router.delete("/cvs/{cv_id}", response_class=HTMLResponse)
+@limiter.limit("60/minute")
 def cv_delete(request: Request, session: DbSession, user: RequiredUser, cv_id: str):
-    """Delete, after the confirmation modal (D-046). Locked copies never; a master
-    only when it has no copies (D-047)."""
+    """Delete right away, with Undo in the toast (D-086; the confirmation modal of
+    D-046 is gone). Locked copies never; a master only when it has no copies (D-047).
+    The Documents page opens and shows the toast (a one-time "flash" in the session)."""
     cv = document_service.get_owned_cv(session, user, cv_id)
     try:
-        document_service.delete_cv(session, cv)
+        copy_id = document_service.delete_cv(session, cv, user)
     except document_service.DocumentLocked:
         raise HTTPException(status_code=409) from None
     except document_service.MasterHasCopies as exc:
         word = "copy" if exc.copies == 1 else "copies"
-        return action_message(
-            request, f"This master has {exc.copies} {word}. Delete the {word} first."
-        )
+        message = f"This master has {exc.copies} {word}. Delete the {word} first."
+        toast = {"toast": {"message": message, "undo_url": "", "undo_token": ""}}
+        return Response(status_code=204, headers={"HX-Trigger": json.dumps(toast)})
+    title = cv.title if len(cv.title) <= 60 else cv.title[:57] + "…"
+    set_flash(
+        request,
+        f'"{title}" deleted.',
+        "/undo/delete",
+        undo_service.make_delete_token(user, copy_id),
+    )
     return go_to(request, "/documents")
 
 
@@ -331,7 +405,9 @@ def cv_pdf(request: Request, session: DbSession, user: RequiredUser, cv_id: str)
         content=pdf,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": pdf_service.content_disposition(cv),
+            "Content-Disposition": pdf_service.content_disposition(
+                cv, company=getattr(linked_application(session, user, cv), "company", None)
+            ),
             "Cache-Control": "private, no-store",
         },
     )

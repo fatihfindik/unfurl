@@ -103,6 +103,11 @@
   </div>
 
   {{ toast_region() }}
+  {#- A toast waiting from the previous request (e.g. "… deleted." with Undo); app.js
+      shows it once the page is ready. -#}
+  {%- if flash %}
+    <div id="page-flash" hidden data-message="{{ flash.message }}" data-undo-url="{{ flash.undo_url }}" data-undo-token="{{ flash.undo_token }}"></div>
+  {%- endif %}
 
 </body>
 </html>

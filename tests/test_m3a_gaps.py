@@ -250,5 +250,5 @@ def test_a_master_with_only_a_locked_copy_stays(auth_client, session, master, co
 
     response = htmx_send(auth_client, "DELETE", f"/cvs/{master.id}")
 
-    assert "This master has 1 copy." in response.text
+    assert "This master has 1 copy." in response.headers["HX-Trigger"]
     assert len(all_cvs(session)) == 2

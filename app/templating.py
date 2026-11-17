@@ -51,7 +51,29 @@ def request_context(request: Request) -> dict:
     return {
         "csrf_token": get_csrf_token(request),
         "current_user": getattr(request.state, "user", None),
+        "flash": take_flash(request),
     }
+
+
+FLASH_KEY = "flash"
+
+
+def set_flash(request: Request, message: str, undo_url: str = "", undo_token: str = "") -> None:
+    """A toast for the next full page (e.g. after a delete that opens another page).
+    Kept in the signed session cookie; the message is short and the token small."""
+    request.session[FLASH_KEY] = {
+        "message": message[:200],
+        "undo_url": undo_url,
+        "undo_token": undo_token,
+    }
+
+
+def take_flash(request: Request) -> dict | None:
+    """The waiting toast, once, on a full page load (never on an htmx piece)."""
+    if request.method != "GET" or is_htmx(request) or "session" not in request.scope:
+        return None
+    flash = request.session.pop(FLASH_KEY, None)
+    return flash if isinstance(flash, dict) else None
 
 
 # Autoescape is on for .html files, so user and AI text is always HTML-escaped (SPEC §10.1).
@@ -118,3 +140,13 @@ templates.env.globals["safe_redirect_path"] = safe_redirect_path
 templates.env.globals["static_url"] = static_url
 templates.env.filters["month_year"] = month_year
 templates.env.filters["time_ago"] = time_ago
+
+
+def local_day(value) -> str:
+    """A stored time as the user's day: "Tue, 17 Nov 2026" (D-071)."""
+    from app.services import clock  # here, not at the top: clock imports the settings
+
+    return clock.local(value).strftime("%a, %-d %b %Y") if value else ""
+
+
+templates.env.filters["local_day"] = local_day

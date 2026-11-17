@@ -13,6 +13,7 @@ page, so a 400 would leave the user with no message at all.
 """
 
 import datetime as dt
+import json
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -46,7 +47,7 @@ from app.schemas.profile import (
     SummaryForm,
     form_errors,
 )
-from app.services import photo_service, profile_service
+from app.services import photo_service, profile_service, undo_service
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
 
@@ -553,12 +554,24 @@ def item_delete(
 ):
     section = get_section(section_key)
     item = profile_service.get_owned_item(session, user, section.model, item_id)
-    profile_service.delete_item(session, item)  # no Undo until M4 (D-035)
+    copy_id = profile_service.delete_item(session, item, user, section.key)
     profile = profile_service.get_or_create_profile(session, user)
     # The whole section (status 200, not 204: htmx does not swap on 204), so the
-    # "No ... yet" text comes back when the last row is gone.
+    # "No ... yet" text comes back when the last row is gone. The toast offers Undo
+    # (D-086): it reloads the page with the row back.
     context = section_context(session, profile, section)
-    return changed(fragment(request, "profile/_section.html", context))
+    response = fragment(request, "profile/_section.html", context)
+    response.headers["HX-Trigger"] = json.dumps(
+        {
+            "profile-changed": True,
+            "toast": {
+                "message": f"{section.noun.capitalize()} deleted.",
+                "undo_url": "/undo/delete",
+                "undo_token": undo_service.make_delete_token(user, copy_id),
+            },
+        }
+    )
+    return response
 
 
 @router.post("/profile/{section_key}/{item_id}/move", response_class=HTMLResponse)
