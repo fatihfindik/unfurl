@@ -428,3 +428,54 @@ Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
 ### D-079 · Undo token v2 (D-064'ü genişletir, Adım 3'te)
 Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
 - **Karar:** Token `{u, a, e, n, f}`: `e` işlemin yazdığı event'ler (boş olabilir), `n` işlemden hemen sonraki en yeni event id'si, `f` işlemin değiştirdiği alanlar için `{alan: [önce, sonra]}` (izinli liste; Snooze sadece `snoozed_until` taşır). Undo şartları: imza, süre, kullanıcı, sahiplik; en yeni event hâlâ `n`; **alanlar hâlâ "sonra" değerinde** (karşılaştır-ve-yaz). Sonra `e` silinir (sayı tutmalı) ve sadece `f`'teki alanlar "önce"ye döner. Böylece event yazmayan bir işlemin token'ı tekrar oynatılamaz (ikinci seferde alanlar artık "sonra"da değil) ve araya giren bir değişiklik ezilmez. M4a token'ları (60 sn ömür) `n`/`f` taşımaz: `n` yoksa `max(e)`, `f` yoksa eski `before` yolu. `TOKEN_MAX_LENGTH` 4.000'e çıkar (en kötü durum: iki 200 karakterlik Türkçe metin, testle).
+
+### D-080 · Bağlama
+Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
+- **Karar:** `CVDocument.application_id` (FK, nullable, `ON DELETE SET NULL`) ve `Application.cv_id` (FK, nullable, `ON DELETE SET NULL`). Bir başvurunun **bir** CV'si olur; bir kopya en fazla **bir** başvuruya aittir. Master hiçbir zaman bağlanmaz (sadece kopyalar gönderilir, SPEC §5.3). Detay sayfasında **Documents** kartı:
+- **Güncelleme (plan-reviewer):** `CVDocument.application_id` = **soy**: bu başvuru için yapılmış kopyalar (birden çok versiyon olabilir). `Application.cv_id` = **şu anki** CV (bir tane). Bağlı bir kopyadan "Save as new version" / "Duplicate as new version" yeni taslağa `application_id`'yi aktarır; kilitli bağlı CV'den "Duplicate as new version" yeni taslağı şu anki `cv_id` yapar (gönderilmiş versiyon `ApplicationDocument`'ta kalır). "Duplicate" (başka başvuru için) `application_id` aktarmaz. `application.cv_id` üzerinde unique index. "{Company} · CV" başlığında şirket adı 200 karaktere sığacak şekilde kesilir.
+- **Güncelleme (plan-reviewer):** Kopya oluşturmanın Undo'su kopyayı sadece hâlâ taslak, hiç düzenlenmemiş (`never_edited`) ve hâlâ bağlıysa siler; yoksa sadece bağı kaldırır. Bağlama/ayırma `document_linked` event'i yazar, böylece "add job"un Undo'su araya giren bir bağlamayı ezmez (`creation_fingerprint`'e `cv_id` de eklenir).
+
+### D-081 · Versiyon numarası master başına kalır
+Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
+- **Karar:** SPEC "aynı başvuru için 1, 2, 3" diyor; D-045'teki unique index `(parent_id, version)` master başına numaralıyor. Index'i değiştirmek bütün M3 kurallarını yeniden açar. Numara master başına kalır, ekranda başvurunun adıyla gösterilir ("Kranich Health · v3"). SPEC §5.3'e not düşülür.
+
+### D-082 · Gönderilince kilitle
+Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
+- **Karar:** Bir başvuru **Saved'den** Applied, Interview veya Offer'a geçince (board, seçici, mülakat kaydı) bağlı taslak CV kilitlenir ve `ApplicationDocument(application_id, doc_type="cv", document_id, content_snapshot=cv.content, sent_at=now)` oluşur; timeline'a `document_linked` event'i ("CV v3 locked: this is what you sent"). Zaten gönderilmiş (Applied/Interview/Offer) bir başvuruya CV bağlamak da hemen kilitler. Undo kilidi açar ve `ApplicationDocument`'ı siler (token: `locked_cv_ids`, `sent_ids`; Undo sadece CV hâlâ o başvuruya bağlıysa ve başka bir belge kaydı eklenmediyse çalışır). Kilit `document_service.lock` ile (kurallar tek yerde).
+- **Güncelleme (plan-reviewer):** Başvuru Applied, Interview veya Offer'a **her geçişte** (nereden olursa olsun) bağlı CV **taslaksa** kilitlenir. Zaten gönderilmiş başvuruya bağlanan CV taslak kalır; "Lock as sent" butonu aynı kilitlemeyi elle yapar. Durum değişikliği, kilit, `ApplicationDocument` ve event **tek transaction**: `document_service.lock(..., commit=False)`.
+- **Güncelleme (plan-reviewer):** Token `locked_cv_ids` + her birinin `locked_at`'i ve `sent_ids` taşır. Undo sadece hâlâ kilitli ve `locked_at`'i token'dakiyle aynı olan CV'lerin kilidini açar; `ApplicationDocument`'ları `user_id` + `application_id` + satır sayısı kontrolüyle siler. Kilit açma fonksiyonu sadece `document_service`'tedir ve sadece bu Undo'dan çağrılır. **CLAUDE.md'deki "kilitli versiyon asla düzenlenmez" kuralına bu tek istisna:** içerik değişmez, yanlışlıkla yapılan gönderim 60 sn içinde geri alınır. CLAUDE.md'yi Claude değiştirmez; Fatih'e not olarak bırakılır.
+
+### D-083 · `ApplicationDocument` tablosu
+Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
+- **Karar:** SPEC §5.4b alanları + `user_id` (her sorgu `user_id` ile filtrelenir), `document_id` `ON DELETE SET NULL` (kilitli belge silinemez ama savunma). `content_snapshot` JSON. Kapak mektubu M8'de aynı tabloyu kullanır (`doc_type`).
+- **Güncelleme (plan-reviewer):** `ApplicationDocument.application_id` `ON DELETE CASCADE`. **D-085:** Kilitli CV'nin PDF adında şirketin bugünkü adı kullanılır (kabul).
+
+### D-084 · Editör ve Documents sayfası
+Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
+- **Karar:** Editör `?application={id}` ile açılırsa (sahipliği kontrol edilir; değilse yok sayılır) geri link "← {Company}", ayrıca "All documents" linki ve bilgi bandı "Copy for {Company}, based on {Master}. Your master CV stays unchanged." Editörde **Duplicate** geri gelir (D-050): başvuruya bağlı olmayan yeni taslak "… (copy)". Documents sayfasında kopyalar başvuruya göre gruplanır ("{Company} · {Role}"), bağlı olmayanlar "Not linked to an application" grubunda.
+- **Güncelleme (plan-reviewer):** Başvuru `cv.application_id`'den alınır; `?application=` sadece onunla aynıysa kabul edilir. Versiyon seçici: aynı başvurunun versiyonları + master.
+
+### D-085 · PDF adında şirket (D-057'yi tamamlar)
+Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
+- **Karar:** Bağlı CV'nin adı `CV_{Ad}_{Şirket}_{lang}.pdf`; aynı ASCII + `filename*` kuralları, şirket adı en fazla 40 karakter.
+
+### D-086 · Silmede Undo: `DeletedItem` tablosu
+Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
+- **Karar:** Silinen satırın tüm kolonları JSON olarak `DeletedItem(user_id, kind, item_id, payload, deleted_at)`'e yazılır, sonra satır silinir. Undo aynı id ile geri ekler (`kind`: cv, experience, education, skill, language, certification, project). Token sadece `DeletedItem` id'sini taşır; Undo sahipliği (`user_id`) ve türü kontrol eder, bir kez çalışır. Silinen veri 1 saat sonra temizlenir (her yeni silmede eskiler silinir; hesap silinince cascade). CV'nin bağlı olduğu başvuru `cv_id`'si de geri bağlanır. Alternatif: `deleted_at` ile yumuşak silme (bütün sorgulara filtre gerekir, bir tanesi unutulursa silinen veri görünür); token'da içeriği taşımak (CV fotoğrafıyla çok büyük). CV silmedeki onay modalı kalkar (D-046 kapanır). Editörden silince Documents'a gidilir ve toast orada görünür: oturumda tek seferlik bir "flash" (sadece mesaj + küçük token).
+- **Güncelleme (plan-reviewer):** Satır **yeni bir id** ile geri eklenir (SQLite'ın id'yi yeniden kullanma sorunu yok). Profil satırı: aynı alanlar ve sıra, bölüm sınırı (`MAX_ITEMS_PER_SECTION`) yeniden kontrol edilir. CV: master ise o dilde başka master varsa "Nothing to undo"; kopya ise master'ı hâlâ yoksa "Nothing to undo"; versiyon numarası boşsa eskisi, değilse `max+1`; `MAX_CVS_PER_USER` kontrolü; her şey `IntegrityError` → "Nothing to undo". Başvuru bağı sadece `application.cv_id` hâlâ boşsa ve başvuru hâlâ sahibinin ise geri kurulur.
+- **Güncelleme (plan-reviewer):** Silinen veri `UNDO_SECONDS` + 60 sn (2 dakika) tutulur; her silme, geri yükleme ve Undo isteğinde eskiler temizlenir; `user_id` FK `ON DELETE CASCADE`. Ayrı token tuzu (`undo-delete`), giriş + CSRF, `DeletedItem` `user_id` + `kind` ile aranır. Flash toast'ta başlık 60 karaktere kesilir, flash sadece tam sayfa GET'te okunur.
+
+### D-087 · Gece yetkisi
+Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
+- **Karar:** Fatih 2026-11-17'de M4c için ürün kararlarını, PR merge'ünü ve etiketi Claude'a bıraktı. WORKFLOW'daki "Fatih merge eder" ve "kabul kriterlerini Fatih elle dener" maddeleri bu milestone için ertelendi: elle test sabah yapılır, gerekirse düzeltme PR'ı açılır.
+- **Güncelleme (plan-reviewer):** Fatih 2026-11-17'de M4c için ürün kararlarını, PR merge'ünü ve etiketi Claude'a bıraktı. WORKFLOW'daki "Fatih merge eder" ve "kabul kriterlerini Fatih elle dener" maddeleri bu milestone için ertelendi: elle test sabah yapılır, gerekirse düzeltme PR'ı açılır.
+
+### D-087 · Gece yetkisi
+Kaynak: Fatih, 2026-11-17 (sohbet).
+- **Karar:** Fatih 2026-11-17'de M4c için ürün kararlarını, PR merge'ünü ve etiketi Claude'a bıraktı. WORKFLOW'daki "Fatih merge eder" ve "kabul kriterlerini Fatih elle dener" maddeleri bu milestone için ertelendi: elle test sabah yapılır, gerekirse düzeltme PR'ı açılır.
+
+### D-088 · AI'ya bağlı milestone'lar sonraya (sıra değişikliği)
+Kaynak: Fatih, 2026-11-17 (sohbet: "ai ile olan adımı atlayıp devam etsen?").
+- **Karar:** M4c'den sonra AI'ya bağlı milestone'lar (M5, M7, M8, M9, M12a, M12b) gerçek API anahtarı, maliyet ve prompt kararları gerektirdiği için Fatih dönene kadar atlanır; AI'sız olanlar (M10 Learning, M11 Bildirimler, M13'ün deploy dışı parçaları) önce yapılır. M6 (eklenti) Chrome'da elle kurulup denenmesi gerektiği için Fatih'le yapılır. CLAUDE.md'deki "sırayla" kuralına bu bir istisnadır.
+- **Gerekçe:** Fatih yokken ilerlenebilecek işler bunlar; AI özellikleri gerçek çağrı ve kalite değerlendirmesi olmadan "bitti" sayılamaz.
+- **Alternatifler:** Sırayı korumak ve M5'i `FakeAIClient` ile yazıp PR'ı açık bırakmak.
