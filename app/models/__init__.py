@@ -20,6 +20,13 @@ from app.models.application import (  # noqa: E402
     ApplicationEvent,
 )
 from app.models.cv import CVDocument  # noqa: E402
+from app.models.learning import (  # noqa: E402
+    LearningGoal,
+    LearningResource,
+    LearningTask,
+    NotificationPreference,
+    StudyLog,
+)
 from app.models.profile import (  # noqa: E402
     Certification,
     Education,
@@ -42,8 +49,13 @@ __all__ = [
     "Education",
     "Experience",
     "LanguageSkill",
+    "LearningGoal",
+    "LearningResource",
+    "LearningTask",
+    "NotificationPreference",
     "Profile",
     "Project",
     "Skill",
+    "StudyLog",
     "User",
 ]
