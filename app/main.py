@@ -3,6 +3,8 @@
 Run locally with: uv run fastapi dev app/main.py
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
@@ -10,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.sessions import SessionMiddleware
 
+from app import scheduler
 from app.config import Settings, get_settings
 from app.routers import applications, auth, cvs, learning, legal, placeholders, profile, undo
 from app.routers import settings as settings_routes  # `settings` is the app config below
@@ -49,8 +52,17 @@ def create_app(settings: Settings) -> FastAPI:
     show_api_docs = settings.app_env == "development"
     is_production = settings.app_env == "production"
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        """Runs once when the app starts (before `yield`) and once when it stops.
+        The notification jobs (app/scheduler.py) run in between, if switched on."""
+        running = scheduler.start(settings)
+        yield
+        scheduler.shutdown(running)
+
     app = FastAPI(
         title="Unfurl",
+        lifespan=lifespan,
         debug=settings.debug,
         docs_url="/docs" if show_api_docs else None,
         redoc_url="/redoc" if show_api_docs else None,
