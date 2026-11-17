@@ -36,9 +36,20 @@
      class="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border text-text-2 no-underline hover:border-border-strong">{{ icon("external") }}</a>
 {%- endmacro %}
 
+{#- The box that ticks a task off or back on (D-092). It sends the wanted state, so
+    a double click can't flip it twice; the answer is a toast and a reloaded region. -#}
+{% macro done_box(row) -%}
+  <input type="checkbox" class="size-5 shrink-0 accent-[#4F46E5]"
+         aria-label="{{ 'Mark as not done' if row.done else 'Done' }}: {{ row.title }}"
+         {%- if row.done %} checked{% endif %}
+         hx-post="/learning/tasks/{{ row.id }}/done" hx-trigger="change" hx-swap="none"
+         hx-vals='{"done": "{{ "no" if row.done else "yes" }}"}'>
+{%- endmacro %}
+
 {#- One open task in the plan. `row`: see app/routers/learning.py task_row. -#}
 {% macro task_item(row) %}
   <li data-task="{{ row.id }}" class="flex items-center gap-3 border-t border-muted py-3">
+    {{ done_box(row) }}
     <div class="flex min-w-0 flex-1 flex-col gap-1">
       <span class="text-sm font-medium text-text [overflow-wrap:anywhere]">{{ row.title }}</span>
       <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs text-text-3">
@@ -54,6 +65,7 @@
 {#- One completed task in the collapsed "Done (n)" section. -#}
 {% macro done_item(row) %}
   <li data-task="{{ row.id }}" class="flex items-center gap-3 border-t border-muted py-2.5">
+    {{ done_box(row) }}
     <span class="flex-1 text-sm text-text-3 line-through [overflow-wrap:anywhere]">{{ row.title }}</span>
     <span class="text-xs text-text-3">{{ row.duration }}</span>
   </li>

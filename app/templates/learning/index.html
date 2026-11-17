@@ -21,6 +21,10 @@
     {% include "learning/_goal_form.html" %}
   {% endcall %}
 
+  {% call modal("rest-days", "Rest days") %}
+    {% with rest_error="" %}{% include "learning/_rest_days_form.html" %}{% endwith %}
+  {% endcall %}
+
   {#- The form is loaded when the modal opens (app.js openTaskForm). -#}
   {% call modal("add-task", "Add task") %}
     <div id="add-task-body"></div>

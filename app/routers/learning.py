@@ -9,18 +9,18 @@ import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import ValidationError
-from sqlmodel import Session
+from sqlmodel import Session, select
 from starlette.datastructures import FormData
 
 from app.db import get_session
-from app.models import LearningGoal, User
+from app.models import LearningGoal, LearningTask, User
 from app.models.learning import UNIT_LABELS, WEEKDAYS
-from app.schemas.learning import GoalForm, TaskForm
+from app.schemas.learning import GoalForm, TaskForm, check_rest_days
 from app.schemas.profile import form_errors
 from app.security import limiter
-from app.services import clock
+from app.services import clock, undo_service
 from app.services import learning_service as learning
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
@@ -148,6 +148,7 @@ def page_context(session: Session, user: User, view: str) -> dict:
         "tasks_total": week.tasks_total,
         "week_range": f"{week.start.strftime('%a, %-d %b')} – {week.end.strftime('%a, %-d %b')}",
         "goal_cards": goal_cards,
+        "rest_days": prefs.rest_days,  # the rest days modal (D-090)
     }
 
 
@@ -157,7 +158,8 @@ def learning_page(request: Request, session: DbSession, user: RequiredUser, view
     if is_htmx(request):
         # A tab was picked, or the page asks again after a change: only the region.
         return templates.TemplateResponse(request, "learning/_region.html", context)
-    return templates.TemplateResponse(request, "learning/index.html", context | goal_form_context())
+    extra = goal_form_context() | {"day_choices": DAY_CHOICES}
+    return templates.TemplateResponse(request, "learning/index.html", context | extra)
 
 
 def page_events(*, toast: str, undo_url: str = "", undo_token: str = "", **more) -> dict:
@@ -276,4 +278,71 @@ def task_create(request: Request, session: DbSession, user: RequiredUser, data: 
 
     response = task_form(request, session, user, {})
     response.headers.update(page_events(toast="Task added.", **{"close-dialog": "add-task"}))
+    return response
+
+
+# --- Completing a task (D-092) ------------------------------------------------------------
+
+UNDO_URL = "/learning/undo"
+
+
+@router.post("/learning/tasks/{task_id}/done")
+@limiter.limit("60/minute")
+def task_done(
+    request: Request, session: DbSession, user: RequiredUser, task_id: str, data: SubmittedForm
+):
+    """Tick a task off (done=yes) or back on (done=no). The wanted state is sent, so
+    a double click doesn't flip it twice. Toast with Undo; the region reloads."""
+    task = learning.get_owned(session, user, LearningTask, task_id)
+    done = data.get("done") == "yes"
+    learning.set_done(session, user, task, done)
+    token = undo_service.make_learning_token(user, task.id, done)
+    toast = "Task done." if done else "Task moved back to open."
+    return Response(
+        status_code=204, headers=page_events(toast=toast, undo_url=UNDO_URL, undo_token=token)
+    )
+
+
+@router.post("/learning/undo")
+@limiter.limit("60/minute")
+def learning_undo(request: Request, session: DbSession, user: RequiredUser, data: SubmittedForm):
+    """Undo of a tick: only if the task is still the user's and still as the action
+    left it; otherwise nothing changes ("Nothing to undo.")."""
+    found = undo_service.read_learning_token(user, str(data.get("token", "")))
+    message = "Nothing to undo."
+    if found is not None:
+        task_id, done = found
+        task = session.exec(
+            select(LearningTask).where(LearningTask.id == task_id, LearningTask.user_id == user.id)
+        ).first()
+        if task is not None and task.done == done:
+            learning.set_done(session, user, task, not done)
+            message = "Undone."
+    return Response(status_code=204, headers=page_events(toast=message))
+
+
+# --- Rest days (D-090) --------------------------------------------------------------------
+
+DAY_CHOICES = [(day, DAY_NAMES[day]) for day in WEEKDAYS]
+
+
+def rest_days_form(request: Request, chosen: list[str], error: str = "") -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "learning/_rest_days_form.html",
+        {"rest_days": chosen, "day_choices": DAY_CHOICES, "rest_error": error},
+    )
+
+
+@router.post("/learning/rest-days", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def rest_days_save(request: Request, session: DbSession, user: RequiredUser, data: SubmittedForm):
+    chosen = [str(day) for day in data.getlist("rest_days")]
+    try:
+        days = check_rest_days(chosen)
+    except ValueError as exc:
+        return rest_days_form(request, [d for d in chosen if d in WEEKDAYS], str(exc))
+    learning.set_rest_days(session, user, days)
+    response = rest_days_form(request, days)
+    response.headers.update(page_events(toast="Rest days saved.", **{"close-dialog": "rest-days"}))
     return response

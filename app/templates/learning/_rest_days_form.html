@@ -1,0 +1,25 @@
+{#- The rest days form in its modal (index.html; D-090). Rest days don't break the
+    streak. At most six: at least one day a week counts.
+    Context: rest_days (chosen keys), day_choices [(key, "Mon")], rest_error. -#}
+{%- from "components/forms.html" import primary_button -%}
+<form id="rest-days-form" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/learning/rest-days" hx-target="this" hx-swap="outerHTML">
+  <fieldset class="m-0 flex flex-col gap-3 border-0 p-0"{% if rest_error %} aria-describedby="rest-days-error"{% endif %}>
+    <legend class="mb-3 p-0 text-sm text-text-2">Days you don't plan to study. They never break your streak; studying on them still counts.</legend>
+    <div class="flex flex-wrap gap-2">
+      {%- for key, name in day_choices %}
+        <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-text has-[:checked]:border-[#4F46E5] has-[:checked]:bg-accent-bg">
+          <input type="checkbox" name="rest_days" value="{{ key }}"{% if key in rest_days %} checked{% endif %}>{{ name }}
+        </label>
+      {%- endfor %}
+    </div>
+    {%- if rest_error %}
+      <span id="rest-days-error" class="text-xs font-medium text-red-text">{{ rest_error }}</span>
+    {%- endif %}
+  </fieldset>
+  <div class="flex justify-end gap-2.5">
+    <button type="button" data-dialog-close
+            class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Cancel</button>
+    {{ primary_button("Save", size="sm") }}
+  </div>
+</form>

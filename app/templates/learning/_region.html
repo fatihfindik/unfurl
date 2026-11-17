@@ -14,7 +14,9 @@
     <div data-card="streak" class="flex flex-col gap-1.5 rounded-xl border border-border bg-surface px-5 py-[18px]">
       <span class="text-[13px] font-semibold text-text-3">Streak</span>
       <span class="flex items-center gap-2 text-[30px] font-bold leading-tight">{{ icon("flame") }}{{ streak }} {{ "day" if streak == 1 else "days" }}</span>
-      <span class="text-xs text-text-3">{{ rest_note }}</span>
+      <span class="text-xs text-text-3">{{ rest_note }}
+        <button type="button" data-dialog-open="rest-days"
+                class="border-0 bg-transparent p-0 text-xs font-semibold text-link hover:underline">Change</button></span>
     </div>
     <div data-card="week" class="flex flex-col gap-1.5 rounded-xl border border-border bg-surface px-5 py-[18px]">
       <span class="text-[13px] font-semibold text-text-3">This week</span>
