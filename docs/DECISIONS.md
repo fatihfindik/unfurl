@@ -638,3 +638,17 @@ Kaynak: #10 (M1a güvenlik incelemesi #7, #8); **Claude karar verdi** (gece çal
 Kaynak: M1b ve M2a security-reviewer bulguları; **Claude karar verdi** (gece çalışması, 2026-11-18).
 - **Karar:** Forgot password, hesap yokken de aynı işi yapar (kaydedilmeyen bir yer tutucu kullanıcıyla token imzalanır, e-posta oluşturulur, sınırlayıcı sayılır; gönderilmez). Şifre sıfırlama tek bir koşullu UPDATE'tir (`WHERE password_hash = eski`); aynı linkle aynı anda gelen ikinci istek "geçersiz link" görür. Profil bölümüne satır eklerken profil satırı `SELECT … FOR UPDATE` ile kilitlenir (Postgres; SQLite zaten tek yazıcı), 50 sınırı yarışta aşılmaz.
 - **Alternatifler:** Token'ı arka plan görevinde üretmek (arka plan görevinin kendi veritabanı oturumu gerekirdi); eklemeden sonra yeniden saymak.
+
+### D-123 · M13 dörde bölündü
+Kaynak: M13 bölme önerisi (`docs/plans/M13-split.md`, PR #50), plan-reviewer; Fatih onayladı (2026-11-18: "Dörde bölelim", diğer sorularda "önerilerin gayet makul").
+- **Karar:** M13a cilalama, M13b GDPR + yasal sayfalar + Settings › Account, M13c deploy, M13d portföy README'si. Sıra: M13a → M13b → AI milestone'ları (API anahtarı gelince) → M6 → M13c → M13d. Güvenlik header'ları #10 ile M13'ten önce bitti (D-120).
+- **Cevaplar:** Dışa aktarma bugün var olan verileri alır, yeni tablolar otomatik bir testle yakalanır. Hesap silmede Undo yok (şifre onayı ve açık uyarı yeterli). Yasal metinlerin taslağını Claude yazar, Fatih bir uzmana inceletir (özellikle Impressum ve gizlilik metni).
+- **Neden:** Tek milestone WORKFLOW'daki 1–2 haftalık sınırı aşıyordu; deploy AI milestone'larına bağlı (mektup indirme, D-088), cilalama ve GDPR değil.
+- **Alternatifler:** Tek M13; GDPR ve cilalamayı birleştirmek.
+
+### D-124 · Settings bölümlerinin sahipleri
+Kaynak: M13 bölme önerisi, soru 4 ve 7; Fatih önerileri onayladı (soru 7 için öneriyi **Claude karar verdi**, 2026-11-18).
+- **Karar:** Settings › Account (ad, şifre) M13b'de; e-posta değiştirme ayrı bir PR (doğrulama akışını değiştirir, D-027). Settings › Documents (varsayılan belge dili) M13a'da. Settings › Plan (Free plan kartı, "Pro · coming soon") M5'te, çünkü "Upgrade to Pro" bekleme listesi modalı ve `WaitlistSignup` zaten M5'in fake door kapsamında. Settings › AI M5'te (BYOK ve krediler) ve M12a'da (asistan ayarları), Browser extension M6'da, Privacy M13b'de.
+- **Neden:** SPEC §6.9'daki bölümlerin §12'de sahibi yoktu; her bölüm, verisini getiren milestone'a gider; verisi zaten var olan küçük bölüm (Documents) cilalamaya.
+- **Alternatifler:** Bütün Settings'i M13b'de toplamak (M13b'yi büyütür).
+

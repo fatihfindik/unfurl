@@ -1,6 +1,6 @@
 # M13 — bölme önerisi (Plan fazı, gece taslağı)
 
-> **Durum:** Taslak, **Fatih'in onayını bekliyor.** Claude gece çalışmasında (2026-11-18) hazırladı. plan-reviewer "Needs changes" dedi (1 Blocker, 6 Should, 3 Nit); hepsi aşağıya işlendi. Onaylanana kadar SPEC §12 değişmez ve kod yazılmaz.
+> **Durum:** **Fatih onayladı (2026-11-18).** Bölme ve önerilen cevapların hepsi kabul edildi; soru 6'da öneri (a): Claude taslak yazar, Fatih bir uzmana inceletir. Soru 7'nin cevabını Claude verdi (D-124). SPEC §12 v2.1.20'de güncellendi (D-123, D-124). Not: #46 sonradan D-122 numarasını aldığı için bölme D-123, Settings › Account D-124 oldu.
 
 ## Neden bölmek
 SPEC §12 M13 dört farklı işi bir araya koyuyor: GDPR, cilalama, deploy ve portföy README'si. Tek milestone WORKFLOW'daki 1–2 haftalık sınırı aşar (D-024, D-098 gibi). Bir kısmı deploy olmadan yapılabilir. M11b'den sonraki sıra #39, sonra M13'ün deploy dışı parçalarıydı (D-088). #39 ve #10 (güvenlik header'ları) bu gece bitti; #15, #16 ve #22 de.
@@ -28,7 +28,7 @@ SPEC §12 M13 dört farklı işi bir araya koyuyor: GDPR, cilalama, deploy ve po
 - **Delete my account:**
   - Şifre onayıyla: tüm satırlar cascade ile silinir, fotoğraf dosyaları da silinir, oturum kapanır, onay e-postası gider.
   - Cascade Postgres'te test edilir (D-034'ten beri sadece SQLite'ta test edildi).
-- **Settings › Account (SPEC §6.9; §12'de sahibi yoktu, kapsama ekleniyor, D-123):** ad ve şifre değiştirme. Şifre değişince diğer oturumlar kapanır (`session_version`, D-021). E-posta değiştirme ayrı bir PR (issue açılır): doğrulama akışını ve token'ları (D-027) değiştirir.
+- **Settings › Account (SPEC §6.9; §12'de sahibi yoktu, kapsama ekleniyor, D-124):** ad ve şifre değiştirme. Şifre değişince diğer oturumlar kapanır (`session_version`, D-021). E-posta değiştirme ayrı bir PR (issue açılır): doğrulama akışını ve token'ları (D-027) değiştirir.
 - **`M13b.md`'de cevaplanacak açık sorular:**
   - Silmedeki şifre kontrolüne rate limit ve lockout
   - CSRF
@@ -61,10 +61,10 @@ Ekran görüntüleri, mimari şema, "What I learned". Canlı URL gerektiği içi
 1. **Bölme uygun mu?** Öneri: evet, yukarıdaki dört parça.
 2. **Dışa aktarmada henüz olmayan veriler** (mektuplar, fit analizleri, sohbetler)? Öneri: M13b var olanı aktarır; otomatik tablo testi yenileri yakalar.
 3. **Hesap silmede Undo?** Öneri: hayır. Şifre onayı ve açık bir uyarı yeterli; `DeletedItem` da cascade ile gider (D-086).
-4. **Settings › Account M13b'de mi?** Öneri: ad ve şifre M13b'de (ayrı karar, D-123), e-posta değiştirme ayrı bir PR.
+4. **Settings › Account M13b'de mi?** Öneri: ad ve şifre M13b'de (ayrı karar, D-124), e-posta değiştirme ayrı bir PR.
 5. **Sıra:** Öneri: M13a → M13b → AI milestone'ları (API anahtarı gelince) → M6 → M13c → M13d. M13c'den önce bir Postgres test çalıştırması (CI job ya da `docker compose`); Postgres'e özel kod (D-121'deki `FOR UPDATE`, cascade) henüz orada test edilmedi.
 6. **Yasal metinleri kim yazacak?** Fatih mi yazar, yoksa Claude taslak çıkarıp Fatih mi inceletir? Bu özellikle Avusturya'daki Impressum için önemli.
 7. **Settings'in Documents (varsayılan belge dili) ve Plan bölümleri** hangi milestone'a ait? SPEC §6.9'da var, §12'de sahipleri yok.
 
 ## Bir sonraki adım
-Fatih onaylarsa: SPEC §12'de M13 bölümü dörde bölünür (SPEC sürümü artar, D-122 bölme, D-123 Settings › Account), milestone issue'ları açılır ve M13a için teknik plan (`docs/plans/M13a.md`) yazılıp plan-reviewer'a verilir.
+Fatih onaylarsa: SPEC §12'de M13 bölümü dörde bölünür (SPEC sürümü artar, D-123 bölme, D-124 Settings bölümleri), milestone issue'ları açılır ve M13a için teknik plan (`docs/plans/M13a.md`) yazılıp plan-reviewer'a verilir.
