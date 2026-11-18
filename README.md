@@ -51,13 +51,14 @@ Migrations run automatically when the app container starts. The database is kept
 | Dev server (auto-reload) | `uv run fastapi dev app/main.py` |
 | Rebuild CSS on every change (second terminal) | `scripts/build_css.sh --watch` |
 | Tests | `uv run pytest` |
+| Postgres-only tests (cascade, row locks), with any empty Postgres | `TEST_POSTGRES_URL=postgresql+psycopg://user:pass@127.0.0.1:5432/db uv run pytest tests/test_postgres.py` |
 | Lint + format check (same as CI) | `uv run ruff check . && uv run ruff format --check .` |
 | Fix formatting | `uv run ruff format .` |
 | New migration after a model change | `uv run alembic revision --autogenerate -m "add user table"` |
 | Apply migrations | `uv run alembic upgrade head` |
 | Give a user the Pro plan by hand (testing) | `uv run python -m app.billing.grant --email you@example.com --plan pro --days 90` |
 
-CI (GitHub Actions) runs lint and tests on every push, and a Docker + Postgres check on pull requests to `main`.
+CI (GitHub Actions) runs lint and tests on every push; on pull requests to `main` it also runs `tests/test_postgres.py` on Postgres 16 and a Docker + Postgres check.
 
 ### Emails and limits
 - **Emails** (verification, password reset) are sent after the response, in the background. The daily study reminder email is sent by the scheduler, only to verified addresses; its "Turn off these emails" link opens a page with a button (`/reminders/off`). `EMAIL_BACKEND=console` prints them in the terminal; `EMAIL_BACKEND=smtp` sends them with the `SMTP_*` settings (STARTTLS, usually port 587). Sending errors are logged as `unfurl.email`, without the address. Tests never send email: they use the `outbox` fixture.

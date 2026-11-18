@@ -222,6 +222,7 @@ Kaynak: Plan fazı, Fatih onayı.
 - **Karar:** Uygulama engine'i ve test engine'i her bağlantıda `PRAGMA foreign_keys=ON` çalıştırır (`app/db.py`'de tek yardımcı). Listener asla `Engine` sınıfına (her engine'e) ya da `alembic/env.py`'ye eklenmez.
 - **Gerekçe:** SQLite foreign key kurallarını ve `ON DELETE CASCADE`'i varsayılan olarak uygulamaz; açınca localde ve testlerde Postgres ile aynı davranış. Migration'larda kapalı kalmalı: SQLite'ta tablo değiştiren batch migration tabloyu kopyalayıp eskisini siler, foreign key açıkken bu silme bağlı satırları da (ör. `user` değişince bütün profilleri) siler.
 - **Alternatifler:** Testleri Postgres'te çalıştırmak (CI'da yeni job). CASCADE testini M13'e bırakmak.
+- **Güncelleme (2026-11-18, gece çalışması):** `tests/test_postgres.py` CASCADE'i (kullanıcı silinince `user_id`'li her tablo boşalır) ve D-121'deki iki yarışı gerçek Postgres 16'da test eder. CI'da PR'larda `postgres-tests` job'u; yerelde `TEST_POSTGRES_URL` yoksa atlanır.
 
 ### D-035 · M2a'da silmede Undo yok
 - **Karar:** Profil kayıtları onay sormadan silinir (SPEC §6.0/2'deki işlemler gibi), ama Undo altyapısı M4'te geldiği için M2a'da silinen kayıt geri alınamaz. M4 issue'suna "profile delete undo" maddesi eklenir. SPEC değişmez.
