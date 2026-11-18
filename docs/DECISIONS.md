@@ -592,6 +592,7 @@ Kaynak: M11b Design fazı, plan-reviewer B3 (2026-11-18). SPEC §6.11.
 Kaynak: M11b Design fazı, plan-reviewer B2/S3/S4 (2026-11-18). D-098'i uygular.
 - **Karar:** `study_reminder_email` açık ve e-posta doğrulanmışsa, bildirim satırı bu çalışmada yazılıp commit edildikten sonra düz metin e-posta (konu "Time to study"). Link `/reminders/off?token=…` (itsdangerous, tuz `study-reminder-off`, user id + e-posta, 90 gün). GET sadece onay sayfası (maskeli adres, buton); POST (CSRF, 10/dk) token'ı yeniden doğrular ve sadece `study_reminder_email`'i kapatır.
 - **Alternatifler:** GET'te kapatmak (e-posta tarayıcılarının önizlemesi kapatırdı); hatırlatmanın tamamını kapatmak.
+- **Güncelleme (security-reviewer, Claude karar verdi):** Sayfalar `Cache-Control: no-store` ile döner. E-postalar zamanlayıcının çalışmasının sonunda, en fazla 5'i aynı anda gönderilir; yavaş bir posta sunucusu uygulama içi hatırlatmaları geciktirmez. Kabul edilen risk: link 90 gün boyunca geri alınamaz; eline geçen biri sadece çalışma e-postalarını kapatabilir (veri sızmaz), kullanıcı Settings'ten yeniden açar.
 
 ### D-113 · Seri kutlaması
 Kaynak: M11b Design fazı, plan-reviewer S8; **Claude karar verdi** (gece çalışması, 2026-11-18), Fatih'in onayını bekliyor.

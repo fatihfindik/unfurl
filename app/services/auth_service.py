@@ -218,17 +218,17 @@ def login_required_response(request: Request, exc: LoginRequired) -> Response:
 # token without the key. So the database doesn't need to store tokens.
 
 
-def _token_serializer(salt: str) -> URLSafeTimedSerializer:
+def token_serializer(salt: str) -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(get_settings().secret_key.get_secret_value(), salt=salt)
 
 
-def _read_token(token: str, salt: str, max_age: int) -> dict | None:
+def read_token(token: str, salt: str, max_age: int) -> dict | None:
     """The token's data, or None if it is missing, too long, changed or too old."""
     if not token or len(token) > TOKEN_MAX_LENGTH:
         return None
     try:
         # Too old raises SignatureExpired, which is a kind of BadSignature.
-        data = _token_serializer(salt).loads(token, max_age=max_age)
+        data = token_serializer(salt).loads(token, max_age=max_age)
     except BadSignature:
         return None
     return data if isinstance(data, dict) else None
@@ -236,12 +236,12 @@ def _read_token(token: str, salt: str, max_age: int) -> dict | None:
 
 def make_verify_token(user: User) -> str:
     # The email is in the token too: if the address ever changes, old links stop working.
-    return _token_serializer(VERIFY_TOKEN_SALT).dumps({"user_id": user.id, "email": user.email})
+    return token_serializer(VERIFY_TOKEN_SALT).dumps({"user_id": user.id, "email": user.email})
 
 
 def user_from_verify_token(session: Session, token: str) -> User | None:
     """The user a verification link belongs to, or None if the link is not valid."""
-    data = _read_token(token, VERIFY_TOKEN_SALT, VERIFY_TOKEN_MAX_AGE)
+    data = read_token(token, VERIFY_TOKEN_SALT, VERIFY_TOKEN_MAX_AGE)
     if data is None or not isinstance(data.get("user_id"), int):
         return None
     user = session.get(User, data["user_id"])
@@ -277,12 +277,12 @@ def make_reset_token(user: User) -> str:
     # The email too, like the verify token: a link sent to an old address stops working
     # once the address changes.
     data = {"user_id": user.id, "email": user.email, "fingerprint": _password_fingerprint(user)}
-    return _token_serializer(RESET_TOKEN_SALT).dumps(data)
+    return token_serializer(RESET_TOKEN_SALT).dumps(data)
 
 
 def user_from_reset_token(session: Session, token: str) -> User | None:
     """The user a reset link belongs to, or None if the link is invalid, too old or used."""
-    data = _read_token(token, RESET_TOKEN_SALT, RESET_TOKEN_MAX_AGE)
+    data = read_token(token, RESET_TOKEN_SALT, RESET_TOKEN_MAX_AGE)
     if data is None or not isinstance(data.get("user_id"), int):
         return None
     user = session.get(User, data["user_id"])

@@ -66,8 +66,8 @@ def test_empty_page(auth_client):
     assert "Weekends are rest days. Your streak is safe." in html
     assert "Set hours per week on a goal to see a target." in html
     assert "Mon, 16 Nov – Sun, 22 Nov" in html
-    # Next reminder comes with M11 (D-089).
-    assert "Next reminder" not in html
+    # Next reminder since M11b (D-115): nothing planned yet.
+    assert "Next reminder" in html and "No tasks planned" in html
 
 
 # --- Summary cards ------------------------------------------------------------------------

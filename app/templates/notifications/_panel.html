@@ -7,6 +7,8 @@
   "follow_up": ("!", "bg-amber-bg text-amber-text"),
   "interview_tomorrow": ("I", "bg-purple-bg text-purple-text"),
   "stale_saved": ("S", "bg-muted text-text-3"),
+  "study_reminder": ("L", "bg-accent-bg text-link"),
+  "streak_milestone": ("★", "bg-amber-bg text-amber-text"),
 } %}
 <div class="flex items-center justify-between px-4 py-3.5">
   <h2 class="m-0 text-[15px] font-bold text-text">Notifications</h2>
@@ -40,5 +42,6 @@
     {%- endfor %}
   </ul>
 {%- else %}
-  <p class="m-0 border-t border-muted px-4 py-5 text-sm text-text-3">No notifications yet. Reminders about your applications show up here.</p>
+  <p class="m-0 border-t border-muted px-4 py-5 text-sm text-text-3">No notifications yet. Reminders about your applications and your learning show up here.</p>
 {%- endif %}
+<a href="/settings" class="block border-t border-muted px-4 py-3 text-center text-[13px] font-semibold text-link no-underline hover:underline">Notification settings</a>

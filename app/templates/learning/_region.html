@@ -10,7 +10,7 @@
 <div id="learning-region" class="flex flex-col gap-6" hx-history="false"
      hx-get="{{ region_url }}" hx-trigger="learning-changed from:body" hx-swap="outerHTML">
 
-  <section aria-label="This week at a glance" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+  <section aria-label="This week at a glance" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
     <div data-card="streak" class="flex flex-col gap-1.5 rounded-xl border border-border bg-surface px-5 py-[18px]">
       <span class="text-[13px] font-semibold text-text-3">Streak</span>
       <span class="flex items-center gap-2 text-[30px] font-bold leading-tight">{{ icon("flame") }}{{ streak }} {{ "day" if streak == 1 else "days" }}</span>
@@ -33,6 +33,27 @@
       <span class="text-[13px] font-semibold text-text-3">Tasks done</span>
       <span class="text-[30px] font-bold leading-tight">{{ tasks_done }} <span class="text-base font-medium text-text-3">/ {{ tasks_total }}</span></span>
       <span class="text-xs text-text-3">{{ week_range }}</span>
+    </div>
+    {#- D-115: when the next study reminder comes. -#}
+    <div data-card="reminder" class="flex flex-col gap-1.5 rounded-xl border border-border bg-surface px-5 py-[18px]">
+      <span class="text-[13px] font-semibold text-text-3">Next reminder</span>
+      {%- if next_reminder.state == "off" %}
+        <span class="text-[22px] font-bold leading-tight text-text-3">Off</span>
+        <a href="/settings" class="self-start text-xs font-semibold text-link no-underline hover:underline">Turn on</a>
+      {%- elif next_reminder.state == "no_tasks" %}
+        <span class="text-[22px] font-bold leading-tight">No tasks planned</span>
+        {%- if goal_cards %}
+          <button type="button" data-dialog-load="add-task" data-dialog-url="/learning/tasks/new"
+                  class="self-start border-0 bg-transparent p-0 text-xs font-semibold text-link hover:underline">Add task</button>
+        {%- else %}
+          {#- A task needs a goal: without goals, start with one. -#}
+          <button type="button" data-dialog-open="new-goal"
+                  class="self-start border-0 bg-transparent p-0 text-xs font-semibold text-link hover:underline">New goal</button>
+        {%- endif %}
+      {%- else %}
+        <span class="text-[22px] font-bold leading-tight">{{ next_reminder.text }}</span>
+        <a href="/settings" class="self-start text-xs font-semibold text-link no-underline hover:underline">Change reminder</a>
+      {%- endif %}
     </div>
   </section>
 

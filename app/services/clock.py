@@ -8,8 +8,8 @@ The functions don't take the user: the zone of "the user we are working for righ
 sits in a ContextVar. A ContextVar is like a global variable, but each request (and
 each thread that copies the context) has its own value, so two requests at the same
 moment don't see each other's zone.
-- In a request, app/main.py's UserTimezone middleware sets it from the session, and
-  auth_service.current_user corrects it from the database.
+- In a request, app/main.py's UserTimezone middleware sets it from the session
+  (auth_service.current_user keeps the session up to date with the database).
 - In the scheduler, `with clock.use_timezone(user.timezone):` around each user.
 """
 

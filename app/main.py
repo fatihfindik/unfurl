@@ -21,8 +21,8 @@ from app.routers import (
     learning,
     legal,
     notifications,
-    placeholders,
     profile,
+    reminders,
     undo,
 )
 from app.routers import settings as settings_routes  # `settings` is the app config below
@@ -175,9 +175,9 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(learning.router)
     app.include_router(notifications.router)
     app.include_router(notifications.badge_router)
-    app.include_router(placeholders.router)
     app.include_router(settings_routes.router)
     app.include_router(undo.router)
+    app.include_router(reminders.router)
     app.include_router(profile.router)
     app.include_router(cvs.router)
     app.include_router(legal.router)

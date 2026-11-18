@@ -1,0 +1,25 @@
+{% extends "auth/layout.html" %}
+{% from "components/forms.html" import csrf_field %}
+
+{#- The "Turn off these emails" link (D-112). Before the click: a button (opening the
+    link changes nothing). After: what was turned off and what stays.
+    Context: email (masked), done, token (before the click). -#}
+{% block title %}Study reminder emails{% endblock %}
+
+{% block form %}
+  <div class="flex flex-col gap-4">
+    {%- if done %}
+      <h2 class="m-0 text-2xl font-bold">Emails turned off</h2>
+      <p class="m-0 text-[15px] leading-[1.55] text-text-2">You won't get study reminder emails any more. In-app reminders stay; you can change this in Settings.</p>
+      <a href="/settings" class="inline-flex h-11 items-center justify-center rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white no-underline hover:bg-[#4338CA]">Open Settings</a>
+    {%- else %}
+      <h2 class="m-0 text-2xl font-bold">Stop study reminder emails?</h2>
+      <p class="m-0 text-[15px] leading-[1.55] text-text-2">Study reminders will no longer be sent to {{ email }}. In-app reminders stay.</p>
+      <form method="post" action="/reminders/off" class="m-0">
+        {{ csrf_field(csrf_token) }}
+        <input type="hidden" name="token" value="{{ token }}">
+        <button type="submit" class="inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]">Turn off these emails</button>
+      </form>
+    {%- endif %}
+  </div>
+{% endblock %}

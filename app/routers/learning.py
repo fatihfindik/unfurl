@@ -22,6 +22,7 @@ from app.schemas.profile import form_errors
 from app.security import limiter
 from app.services import clock, undo_service
 from app.services import learning_service as learning
+from app.services import notification_service as notifications
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
 
@@ -150,6 +151,7 @@ def page_context(session: Session, user: User, view: str) -> dict:
         "week_range": f"{week.start.strftime('%a, %-d %b')} – {week.end.strftime('%a, %-d %b')}",
         "goal_cards": goal_cards,
         "rest_days": prefs.rest_days,  # the rest days modal (D-090)
+        "next_reminder": notifications.next_reminder(session, user, clock.now()),  # D-115
     }
 
 
