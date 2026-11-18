@@ -312,6 +312,8 @@ def reset_password(session: Session, user: User, new_password: str) -> bool:
             is_verified=True,
             updated_at=utcnow(),
         )
+        # Nothing is changed in memory here; refresh() below reads what was saved.
+        .execution_options(synchronize_session=False)
     )
     session.commit()
     session.refresh(user)
