@@ -107,6 +107,14 @@ def check(session: Session, raw: str | None) -> tuple[User, ApiToken] | None:
     return user, token
 
 
+def get_owned_token(session: Session, user: User, token_id: int) -> ApiToken | None:
+    """The token `token_id` if it belongs to `user` (Settings › Revoke), else None:
+    another user's token and one that doesn't exist look the same (D-140)."""
+    return session.exec(
+        select(ApiToken).where(ApiToken.id == token_id, ApiToken.user_id == user.id)
+    ).first()
+
+
 def revoke(session: Session, token: ApiToken) -> None:
     """Stop one token (sign-out in the extension, "Revoke" in Settings)."""
     token.revoked = True

@@ -35,7 +35,9 @@ from app.services import (
     clock,
     email_service,
     export_service,
+    profile_service,
     settings_service,
+    token_service,
 )
 from app.services import learning_service as learning
 from app.services.auth_service import (
@@ -136,7 +138,27 @@ def account_context(user: User, name: str | None = None, errors: dict | None = N
 def settings_page(request: Request, session: DbSession, user: RequiredUser):
     prefs = learning.preferences(session, user)
     context = form_context(user, prefs) | documents_context(user) | account_context(user)
+    context["extension_tokens"] = token_service.active_tokens(session, user)
     return templates.TemplateResponse(request, "settings/index.html", context)
+
+
+# --- Browser extension (D-140) ----------------------------------------------------------------
+
+
+@router.post("/settings/extension/tokens/{token_id}/revoke", response_class=HTMLResponse)
+@limiter.limit("30/minute")
+def revoke_extension_token(request: Request, session: DbSession, user: RequiredUser, token_id: int):
+    """Sign one extension out. Another user's token is a 404, like one that doesn't exist."""
+    if not 0 < token_id <= profile_service.MAX_ID:
+        raise HTTPException(status_code=404)
+    token = token_service.get_owned_token(session, user, token_id)
+    if token is None:
+        raise HTTPException(status_code=404)
+    token_service.revoke(session, token)
+    context = {"extension_tokens": token_service.active_tokens(session, user)}
+    return templates.TemplateResponse(
+        request, "settings/_extension.html", context, headers=toast("Extension signed out.")
+    )
 
 
 # --- Account: name and password (D-132) -------------------------------------------------------

@@ -1,0 +1,28 @@
+{#- Settings › Browser extension (D-140): the extension sign-ins that still work, each
+    with "Revoke", and how to install the extension. Redrawn after a revoke.
+    Context: extension_tokens. -#}
+<div id="extension-tokens" class="flex flex-col gap-3">
+  <p class="m-0 text-sm text-text-3">Devices signed in to the Unfurl extension. Sign-ins end after 90 days, when you sign out, or when you change your password or email.</p>
+  {% for token in extension_tokens %}
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-muted pt-3">
+      <span class="flex flex-col gap-0.5">
+        <span class="text-sm font-semibold text-text">{{ token.name }}</span>
+        <span class="text-[13px] text-text-3">Signed in {{ token.created_at | local_day }} · {% if token.last_used_at %}last used {{ token.last_used_at | time_ago }}{% else %}not used yet{% endif %} · expires {{ token.expires_at | local_day }}</span>
+      </span>
+      <button type="button"
+              hx-post="/settings/extension/tokens/{{ token.id }}/revoke"
+              hx-target="#extension-tokens" hx-swap="outerHTML" hx-disabled-elt="this"
+              class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3.5 text-[13px] font-semibold text-red-text hover:bg-muted">Revoke</button>
+    </div>
+  {% else %}
+    <p class="m-0 border-t border-muted pt-3 text-sm text-text-3">No devices connected.</p>
+  {% endfor %}
+  <div class="flex flex-col gap-1.5 border-t border-muted pt-3">
+    <span class="text-sm font-semibold text-text">Install the extension</span>
+    <ol class="m-0 flex list-decimal flex-col gap-1 pl-5 text-[13px] text-text-2">
+      <li>In Chrome, open <code>chrome://extensions</code> and turn on Developer mode.</li>
+      <li>Click "Load unpacked" and choose the <code>extension</code> folder of Unfurl.</li>
+      <li>Click the Unfurl icon in the toolbar and sign in with your Unfurl email and password.</li>
+    </ol>
+  </div>
+</div>

@@ -4,7 +4,7 @@
 {% block title %}Settings{% endblock %}
 
 {#- docs/prototype/Settings.dc.html, SPEC §6.9. Account and Privacy (M13b),
-    Notifications (M11b) and Documents (M13a); the other sections come with their milestones (D-107, D-124). -#}
+    Notifications (M11b), Documents (M13a) and Browser extension (M6a, D-140); the other sections come with their milestones (D-107, D-124). -#}
 {% block content %}
   {{ page_header("Settings") }}
   <div class="w-full px-4 pt-6 pb-10 md:px-8">
@@ -22,6 +22,10 @@
       <section aria-labelledby="documents-title" class="mt-6 flex max-w-[720px] flex-col gap-4 rounded-xl border border-border bg-surface p-6">
         <h2 id="documents-title" class="m-0 text-lg font-bold text-text">Documents</h2>
         {% include "settings/_documents.html" %}
+      </section>
+      <section aria-labelledby="extension-title" class="mt-6 flex max-w-[720px] flex-col gap-4 rounded-xl border border-border bg-surface p-6">
+        <h2 id="extension-title" class="m-0 text-lg font-bold text-text">Browser extension</h2>
+        {% include "settings/_extension.html" %}
       </section>
       <section aria-labelledby="privacy-title" class="mt-6 flex max-w-[720px] flex-col gap-4 rounded-xl border border-border bg-surface p-6">
         <h2 id="privacy-title" class="m-0 text-lg font-bold text-text">Privacy</h2>
