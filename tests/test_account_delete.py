@@ -305,3 +305,12 @@ def test_a_double_click_sends_one_email(session, engine, user, outbox):
 
     assert account_service.delete_account(session, first) is not None
     assert account_service.delete_account(session, first) is None  # already gone
+
+
+def test_the_delete_button_keeps_its_red_in_the_dark_theme(auth_client):
+    # --red-text is light pink in the dark theme; white text on it was unreadable.
+    page = auth_client.get("/settings").text
+    button = page.split('id="delete-account-form"', 1)[1].split("</form>", 1)[0]
+
+    assert "bg-[#D92D20]" in button
+    assert "bg-red-text" not in button
