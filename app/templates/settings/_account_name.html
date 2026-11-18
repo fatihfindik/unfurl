@@ -1,0 +1,14 @@
+{#- Settings › Account: the name (D-132). Saved with htmx; comes back redrawn.
+    Context: account_name, account_email, account_errors, name_max_length. -#}
+{%- from "components/forms.html" import primary_button, text_field -%}
+<form id="account-name" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/settings/account/name" hx-target="this" hx-swap="outerHTML">
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ text_field("full_name", "Full name", value=account_name, error=account_errors.full_name, autocomplete="name", maxlength=name_max_length, id_prefix="account") }}
+    <div class="flex flex-col gap-1.5">
+      <span class="text-[13px] font-semibold text-text-2">Email</span>
+      <span class="py-2.5 text-sm text-text">{{ account_email }}</span>
+    </div>
+  </div>
+  <div>{{ primary_button("Save name", size="sm") }}</div>
+</form>

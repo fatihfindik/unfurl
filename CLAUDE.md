@@ -54,7 +54,7 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - [ ] M12a AI assistant: floating panel, application + learning tools
 - [ ] M12b AI assistant: document editing
 - [x] M13a Polish: error pages, empty states, loading, Settings › Documents
-- [ ] M13b GDPR: legal pages, data export, account deletion, Settings › Account
+- [x] M13b GDPR: legal pages, data export, account deletion, Settings › Account
 - [ ] M13c Deploy (after the AI milestones and M6)
 - [ ] M13d Portfolio README
 

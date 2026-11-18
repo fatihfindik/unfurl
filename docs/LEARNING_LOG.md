@@ -487,3 +487,32 @@
   Settings › Documents). D-125…D-129. Earlier the same day: M13 split (D-123, D-124).
 - WORKFLOW: no.
 
+## M13b — GDPR: export, account deletion, Settings › Account, legal pages (2026-11-18, log written by Claude)
+
+**What I learned**
+- A big download doesn't have to fit in memory: a generator yields the JSON piece by
+  piece and `StreamingResponse` sends each piece; rows come in batches (`yield_per`).
+  The stream needs its own database session, because the route's one closes first.
+- "No table forgotten" can be a test: walking the foreign keys back from `user` finds
+  every table that belongs to a user, also the ones without a `user_id` column.
+- `ON DELETE CASCADE` turns "delete everything of this user" into one `DELETE`, but
+  files on disk are outside the transaction: delete them only after the commit.
+- Rotating the whole session after a password change would also rotate the CSRF
+  token, and the open page would get 403 on its next request; updating only the
+  version number is enough for a user who is already signed in.
+- Personal data (the Impressum) belongs in `.env`, not in a repository that may be
+  public; tests set those variables to empty so the real values never show up.
+
+**What was hard**
+- Comparing table counts on Postgres: the "before" snapshot has to be taken before
+  the user being deleted exists.
+
+**What I will do differently**
+- Keep one helper that fills every table (`tests/account_data.py`) and reuse it for
+  every "all of a user's data" test.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.22 (export format and exclusions, deletion with the login lockout,
+  Settings › Account, legal pages with `LEGAL_*`, minimum age 16). D-130…D-133.
+- WORKFLOW: no.
+

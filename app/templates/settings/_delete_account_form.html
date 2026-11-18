@@ -1,0 +1,12 @@
+{#- The Delete my account form inside its modal (D-131). Sent with htmx; a wrong
+    password comes back here, success leaves the page (HX-Redirect).
+    Context: delete_error (optional). -#}
+{%- from "components/forms.html" import text_field -%}
+<form id="delete-account-form" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/settings/delete-account" hx-target="this" hx-swap="outerHTML">
+  <p class="m-0 text-sm text-text-2">This deletes your profile, CVs, applications, learning plan, notifications and photo for good. There is no Undo. Download your data first if you want to keep a copy.</p>
+  {{ text_field("password", "Your password", type="password", error=delete_error, autocomplete="current-password", id_prefix="delete") }}
+  <div class="flex justify-end gap-2">
+    <button type="submit" class="inline-flex h-10 items-center rounded-lg bg-red-text px-4 text-sm font-semibold text-white hover:opacity-90">Delete my account</button>
+  </div>
+</form>

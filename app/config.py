@@ -62,6 +62,13 @@ class Settings(BaseSettings):
     # Uploads
     upload_dir: str = "./uploads"
 
+    # Legal pages (D-133). Who runs the site, for the Impressum: only in .env, never
+    # in the repository. Until a lawyer has reviewed the texts, the pages say "Draft".
+    legal_operator_name: str = ""
+    legal_address: str = ""
+    legal_email: str = ""
+    legal_reviewed: bool = False
+
     @field_validator("default_timezone")
     @classmethod
     def check_timezone(cls, value: str) -> str:

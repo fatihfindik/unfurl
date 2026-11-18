@@ -10,6 +10,10 @@ os.environ["APP_ENV"] = "development"
 os.environ["DATABASE_URL"] = "sqlite://"  # in-memory SQLite, nothing written to disk
 os.environ["SCHEDULER_ENABLED"] = "false"
 os.environ["EMAIL_BACKEND"] = "console"  # never SMTP from tests, whatever .env says
+# The real Impressum details live in .env; tests never read them (D-133).
+for name in ("LEGAL_OPERATOR_NAME", "LEGAL_ADDRESS", "LEGAL_EMAIL"):
+    os.environ[name] = ""
+os.environ["LEGAL_REVIEWED"] = "false"
 
 from collections.abc import Iterator  # noqa: E402
 

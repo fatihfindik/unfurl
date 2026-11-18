@@ -1,10 +1,15 @@
 {% extends "legal/layout.html" %}
-{#- Impressum: required for websites run from Austria. Filled in before launch (M13). -#}
+{#- Impressum (§ 5 ECG, § 25 MedienG), for a non-commercial site for now (D-133).
+    If Unfurl becomes commercial, add the full § 5 ECG details (company register,
+    VAT number, chamber, trade law). The values come from LEGAL_* in .env. -#}
 {% block body %}
-  <p class="m-0">This page will show who runs Unfurl and how to reach them, as Austrian law requires.</p>
+  <p class="m-0">Information as required by Austrian law (§ 5 E-Commerce-Gesetz, § 25 Mediengesetz).</p>
   <dl class="m-0 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5">
-    <dt class="font-semibold text-text">Operator</dt><dd class="m-0">[to be added]</dd>
-    <dt class="font-semibold text-text">Address</dt><dd class="m-0">[to be added]</dd>
-    <dt class="font-semibold text-text">Contact</dt><dd class="m-0">[to be added]</dd>
+    <dt class="font-semibold text-text">Operator and media owner</dt><dd class="m-0">{{ operator.name }}</dd>
+    <dt class="font-semibold text-text">Address</dt><dd class="m-0">{{ operator.address }}</dd>
+    <dt class="font-semibold text-text">Email</dt>
+    <dd class="m-0">{% if operator.has_email %}<a href="mailto:{{ operator.email }}" class="text-link">{{ operator.email }}</a>{% else %}{{ operator.email }}{% endif %}</dd>
+    <dt class="font-semibold text-text">Purpose</dt><dd class="m-0">A free web app for job seekers; a personal portfolio project, not commercial.</dd>
   </dl>
+  <p class="m-0">Content: information about the Unfurl app. Responsible for content: the operator above.</p>
 {% endblock %}

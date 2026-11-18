@@ -1,13 +1,59 @@
 {% extends "legal/layout.html" %}
-{#- Outline from SPEC §10.2. The final text needs a legal review (M13). -#}
+{#- Draft by Claude (D-133), following GDPR Art. 13/14. Provider names come at deploy
+    (M13c); Anthropic is added with the AI features (M5). -#}
 {% block body %}
-  <p class="m-0">This page will explain what personal data Unfurl stores, why, and what you can do with it.</p>
-  <h2 class="m-0 mt-2 text-lg font-bold text-text">What it will cover</h2>
+  <p class="m-0">This page explains what personal data Unfurl stores, why, how long, and what you can do about it.</p>
+
+  {{ h2("Who is responsible") }}
+  <p class="m-0">Unfurl is run by {{ operator.name }} ({{ operator.address }}), the controller under the GDPR. Contact: {{ operator.email }}. Unfurl does not need a data protection officer; write to this address for anything about your data.</p>
+
+  {{ h2("What we store and why") }}
   <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5">
-    <li>Hosting and database in the EU.</li>
-    <li>Service providers that process data for us: hosting, email delivery and Anthropic (AI features).</li>
-    <li>Cookies: only what the app needs to work, the session cookie and your theme choice. No analytics, so no cookie banner.</li>
-    <li>Exporting your data and deleting your account from Settings.</li>
-    <li>Optional profile details (date of birth, nationality, photo) are never sent to the AI.</li>
+    <li><b>Your account:</b> name, email address, a hash of your password (never the password itself), your time zone and settings.</li>
+    <li><b>What you save in the app:</b> your profile (experience, education, skills, languages, certifications, projects, optional photo, date of birth and nationality), your CVs and their versions, the jobs you save and their notes, your learning goals and tasks, and your notifications.</li>
+    <li><b>Why:</b> to provide the service you signed up for (GDPR Art. 6(1)(b)). Without an account and the data you enter, the app can't work; everything beyond your name, email and password is up to you.</li>
+    <li>Ticking "I agree" when you sign up confirms that you read this page; it is not a consent we rely on.</li>
   </ul>
+
+  {{ h2("Data about other people") }}
+  <p class="m-0">Job ads you save can contain a recruiter's name or email address. We store them only because you saved them, to help you with your application (legitimate interest, Art. 6(1)(f)), and they are deleted with the job or your account.</p>
+
+  {{ h2("Security and abuse protection") }}
+  <p class="m-0">To stop password guessing and spam, the app counts requests and failed sign-ins per IP address and email address for up to one hour. These counts are kept only in memory and are never written to a database (legitimate interest, Art. 6(1)(f)). The hosting provider keeps technical logs with IP addresses for a short time; details follow before launch.</p>
+
+  {{ h2("Who processes data for us") }}
+  <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5">
+    <li><b>Hosting and database</b> in the EU (Frankfurt, Germany). [Provider named before launch.]</li>
+    <li><b>Email delivery</b> for verification, password and reminder emails. [Provider named before launch.]</li>
+    <li>Each provider works under a data processing agreement (Art. 28). AI features are not active yet; this page will list the AI provider before they are.</li>
+  </ul>
+
+  {{ h2("No automated decisions") }}
+  <p class="m-0">Unfurl makes no decisions about you with legal or similar effect (Art. 22). Suggestions in the app only help you; you decide what to do.</p>
+
+  {{ h2("How long we keep it") }}
+  <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5">
+    <li>Everything in your account: until you delete it, or delete your account.</li>
+    <li>Notifications: read ones 30 days, unread ones 90 days.</li>
+    <li>A deleted item you can still undo: a few minutes.</li>
+    <li>When you delete your account, all of it is deleted at once, including your photo.</li>
+  </ul>
+
+  {{ h2("Your rights") }}
+  <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5">
+    <li><b>Access and portability:</b> Settings › Privacy › "Export my data" downloads everything as one file.</li>
+    <li><b>Erasure:</b> Settings › Privacy › "Delete my account" deletes everything for good.</li>
+    <li><b>Rectification:</b> you can change your data in the app at any time.</li>
+    <li><b>Restriction and objection:</b> write to {{ operator.email }}.</li>
+    <li><b>Complaint:</b> you can complain to a data protection authority, in Austria the Datenschutzbehörde (dsb.gv.at).</li>
+  </ul>
+
+  {{ h2("Cookies") }}
+  <p class="m-0">Only what the app needs: a session cookie while you are signed in, and a cookie with your theme choice (light or dark). No analytics, no advertising, so no cookie banner.</p>
+
+  {{ h2("Minimum age") }}
+  <p class="m-0">Unfurl is for people aged {{ minimum_age }} or older.</p>
+
+  {{ h2("What is never sent to AI") }}
+  <p class="m-0">Your date of birth, nationality and photo are optional and are never sent to an AI provider.</p>
 {% endblock %}

@@ -18,8 +18,7 @@ from app.models.user import EMAIL_MAX_LENGTH, normalize_email
 from app.security import client_ip, email_limiter, limiter, login_lockout, safe_redirect_path
 from app.services import email_service
 from app.services.auth_service import (
-    PASSWORD_MAX_LENGTH,
-    PASSWORD_MIN_LENGTH,
+    FULL_NAME_MAX_LENGTH,
     EmailTaken,
     authenticate,
     create_user,
@@ -28,6 +27,7 @@ from app.services.auth_service import (
     make_reset_token,
     make_verify_token,
     mark_verified,
+    password_error,
     remember_timezone,
     require_user,
     reset_password,
@@ -46,7 +46,6 @@ CurrentUser = Annotated[User | None, Depends(current_user)]
 RequiredUser = Annotated[User, Depends(require_user)]
 FormText = Annotated[str, Form()]
 
-FULL_NAME_MAX_LENGTH = 200
 LOGIN_ERROR = "Invalid email or password."
 LOCKED_ERROR = "Too many attempts. Try again in 15 minutes."
 RESENT_MESSAGE = "Email sent. Check your spam folder too."
@@ -54,6 +53,7 @@ WAIT_MESSAGE = "Please wait a few minutes before asking for another email."
 # The same answer whether the email has an account or not (no account guessing).
 FORGOT_MESSAGE = "If an account exists, we sent an email."
 PASSWORD_CHANGED_MESSAGE = "Your password was changed. Sign in with your new password."
+ACCOUNT_DELETED_MESSAGE = "Your account and all your data were deleted."
 
 # Verify and reset links carry their token in the URL. "Referrer-Policy: no-referrer"
 # stops the browser from sending that URL to any other page opened from there.
@@ -84,16 +84,23 @@ def send_verification_email(background_tasks: BackgroundTasks, user: User) -> No
 
 
 @router.get("/login", response_class=HTMLResponse)
-def login_page(request: Request, user: CurrentUser, next: str = "", reset: str = ""):
+def login_page(
+    request: Request, user: CurrentUser, next: str = "", reset: str = "", deleted: str = ""
+):
     if user is not None:
         return redirect(safe_redirect_path(next))
+    notice = None
+    if reset:
+        notice = PASSWORD_CHANGED_MESSAGE
+    elif deleted:
+        notice = ACCOUNT_DELETED_MESSAGE  # after Delete my account (D-131)
     return templates.TemplateResponse(
         request,
         "auth/login.html",
         {
             "next": safe_redirect_path(next),
             "email": "",
-            "notice": PASSWORD_CHANGED_MESSAGE if reset else None,
+            "notice": notice,
         },
     )
 
@@ -144,14 +151,6 @@ def login(
 
 
 # --- Register -----------------------------------------------------------------------
-
-
-def password_error(password: str) -> str | None:
-    if len(password) < PASSWORD_MIN_LENGTH:
-        return f"Password must be at least {PASSWORD_MIN_LENGTH} characters."
-    if len(password) > PASSWORD_MAX_LENGTH:
-        return f"Password must be at most {PASSWORD_MAX_LENGTH} characters."
-    return None
 
 
 def validate_registration(full_name: str, email: str, password: str, privacy: str) -> dict:

@@ -20,9 +20,15 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.db import get_session
 from app.models import User
-from app.models.base import utcnow
+from app.models.base import as_utc, utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
-from app.security import UserFacingHTTPException, get_csrf_token, safe_redirect_path
+from app.security import (
+    UserFacingHTTPException,
+    client_ip,
+    get_csrf_token,
+    login_lockout,
+    safe_redirect_path,
+)
 from app.services import application_service, clock
 
 PASSWORD_MIN_LENGTH = 10
@@ -40,6 +46,10 @@ _DUMMY_HASH = password_hasher.hash(secrets.token_urlsafe(16))
 # Keys in the signed session cookie (D-021).
 SESSION_USER_ID = "user_id"
 SESSION_VERSION = "session_version"
+# When the account was created: on SQLite a deleted user's id can be given to the
+# next sign-up, so id + version alone could let an old cookie into a new account
+# (security review M13b, M2).
+SESSION_ACCOUNT = "account"
 # The user's time zone name, for app/main.py's UserTimezone (D-109). Empty: the default.
 SESSION_TIMEZONE = "tz"
 
@@ -55,6 +65,18 @@ TOKEN_MAX_LENGTH = 512
 
 class EmailTaken(Exception):
     """Register was called with an email that already has an account."""
+
+
+FULL_NAME_MAX_LENGTH = 200
+
+
+def password_error(password: str) -> str | None:
+    """The rule for a new password (register, reset, Settings › Account), or None."""
+    if len(password) < PASSWORD_MIN_LENGTH:
+        return f"Password must be at least {PASSWORD_MIN_LENGTH} characters."
+    if len(password) > PASSWORD_MAX_LENGTH:
+        return f"Password must be at most {PASSWORD_MAX_LENGTH} characters."
+    return None
 
 
 def hash_password(password: str) -> str:
@@ -119,8 +141,14 @@ def start_session(request: Request, user: User) -> None:
     request.session.clear()
     request.session[SESSION_USER_ID] = user.id
     request.session[SESSION_VERSION] = user.session_version
+    request.session[SESSION_ACCOUNT] = account_stamp(user)
     request.session[SESSION_TIMEZONE] = user.timezone
     get_csrf_token(request)
+
+
+def account_stamp(user: User) -> str:
+    """The account's creation time as text, kept in the session (SESSION_ACCOUNT)."""
+    return as_utc(user.created_at).isoformat()
 
 
 def remember_timezone(session: Session, user: User, name: str | None) -> None:
@@ -139,6 +167,49 @@ def remember_timezone(session: Session, user: User, name: str | None) -> None:
 def end_session(request: Request) -> None:
     """Log out: forget everything in the session cookie."""
     request.session.clear()
+
+
+def check_password_with_lockout(request: Request, user: User, password: str) -> str:
+    """Check the logged-in user's password before a sensitive change (Settings ›
+    Account, Delete my account; D-131). Returns "ok", "wrong" or "locked".
+
+    It shares the login lockout (same IP + email): an open session can't be used to
+    guess the password faster than the sign-in form allows. While locked, even the
+    right password is refused. A too long password counts as wrong without running
+    argon2 (it is slow on purpose)."""
+    ip = client_ip(request)
+    if login_lockout.is_locked(ip, user.email):
+        return "locked"
+    if len(password) > PASSWORD_MAX_LENGTH or not verify_password(password, user.password_hash):
+        login_lockout.record_failure(ip, user.email)
+        return "wrong"
+    login_lockout.clear(ip, user.email)
+    return "ok"
+
+
+def change_password(session: Session, request: Request, user: User, new_password: str) -> bool:
+    """Set a new password (D-132). Other devices are signed out; this session goes
+    on with the new version. Only the version in the session changes: start_session
+    would also make a new CSRF token, and the open page still sends the old one.
+
+    One UPDATE that only matches while the password is the one just checked (like
+    reset_password, D-121). False if it changed in the meantime."""
+    result = session.exec(
+        update(User)
+        .where(User.id == user.id, User.password_hash == user.password_hash)
+        .values(
+            password_hash=hash_password(new_password),
+            session_version=User.session_version + 1,
+            updated_at=utcnow(),
+        )
+        .execution_options(synchronize_session=False)
+    )
+    session.commit()
+    session.refresh(user)
+    if result.rowcount != 1:
+        return False
+    request.session[SESSION_VERSION] = user.session_version
+    return True
 
 
 def sign_out(session: Session, request: Request) -> None:
@@ -176,7 +247,11 @@ def current_user(
     if user_id is None:
         return None
     user = session.get(User, user_id)
-    if user is None or user.session_version != request.session.get(SESSION_VERSION):
+    if (
+        user is None
+        or user.session_version != request.session.get(SESSION_VERSION)
+        or account_stamp(user) != request.session.get(SESSION_ACCOUNT)
+    ):
         end_session(request)
         return None
     request.state.user = user
