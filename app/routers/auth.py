@@ -53,6 +53,7 @@ WAIT_MESSAGE = "Please wait a few minutes before asking for another email."
 # The same answer whether the email has an account or not (no account guessing).
 FORGOT_MESSAGE = "If an account exists, we sent an email."
 PASSWORD_CHANGED_MESSAGE = "Your password was changed. Sign in with your new password."
+ACCOUNT_DELETED_MESSAGE = "Your account and all your data were deleted."
 
 # Verify and reset links carry their token in the URL. "Referrer-Policy: no-referrer"
 # stops the browser from sending that URL to any other page opened from there.
@@ -83,16 +84,23 @@ def send_verification_email(background_tasks: BackgroundTasks, user: User) -> No
 
 
 @router.get("/login", response_class=HTMLResponse)
-def login_page(request: Request, user: CurrentUser, next: str = "", reset: str = ""):
+def login_page(
+    request: Request, user: CurrentUser, next: str = "", reset: str = "", deleted: str = ""
+):
     if user is not None:
         return redirect(safe_redirect_path(next))
+    notice = None
+    if reset:
+        notice = PASSWORD_CHANGED_MESSAGE
+    elif deleted:
+        notice = ACCOUNT_DELETED_MESSAGE  # after Delete my account (D-131)
     return templates.TemplateResponse(
         request,
         "auth/login.html",
         {
             "next": safe_redirect_path(next),
             "email": "",
-            "notice": PASSWORD_CHANGED_MESSAGE if reset else None,
+            "notice": notice,
         },
     )
 

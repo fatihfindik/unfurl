@@ -1,5 +1,7 @@
 {#- Settings › Privacy (D-130, D-131): download everything, or delete the account.
-    The export is a plain form post (the browser downloads the file). -#}
+    The export is a plain form post (the browser downloads the file); the delete
+    button opens a modal that asks for the password. -#}
+{%- from "components/modal.html" import modal -%}
 <div class="flex flex-col gap-3">
   <div class="flex flex-wrap items-center justify-between gap-4">
     <span class="flex flex-col gap-0.5">
@@ -11,4 +13,15 @@
       <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3.5 text-sm font-semibold text-text hover:bg-muted">Export my data</button>
     </form>
   </div>
+  <div class="flex flex-wrap items-center justify-between gap-4 border-t border-muted pt-3">
+    <span class="flex flex-col gap-0.5">
+      <span class="text-sm font-semibold text-text">Delete my account</span>
+      <span class="text-[13px] text-text-3">Deletes all your data and your photo for good.</span>
+    </span>
+    <button type="button" data-dialog-open="delete-account"
+            class="inline-flex h-9 items-center rounded-lg border border-red-text bg-surface px-3.5 text-sm font-semibold text-red-text hover:bg-red-bg">Delete my account</button>
+  </div>
 </div>
+{% call modal("delete-account", "Delete your account?") %}
+  {% include "settings/_delete_account_form.html" %}
+{% endcall %}

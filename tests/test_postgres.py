@@ -19,13 +19,16 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect, text
 from sqlmodel import Session, select
 
-from app.models import Experience, LearningGoal, Notification, User
-from app.services import application_service as apps
-from app.services import auth_service, document_service, profile_service
-from app.services import learning_service as learning
+from app.db import get_session
+from app.main import app
+from app.models import Experience, User
+from app.services import auth_service, profile_service
+from tests.account_data import fill_account
+from tests.helpers import USER_EMAIL, USER_PASSWORD, csrf_token, log_in
 
 URL = os.environ.get("TEST_POSTGRES_URL", "")
 ROOT = Path(__file__).parent.parent
@@ -58,61 +61,56 @@ def new_user(session, email="jana@example.com") -> User:
     return auth_service.create_user(session, email=email, password="x" * 12, full_name="Jana")
 
 
-# --- Deleting a user deletes everything of theirs (D-034, needed by M13b) -------------------
+# --- Deleting a user deletes everything of theirs (D-034, D-131) -----------------------------
 
 
-def test_deleting_a_user_cascades_to_every_table(pg):
-    user = new_user(pg)
+def counts(engine) -> dict[str, int]:
+    with engine.connect() as connection:
+        tables = [t for t in inspect(connection).get_table_names() if t != "alembic_version"]
+        return {t: connection.execute(text(f'SELECT count(*) FROM "{t}"')).scalar() for t in tables}
+
+
+def test_deleting_a_user_cascades_to_every_table(pg, pg_engine):
     other = new_user(pg, "other@example.com")
-    profile = profile_service.get_or_create_profile(pg, user)
-    profile_service.add_item(
-        pg,
-        profile,
-        Experience,
-        {"title": "PM", "company": "Acme", "start_date": dt.date(2020, 1, 1)},
-    )
-    document_service.create_cv(pg, user, "My CV", "en", "classic")
-    job = apps.create(pg, user, company="Acme", job_title="PM")
-    apps.move(pg, user, job, "applied")
-    goal = LearningGoal(user_id=user.id, title="Python")
-    pg.add(goal)
-    pg.commit()
-    task = learning.add_task(
-        pg, user, goal, title="Week 1", due_date=dt.date(2026, 11, 18), minutes=30
-    )
-    learning.set_done(pg, user, task, True)
-    learning.preferences(pg, user)
-    pg.add(
-        Notification(
-            user_id=user.id,
-            application_id=job.id,
-            type="follow_up",
-            title="t",
-            body="b",
-            link_url="/",
-            dedupe_key="k",
-        )
-    )
-    pg.commit()
-    user_id = user.id
+    fill_account(pg, other)
+    only_other = counts(pg_engine)
+    user = new_user(pg)
+    fill_account(pg, user)
 
     pg.delete(user)
     pg.commit()
 
-    with pg.bind.connect() as connection:
-        leftovers = {}
-        for table in inspect(connection).get_table_names():
-            columns = {column["name"] for column in inspect(connection).get_columns(table)}
-            if "user_id" in columns:
-                count = connection.execute(
-                    text(f'SELECT count(*) FROM "{table}" WHERE user_id = :id'), {"id": user_id}
-                ).scalar()
-                if count:
-                    leftovers[table] = count
-        experiences = connection.execute(text("SELECT count(*) FROM experience")).scalar()
-    assert leftovers == {}
-    assert experiences == 0  # profile rows go with the profile
-    assert pg.get(User, other.id) is not None  # nobody else's data
+    # Every table is back to the other user's rows: nothing of the user is left,
+    # links between tables (a CV of a job, a task of a resource, …) included.
+    assert counts(pg_engine) == only_other
+
+
+def test_delete_my_account_works_on_postgres(pg, pg_engine):
+    """The route, with the app's database session on Postgres."""
+    other = new_user(pg, "other@example.com")
+    fill_account(pg, other)
+    only_other = counts(pg_engine)
+    user = auth_service.create_user(pg, email=USER_EMAIL, password=USER_PASSWORD, full_name="Jana")
+    fill_account(pg, user)
+
+    def pg_session():
+        with Session(pg_engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = pg_session
+    try:
+        client = TestClient(app)
+        assert log_in(client).status_code == 303
+        response = client.post(
+            "/settings/delete-account",
+            data={"password": USER_PASSWORD, "csrf_token": csrf_token(client)},
+            follow_redirects=False,
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.headers["location"] == "/login?deleted=1"
+    assert counts(pg_engine) == only_other
 
 
 # --- The profile's 50-row limit holds when two adds come at once (#22, D-121) ---------------

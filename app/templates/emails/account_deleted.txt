@@ -1,0 +1,9 @@
+Subject: Your Unfurl account was deleted
+
+Hi {{ full_name }},
+
+Your Unfurl account and everything in it (profile, CVs, applications, learning plan, notifications and your photo) were deleted, as you asked. This can't be undone.
+
+If you didn't do this, reply to this email.
+
+Unfurl

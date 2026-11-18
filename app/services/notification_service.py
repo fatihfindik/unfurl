@@ -335,8 +335,8 @@ def generate_for_user(
     constraint stops it: everything of this user is rolled back and counted as 0
     (the next run, 15 minutes later, finds the rest).
 
-    A study reminder email is added to `emails` (generate_due sends them all after
-    the loop); without a list it is sent right away."""
+    A study reminder email is added to `emails` as (user id, email) (generate_due
+    sends them all after the loop); without a list it is sent right away."""
     due = due_for_user(session, user, now)
     if not due:
         return 0
@@ -377,7 +377,7 @@ def generate_for_user(
                 if emails is None:
                     reminder_email.send_all([email])
                 else:
-                    emails.append(email)
+                    emails.append((user.id, email))
     return len(new)
 
 
@@ -399,9 +399,22 @@ def generate_due(session: Session, now: dt.datetime) -> int:
             # Only the id and the kind of error: an error's text can quote data.
             logger.error("Notifications for user %s failed: %s", user_id, type(exc).__name__)
     # After every user's reminders are written: a slow mail server can't hold them up
-    # (security review M11b, L1).
-    reminder_email.send_all(emails)
+    # (security review M11b, L1). An account deleted (or unverified) during the run
+    # gets nothing: one query just before sending (D-131).
+    reminder_email.send_all(still_wanted(session, emails))
     return written
+
+
+def still_wanted(session: Session, emails: list) -> list:
+    """The emails of `emails` ((user id, email) pairs) whose user still exists and
+    is verified."""
+    if not emails:
+        return []
+    ids = {user_id for user_id, _ in emails}
+    keep = set(
+        session.exec(select(User.id).where(col(User.id).in_(ids), col(User.is_verified).is_(True)))
+    )
+    return [email for user_id, email in emails if user_id in keep]
 
 
 # --- Cleaning up (D-104) --------------------------------------------------------------------

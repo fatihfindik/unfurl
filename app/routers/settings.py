@@ -27,13 +27,20 @@ from app.schemas.settings import (
     time_value,
 )
 from app.security import limiter
-from app.services import clock, email_service, export_service, settings_service
+from app.services import (
+    account_service,
+    clock,
+    email_service,
+    export_service,
+    settings_service,
+)
 from app.services import learning_service as learning
 from app.services.auth_service import (
     FULL_NAME_MAX_LENGTH,
     SESSION_TIMEZONE,
     change_password,
     check_password_with_lockout,
+    end_session,
     password_error,
     require_user,
 )
@@ -306,3 +313,35 @@ def export_data(request: Request, session: DbSession, user: RequiredUser):
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{export_service.file_name()}"'},
     )
+
+
+# --- Privacy: delete my account (D-131) --------------------------------------------------------
+
+
+@router.post("/settings/delete-account", response_class=HTMLResponse)
+@limiter.limit("5/hour")
+def delete_account(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    background_tasks: BackgroundTasks,
+    password: FormText = "",
+):
+    """Delete the account and everything in it, after the password (login lockout).
+    The answer leaves the page: HX-Redirect for htmx (the modal sends it), else 303."""
+    check = check_password_with_lockout(request, user, password)
+    if check != "ok":
+        context = {"delete_error": PASSWORD_CHECK_ERRORS[check]}
+        return templates.TemplateResponse(request, "settings/_delete_account_form.html", context)
+
+    gone = account_service.delete_account(session, user)
+    end_session(request)
+    if gone.verified:  # never to an address that might not be theirs (D-131)
+        email = email_service.render_email(
+            "account_deleted", to=gone.email, full_name=gone.full_name
+        )
+        background_tasks.add_task(email_service.send_email, email)
+    target = "/login?deleted=1"
+    if request.headers.get("HX-Request") == "true":
+        return Response(status_code=200, headers={"HX-Redirect": target})
+    return Response(status_code=303, headers={"location": target})
