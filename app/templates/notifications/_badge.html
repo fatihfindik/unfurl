@@ -1,0 +1,9 @@
+{#- The unread count inside the bell button (D-105). It reloads itself every two
+    minutes and on "notifications-changed"; with 0 it is empty and takes no room.
+    Context: count. -#}
+<span id="notification-badge" hx-get="/notifications/badge" hx-trigger="every 120s, notifications-changed from:body" hx-swap="outerHTML">
+  {%- if count %}
+    <span class="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#D92D20] px-1 text-[11px] font-bold leading-none text-white">{{ "99+" if count > 99 else count }}</span>
+    <span class="sr-only">, {{ count }} unread</span>
+  {%- endif -%}
+</span>

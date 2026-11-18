@@ -398,3 +398,33 @@
   NotificationPreference with `rest_days` only, reschedule and delete with Undo,
   fit-gap goals moved to M7, Next reminder to M11). D-089…D-096.
 - WORKFLOW: no.
+
+## M11a — Notifications: bell, panel, scheduler (2026-11-18, log written by Claude)
+
+**What I learned**
+- One rule, one place: the reminders come from the same `next_step()` as Needs
+  attention, so the bell and the Applications page can never disagree about a day.
+- A unique key with the step's day plus a short window (7 days) stops duplicates
+  without a separate "sent" table, and survives the cleanup of old notifications.
+- A background job needs its own session and small commits: one user's problem is
+  rolled back alone, the other users still get their reminders.
+- Times on a server: Docker runs in UTC, so the scheduler gets the Vienna time zone
+  explicitly, or "03:00" would be 04:00 or 05:00 for the user.
+- Testing a race needs the second writer to come at the right moment (after the
+  "does it exist?" check), from its own session; otherwise the test proves nothing.
+
+**What was hard**
+- The first plan kept the duplicate key only on the notification row; after the
+  cleanup the same reminder would have come back. plan-reviewer caught it.
+
+**What I will do differently**
+- Check generated migrations against Postgres types (autogenerate wrote a SQLite
+  default `sa.text("1")` for a boolean).
+- Run time-zone tests with `TZ=UTC` too: my Mac is in Vienna, so a cron trigger without
+  its own time zone passed locally and failed on CI (it would have run at 04:00 in Docker).
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.15 (M11 split into M11a/M11b, reminders from `next_step()`, 7-day
+  window, `application_id` and `dedupe_key`, the 200 cap deletes read ones only).
+  D-097…D-106.
+- WORKFLOW: D-097, manual testing once at the end of the app.

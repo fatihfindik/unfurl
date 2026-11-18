@@ -3,6 +3,8 @@
 Run locally with: uv run fastapi dev app/main.py
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
@@ -10,8 +12,19 @@ from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.sessions import SessionMiddleware
 
+from app import scheduler
 from app.config import Settings, get_settings
-from app.routers import applications, auth, cvs, learning, legal, placeholders, profile, undo
+from app.routers import (
+    applications,
+    auth,
+    cvs,
+    learning,
+    legal,
+    notifications,
+    placeholders,
+    profile,
+    undo,
+)
 from app.routers import settings as settings_routes  # `settings` is the app config below
 from app.security import hide_tokens_in_access_log, limiter, verify_csrf
 from app.services.auth_service import LoginRequired, login_required_response
@@ -23,6 +36,40 @@ SESSION_COOKIE = "unfurl_session"
 # cookie for us ("cookie tossing"). Locally there is no HTTPS, so the plain name is used.
 SESSION_COOKIE_PRODUCTION = "__Host-unfurl_session"
 SESSION_MAX_AGE = 14 * 24 * 60 * 60  # 14 days, in seconds (SPEC §6.1)
+
+# GET requests the page sends by itself (the bell's badge every two minutes, its panel).
+BACKGROUND_GETS = frozenset({"/notifications/badge", "/notifications/panel"})
+
+
+class KeepSessionCookie:
+    """Drop the Set-Cookie header from the answers to BACKGROUND_GETS.
+
+    The session lives in the cookie, and the session middleware sends it again with
+    every answer. A background request that is still on its way when the user signs
+    out would then put the old session back, and an open tab would keep a session
+    alive for ever. These answers only read, so they don't need to send it.
+    A small "ASGI middleware": it sees every request and can change the answer.
+    """
+
+    def __init__(self, app, paths: frozenset[str]):
+        self.app = app
+        self.paths = paths
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] != "GET" or scope["path"] not in self.paths:
+            await self.app(scope, receive, send)
+            return
+
+        async def send_without_cookie(message):
+            if message["type"] == "http.response.start":
+                message["headers"] = [
+                    (name, value)
+                    for name, value in message.get("headers", [])
+                    if name.lower() != b"set-cookie"
+                ]
+            await send(message)
+
+        await self.app(scope, receive, send_without_cookie)
 
 
 def rate_limit_response(request: Request, exc: RateLimitExceeded):
@@ -49,8 +96,17 @@ def create_app(settings: Settings) -> FastAPI:
     show_api_docs = settings.app_env == "development"
     is_production = settings.app_env == "production"
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        """Runs once when the app starts (before `yield`) and once when it stops.
+        The notification jobs (app/scheduler.py) run in between, if switched on."""
+        running = scheduler.start(settings)
+        yield
+        scheduler.shutdown(running)
+
     app = FastAPI(
         title="Unfurl",
+        lifespan=lifespan,
         debug=settings.debug,
         docs_url="/docs" if show_api_docs else None,
         redoc_url="/redoc" if show_api_docs else None,
@@ -72,6 +128,10 @@ def create_app(settings: Settings) -> FastAPI:
         https_only=is_production,
     )
 
+    # Added after the session middleware, so it wraps it: the bell's polling answers
+    # don't rewrite the session cookie (M11a review L1/L2).
+    app.add_middleware(KeepSessionCookie, paths=BACKGROUND_GETS)
+
     # Pages that need a login raise LoginRequired; this turns it into a redirect.
     app.add_exception_handler(LoginRequired, login_required_response)
 
@@ -88,6 +148,8 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(applications.router)
     app.include_router(learning.router)
+    app.include_router(notifications.router)
+    app.include_router(notifications.badge_router)
     app.include_router(placeholders.router)
     app.include_router(settings_routes.router)
     app.include_router(undo.router)

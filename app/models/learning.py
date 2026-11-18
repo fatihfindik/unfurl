@@ -6,7 +6,7 @@ The rules live in app/services/learning_service.py.
 
 import datetime as dt
 
-from sqlalchemy import JSON, Column, Text
+from sqlalchemy import JSON, Column, Text, true
 from sqlmodel import Field, SQLModel
 
 from app.models.base import created_at_field, datetime_column, updated_at_field
@@ -103,8 +103,8 @@ class StudyLog(SQLModel, table=True):
 
 
 class NotificationPreference(SQLModel, table=True):
-    """One row per user (SPEC §5.11). M10 only needs the rest days (D-090); the
-    reminder settings come with M11."""
+    """One row per user (SPEC §5.11). M10 added the rest days (D-090), M11a the job
+    search reminders (D-102); the study reminder settings come with M11b."""
 
     __tablename__ = "notificationpreference"
 
@@ -113,6 +113,10 @@ class NotificationPreference(SQLModel, table=True):
     rest_days: list[str] = Field(
         default_factory=lambda: list(DEFAULT_REST_DAYS), sa_column=Column(JSON, nullable=False)
     )
+    # server_default: rows saved before M11a get "on" too.
+    follow_up_enabled: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
+    interview_enabled: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
+    stale_saved_enabled: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
 
     created_at: dt.datetime = created_at_field()
     updated_at: dt.datetime = updated_at_field()

@@ -36,7 +36,9 @@ settings = get_settings()
 # FastAPI may run a request on a different thread, so this check is turned off for SQLite.
 connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
 
-engine = create_engine(settings.database_url, connect_args=connect_args)
+# hide_parameters: an error message never contains the values of a query (company
+# names, notes …), so a logged database error holds no personal data (M11a review, M1).
+engine = create_engine(settings.database_url, connect_args=connect_args, hide_parameters=True)
 enable_sqlite_foreign_keys(engine)
 
 

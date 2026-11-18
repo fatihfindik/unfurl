@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.14 — 2026-11-17
+> **Durum:** MVP planı, v2.1.15 — 2026-11-18
+> v2.1.15: M11 ikiye bölündü (M11a bildirim temeli ve iş arama bildirimleri, M11b Settings › Notifications, saat dilimi ve çalışma hatırlatması). İş arama bildirimleri `next_step()`'ten üretilir (Needs attention ile aynı gün), her yeni adım için bir kez, 7 günlük pencere; `Notification.application_id` ve `dedupe_key`; 200 sınırında sadece okunmuşlar silinir. Elle test uygulamanın sonunda (D-097). Kararlar: DECISIONS D-097…D-106.
 > v2.1.14: M10 Design kararları (Fatih onayladı). Seri her istekte hesaplanır, dinlenme gününde çalışılırsa sayılır. `progress_pct` ve hedef rengi hesaplanır, saklanmaz. Learning tablolarının hepsinde `user_id`. NotificationPreference M10'da sadece `rest_days` ile açılır. Görev tarihini değiştirme ve hedef/görev silme (Undo ile). "Add to learning plan" ve eksikten oluşturulan hedef M7'ye, Next reminder M11'e, asistan linki M12'ye. Kararlar: DECISIONS D-089…D-096.
 > v2.1.13: M4c Design kararları (Claude, Fatih'in yetkisiyle): `application_id` = başvurunun kopyaları (soy), `Application.cv_id` = şu anki CV; Applied/Interview/Offer'a her geçişte bağlı taslak CV kilitlenir; versiyon numarası master başına; silmede Undo için kısa süreli çöp tablosu. AI'ya bağlı milestone'lar (M5, M7, M8, M9, M12) sonraya, M10/M11 önce (D-088). Kararlar: DECISIONS D-080…D-088.
 > v2.1.12: M4b Design kararları. Otomatik next step hesaplanır, `next_action_*` sadece elle konan adımı tutar; "Done" kuralı (thank-you → 5 gün sonra follow-up, diğerleri durum değişene kadar yok). Tarih ve saatler `DEFAULT_TIMEZONE`'da. `snoozed_until`. Needs attention etiketleri. Details düzenleme formu ve `posting_closes_at` M4b'de; Apply sekmesi M7'de. Kararlar: DECISIONS D-071…D-079.
@@ -156,7 +157,7 @@
 | Oturum | Starlette `SessionMiddleware` (imzalı, HTTP-only cookie) | |
 | Token (e-posta doğrulama, şifre sıfırlama) | **itsdangerous** `URLSafeTimedSerializer` | |
 | Rate limiting | **slowapi** | Login, register, AI endpoint'leri |
-| Zamanlanmış işler | **APScheduler** (uygulama içinde, tek instance) | Günlük çalışma hatırlatmaları, bildirim üretimi. Gerekirse ileride ayrı bir worker'a taşınır. |
+| Zamanlanmış işler | **APScheduler** 3.x (uygulama içinde, tek instance) | Günlük çalışma hatırlatmaları, bildirim üretimi (D-103). Gerekirse ileride ayrı bir worker'a taşınır. |
 | Şifreleme (BYOK anahtarı) | **cryptography** (Fernet) | |
 | E-posta | SMTP (`aiosmtplib`). Dev ortamında e-postalar konsola yazılır. | Sağlayıcı: Resend / Brevo / Mailgun SMTP |
 | PDF | **WeasyPrint** | HTML+CSS → PDF |
@@ -506,9 +507,9 @@ Beş Learning tablosunun (NotificationPreference dahil) hepsinde `user_id` (FK, 
 **Seri (streak) kuralı:** Bir gün, en az bir görev tamamlandıysa veya StudyLog toplamı en az 10 dakikaysa "aktif" sayılır. Bugünden geriye sayılır: aktif gün +1 (dinlenme günü de dahil); kullanıcının seçtiği **dinlenme günleri** (ör. Cumartesi-Pazar) aktif değilse atlanır, seriyi bozmaz; aktif olmayan normal gün seriyi bitirir; bugün henüz aktif değilse seri dünden başlar. Seri her istekte `learning_service` tarafından son 400 günden hesaplanır (D-091; önbellek gerekirse M11'in zamanlayıcısıyla eklenir). Tarihler `DEFAULT_TIMEZONE`'da; kullanıcı saat dilimi M11'de.
 
 ### 5.11 Notification ve NotificationPreference
-**Notification:** user_id, type (study_reminder/follow_up/interview_tomorrow/stale_saved/ai_result/streak_milestone), title, body, link_url, read_at (nullable), created_at. 30 günden eski okunmuş bildirimler silinir.
+**Notification:** user_id, application_id (FK, nullable, başvuru silinince bildirimleri de silinir), type (study_reminder/follow_up/interview_tomorrow/stale_saved/ai_result/streak_milestone), title, body, link_url (sadece uygulamanın kendi yolları), dedupe_key (`(user_id, dedupe_key)` unique, D-100), read_at (nullable), created_at. 30 günden eski okunmuş bildirimler silinir. Okunmamışlar da 90 gün sonra silinir. Kullanıcı başına en fazla 200; aşılırsa sadece okunmuşlar en eskiden silinir (D-104).
 
-**NotificationPreference** (her kullanıcıya 1 satır): study_reminder_enabled (bool, varsayılan true), study_reminder_time (time, varsayılan 19:00), study_reminder_email (bool, varsayılan true), rest_days (JSON list, varsayılan ["sat","sun"]), streak_enabled (bool), follow_up_enabled, interview_enabled, stale_saved_enabled, ai_result_enabled (bool). M10'da tablo sadece `user_id` ve `rest_days` ile açılır; kalan kolonlar M11'de gelir (D-090).
+**NotificationPreference** (her kullanıcıya 1 satır): study_reminder_enabled (bool, varsayılan true), study_reminder_time (time, varsayılan 19:00), study_reminder_email (bool, varsayılan true), rest_days (JSON list, varsayılan ["sat","sun"]), streak_enabled (bool), follow_up_enabled, interview_enabled, stale_saved_enabled, ai_result_enabled (bool). M10'da tablo sadece `user_id` ve `rest_days` ile açılır (D-090); `follow_up_enabled`, `interview_enabled`, `stale_saved_enabled` M11a'da (D-102); çalışma hatırlatması ve seri kolonları M11b'de; `ai_result_enabled` ilk AI sonucu bildirimiyle gelir.
 
 ### 5.12 ApiToken (Chrome eklentisi için)
 | Alan | Tip | Not |
@@ -652,11 +653,13 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 | Tür | Ne zaman | Kanal |
 |---|---|---|
 | study_reminder | Kullanıcının seçtiği saatte, dinlenme günü değilse ve o gün henüz görev tamamlanmadıysa. Metin bugünün ilk görevini içerir: "Time to study: 25 min · CS50P Week 3 · keep your 12-day streak". | Uygulama içi + e-posta (ayara bağlı) |
-| follow_up | `applied` ve 10 günden uzun süredir güncellenmeyen başvuru (başvuru başına bir kez) | Uygulama içi |
-| interview_tomorrow | `interview_at` yarın olan başvuru | Uygulama içi |
-| stale_saved | 7 günden uzun süredir `saved` durumunda olan ilan | Uygulama içi |
+| follow_up | `applied` başvurunun next step'i "Follow up" ve günü geldi (başvurudan 10 gün sonra veya elle konan tarih; Needs attention ile aynı hesap, D-099). Her yeni follow-up adımı için bir kez. "Time to follow up" / "{Company} · no reply for {n} days" | Uygulama içi |
+| interview_tomorrow | Durumu `interview` ve `interview_at` yarın olan başvuru. "Interview tomorrow, {HH:MM}" (tüm gün: saatsiz) / "{Company} · {Role}" | Uygulama içi |
+| stale_saved | `saved` ilanın adımı "Waiting" ve günü geldi (kaydedildikten 7 gün sonra). "Saved {n} days ago" / "{Company} · apply or archive?" | Uygulama içi |
 | ai_result | Uzun süren AI işlemi bittiğinde (mektup, analiz) | Uygulama içi |
 | streak_milestone | 7, 30, 100 günlük seri | Uygulama içi |
+
+**İş arama bildirimleri (D-100):** follow_up ve stale_saved sadece adımın günü son 7 gün içindeyse üretilir; anahtar adımın gününü içerir, böylece temizlenen bildirim yeniden gelmez. Arşivlenmiş ve ertelenmiş başvurular atlanır (erteleme bitince pencere içindeyse gelir). Link başvurunun detay sayfasıdır. Tarihler M11b'ye kadar `DEFAULT_TIMEZONE`'da.
 
 **Ton kuralları:** Destekleyici ve kısa. Suçlama, korkutma veya baskı yok ("Don't lose your streak!" yerine "Keep your 12-day streak going"). Günde en fazla 1 çalışma hatırlatması. E-postalarda tek tıkla "Turn off study reminders" linki.
 
@@ -1189,10 +1192,15 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 - "Add to learning plan" modalı ve eksikten oluşturulan hedef M7'de (D-089)
 - **Kabul:** Görev işaretlenince saat ve sayaçlar güncelleniyor. Seri kuralı (dinlenme günleri dahil) birim testleriyle doğrulanmış.
 
-### M11 — Bildirimler ve hatırlatmalar
-- Notification, NotificationPreference'ın kalan kolonları (`rest_days` M10'da geldi), `User.timezone`, bildirim zili ve paneli, Settings › Notifications, Learning'de "Next reminder" kartı
-- `scheduler.py` (APScheduler): günlük çalışma hatırlatması (uygulama içi + e-posta), follow_up / interview_tomorrow / stale_saved üretimi
-- **Kabul:** Hatırlatma kullanıcının saat diliminde ve seçtiği saatte, dinlenme günlerinde gönderilmiyor. O gün görev tamamlandıysa gönderilmiyor. Aynı bildirim iki kez üretilmiyor. E-postadaki kapatma linki çalışıyor. Zamanlayıcı mantığı saat dondurularak (`freezegun` veya enjekte edilen saat) test edilmiş.
+### M11a — Bildirimler: temel ve iş arama hatırlatmaları
+- Notification tablosu, NotificationPreference'ın iş arama kolonları (D-102), bildirim zili (okunmamış sayısı) ve paneli
+- `scheduler.py` (APScheduler, D-103): follow_up / interview_tomorrow / stale_saved üretimi (`next_step()`'ten, D-099), eski bildirimlerin temizliği (D-104)
+- **Kabul:** Aynı bildirim iki kez üretilmiyor; temizlikten ve 200 sınırından sonra da yeniden üretilmiyor. Bildirimler Needs attention ile aynı günde geliyor. Zamanlayıcı mantığı saat dondurularak (`freezegun` veya enjekte edilen saat) test edilmiş. Bir bildirime tıklayınca okundu oluyor ve başvurunun sayfası açılıyor; "Mark all as read" sayıyı sıfırlıyor.
+
+### M11b — Bildirimler: Settings ve çalışma hatırlatması
+- NotificationPreference'ın kalan kolonları, `User.timezone`, Settings › Notifications, Learning'de "Next reminder" kartı, paneldeki "Notification settings" linki
+- Günlük çalışma hatırlatması (uygulama içi + e-posta), e-postadaki kapatma linki (giriş istemeyen sayfa + buton, D-098), `streak_milestone`
+- **Kabul:** Hatırlatma kullanıcının saat diliminde ve seçtiği saatte, dinlenme günlerinde gönderilmiyor. O gün görev tamamlandıysa gönderilmiyor. Aynı bildirim iki kez üretilmiyor. E-postadaki kapatma linki çalışıyor. Zamanlayıcı mantığı saat dondurularak test edilmiş.
 
 ### M12a — AI Asistan: temel
 - Yüzen asistan paneli (her sayfada, bağlam satırı, History, Expand), ChatThread/ChatMessage, tool döngüsü, tool kartları

@@ -382,6 +382,9 @@ PUBLIC_PAGES = {
     "/forgot-password",
     "/reset-password",
 }
+# Background requests that answer 204 (no content) without a login instead of a
+# redirect: they show nothing and must not move the page to /login (D-105, M11a review).
+EMPTY_WITHOUT_LOGIN = {"/notifications/badge"}
 
 
 def test_every_page_except_the_public_ones_needs_login(client):
@@ -396,6 +399,9 @@ def test_every_page_except_the_public_ones_needs_login(client):
         if path in PUBLIC_PAGES:
             continue
         response = client.get(path, follow_redirects=False)
+        if path in EMPTY_WITHOUT_LOGIN:
+            assert response.status_code == 204 and not response.content, path
+            continue
         assert response.status_code == 303, f"{path} is open without login"
         assert response.headers["location"].startswith("/login"), path
 
