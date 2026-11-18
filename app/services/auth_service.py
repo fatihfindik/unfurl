@@ -13,6 +13,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 from pwdlib import PasswordHash
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -294,13 +295,24 @@ def user_from_reset_token(session: Session, token: str) -> User | None:
     return user
 
 
-def reset_password(session: Session, user: User, new_password: str) -> None:
-    """Set a new password and log the user out everywhere (D-021).
+def reset_password(session: Session, user: User, new_password: str) -> bool:
+    """Set a new password and log the user out everywhere (D-021). False if the link
+    was used in the meantime.
 
+    One UPDATE that only matches while the password is still the one the link was made
+    for: two requests with the same link at the same moment can't both succeed (#16).
     Opening the link proved the user owns the email, so it counts as verified too.
     """
-    user.password_hash = hash_password(new_password)
-    user.session_version += 1
-    user.is_verified = True
-    session.add(user)
+    result = session.exec(
+        update(User)
+        .where(User.id == user.id, User.password_hash == user.password_hash)
+        .values(
+            password_hash=hash_password(new_password),
+            session_version=User.session_version + 1,
+            is_verified=True,
+            updated_at=utcnow(),
+        )
+    )
     session.commit()
+    session.refresh(user)
+    return result.rowcount == 1
