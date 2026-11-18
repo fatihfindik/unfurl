@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 WINDOW_DAYS = 7  # a follow-up or waiting job is reminded if its day was in the last 7 days
 KEEP_READ_DAYS = 30  # read notifications older than this are deleted (SPEC §5.11)
+KEEP_UNREAD_DAYS = 90  # unread ones too, after 90 days: nothing is kept forever (D-104)
 MAX_PER_USER = 200  # above this, the oldest read ones are deleted (D-104)
 PANEL_SIZE = 20
 
@@ -78,14 +79,15 @@ def due_for_user(session: Session, user: User, now: dt.datetime) -> list[Due]:
     for job in jobs:
         if job.snoozed_until is not None and as_utc(job.snoozed_until) > as_utc(now):
             continue  # snoozed: comes back when the snooze ends (still in the window)
+        # follow_up and stale_saved come from the next step; the interview reminder only
+        # from the interview's date, so a "Done" on the step doesn't silence it (D-101).
         step = next_step_service.next_step(job, now)
-        if step is None:
-            continue
-        step_day = clock.local(step.at).date() if step.at else None
+        step_day = clock.local(step.at).date() if step is not None and step.at else None
 
         if (
             prefs.follow_up_enabled
             and job.status == "applied"
+            and step is not None
             and step.type == "follow_up"
             and step_day is not None
             and _in_window(step_day, today)
@@ -104,6 +106,7 @@ def due_for_user(session: Session, user: User, now: dt.datetime) -> list[Due]:
         elif (
             prefs.stale_saved_enabled
             and job.status == "saved"
+            and step is not None
             and step.waiting
             and step_day is not None
             and _in_window(step_day, today)
@@ -190,9 +193,10 @@ def generate_due(session: Session, now: dt.datetime) -> int:
             user = session.get(User, user_id)
             if user is not None:
                 written += generate_for_user(session, user, now)
-        except Exception:
+        except Exception as exc:
             session.rollback()
-            logger.exception("Notifications for user %s failed", user_id)
+            # Only the id and the kind of error: an error's text can quote data.
+            logger.error("Notifications for user %s failed: %s", user_id, type(exc).__name__)
     return written
 
 
@@ -200,12 +204,18 @@ def generate_due(session: Session, now: dt.datetime) -> int:
 
 
 def purge(session: Session, now: dt.datetime) -> None:
-    """Delete read notifications older than KEEP_READ_DAYS, then, for users above
-    MAX_PER_USER, their oldest read ones. Unread notifications are never deleted here."""
+    """Delete read notifications older than KEEP_READ_DAYS and any older than
+    KEEP_UNREAD_DAYS; then, for users above MAX_PER_USER, their oldest read ones.
+    The cap never deletes unread ones (D-104)."""
     session.exec(
         delete(Notification).where(
             col(Notification.read_at).is_not(None),
             Notification.created_at < now - dt.timedelta(days=KEEP_READ_DAYS),
+        )
+    )
+    session.exec(
+        delete(Notification).where(
+            Notification.created_at < now - dt.timedelta(days=KEEP_UNREAD_DAYS)
         )
     )
     too_many = session.exec(

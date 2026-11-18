@@ -8,7 +8,7 @@ import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlmodel import Session
 
 from app.db import get_session
@@ -16,20 +16,30 @@ from app.models import User
 from app.security import limiter, safe_redirect_path
 from app.services import clock
 from app.services import notification_service as notes
-from app.services.auth_service import require_user
+from app.services.auth_service import current_user, require_user
 from app.templating import templates
 
 # Every route here needs a logged-in user; without one the visitor goes to /login.
 router = APIRouter(dependencies=[Depends(require_user)])
+# The badge alone answers without a login (see badge()).
+badge_router = APIRouter()
 
 DbSession = Annotated[Session, Depends(get_session)]
 RequiredUser = Annotated[User, Depends(require_user)]
+OptionalUser = Annotated[User | None, Depends(current_user)]
 
 
-@router.get("/notifications/badge", response_class=HTMLResponse)
-def badge(request: Request, session: DbSession, user: RequiredUser):
+@badge_router.get("/notifications/badge", response_class=HTMLResponse)
+def badge(request: Request, session: DbSession, user: OptionalUser):
     """The unread count on the bell. The page asks for it when it loads, every two
-    minutes and after "Mark all as read" (D-105)."""
+    minutes and after "Mark all as read" (D-105).
+
+    It is asked for without the user doing anything, so it must not act like a click:
+    without a login it answers 204 (the badge disappears) instead of sending the page
+    to /login while someone types in a form; and its answer never touches the session
+    cookie (app/main.py, M11a review L1/L2)."""
+    if user is None:
+        return Response(status_code=204)
     count = notes.unread_count(session, user)
     return templates.TemplateResponse(request, "notifications/_badge.html", {"count": count})
 

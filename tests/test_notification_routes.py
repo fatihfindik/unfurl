@@ -229,18 +229,23 @@ def test_read_all_is_rate_limited(auth_client):
 # --- Logged out ----------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("url", ["/notifications/badge", "/notifications/panel"])
-def test_logged_out_pages_go_to_login(client, url):
-    response = client.get(url, follow_redirects=False)
+def test_logged_out_panel_goes_to_login(client):
+    response = client.get("/notifications/panel", follow_redirects=False)
 
     assert response.status_code == 303
     assert response.headers["location"].startswith("/login")
 
 
-def test_logged_out_htmx_gets_a_redirect_header(client):
-    response = client.get("/notifications/badge", headers={"HX-Request": "true"})
+@pytest.mark.parametrize("htmx", [True, False])
+def test_logged_out_badge_is_empty_not_a_redirect(client, htmx):
+    # The badge is polled in the background: it must not send the page to /login
+    # while someone types in a form (M11a review L2).
+    headers = {"HX-Request": "true"} if htmx else {}
 
-    assert response.headers.get("HX-Redirect", "").startswith("/login")
+    response = client.get("/notifications/badge", headers=headers, follow_redirects=False)
+
+    assert response.status_code == 204
+    assert "HX-Redirect" not in response.headers
 
 
 def test_logged_out_posts_change_nothing(client, session, user):

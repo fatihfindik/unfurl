@@ -538,7 +538,7 @@ Kaynak: M11a Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-1
 
 ### D-101 · Bildirim kuralları ve metinleri
 Kaynak: M11a Design fazı; Fatih plan onayıyla onayladı (2026-11-18).
-- **Karar:** follow_up: adım `follow_up`, durum `applied`; "Time to follow up" / "{Company} · no reply for {n} days" (n = bugün − başvuru günü). stale_saved: durum `saved`, adım "Waiting"; "Saved {n} days ago" / "{Company} · apply or archive?". interview_tomorrow: durum `interview`, `interview_at` yarın; "Interview tomorrow, {HH:MM}" (tüm gün: saatsiz) / "{Company} · {Role}". Link `/applications/{id}`; `Notification.application_id` FK `ON DELETE CASCADE`. Metin üretim anında yazılır (başlık 200, metin 300 karakter). Tarihler `DEFAULT_TIMEZONE`'da (D-089).
+- **Karar:** follow_up: adım `follow_up`, durum `applied`; "Time to follow up" / "{Company} · no reply for {n} days" (n = bugün − başvuru günü). stale_saved: durum `saved`, adım "Waiting"; "Saved {n} days ago" / "{Company} · apply or archive?". interview_tomorrow: durum `interview`, `interview_at` yarın (next step'ten bağımsız: adımda "Done" hatırlatmayı susturmaz, test-writer notu); "Interview tomorrow, {HH:MM}" (tüm gün: saatsiz) / "{Company} · {Role}". Link `/applications/{id}`; `Notification.application_id` FK `ON DELETE CASCADE`. Metin üretim anında yazılır (başlık 200, metin 300 karakter). Tarihler `DEFAULT_TIMEZONE`'da (D-089).
 
 ### D-102 · Tercihler M11a'da: iş arama türleri
 Kaynak: M11a Design fazı; Fatih plan onayıyla onayladı (2026-11-18).
@@ -553,11 +553,12 @@ Kaynak: M11a Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-1
 Kaynak: M11a Design fazı; Fatih onayladı (2026-11-18).
 - **Karar:** Okunmuş ve 30 günden eski bildirimler silinir. Kullanıcı başına en fazla 200; aşılırsa sadece okunmuşlar en eskiden silinir. Panel en yeni 20'yi gösterir. Hesap silinince cascade.
 - **Alternatifler:** 200 sınırında okunmamışları da silmek (görülmemiş hatırlatma kaybolur).
+- **Güncelleme (security-reviewer):** Okunmamış bildirimler de 90 gün sonra silinir; hiçbir şey süresiz saklanmaz (GDPR'da saklama sınırı). 200 sınırı yine sadece okunmuşları siler.
 
 ### D-105 · Zil ve panel
 Kaynak: M11a Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-11-18).
 - **Karar:** Rozet `GET /notifications/badge`, `hx-trigger="load, every 120s"` (0 gizli, 99'dan büyükse "99+"). Panel açılınca `GET /notifications/panel` ile yüklenir (Alpine dropdown). Satır düz bir `<form method="post">`: `POST /notifications/{id}/open` okundu yapar ve 303 ile `safe_redirect_path(link_url)`'e gönderir. "Mark all as read" htmx ile; rozet "notifications-changed" olayıyla yenilenir. "Notification settings" linki M11b'de (D-060).
-- **Bilinçli kabul:** 2 dakikalık rozet isteği oturum cookie'sini yeniler; açık bir sekme oturumu canlı tutar. Boşta kalma süresi M13'te ele alınır.
+- **Güncelleme (security-reviewer):** İlk plandaki "rozet isteği oturumu yeniler" kabulü kaldırıldı. Rozet ve panel GET yanıtları `Set-Cookie` göndermez (`app/main.py` `KeepSessionCookie`): arka plandaki bir istek, çıkıştan sonra eski oturumu geri yazamaz ve açık bir sekme oturumu süresiz uzatmaz. Girişsiz rozet isteği login'e yönlendirmez, 204 döner (form dolduran kullanıcının sayfası kaymaz). Veritabanı motoru `hide_parameters=True`: hata metinleri sorgu değerlerini (şirket adı gibi) içermez. M13 notları: çıkışta `session_version` artırmak; zamanlayıcıda SQL tarih aralığıyla daraltma (D-073).
 
 ### D-106 · M11a'da e-posta yok
 Kaynak: M11a Design fazı; Fatih plan onayıyla onayladı (2026-11-18).
