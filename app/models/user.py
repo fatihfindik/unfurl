@@ -44,5 +44,9 @@ class User(SQLModel, table=True):
     # "today" and reminders are in this zone (app/services/clock.py, D-109).
     timezone: str | None = Field(default=None, max_length=64)
 
+    # The language a new CV starts in (Settings › Documents, D-129). One of
+    # app.models.cv.CV_LANGUAGES.
+    default_doc_language: str = Field(default="en", max_length=2)
+
     created_at: datetime = created_at_field()
     updated_at: datetime = updated_at_field()

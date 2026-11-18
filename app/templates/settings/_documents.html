@@ -1,0 +1,12 @@
+{#- Settings › Documents (D-129): the language a new CV starts in. Saved with htmx;
+    the form comes back redrawn with a toast.
+    Context: doc_language, doc_language_error, language_choices. -#}
+{%- from "components/forms.html" import primary_button, select_field -%}
+<form id="document-settings" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/settings/documents" hx-target="this" hx-swap="outerHTML">
+  <div class="max-w-[320px]">
+    {{ select_field("default_doc_language", "Default document language", language_choices, value=doc_language, error=doc_language_error, id_prefix="setting") }}
+  </div>
+  <p class="m-0 text-[13px] text-text-3">New CVs start in this language. You can still pick another one for each CV.</p>
+  <div>{{ primary_button("Save", size="sm") }}</div>
+</form>

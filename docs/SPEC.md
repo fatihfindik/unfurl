@@ -640,7 +640,7 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 
 ### 6.9 Settings (/settings)
 - **Account:** ad, e-posta (değişirse yeniden doğrulama), şifre değiştirme.
-- **Documents (M13a):** "Default document language" (Deutsch / English / Türkçe, varsayılan English); New CV modalı bu dille açılır, M8'de mektup da. Kendi formu, toast "Settings saved." (D-129).
+- **Documents (M13a):** "Default document language" (German / English / Turkish, varsayılan English); New CV modalı bu dille açılır, M8'de mektup da. Kendi formu, toast "Settings saved." (D-129).
 - **AI:** "How AI credits work" açıklaması, günlük kredi kullanımı ve özellik başına kredi tablosu, BYOK alanı ve asistan ayarları (sayfa bağlamını kullan, sohbet geçmişi saklama süresi, sohbet geçmişini sil):
   - "Add your Anthropic API key" → kaydederken ucuz bir test çağrısıyla doğrulanır → şifreli saklanır → ekranda sadece `sk-ant-...XXXX` (son 4 karakter) gösterilir → "Remove key".
 - **Notifications (M11b'de gelen tek bölüm; diğerleri kendi milestone'larında, D-107):** Learning bölümü (günlük çalışma hatırlatması aç/kapat, saat seçimi: 06:00–23:00 yarım saatlik liste, e-postayla da gönder, dinlenme günleri, saat dilimi, seri ve haftalık hedef: "Celebrate 7, 30 and 100-day streaks and mention your streak in reminders.") ve Job search bölümü (takip, mülakat, bekleyen ilan; AI sonucu M5'te). "Weekly email summary" satırı "Coming soon" etiketiyle görünür (V2). Tek form; dilim değişince sayfa yeniden yüklenir (D-114).

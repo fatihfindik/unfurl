@@ -66,7 +66,8 @@ def template_choices(user: User) -> list[tuple[str, str]]:
 
 def new_cv_context(user: User, values=None, errors=None) -> dict:
     return {
-        "values": values or {"language": "en", "template": "classic"},
+        # A new CV starts in the language picked in Settings › Documents (D-129).
+        "values": values or {"language": user.default_doc_language, "template": "classic"},
         "errors": errors or {},
         "language_choices": [(code, LANGUAGE_NAMES[code]) for code in CV_LANGUAGES],
         "template_choices": template_choices(user),

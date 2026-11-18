@@ -1,6 +1,6 @@
-"""Settings (`/settings`, SPEC §6.9). M11b brings the first section, Notifications
-(D-114); the other sections come with their milestones (D-107). The theme is saved
-here too, with a click and without a page.
+"""Settings (`/settings`, SPEC §6.9). Notifications came with M11b (D-114), Documents
+with M13a (D-129); the other sections come with their milestones (D-107, D-124).
+The theme is saved here too, with a click and without a page.
 """
 
 import json
@@ -13,7 +13,9 @@ from starlette.datastructures import FormData
 
 from app.db import get_session
 from app.models import NotificationPreference, User
+from app.models.cv import CV_LANGUAGES
 from app.models.learning import WEEKDAYS
+from app.schemas.cv import LANGUAGE_NAMES
 from app.schemas.settings import (
     REMINDER_TIMES,
     SWITCHES,
@@ -68,10 +70,47 @@ def form_context(
     }
 
 
+LANGUAGE_CHOICES = [(code, LANGUAGE_NAMES[code]) for code in CV_LANGUAGES]
+
+
+def documents_context(user: User, value: str | None = None, error: str | None = None) -> dict:
+    """What settings/_documents.html needs."""
+    return {
+        "doc_language": value or user.default_doc_language,
+        "doc_language_error": error,
+        "language_choices": LANGUAGE_CHOICES,
+    }
+
+
 @router.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request, session: DbSession, user: RequiredUser):
     prefs = learning.preferences(session, user)
-    return templates.TemplateResponse(request, "settings/index.html", form_context(user, prefs))
+    context = form_context(user, prefs) | documents_context(user)
+    return templates.TemplateResponse(request, "settings/index.html", context)
+
+
+@router.post("/settings/documents", response_class=HTMLResponse)
+@limiter.limit("30/minute")
+def save_documents(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    default_doc_language: Annotated[str, Form()] = "",
+):
+    """Settings › Documents (D-129): the language a new CV starts in."""
+    if default_doc_language not in CV_LANGUAGES:
+        context = documents_context(user, error="Choose one of the languages.")
+        return templates.TemplateResponse(request, "settings/_documents.html", context)
+    user.default_doc_language = default_doc_language
+    session.add(user)
+    session.commit()
+    response = templates.TemplateResponse(
+        request, "settings/_documents.html", documents_context(user)
+    )
+    response.headers["HX-Trigger"] = json.dumps(
+        {"toast": {"message": SAVED, "undo_url": "", "undo_token": ""}}
+    )
+    return response
 
 
 @router.post("/settings/notifications", response_class=HTMLResponse)
