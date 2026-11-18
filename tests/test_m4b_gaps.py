@@ -244,12 +244,13 @@ def test_user_b_cannot_write_to_user_as_archived_job(auth_client, session, other
 
 def test_my_detail_page_links_never_lead_to_another_users_jobs(auth_client, session, other, job):
     # "‹ 1 of n ›" only counts my own jobs in the column.
-    for name in ("B1", "B2"):
+    # Long names: a two-letter one can show up by chance in the random CSRF token.
+    for name in ("Other Users First Corp", "Other Users Second Corp"):
         apps.create(session, other, company=name, job_title="PM")
 
     html = auth_client.get(f"/applications/{job.id}").text
 
-    assert "B1" not in html and "B2" not in html
+    assert "Other Users" not in html
     for theirs in apps.column_of(session, other, "saved"):
         assert f"/applications/{theirs.id}" not in html
 

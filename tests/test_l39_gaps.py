@@ -29,7 +29,14 @@ pytestmark = pytest.mark.usefixtures("frozen")
 
 
 @pytest.fixture
-def frozen():
+def frozen(request):
+    # The rate limiter's memory store deletes old counters in a background thread,
+    # and freezegun leaves that thread on the real clock. A frozen time earlier than
+    # the real one makes every counter look expired, so rate limit tests use the real
+    # clock (marked `real_clock`).
+    if request.node.get_closest_marker("real_clock"):
+        yield
+        return
     with freeze_time("2026-11-18 10:00:00"):
         yield
 
@@ -434,13 +441,15 @@ def test_editing_a_done_task_writes_no_log_for_another_user(
 # --- Rate limit ---------------------------------------------------------------------------
 
 
+@pytest.mark.real_clock
 def test_saving_a_task_is_rate_limited(auth_client, session, task):
     token = csrf_token(auth_client)
 
     codes = [
         auth_client.post(
             f"/learning/tasks/{task.id}",
-            data=OPEN | {"title": f"T{i}", "csrf_token": token},
+            # The saved date: an unchanged date isn't checked against today.
+            data=OPEN | {"title": f"T{i}", "due_date": TODAY.isoformat(), "csrf_token": token},
             headers=HTMX,
         ).status_code
         for i in range(61)
@@ -450,6 +459,7 @@ def test_saving_a_task_is_rate_limited(auth_client, session, task):
     assert fresh(session, LearningTask, task.id).title == "T59"  # the 61st saved nothing
 
 
+@pytest.mark.real_clock
 def test_refused_saves_count_for_the_limit(auth_client, task):
     # Bad values cost the same as good ones, so guessing can't go on forever.
     token = csrf_token(auth_client)
@@ -465,6 +475,7 @@ def test_refused_saves_count_for_the_limit(auth_client, task):
     assert response.status_code == 429
 
 
+@pytest.mark.real_clock
 def test_opening_the_forms_is_not_limited_by_saves(auth_client, task, goal):
     token = csrf_token(auth_client)
     for _ in range(60):

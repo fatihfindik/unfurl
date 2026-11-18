@@ -20,7 +20,14 @@ pytestmark = pytest.mark.usefixtures("frozen")
 
 
 @pytest.fixture
-def frozen():
+def frozen(request):
+    # The rate limiter's memory store deletes old counters in a background thread,
+    # and freezegun leaves that thread on the real clock. A frozen time earlier than
+    # the real one makes every counter look expired, so rate limit tests use the real
+    # clock (marked `real_clock`).
+    if request.node.get_closest_marker("real_clock"):
+        yield
+        return
     with freeze_time("2026-11-18 10:00:00"):  # 11:00 in Vienna
         yield
 
@@ -441,6 +448,7 @@ def test_bad_ids_are_not_found(auth_client, bad_id):
     assert auth_client.get(f"/learning/goals/{bad_id}/edit").status_code == 404
 
 
+@pytest.mark.real_clock
 def test_saving_is_rate_limited(auth_client, session, user):
     goal = goal_of(session, user)
     token = csrf_token(auth_client)
