@@ -220,9 +220,13 @@ document.addEventListener("input", (event) => {
   }
 });
 
-// An htmx request that fails (403 when the CSRF token is out of date, 500 on a server
-// error) changes nothing on the page. Without this the user would see no reaction at all.
-document.addEventListener("htmx:responseError", () => {
+// An htmx request that fails changes nothing on the page. The server's error answer
+// carries its own toast in HX-Trigger (app/errors.py, D-125), e.g. "This item no
+// longer exists". Without one (an old answer, a proxy error) show a general message,
+// so the user always sees a reaction.
+document.addEventListener("htmx:responseError", (event) => {
+  const trigger = event.detail.xhr.getResponseHeader("HX-Trigger") || "";
+  if (trigger.includes('"toast"')) return;
   Alpine.store("toast").show("Something went wrong. Please reload the page.");
 });
 
