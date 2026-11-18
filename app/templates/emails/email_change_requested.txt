@@ -1,0 +1,11 @@
+Subject: Your Unfurl email is about to change
+
+Hi {{ full_name }},
+
+Someone asked to change the email of your Unfurl account to {{ new_email }}. It changes only when the link sent to that address is opened.
+
+If this wasn't you, reset your password now; that also cancels the change:
+
+{{ base_url }}/forgot-password
+
+Unfurl

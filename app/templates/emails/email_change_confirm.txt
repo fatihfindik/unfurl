@@ -1,0 +1,11 @@
+Subject: Confirm your new email for Unfurl
+
+Hi,
+
+Someone asked to use this address for an Unfurl account. To confirm, open this link:
+
+{{ base_url }}{{ path }}
+
+The link works for 24 hours. If you didn't ask for this, ignore this email; nothing changes.
+
+Unfurl

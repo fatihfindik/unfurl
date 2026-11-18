@@ -179,3 +179,19 @@ def test_two_resets_at_the_same_moment_set_one_password(pg, pg_engine):
     assert sorted(results) == [False, True]
     pg.expire_all()
     assert pg.get(User, user.id).session_version == 1
+
+
+# --- Two accounts can't end up with the same email (#56, D-134) -----------------------------
+
+
+def test_an_email_change_that_loses_the_race_is_rolled_back(pg, monkeypatch):
+    user = new_user(pg)
+    new_user(pg, "taken@example.com")
+    # The "is it free?" check ran before the other account took the address.
+    monkeypatch.setattr(auth_service, "email_in_use", lambda *args: False)
+
+    result = auth_service.change_email(pg, user, "taken@example.com")
+
+    assert result == "taken"
+    pg.expire_all()
+    assert pg.get(User, user.id).email == "jana@example.com"

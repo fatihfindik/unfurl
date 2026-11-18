@@ -21,6 +21,7 @@ from app.errors import error_response
 from app.models import NotificationPreference, User
 from app.models.cv import CV_LANGUAGES
 from app.models.learning import WEEKDAYS
+from app.models.user import normalize_email
 from app.schemas.cv import LANGUAGE_NAMES
 from app.schemas.settings import (
     REMINDER_TIMES,
@@ -28,12 +29,13 @@ from app.schemas.settings import (
     parse_notification_settings,
     time_value,
 )
-from app.security import limiter
+from app.security import email_limiter, limiter
 from app.services import (
     account_service,
     clock,
     email_service,
     export_service,
+    reminder_email,
     settings_service,
 )
 from app.services import learning_service as learning
@@ -42,7 +44,10 @@ from app.services.auth_service import (
     SESSION_TIMEZONE,
     change_password,
     check_password_with_lockout,
+    email_in_use,
+    email_is_valid,
     end_session,
+    make_email_change_token,
     password_error,
     require_user,
 )
@@ -268,6 +273,63 @@ def save_theme(
     response = Response(status_code=204)
     set_theme_cookie(response, theme)
     return response
+
+
+# --- Account: change the email address (#56, D-134) -------------------------------------------
+
+
+@router.post("/settings/account/email", response_class=HTMLResponse)
+@limiter.limit("5/hour")
+def ask_email_change(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    background_tasks: BackgroundTasks,
+    new_email: FormText = "",
+    password: FormText = "",
+):
+    """Send a confirmation link to the new address; nothing changes until it is
+    opened. The checks run in this order so a session can't probe which addresses
+    have an account, and a stranger's email quota is only used by a valid request."""
+    new_email = normalize_email(new_email)
+    errors = {}
+    if not email_is_valid(new_email):
+        errors["new_email"] = "Enter a valid email address."
+    elif new_email == user.email:
+        errors["new_email"] = "This is already your email."
+    else:
+        check = check_password_with_lockout(request, user, password)
+        if check != "ok":
+            errors["password"] = PASSWORD_CHECK_ERRORS[check]
+        elif email_in_use(session, new_email):
+            errors["new_email"] = "An account with this email already exists."
+        elif not email_limiter.allow(new_email):
+            errors["new_email"] = "Please wait a few minutes before asking for another email."
+    if errors:
+        context = account_context(user, errors=errors) | {"email_value": new_email}
+        return templates.TemplateResponse(request, "settings/_account_email.html", context)
+
+    # No name and nothing the user wrote: this can go to any address (D-028).
+    confirm = email_service.render_email(
+        "email_change_confirm",
+        to=new_email,
+        path="/confirm-email?token=" + make_email_change_token(user, new_email),
+    )
+    background_tasks.add_task(email_service.send_email, confirm)
+    if user.is_verified:
+        notice = email_service.render_email(
+            "email_change_requested",
+            to=user.email,
+            full_name=user.full_name,
+            new_email=reminder_email.masked(new_email),
+        )
+        background_tasks.add_task(email_service.send_email, notice)
+    return templates.TemplateResponse(
+        request,
+        "settings/_account_email.html",
+        account_context(user),
+        headers=toast(f"We sent a link to {new_email}. Your email changes when you open it."),
+    )
 
 
 # --- Privacy: export my data (D-130) -----------------------------------------------------------

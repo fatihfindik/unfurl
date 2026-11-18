@@ -13,6 +13,7 @@ from fastapi import Depends, Request
 from fastapi.responses import RedirectResponse, Response
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 from pwdlib import PasswordHash
+from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -359,6 +360,91 @@ def require_verified(user: Annotated[User, Depends(require_user)]) -> User:
     if not user.is_verified:
         raise UserFacingHTTPException(status_code=403, detail="Please verify your email first.")
     return user
+
+
+# --- Changing the email address (#56, D-134) ---------------------------------------------
+
+EMAIL_CHANGE_TOKEN_SALT = "email-change"
+EMAIL_CHANGE_TOKEN_MAX_AGE = 24 * 60 * 60  # 24 hours
+
+
+def make_email_change_token(user: User, new_email: str) -> str:
+    """The link sent to the new address. It also carries the old address and the
+    session version: a password reset, a password change, Sign out or a change
+    already made raise the version, so every pending link stops working (also after
+    A→B→A, when the email alone would match again)."""
+    data = {
+        "user_id": user.id,
+        "old_email": user.email,
+        "new_email": new_email,
+        "version": user.session_version,
+    }
+    return token_serializer(EMAIL_CHANGE_TOKEN_SALT).dumps(data)
+
+
+def email_change_from_token(session: Session, token: str) -> tuple[User, str] | None:
+    """(the user, the new address) a change link is for, or None if it is not valid
+    (any more)."""
+    data = read_token(token, EMAIL_CHANGE_TOKEN_SALT, EMAIL_CHANGE_TOKEN_MAX_AGE)
+    if data is None or not isinstance(data.get("user_id"), int):
+        return None
+    new_email = data.get("new_email")
+    user = session.get(User, data["user_id"])
+    if (
+        user is None
+        or not isinstance(new_email, str)
+        or user.email != data.get("old_email")
+        or user.session_version != data.get("version")
+        or new_email == user.email
+    ):
+        return None
+    return user, new_email
+
+
+_email_adapter = TypeAdapter(EmailStr)
+
+
+def email_is_valid(email: str) -> bool:
+    """The register form's rule for an address (length, then format)."""
+    if len(email) > EMAIL_MAX_LENGTH:
+        return False
+    try:
+        _email_adapter.validate_python(email)
+    except ValidationError:
+        return False
+    return True
+
+
+def email_in_use(session: Session, email: str) -> bool:
+    return session.exec(select(User.id).where(User.email == email)).first() is not None
+
+
+def change_email(session: Session, user: User, new_email: str) -> str:
+    """Make `new_email` the account's address (D-134): verified, and every session
+    signed out (session_version + 1). One UPDATE that only matches while the address
+    and the version are still the ones the link was made for. Returns "ok", "taken"
+    (another account has the address) or "stale" (the link is not valid any more)."""
+    old_email, version = user.email, user.session_version
+    if email_in_use(session, new_email):
+        return "taken"
+    try:
+        result = session.exec(
+            update(User)
+            .where(User.id == user.id, User.email == old_email, User.session_version == version)
+            .values(
+                email=new_email,
+                is_verified=True,
+                session_version=User.session_version + 1,
+                updated_at=utcnow(),
+            )
+            .execution_options(synchronize_session=False)
+        )
+        session.commit()
+    except IntegrityError:  # another account took the address a moment earlier
+        session.rollback()
+        return "taken"
+    session.refresh(user)
+    return "ok" if result.rowcount == 1 else "stale"
 
 
 # --- Password reset (SPEC §6.1, D-027) --------------------------------------------------
