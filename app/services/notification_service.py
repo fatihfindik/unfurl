@@ -14,10 +14,10 @@ from sqlalchemy import delete, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
-from app.models import Application, Notification, NotificationPreference, User
+from app.models import Application, LearningTask, Notification, NotificationPreference, User
 from app.models.base import as_utc
 from app.models.notification import BODY_TEXT, TITLE_TEXT
-from app.services import clock, next_step_service
+from app.services import clock, learning_service, next_step_service, reminder_email
 
 logger = logging.getLogger(__name__)
 
@@ -26,21 +26,25 @@ KEEP_READ_DAYS = 30  # read notifications older than this are deleted (SPEC §5.
 KEEP_UNREAD_DAYS = 90  # unread ones too, after 90 days: nothing is kept forever (D-104)
 MAX_PER_USER = 200  # above this, the oldest read ones are deleted (D-104)
 PANEL_SIZE = 20
+STREAK_MILESTONES = (7, 30, 100)  # days in a row that get a "well done" (D-113)
+LOOK_AHEAD_DAYS = 7  # the Next reminder card names the weekday within a week (D-115)
 
 
 @dataclass(frozen=True)
 class Due:
-    """A reminder that should exist; written once per dedupe key."""
+    """A reminder that should exist; written once per dedupe key. Job search reminders
+    are about an application and link to it; learning ones link to `link`."""
 
     type: str
     key: str
     title: str
     body: str
-    application_id: int
+    application_id: int | None = None
+    link: str | None = None
 
     @property
     def link_url(self) -> str:
-        return f"/applications/{self.application_id}"
+        return self.link or f"/applications/{self.application_id}"
 
 
 # --- Which reminders are due (D-099, D-100, D-101) -----------------------------------------
@@ -63,9 +67,16 @@ def _short(text: str, limit: int) -> str:
 
 
 def due_for_user(session: Session, user: User, now: dt.datetime) -> list[Due]:
-    """The job search reminders `user` should have at `now`. They come from the same
-    next step as Needs attention (D-099), so both always name the same day."""
+    """Every reminder `user` should have at `now`: job search and learning."""
     prefs = _preferences(session, user)
+    return job_search_due(session, user, now, prefs) + learning_due(session, user, now, prefs)
+
+
+def job_search_due(
+    session: Session, user: User, now: dt.datetime, prefs: NotificationPreference
+) -> list[Due]:
+    """The job search reminders. They come from the same next step as Needs attention
+    (D-099), so both always name the same day."""
     today = clock.local(now).date()
     tomorrow = today + dt.timedelta(days=1)
     jobs = session.exec(
@@ -143,14 +154,173 @@ def due_for_user(session: Session, user: User, now: dt.datetime) -> list[Due]:
     return due
 
 
+# --- Learning: the daily study reminder and the streak (D-111, D-113) ------------------------
+
+
+def _done_today(session: Session, user: User, today: dt.date) -> bool:
+    """True if a task was completed today (the user's day)."""
+    return (
+        session.exec(
+            select(LearningTask.id).where(
+                LearningTask.user_id == user.id,
+                col(LearningTask.done).is_(True),
+                col(LearningTask.done_at) >= clock.to_utc(today),
+                col(LearningTask.done_at) < clock.to_utc(today + dt.timedelta(days=1)),
+            )
+        ).first()
+        is not None
+    )
+
+
+def _open_tasks_until(session: Session, user: User, day: dt.date) -> list[LearningTask]:
+    """Open tasks planned for `day` or earlier (overdue ones stay open), oldest day first."""
+    return list(
+        session.exec(
+            select(LearningTask)
+            .where(
+                LearningTask.user_id == user.id,
+                col(LearningTask.done).is_(False),
+                LearningTask.due_date <= day,
+            )
+            .order_by(
+                col(LearningTask.due_date), col(LearningTask.sort_order), col(LearningTask.id)
+            )
+        )
+    )
+
+
+def study_task(
+    session: Session, user: User, prefs: NotificationPreference, today: dt.date
+) -> LearningTask | None:
+    """The task today's study reminder names, or None if today gets no reminder (D-111):
+    a rest day, a task already done today, or nothing planned for today or before.
+    Today's first task comes before the oldest overdue one."""
+    if today.weekday() in learning_service.rest_weekdays(prefs):
+        return None
+    if _done_today(session, user, today):
+        return None
+    tasks = _open_tasks_until(session, user, today)
+    todays = [task for task in tasks if task.due_date == today]
+    return (todays or tasks or [None])[0]
+
+
+def _streak(session: Session, user: User, prefs: NotificationPreference, today: dt.date):
+    """(days in a row, the last active day or None). From `today`, not clock.today():
+    the scheduler passes its own time (plan review B3)."""
+    active = learning_service.active_days(session, user, today)
+    rest = learning_service.rest_weekdays(prefs)
+    last = max((day for day in active if day <= today), default=None)
+    return learning_service.count_streak(active, rest, today), last
+
+
+def learning_due(
+    session: Session, user: User, now: dt.datetime, prefs: NotificationPreference
+) -> list[Due]:
+    if not (prefs.study_reminder_enabled or prefs.streak_enabled):
+        return []
+    local_now = clock.local(now)
+    today = local_now.date()
+    streak, last_active = _streak(session, user, prefs, today)
+    due = []
+
+    if prefs.study_reminder_enabled and local_now.time() >= prefs.study_reminder_time:
+        task = study_task(session, user, prefs, today)
+        if task is not None:
+            body = task.title
+            if prefs.streak_enabled and streak >= 2:
+                body += f" · keep your {streak}-day streak going"  # tone rules, SPEC §6.11
+            due.append(
+                Due(
+                    "study_reminder",
+                    f"study:{today.isoformat()}",
+                    f"Time to study: {task.estimated_minutes} min",
+                    body,
+                    link="/learning",
+                )
+            )
+
+    # A task done at 23:58 still gets its "well done" after midnight: the key is the
+    # last active day, so it is written once (D-113).
+    if (
+        prefs.streak_enabled
+        and streak in STREAK_MILESTONES
+        and last_active is not None
+        and last_active >= today - dt.timedelta(days=1)
+    ):
+        due.append(
+            Due(
+                "streak_milestone",
+                f"streak:{streak}:{last_active.isoformat()}",
+                f"{streak}-day streak",
+                f"You studied {streak} days in a row. Nice work.",
+                link="/learning",
+            )
+        )
+    return due
+
+
+@dataclass(frozen=True)
+class NextReminder:
+    """The Learning page's Next reminder card (D-115). state: "off", "no_tasks" or "on"."""
+
+    state: str
+    text: str = ""
+
+
+def next_reminder(session: Session, user: User, now: dt.datetime) -> NextReminder:
+    """When the next study reminder comes: "Today, 19:00", "Tomorrow, 19:00",
+    "Mon, 19:00" or "Mon, 30 Nov, 19:00". Doesn't create the preferences row."""
+    prefs = _preferences(session, user)
+    if not prefs.study_reminder_enabled:
+        return NextReminder("off")
+    first_open = session.exec(
+        select(func.min(LearningTask.due_date)).where(
+            LearningTask.user_id == user.id, col(LearningTask.done).is_(False)
+        )
+    ).one()
+    if first_open is None:
+        return NextReminder("no_tasks")
+
+    today = clock.local(now).date()
+    at = prefs.study_reminder_time.strftime("%H:%M")
+    sent_today = session.exec(
+        select(Notification.id).where(
+            Notification.user_id == user.id, Notification.dedupe_key == f"study:{today}"
+        )
+    ).first()
+    if sent_today is None and study_task(session, user, prefs, today) is not None:
+        return NextReminder("on", f"Today, {at}")
+
+    # Later days: the first day from tomorrow (or the first task's day) that isn't a
+    # rest day. Open tasks stay open, so a task planned for that day or before is there.
+    rest = learning_service.rest_weekdays(prefs)
+    day = max(today + dt.timedelta(days=1), first_open)
+    for _ in range(6):  # at most six rest days in a row (D-090)
+        if day.weekday() not in rest:
+            break
+        day += dt.timedelta(days=1)
+    if day == today + dt.timedelta(days=1):
+        name = "Tomorrow"
+    elif (day - today).days < LOOK_AHEAD_DAYS:
+        name = day.strftime("%a")
+    else:
+        name = day.strftime("%a, %-d %b")
+    return NextReminder("on", f"{name}, {at}")
+
+
 # --- Writing them once ----------------------------------------------------------------------
 
 
-def generate_for_user(session: Session, user: User, now: dt.datetime) -> int:
+def generate_for_user(
+    session: Session, user: User, now: dt.datetime, emails: list | None = None
+) -> int:
     """Write the user's due reminders that don't exist yet; commits. Returns how many
     were written. If another run wrote the same key a moment earlier, the unique
     constraint stops it: everything of this user is rolled back and counted as 0
-    (the next run, 15 minutes later, finds the rest)."""
+    (the next run, 15 minutes later, finds the rest).
+
+    A study reminder email is added to `emails` (generate_due sends them all after
+    the loop); without a list it is sent right away."""
     due = due_for_user(session, user, now)
     if not due:
         return 0
@@ -180,6 +350,18 @@ def generate_for_user(session: Session, user: User, now: dt.datetime) -> int:
     except IntegrityError:
         session.rollback()
         return 0
+    # The study reminder also goes by email, once: only when this run wrote it and the
+    # commit worked (plan review B2), and never to an unverified address (D-112).
+    for item in new:
+        if item.type == "study_reminder" and user.is_verified:
+            if _preferences(session, user).study_reminder_email:
+                email = reminder_email.build(
+                    user, _short(item.title, TITLE_TEXT), _short(item.body, BODY_TEXT)
+                )
+                if emails is None:
+                    reminder_email.send_all([email])
+                else:
+                    emails.append(email)
     return len(new)
 
 
@@ -187,16 +369,22 @@ def generate_due(session: Session, now: dt.datetime) -> int:
     """One run of the scheduler: every user, one commit per user (D-103). A failure
     for one user is logged (only the user id) and the others still get theirs."""
     written = 0
+    emails = []
     user_ids = list(session.exec(select(User.id)))
     for user_id in user_ids:
         try:
             user = session.get(User, user_id)
             if user is not None:
-                written += generate_for_user(session, user, now)
+                # "Today" and "tomorrow" are the user's own days (D-109).
+                with clock.use_timezone(user.timezone):
+                    written += generate_for_user(session, user, now, emails)
         except Exception as exc:
             session.rollback()
             # Only the id and the kind of error: an error's text can quote data.
             logger.error("Notifications for user %s failed: %s", user_id, type(exc).__name__)
+    # After every user's reminders are written: a slow mail server can't hold them up
+    # (security review M11b, L1).
+    reminder_email.send_all(emails)
     return written
 
 

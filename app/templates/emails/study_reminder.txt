@@ -1,0 +1,13 @@
+Subject: Time to study
+
+Hi,
+
+{{ title }}
+{{ body }}
+
+Open your learning plan: {{ base_url }}/learning
+
+You get this email because study reminders are on in your Unfurl settings.
+Turn off these emails: {{ base_url }}{{ off_path }}
+
+Unfurl

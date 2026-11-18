@@ -22,6 +22,7 @@ from app.models import User
 from app.models.base import utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
 from app.security import get_csrf_token, safe_redirect_path
+from app.services import application_service, clock
 
 PASSWORD_MIN_LENGTH = 10
 # An upper limit, so nobody can make the server hash a huge text (argon2 is slow on purpose).
@@ -38,6 +39,8 @@ _DUMMY_HASH = password_hasher.hash(secrets.token_urlsafe(16))
 # Keys in the signed session cookie (D-021).
 SESSION_USER_ID = "user_id"
 SESSION_VERSION = "session_version"
+# The user's time zone name, for app/main.py's UserTimezone (D-109). Empty: the default.
+SESSION_TIMEZONE = "tz"
 
 # Email links (D-027). Each kind of token has its own "salt", so a token made for
 # one purpose is rejected everywhere else.
@@ -61,8 +64,11 @@ def verify_password(password: str, password_hash: str) -> bool:
     return password_hasher.verify(password, password_hash)
 
 
-def create_user(session: Session, *, email: str, password: str, full_name: str) -> User:
-    """Save a new user on the free plan. Raises EmailTaken if the email is in use."""
+def create_user(
+    session: Session, *, email: str, password: str, full_name: str, timezone: str | None = None
+) -> User:
+    """Save a new user on the free plan. Raises EmailTaken if the email is in use.
+    `timezone` comes from the browser (D-108); an unknown name is ignored."""
     email = normalize_email(email)
     if session.exec(select(User).where(User.email == email)).first():
         raise EmailTaken(email)
@@ -72,6 +78,7 @@ def create_user(session: Session, *, email: str, password: str, full_name: str) 
         password_hash=hash_password(password),
         full_name=full_name,
         privacy_accepted_at=utcnow(),
+        timezone=clock.valid_zone(timezone),
     )
     session.add(user)
     try:
@@ -111,7 +118,21 @@ def start_session(request: Request, user: User) -> None:
     request.session.clear()
     request.session[SESSION_USER_ID] = user.id
     request.session[SESSION_VERSION] = user.session_version
+    request.session[SESSION_TIMEZONE] = user.timezone
     get_csrf_token(request)
+
+
+def remember_timezone(session: Session, user: User, name: str | None) -> None:
+    """At login: save the browser's time zone if the user has none yet (D-108). A zone
+    picked in Settings is never overwritten. Dates saved "without a time" so far were
+    saved in the default zone; they move to the same day in the new one."""
+    name = clock.valid_zone(name)
+    if user.timezone is not None or name is None:
+        return
+    application_service.move_all_day_times(session, user, None, name)
+    user.timezone = name
+    session.add(user)
+    session.commit()
 
 
 def end_session(request: Request) -> None:
@@ -136,6 +157,10 @@ def current_user(
         end_session(request)
         return None
     request.state.user = user
+    if request.session.get(SESSION_TIMEZONE) != user.timezone:
+        # Changed on another device: this request already started with the old zone
+        # (app/main.py reads the session first), the next one uses the new zone (D-109).
+        request.session[SESSION_TIMEZONE] = user.timezone
     # Expired "deleted" copies go away here, a little at a time (D-086).
     from app.services import trash_service  # here: trash_service imports undo_service
 
@@ -193,17 +218,17 @@ def login_required_response(request: Request, exc: LoginRequired) -> Response:
 # token without the key. So the database doesn't need to store tokens.
 
 
-def _token_serializer(salt: str) -> URLSafeTimedSerializer:
+def token_serializer(salt: str) -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(get_settings().secret_key.get_secret_value(), salt=salt)
 
 
-def _read_token(token: str, salt: str, max_age: int) -> dict | None:
+def read_token(token: str, salt: str, max_age: int) -> dict | None:
     """The token's data, or None if it is missing, too long, changed or too old."""
     if not token or len(token) > TOKEN_MAX_LENGTH:
         return None
     try:
         # Too old raises SignatureExpired, which is a kind of BadSignature.
-        data = _token_serializer(salt).loads(token, max_age=max_age)
+        data = token_serializer(salt).loads(token, max_age=max_age)
     except BadSignature:
         return None
     return data if isinstance(data, dict) else None
@@ -211,12 +236,12 @@ def _read_token(token: str, salt: str, max_age: int) -> dict | None:
 
 def make_verify_token(user: User) -> str:
     # The email is in the token too: if the address ever changes, old links stop working.
-    return _token_serializer(VERIFY_TOKEN_SALT).dumps({"user_id": user.id, "email": user.email})
+    return token_serializer(VERIFY_TOKEN_SALT).dumps({"user_id": user.id, "email": user.email})
 
 
 def user_from_verify_token(session: Session, token: str) -> User | None:
     """The user a verification link belongs to, or None if the link is not valid."""
-    data = _read_token(token, VERIFY_TOKEN_SALT, VERIFY_TOKEN_MAX_AGE)
+    data = read_token(token, VERIFY_TOKEN_SALT, VERIFY_TOKEN_MAX_AGE)
     if data is None or not isinstance(data.get("user_id"), int):
         return None
     user = session.get(User, data["user_id"])
@@ -252,12 +277,12 @@ def make_reset_token(user: User) -> str:
     # The email too, like the verify token: a link sent to an old address stops working
     # once the address changes.
     data = {"user_id": user.id, "email": user.email, "fingerprint": _password_fingerprint(user)}
-    return _token_serializer(RESET_TOKEN_SALT).dumps(data)
+    return token_serializer(RESET_TOKEN_SALT).dumps(data)
 
 
 def user_from_reset_token(session: Session, token: str) -> User | None:
     """The user a reset link belongs to, or None if the link is invalid, too old or used."""
-    data = _read_token(token, RESET_TOKEN_SALT, RESET_TOKEN_MAX_AGE)
+    data = read_token(token, RESET_TOKEN_SALT, RESET_TOKEN_MAX_AGE)
     if data is None or not isinstance(data.get("user_id"), int):
         return None
     user = session.get(User, data["user_id"])

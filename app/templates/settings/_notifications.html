@@ -1,0 +1,59 @@
+{#- Settings › Notifications (D-114). One form; saved with htmx. After a save the form
+    comes back redrawn (or the page reloads if the time zone changed).
+    Context: form {switches, study_reminder_time, rest_days, timezone}, errors,
+    time_choices, day_choices, zone_choices. -#}
+{%- from "components/forms.html" import primary_button, select_field -%}
+
+{#- A row with a title, a short explanation and a switch on the right (prototype). -#}
+{%- macro switch_row(name, title, hint) %}
+  <label for="setting-{{ name }}" class="flex cursor-pointer items-center justify-between gap-4 border-t border-muted py-3">
+    <span class="flex flex-col gap-0.5">
+      <span class="text-sm font-semibold text-text">{{ title }}</span>
+      <span class="text-[13px] text-text-3">{{ hint }}</span>
+    </span>
+    <input id="setting-{{ name }}" type="checkbox" name="{{ name }}" value="yes" class="size-5 shrink-0 accent-[#4F46E5]"
+           {%- if form.switches[name] %} checked{% endif %}>
+  </label>
+{%- endmacro %}
+
+<form id="notification-settings" class="m-0 flex flex-col" novalidate
+      hx-post="/settings/notifications" hx-target="this" hx-swap="outerHTML">
+  <span class="pb-2 text-xs font-bold tracking-wide text-text-3 uppercase">Learning</span>
+  {{ switch_row("study_reminder_enabled", "Daily study reminder", "A gentle nudge with today's learning task, on days with a task planned") }}
+  <div class="grid gap-4 pb-3 sm:grid-cols-2">
+    {{ select_field("study_reminder_time", "Remind me at", time_choices, value=form.study_reminder_time, error=errors.study_reminder_time, id_prefix="setting") }}
+    {{ select_field("timezone", "Time zone", zone_choices, value=form.timezone, error=errors.timezone, id_prefix="setting") }}
+  </div>
+  {{ switch_row("study_reminder_email", "Also send by email", "Each email has a link to turn these emails off") }}
+  <fieldset class="m-0 flex flex-col gap-2 border-0 border-t border-muted px-0 py-3"{% if errors.rest_days %} aria-describedby="setting-rest-days-error"{% endif %}>
+    <legend class="float-left mb-2 p-0 text-sm font-semibold text-text">Rest days</legend>
+    <span class="clear-left text-[13px] text-text-3">No reminders on these days. They never break your streak.</span>
+    <div class="flex flex-wrap gap-2">
+      {%- for key, name in day_choices %}
+        <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-text has-[:checked]:border-[#4F46E5] has-[:checked]:bg-accent-bg">
+          <input type="checkbox" name="rest_days" value="{{ key }}"{% if key in form.rest_days %} checked{% endif %}>{{ name }}
+        </label>
+      {%- endfor %}
+    </div>
+    {%- if errors.rest_days %}
+      <span id="setting-rest-days-error" class="text-xs font-medium text-red-text">{{ errors.rest_days }}</span>
+    {%- endif %}
+  </fieldset>
+  {{ switch_row("streak_enabled", "Streak and weekly goal", "Celebrate 7, 30 and 100-day streaks and mention your streak in reminders.") }}
+
+  <span class="pt-5 pb-2 text-xs font-bold tracking-wide text-text-3 uppercase">Job search</span>
+  {{ switch_row("follow_up_enabled", "Follow-up reminders", "When an application has had no reply for 10 days") }}
+  {{ switch_row("interview_enabled", "Interview reminders", "The day before a scheduled interview") }}
+  {{ switch_row("stale_saved_enabled", "Stale saved jobs", "When a saved job has waited 7 days") }}
+  <div data-coming-soon class="flex items-center justify-between gap-4 border-t border-muted py-3">
+    <span class="flex flex-col gap-0.5">
+      <span class="text-sm font-semibold text-text-3">Weekly email summary</span>
+      <span class="text-[13px] text-text-3">Your pipeline and next steps every Monday</span>
+    </span>
+    <span class="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-text-3">Coming soon</span>
+  </div>
+
+  <div class="flex justify-end pt-4">
+    {{ primary_button("Save", size="sm") }}
+  </div>
+</form>

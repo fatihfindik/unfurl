@@ -438,3 +438,17 @@ document.addEventListener("click", (event) => {
     event.target.close();
   }
 });
+
+// Login and register send the browser's time zone (e.g. "Europe/Istanbul") in a
+// hidden field, so reminders come at the user's own time (D-108).
+document.addEventListener("DOMContentLoaded", () => {
+  let zone = "";
+  try {
+    zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return; // a very old browser: the server uses the default zone
+  }
+  document.querySelectorAll("[data-browser-timezone]").forEach((field) => {
+    field.value = zone;
+  });
+});

@@ -10,7 +10,6 @@ import logging
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import Engine
 from sqlmodel import Session
 
@@ -53,7 +52,9 @@ def build(settings: Settings) -> BackgroundScheduler:
     )
     scheduler.add_job(
         generate_notifications,
-        IntervalTrigger(minutes=GENERATE_EVERY_MINUTES),
+        # At :00, :15, :30 and :45, so a 19:00 study reminder comes at 19:00 (D-109),
+        # not up to 15 minutes later depending on when the app was started.
+        CronTrigger(minute=f"*/{GENERATE_EVERY_MINUTES}", timezone=settings.default_timezone),
         id="generate_notifications",
     )
     scheduler.add_job(

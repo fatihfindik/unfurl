@@ -28,6 +28,7 @@ from app.services.auth_service import (
     make_reset_token,
     make_verify_token,
     mark_verified,
+    remember_timezone,
     require_user,
     reset_password,
     start_session,
@@ -104,6 +105,7 @@ def login(
     email: FormText = "",
     password: FormText = "",
     next: FormText = "",
+    timezone: FormText = "",
 ):
     ip = client_ip(request)
     if login_lockout.is_locked(ip, email):
@@ -130,6 +132,8 @@ def login(
     user.last_login_at = utcnow()
     session.add(user)
     session.commit()
+    # The browser's time zone (a hidden field app.js fills), only if none is saved (D-108).
+    remember_timezone(session, user, timezone)
     start_session(request, user)
     response = redirect(safe_redirect_path(next))
     # The account's theme wins over this browser's old choice (D-068); the cookie keeps
@@ -189,6 +193,7 @@ def register(
     email: FormText = "",
     password: FormText = "",
     privacy: FormText = "",
+    timezone: FormText = "",
 ):
     full_name = full_name.strip()
     email = email.strip()
@@ -199,7 +204,9 @@ def register(
     email_taken = False
     if not errors:
         try:
-            user = create_user(session, email=email, password=password, full_name=full_name)
+            user = create_user(
+                session, email=email, password=password, full_name=full_name, timezone=timezone
+            )
         except EmailTaken:
             email_taken = True
         else:

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "components/page_header.html" import page_header, page_width %}
+
+{% block title %}Settings{% endblock %}
+
+{#- docs/prototype/Settings.dc.html, SPEC §6.9. Only Notifications in M11b; the other
+    sections come with their milestones (D-107). -#}
+{% block content %}
+  {{ page_header("Settings") }}
+  <div class="w-full px-4 pt-6 pb-10 md:px-8">
+    <div class="{{ page_width() }}">
+      <section aria-labelledby="notifications-title" class="flex max-w-[720px] flex-col gap-4 rounded-xl border border-border bg-surface p-6">
+        <h2 id="notifications-title" class="m-0 text-lg font-bold text-text">Notifications</h2>
+        {% include "settings/_notifications.html" %}
+      </section>
+    </div>
+  </div>
+{% endblock %}

@@ -12,7 +12,13 @@ from sqlmodel import Field, SQLModel
 
 from app.models.base import created_at_field, datetime_column, updated_at_field
 
-NOTIFICATION_TYPES = ("follow_up", "interview_tomorrow", "stale_saved")  # M11a; more in M11b
+NOTIFICATION_TYPES = (
+    "follow_up",
+    "interview_tomorrow",
+    "stale_saved",
+    "study_reminder",  # M11b (D-111)
+    "streak_milestone",  # M11b (D-113)
+)
 TITLE_TEXT = 200
 BODY_TEXT = 300
 

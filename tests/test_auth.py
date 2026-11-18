@@ -381,6 +381,7 @@ PUBLIC_PAGES = {
     "/verify-email",
     "/forgot-password",
     "/reset-password",
+    "/reminders/off",  # the study reminder email's link works without a login (D-112)
 }
 # Background requests that answer 204 (no content) without a login instead of a
 # redirect: they show nothing and must not move the page to /login (D-105, M11a review).

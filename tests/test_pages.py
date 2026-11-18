@@ -1,7 +1,6 @@
 import json
 import re
 
-import pytest
 from sqlmodel import text
 
 from app.db import get_session
@@ -71,17 +70,14 @@ def test_htmx_eval_scripts_and_inline_styles_are_off(auth_client):
     }
 
 
-@pytest.mark.parametrize(
-    ("url", "section"),
-    [("/settings", "Settings")],  # /documents is real since M3a, /learning since M10
-)
-def test_unbuilt_sections_show_coming_soon_with_their_menu_item_current(auth_client, url, section):
-    response = auth_client.get(url)
+def test_settings_is_a_real_page_with_its_menu_item_current(auth_client):
+    # The last "Coming soon" placeholder page went away in M11b.
+    response = auth_client.get("/settings")
     assert response.status_code == 200
-    assert re.search(rf"<h1[^>]*>{section}</h1>", response.text)
-    assert "Coming soon." in response.text
+    assert re.search(r"<h1[^>]*>Settings</h1>", response.text)
+    assert "Coming soon." not in response.text
     current = [label for _, label, is_current in main_nav_links(response.text) if is_current]
-    assert current == [section]
+    assert current == ["Settings"]
 
 
 def test_unknown_page_returns_404(auth_client):

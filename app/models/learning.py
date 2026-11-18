@@ -18,6 +18,7 @@ RESOURCE_KINDS = ("course", "book", "video", "platform", "class", "other")
 UNIT_LABELS = ("Week", "Module", "Lesson", "Chapter")
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")  # date.weekday() order
 DEFAULT_REST_DAYS = ["sat", "sun"]
+DEFAULT_REMINDER_TIME = dt.time(19, 0)
 
 
 class LearningGoal(SQLModel, table=True):
@@ -104,7 +105,7 @@ class StudyLog(SQLModel, table=True):
 
 class NotificationPreference(SQLModel, table=True):
     """One row per user (SPEC §5.11). M10 added the rest days (D-090), M11a the job
-    search reminders (D-102); the study reminder settings come with M11b."""
+    search reminders (D-102), M11b the study reminder and the streak (D-110)."""
 
     __tablename__ = "notificationpreference"
 
@@ -117,6 +118,13 @@ class NotificationPreference(SQLModel, table=True):
     follow_up_enabled: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
     interview_enabled: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
     stale_saved_enabled: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
+    # The daily study reminder and the streak (M11b, D-110).
+    study_reminder_enabled: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
+    study_reminder_time: dt.time = Field(
+        default=DEFAULT_REMINDER_TIME, sa_column_kwargs={"server_default": "19:00:00"}
+    )
+    study_reminder_email: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
+    streak_enabled: bool = Field(default=True, sa_column_kwargs={"server_default": true()})
 
     created_at: dt.datetime = created_at_field()
     updated_at: dt.datetime = updated_at_field()

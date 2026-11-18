@@ -385,6 +385,7 @@ Kaynak: M4a Build, Fatih'in geri bildirimi (2026-11-16).
 ### D-071 · Tarih ve saatler `DEFAULT_TIMEZONE`'da
 Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
 - **Karar:** Veritabanında her zaman UTC. Kullanıcıya gösterilen ve kullanıcının girdiği tarih/saatler `settings.default_timezone` (Europe/Vienna) ile çevrilir (`zoneinfo`). "Bugün" (Needs attention, `applied_at`) bu saat dilimindeki tarihtir; D-061'deki "UTC tarihi" bununla değişir. `User.timezone` M10/M11'de gelince tek bir fonksiyon (`app/services/clock.py`: `today()`, `local(dt)`, `to_utc(date, time)`) kullanıcıya bakar. Docker imajında `zoneinfo` verisi yoksa `tzdata` paketi eklenir (Adım 1'de CI docker job'u kontrol eder; gerekirse D-071'e yazılır). Yaz/kış saati: girilen saat iki kez yaşanıyorsa (Ekim) ilki (`fold=0`), hiç yaşanmıyorsa (Mart, 02:30) UTC'ye çevrilip geri çevrilerek bir saat ileri kayar; ikisi de test edilir. D-061'e "D-071 ile güncellendi" notu düşülür.
+- **Güncelleme (D-109, M11b):** Tamamlandı: `clock.tz()` artık kullanıcının saat dilimini kullanır (istekte session'dan, zamanlayıcıda kullanıcı başına).
 
 ### D-072 · M4b kolonları (D-025 kalıbı)
 Kaynak: M4b Design fazı, plan-reviewer, Fatih onayı (2026-11-16).
@@ -563,3 +564,45 @@ Kaynak: M11a Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-1
 ### D-106 · M11a'da e-posta yok
 Kaynak: M11a Design fazı; Fatih plan onayıyla onayladı (2026-11-18).
 - **Karar:** follow_up, interview_tomorrow ve stale_saved SPEC §6.11'e göre sadece uygulama içi. E-posta M11b'de, sadece çalışma hatırlatması için.
+
+### D-107 · M11b: Fatih'in kararları
+Kaynak: M11b Design fazı, plan-reviewer soruları; Fatih onayladı (2026-11-18).
+- **Karar:** Saat dilimi kayıt ve girişte tarayıcıdan algılanır, Settings'te değiştirilebilir. Hatırlatma saati yarım saatlik listeden (06:00–23:00, varsayılan 19:00). O gün için planlı ya da gecikmiş görev yoksa hatırlatma gelmez. Settings'te M11b'de sadece Notifications bölümü var (D-060). Dilim değişince tüm gün tarihler taşınır (D-108). Görev yokken Next reminder kartı "No tasks planned" + "Add task" gösterir. Seri ayarı kapalıyken Learning'deki Streak kartı kalır.
+- **Alternatifler:** Serbest saat girişi; dinlenme günü dışında her gün hatırlatma; Settings'in tüm bölümlerini yer tutucuyla açmak.
+
+### D-108 · `User.timezone`
+Kaynak: M11b Design fazı, plan-reviewer B1/S12; Fatih onayladı (2026-11-18).
+- **Karar:** `timezone` (str 64, nullable); boşsa `DEFAULT_TIMEZONE`. Geçerli değerler `zoneinfo.available_timezones()` (önbellekte). Giriş ve kayıt formlarındaki gizli alanı app.js `Intl` ile doldurur; kayıtta kaydedilir, girişte sadece boşsa. Dilim değişince "saatsiz" (eski dilimde 00:00) `interview_at` ve `next_action_at` aynı işlemde yeni dilimde aynı günün 00:00'ına taşınır; saatli değerler gerçek an olduğu için değişmez.
+- **Alternatifler:** Zorunlu kolon ve mevcut kullanıcılar için Vienna yazmak; tüm gün tarihleri `date` kolonunda saklamak (büyük değişiklik).
+
+### D-109 · `clock` kullanıcının saat dilimini kullanır
+Kaynak: M11b Design fazı, plan-reviewer S1/S2/S5/S11 (2026-11-18). D-071'i tamamlar.
+- **Karar:** `clock.tz()` bir `ContextVar`'dan okur (yoksa `DEFAULT_TIMEZONE`); çağıranlar değişmez. İstekte `UserTimezone` ASGI ara katmanı `session["tz"]`'i doğrulayıp koyar (SessionMiddleware'in içinde, `finally` ile reset); `current_user` farkı görürse session'ı günceller; başka cihazda değişen dilim bir sonraki istekten itibaren geçerli olur (senkron dependency'ler ayrı bir thread'de, kopyalanmış context'te çalışır, ContextVar'ı oradan route'a taşımak mümkün değil). Zamanlayıcıda her kullanıcı `clock.use_timezone(user.timezone)` ile; iş arama bildirimleri de kullanıcının diline geçer. Üretim işi `CronTrigger(minute="*/15")` (Claude karar verdi: hatırlatma tam saatinde gelsin). Kabul edilen sınırlamalar: dilim değişince M11a anahtarlarının günü kayabilir ve aynı adım için bir bildirim daha gelebilir.
+- **Alternatifler:** Her fonksiyona `user` parametresi (60 çağrı yeri); her istekte veritabanından okumak (ara katman session'dan okur, `current_user` zaten okuyor).
+
+### D-110 · Hatırlatma tercihleri
+Kaynak: M11b Design fazı (2026-11-18). SPEC §5.11.
+- **Karar:** `NotificationPreference`'a `study_reminder_enabled`, `study_reminder_time` (19:00), `study_reminder_email`, `streak_enabled`; hepsinde `server_default`. `ai_result_enabled` ilk AI sonucu bildirimiyle. `Notification.type`'a `study_reminder` ve `streak_milestone`.
+
+### D-111 · Günlük çalışma hatırlatması
+Kaynak: M11b Design fazı, plan-reviewer B3 (2026-11-18). SPEC §6.11.
+- **Karar:** 15 dakikalık işte kullanıcının diliminde: hatırlatma açık, yerel saat ≥ seçilen saat, dinlenme günü değil, bugün görev tamamlanmamış, bugün ya da öncesine planlı açık görev var. Anahtar `study:{yerel gün}` (günde bir; ertesi güne taşmaz). Başlık "Time to study: {n} min", metin görevin başlığı (bugünün ilk açık görevi, yoksa en eski gecikmiş) ve seri açıksa ve ≥ 2 ise " · keep your {n}-day streak going". Hesap `now`'dan (`clock.today()` değil) ve satır oluşturmadan.
+
+### D-112 · Hatırlatma e-postası ve kapatma linki
+Kaynak: M11b Design fazı, plan-reviewer B2/S3/S4 (2026-11-18). D-098'i uygular.
+- **Karar:** `study_reminder_email` açık ve e-posta doğrulanmışsa, bildirim satırı bu çalışmada yazılıp commit edildikten sonra düz metin e-posta (konu "Time to study"). Link `/reminders/off?token=…` (itsdangerous, tuz `study-reminder-off`, user id + e-posta, 90 gün). GET sadece onay sayfası (maskeli adres, buton); POST (CSRF, 10/dk) token'ı yeniden doğrular ve sadece `study_reminder_email`'i kapatır.
+- **Alternatifler:** GET'te kapatmak (e-posta tarayıcılarının önizlemesi kapatırdı); hatırlatmanın tamamını kapatmak.
+- **Güncelleme (security-reviewer, Claude karar verdi):** Sayfalar `Cache-Control: no-store` ile döner. E-postalar zamanlayıcının çalışmasının sonunda, en fazla 5'i aynı anda gönderilir; yavaş bir posta sunucusu uygulama içi hatırlatmaları geciktirmez. Kabul edilen risk: link 90 gün boyunca geri alınamaz; eline geçen biri sadece çalışma e-postalarını kapatabilir (veri sızmaz), kullanıcı Settings'ten yeniden açar.
+
+### D-113 · Seri kutlaması
+Kaynak: M11b Design fazı, plan-reviewer S8; **Claude karar verdi** (gece çalışması, 2026-11-18), Fatih'in onayını bekliyor.
+- **Karar:** `streak_enabled` açıkken seri 7, 30 ya da 100 ve son aktif gün bugün ya da dünse "{n}-day streak" / "You studied {n} days in a row. Nice work." Anahtar `streak:{n}:{son aktif gün}`: gece yarısına yakın tamamlanan görevin kutlaması ertesi gün de gelir, tekrar etmez.
+- **Alternatifler:** Sadece bugün aktifse (23:58'de tamamlanınca kaçar).
+
+### D-114 · Settings › Notifications
+Kaynak: M11b Design fazı, plan-reviewer S7/S10 (2026-11-18). SPEC §6.9.
+- **Karar:** `/settings` sadece Notifications: Learning (hatırlatma, saat, e-posta, dinlenme günleri, saat dilimi, seri) ve Job search (follow-up, interview, stale saved). "AI results" M5'te; "Weekly email summary" "Coming soon". Tek htmx formu, alan yanında hatalar. **Claude karar verdi:** dilim değişmediyse form yeniden çizilir + toast; değiştiyse sayfa yeniden yüklenir ve toast yeni sayfada gösterilir (saatler yeni dilimle görünsün).
+
+### D-115 · Next reminder kartı ve panel linki
+Kaynak: M11b Design fazı, plan-reviewer S6 (2026-11-18). SPEC §6.10.
+- **Karar:** Kart bir sonraki hatırlatmayı gösterir ("Today, 19:00", "Tomorrow, 19:00", "Mon, 19:00"; dinlenme günleri, bugün gitmiş hatırlatma ve açık görevler hesaba katılır, 14 gün ileri) + "Change reminder". Kapalıysa "Off" + "Turn on"; hiç açık görev yoksa "No tasks planned" + "Add task". Zil panelinin altında "Notification settings" linki.

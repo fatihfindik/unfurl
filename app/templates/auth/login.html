@@ -7,6 +7,8 @@
 {% block form %}
   <form method="post" action="/login" class="flex flex-col gap-4" novalidate>
     {{ csrf_field(csrf_token) }}
+    {# Filled by app.js with the browser's time zone (D-108). #}
+    <input type="hidden" name="timezone" value="" data-browser-timezone>
     {#- Where to go after login; checked again on the server (safe_redirect_path). -#}
     <input type="hidden" name="next" value="{{ next }}">
     <h2 class="m-0 text-2xl font-bold">Welcome back</h2>
