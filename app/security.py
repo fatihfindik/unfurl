@@ -4,6 +4,7 @@
 - CSRF: one token per session, checked on every POST/PUT/PATCH/DELETE (SPEC §6.1, D-022)
 - Limits: login lockout, emails per address, requests per IP (SPEC §6.1, D-020)
 - Access log: tokens in URLs are hidden (CLAUDE.md: no tokens in logs)
+- Security headers for every answer (D-120); app/main.py and the error pages use them
 """
 
 import logging
@@ -20,6 +21,16 @@ from slowapi.util import get_remote_address
 
 from app.models.base import utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
+
+# --- Errors with a message for the user -----------------------------------------
+
+
+class UserFacingHTTPException(HTTPException):
+    """An HTTP error whose `detail` is written for the user, e.g. "Please verify your
+    email first." The error page and the htmx toast show it (D-125); any other
+    HTTPException gets the fixed text for its status, so internal error text can't
+    reach the page by accident (M13a security review L2)."""
+
 
 # --- Redirects ------------------------------------------------------------------
 
@@ -103,7 +114,10 @@ async def verify_csrf(request: Request) -> None:
 
     expected = request.session.get(CSRF_SESSION_KEY)
     if not expected or not isinstance(sent, str) or not _tokens_match(sent, expected):
-        raise HTTPException(status_code=403, detail="CSRF token missing or invalid.")
+        # The text users see on the error page or in the toast (D-125).
+        raise UserFacingHTTPException(
+            status_code=403, detail="Your session changed. Please reload the page."
+        )
 
 
 def _tokens_match(sent: str, expected: str) -> bool:
@@ -286,3 +300,30 @@ def hide_tokens_in_access_log() -> None:
     access_log = logging.getLogger("uvicorn.access")
     if not any(isinstance(f, HideTokensFilter) for f in access_log.filters):
         access_log.addFilter(HideTokensFilter())
+
+
+# --- Security headers -------------------------------------------------------------
+
+# Sent with every answer unless the route set its own (D-120, SPEC §10.1).
+# The CSP allows only our own origin: no inline scripts or styles, no other sites.
+# Alpine's CSP build and the htmx settings in layouts/_head.html work under it.
+CONTENT_SECURITY_POLICY = "; ".join(
+    [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self'",
+        "img-src 'self'",
+        "font-src 'self'",
+        "connect-src 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "base-uri 'none'",
+        "object-src 'none'",
+    ]
+)
+SECURITY_HEADERS = {
+    b"content-security-policy": CONTENT_SECURITY_POLICY.encode(),
+    b"x-content-type-options": b"nosniff",  # the browser trusts our Content-Type
+    b"x-frame-options": b"DENY",  # no other site can show us in a frame
+    b"referrer-policy": b"same-origin",  # links to other sites don't get our addresses
+}

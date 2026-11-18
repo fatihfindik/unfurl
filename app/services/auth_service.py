@@ -9,7 +9,7 @@ import secrets
 from typing import Annotated
 from urllib.parse import quote, urlsplit
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Request
 from fastapi.responses import RedirectResponse, Response
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 from pwdlib import PasswordHash
@@ -22,7 +22,7 @@ from app.db import get_session
 from app.models import User
 from app.models.base import utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
-from app.security import get_csrf_token, safe_redirect_path
+from app.security import UserFacingHTTPException, get_csrf_token, safe_redirect_path
 from app.services import application_service, clock
 
 PASSWORD_MIN_LENGTH = 10
@@ -139,6 +139,28 @@ def remember_timezone(session: Session, user: User, name: str | None) -> None:
 def end_session(request: Request) -> None:
     """Log out: forget everything in the session cookie."""
     request.session.clear()
+
+
+def sign_out(session: Session, request: Request) -> None:
+    """ "Sign out" (D-128): end this session and every other one of the user.
+
+    The session lives in the cookie, so clearing it only helps this browser; a copy
+    of the cookie (or another device) would still work. Raising session_version makes
+    all of them invalid (current_user compares it). Only a session that is still valid
+    raises it: an old cookie can't sign out someone's other devices. One UPDATE, so
+    two sign-outs at once can't lose a step (like reset_password).
+    """
+    user_id = request.session.get(SESSION_USER_ID)
+    version = request.session.get(SESSION_VERSION)
+    if isinstance(user_id, int) and isinstance(version, int):
+        session.exec(
+            update(User)
+            .where(User.id == user_id, User.session_version == version)
+            .values(session_version=User.session_version + 1, updated_at=utcnow())
+            .execution_options(synchronize_session=False)
+        )
+        session.commit()
+    end_session(request)
 
 
 def current_user(
@@ -260,7 +282,7 @@ def mark_verified(session: Session, user: User) -> None:
 def require_verified(user: Annotated[User, Depends(require_user)]) -> User:
     """Dependency for features that need a verified email (AI features from M7, SPEC §6.1)."""
     if not user.is_verified:
-        raise HTTPException(status_code=403, detail="Please verify your email first.")
+        raise UserFacingHTTPException(status_code=403, detail="Please verify your email first.")
     return user
 
 

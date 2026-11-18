@@ -29,6 +29,13 @@
     {% include "applications/_summary.html" %}
     {% include "applications/_list.html" %}
   {%- else %}
+    {#- Every column is empty: say why once, above the board (D-127). -#}
+    {%- if columns | sum(attribute="count") == 0 %}
+      <p class="m-0 rounded-xl border border-dashed border-border-strong bg-surface p-4 text-sm text-text-3">
+        {%- if region_url != clear_url %}No jobs match these filters. <a href="{{ clear_url }}" class="font-semibold text-link">Clear filters</a>
+        {%- else %}All your jobs are archived. "Show archived" brings them back into view.{% endif -%}
+      </p>
+    {%- endif %}
     {% include "applications/_board.html" %}
   {%- endif %}
 </div>

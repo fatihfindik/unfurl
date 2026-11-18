@@ -220,9 +220,13 @@ document.addEventListener("input", (event) => {
   }
 });
 
-// An htmx request that fails (403 when the CSRF token is out of date, 500 on a server
-// error) changes nothing on the page. Without this the user would see no reaction at all.
-document.addEventListener("htmx:responseError", () => {
+// An htmx request that fails changes nothing on the page. The server's error answer
+// carries its own toast in HX-Trigger (app/errors.py, D-125), e.g. "This item no
+// longer exists". Without one (an old answer, a proxy error) show a general message,
+// so the user always sees a reaction.
+document.addEventListener("htmx:responseError", (event) => {
+  const trigger = event.detail.xhr.getResponseHeader("HX-Trigger") || "";
+  if (trigger.includes('"toast"')) return;
   Alpine.store("toast").show("Something went wrong. Please reload the page.");
 });
 
@@ -388,13 +392,24 @@ document.addEventListener("click", (event) => {
 // A modal whose content comes from the server when it opens (Learning page: "Add
 // task" with the current goals, the goal delete confirmation):
 //   <button data-dialog-load="add-task" data-dialog-url="/learning/tasks/new?goal=3">
-// The content goes into "#<dialog id>-body", then the modal opens. The URLs are
-// written by our templates; only /learning/ pages are loaded.
+// The modal opens at once with a "Loading…" skeleton (D-126); the content then goes
+// into "#<dialog id>-body". If loading fails (e.g. the goal was deleted in another
+// tab), the skeleton is still there: the modal closes and the server's toast says
+// why. The URLs are written by our templates; only /learning/ pages are loaded.
 function openLoadedDialog(dialogId, url) {
   const dialog = document.getElementById(dialogId);
-  if (!(dialog instanceof HTMLDialogElement) || !String(url).startsWith("/learning/")) return;
-  htmx.ajax("GET", url, { target: `#${dialogId}-body`, swap: "innerHTML" }).then(() => {
-    if (!dialog.open) dialog.showModal();
+  const body = document.getElementById(`${dialogId}-body`);
+  const skeleton = document.getElementById("dialog-skeleton");
+  if (!(dialog instanceof HTMLDialogElement) || !body || !String(url).startsWith("/learning/")) {
+    return;
+  }
+  if (skeleton) body.replaceChildren(skeleton.content.cloneNode(true));
+  if (!dialog.open) dialog.showModal();
+  htmx.ajax("GET", url, { target: body, swap: "innerHTML" }).then(() => {
+    if (body.querySelector("[data-dialog-skeleton]")) {
+      dialog.close();
+      return;
+    }
     dialog.querySelector("input[type=text], button[type=submit]")?.focus();
   });
 }

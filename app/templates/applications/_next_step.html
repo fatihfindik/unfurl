@@ -7,7 +7,7 @@
     {%- if not application.archived %}
       <span class="flex items-center gap-3">
         {%- if step %}
-          <button type="button" hx-post="/applications/{{ application.id }}/next-step/done" hx-swap="none"
+          <button hx-disabled-elt="this" type="button" hx-post="/applications/{{ application.id }}/next-step/done" hx-swap="none"
                   class="text-[13px] font-semibold text-link hover:underline">Done</button>
         {%- endif %}
         <button type="button" hx-get="/applications/{{ application.id }}/next-step/edit" hx-target="#next-step" hx-swap="outerHTML"

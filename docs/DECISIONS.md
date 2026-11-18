@@ -634,6 +634,7 @@ Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (2026-11-18).
 Kaynak: #10 (M1a güvenlik incelemesi #7, #8); **Claude karar verdi** (gece çalışması, 2026-11-18), Fatih'in onayını bekliyor. SPEC §10.1.
 - **Karar:** En dıştaki küçük bir ASGI ara katmanı (`SecurityHeaders`) her yanıta, route kendi koymadıysa: `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` (dış linklere adresimiz gitmez; token sayfaları `no-referrer` kalır). `/static/` dışındaki yanıtlara `Cache-Control: no-store` (çıkıştan sonra geri tuşu kişisel sayfayı göstermez). Şablonlarda (CV önizlemesinde tarayıcıda da görünen pdf/ şablonları dahil) inline script, `on…=` ve `style=""` olmadığı bir testle korunur. PDF indirmesi `attachment` olduğu için tarayıcının PDF görüntüleyicisi CSP'den etkilenmez. Sunucu hatası (500) yanıtı ara katmanların dışında üretilir ve header almaz (kabul). HSTS deploy'da.
 - **Güncelleme (security-reviewer):** Profil ve CV fotoğrafları `private, no-store` (paylaşılan bilgisayarda çıkıştan sonra kopya kalmaz). Şablon testi `<style>`, Alpine `:style` ve `javascript:` linklerini de yakalar. 500 yanıtı için header eklemek kabul edilen sınırlama olarak kalır.
+- **Güncelleme (D-125, M13a):** 500 yanıtı da header'ları alacak; kabul edilen sınırlama kapanıyor.
 - **Alternatifler:** Header'ları route'larda tek tek koymak; ek paket.
 
 ### D-121 · Eski güvenlik incelemelerinden küçük düzeltmeler (#15, #16, #22)
@@ -659,4 +660,31 @@ Kaynak: M13 bölme önerisi, soru 4 ve 7; Fatih önerileri onayladı (soru 7 iç
 - **Karar:** Settings › Account (ad, şifre) M13b'de; e-posta değiştirme ayrı bir PR (doğrulama akışını değiştirir, D-027). Settings › Documents (varsayılan belge dili) M13a'da. Settings › Plan (Free plan kartı, "Pro · coming soon") M5'te, çünkü "Upgrade to Pro" bekleme listesi modalı ve `WaitlistSignup` zaten M5'in fake door kapsamında. Settings › AI M5'te (BYOK ve krediler) ve M12a'da (asistan ayarları), Browser extension M6'da, Privacy M13b'de.
 - **Neden:** SPEC §6.9'daki bölümlerin §12'de sahibi yoktu; her bölüm, verisini getiren milestone'a gider; verisi zaten var olan küçük bölüm (Documents) cilalamaya.
 - **Alternatifler:** Bütün Settings'i M13b'de toplamak (M13b'yi büyütür).
+
+### D-125 · Hata sayfaları
+Kaynak: M13a Design fazı (`docs/plans/M13a.md`), plan-reviewer; Fatih planı onayladı (2026-11-18). D-120'deki 500 sınırlamasını kapatır.
+- **Karar:** Handler'lar `starlette.exceptions.HTTPException`'a bağlanır. 404 → sade düzende "Page not found" sayfası, link hep `/`. Yol parametresi doğrulama hatası (`/learning/tasks/abc`) → 404; diğer doğrulama hataları 422 durumunu korur ama JSON yerine mesaj sayfası. Diğer `HTTPException`'lar (403, 405, 409) kısa mesaj sayfası; `detail` sadece bizim yazdığımız metinse gösterilir. 500 → "Something went wrong" sayfası, stack trace yok; handler `ServerErrorMiddleware`'de çalıştığı için güvenlik header'larını ve `no-store`'u kendisi ekler ve paylaşılan `templates`'i (oturuma bakan context processor'lar) kullanmaz; o da hata verirse header'lı düz metin. Log'a yöntem ve yol yazılır, sorgu dizesi yazılmaz. htmx isteğinde boş gövde ve sunucunun `HX-Trigger` toast'u (404, 403 — doğrulanmamış hesapta sunucunun metni, Fatih seçti —, 422, 429, 500). `/api/` yolunda JSON kalır (M6 için).
+- **Alternatifler:** FastAPI'nin JSON hataları (bugünkü durum); 500'ü bir ara katmanla yakalamak.
+- **Güncelleme (security-reviewer):** Sayfada ve toast'ta sadece `UserFacingHTTPException`'ın metni gösterilir (L2); diğer `HTTPException`'lar durum koduna göre sabit metin alır, iç hata metni sayfaya düşemez. 500 log'unda sorgu değerleri zaten yok (`hide_parameters=True`, D-105; L1). uvicorn traceback'i ikinci kez loglar (kabul).
+
+### D-126 · Butonda dönen simge ve çift tıklama kilidi
+Kaynak: M13a Design fazı, plan-reviewer; simgeyi Fatih seçti (2026-11-18; öneri üstte ince çizgiydi).
+- **Karar:** `<body hx-disabled-elt="find [type=submit]">`: htmx isteği süresince formun submit butonu kilitlenir; kendi başına istek gönderen butonlar `hx-disabled-elt="this"`, otomatik kaydeden ve filtre formları `unset`. İsteği gönderen butonda 300 ms'den sonra küçük bir dönen simge (sadece CSS, `prefers-reduced-motion`'da dönmez). Sonradan yüklenen modallar önce "Loading…" iskeletiyle açılır, yükleme hata verirse kapanır.
+- **Alternatifler:** Sayfanın üstünde ince yükleme çizgisi; her butona elle `hx-indicator`.
+
+### D-127 · Boş durumlar
+Kaynak: M13a Design fazı, plan-reviewer.
+- **Karar:** `docs/plans/M13a.md`'deki envanter tablosu her listeyi sayar; eksikler kısa, suçlamayan ve bir sonraki adımı söyleyen metinlerle tamamlanır. Bir parametreli test tablonun her satırını (var olanlar dahil) boş veriyle açar.
+- **Alternatifler:** Sadece eksikleri test etmek.
+
+### D-128 · "Sign out" her cihazdan çıkarır
+Kaynak: M13a Design fazı, D-105 notu, #14; Fatih seçti (2026-11-18).
+- **Karar:** Çıkış `session_version`'ı tek bir `UPDATE … SET session_version = session_version + 1` ile artırır; çerezin oturumu zaten geçersizse hiçbir şey artırılmaz, sadece çerez silinir. Bu tarayıcının, kopyalanmış bir çerezin ve diğer cihazların oturumları biter. Doğrulama, sıfırlama, hatırlatma kapatma ve Undo token'ları `session_version` kullanmadığı için etkilenmez. #14 bununla kapanır.
+- **Neden:** Oturum çerezde saklanıyor (sunucuda oturum listesi yok); kopyalanmış bir çerezi geçersiz kılmanın tek yolu bu. Paylaşılan bilgisayarda "Sign out" gerçekten çıkış olmalı.
+- **Alternatifler:** Sadece bu tarayıcının çerezini silmek (bugünkü durum); sunucu tarafı oturum tablosu (V2).
+
+### D-129 · Settings › Documents
+Kaynak: M13a Design fazı, D-124.
+- **Karar:** `User.default_doc_language` (SPEC §5.1): `CV_LANGUAGES`'tan biri, varsayılan `en`, NOT NULL (migration `0014`, mevcut kullanıcılar `en`). Settings'te kendi formu (`POST /settings/documents`, CSRF, 30/dk), toast "Settings saved." New CV modalı bu dille açılır; M8'deki mektup da kullanır. Kayıtta `en`, tarayıcı dilinden tahmin yok.
+- **Alternatifler:** Tarayıcı dilinden tahmin; son oluşturulan CV'nin dilini hatırlamak.
 

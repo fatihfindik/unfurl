@@ -24,8 +24,12 @@
   {% block head_extra %}{% endblock %}
   <title>{% block title %}{% endblock %} · Unfurl</title>
 </head>
-{#- hx-headers: every htmx request sends the CSRF token as a header (app/security.py). -#}
-<body class="min-h-screen md:flex" hx-headers='{{ {"X-CSRF-Token": csrf_token} | tojson }}'>
+{#- hx-headers: every htmx request sends the CSRF token as a header (app/security.py).
+    hx-disabled-elt: while a form's request runs, its submit button is disabled, so a
+    second click can't send it twice (D-126). Buttons that send a request themselves
+    have hx-disabled-elt="this"; forms that save while typing have "unset". -#}
+<body class="min-h-screen md:flex" hx-headers='{{ {"X-CSRF-Token": csrf_token} | tojson }}'
+      hx-disabled-elt="find [type=submit]">
 
   <nav aria-label="Main" x-data="mobileNav"
        class="flex flex-col gap-1 bg-surface border-b border-border px-3.5 py-3 md:w-[220px] md:shrink-0 md:border-b-0 md:border-r md:py-5">
@@ -115,6 +119,15 @@
   </div>
 
   {{ toast_region() }}
+  {#- What a modal shows while its form loads (D-126); app.js copies it in. -#}
+  <template id="dialog-skeleton">
+    <div data-dialog-skeleton class="flex animate-pulse flex-col gap-3" aria-busy="true">
+      <span class="text-sm text-text-3">Loading…</span>
+      <div class="h-10 rounded-lg bg-muted"></div>
+      <div class="h-10 rounded-lg bg-muted"></div>
+      <div class="h-10 w-1/2 rounded-lg bg-muted"></div>
+    </div>
+  </template>
   {#- A toast waiting from the previous request (e.g. "… deleted." with Undo); app.js
       shows it once the page is ready. -#}
   {%- if flash %}

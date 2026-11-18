@@ -4,7 +4,7 @@
     Read-only (disabled fieldset) for a locked copy and a master that wasn't unlocked. -#}
 {%- from "components/forms.html" import select_field, text_field, textarea_field -%}
 <form id="cv-form" class="m-0 flex flex-col gap-4" novalidate
-      hx-post="/cvs/{{ cv.id }}" hx-trigger="input delay:500ms" hx-sync="this:replace"
+      hx-post="/cvs/{{ cv.id }}" hx-trigger="input delay:500ms" hx-sync="this:replace" hx-disabled-elt="unset"
       hx-target="#cv-preview" hx-swap="innerHTML">
   {%- if master_unlocked %}<input type="hidden" name="edit_master" value="confirmed">{% endif %}
   {%- if not editable %}

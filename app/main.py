@@ -14,6 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app import scheduler
 from app.config import Settings, get_settings
+from app.errors import add_error_handlers, error_response
 from app.routers import (
     applications,
     auth,
@@ -26,10 +27,16 @@ from app.routers import (
     undo,
 )
 from app.routers import settings as settings_routes  # `settings` is the app config below
-from app.security import hide_tokens_in_access_log, limiter, verify_csrf
+from app.security import (
+    CONTENT_SECURITY_POLICY,  # noqa: F401 (tests read it from here)
+    SECURITY_HEADERS,
+    hide_tokens_in_access_log,
+    limiter,
+    verify_csrf,
+)
 from app.services import clock
 from app.services.auth_service import SESSION_TIMEZONE, LoginRequired, login_required_response
-from app.templating import templates
+from app.templating import is_htmx, templates
 
 SESSION_COOKIE = "unfurl_session"
 # In production the cookie name starts with "__Host-": browsers then accept it only
@@ -71,31 +78,6 @@ class KeepSessionCookie:
             await send(message)
 
         await self.app(scope, receive, send_without_cookie)
-
-
-# Sent with every answer unless the route set its own (D-120, SPEC §10.1).
-# The CSP allows only our own origin: no inline scripts or styles, no other sites.
-# Alpine's CSP build and the htmx settings in layouts/_head.html work under it.
-CONTENT_SECURITY_POLICY = "; ".join(
-    [
-        "default-src 'self'",
-        "script-src 'self'",
-        "style-src 'self'",
-        "img-src 'self'",
-        "font-src 'self'",
-        "connect-src 'self'",
-        "form-action 'self'",
-        "frame-ancestors 'none'",
-        "base-uri 'none'",
-        "object-src 'none'",
-    ]
-)
-SECURITY_HEADERS = {
-    b"content-security-policy": CONTENT_SECURITY_POLICY.encode(),
-    b"x-content-type-options": b"nosniff",  # the browser trusts our Content-Type
-    b"x-frame-options": b"DENY",  # no other site can show us in a frame
-    b"referrer-policy": b"same-origin",  # links to other sites don't get our addresses
-}
 
 
 class SecurityHeaders:
@@ -155,6 +137,8 @@ def rate_limit_response(request: Request, exc: RateLimitExceeded):
         text = "Please try again in an hour."
     else:
         text = "Please wait a few minutes and try again."
+    if is_htmx(request):  # the page stays; a toast says why nothing happened
+        return error_response(request, 429, detail="Too many requests. " + text)
     return templates.TemplateResponse(
         request,
         "auth/message.html",
@@ -212,6 +196,9 @@ def create_app(settings: Settings) -> FastAPI:
 
     # Added last, so it is the outermost: every answer gets the headers, errors too.
     app.add_middleware(SecurityHeaders)
+
+    # Our own error pages instead of JSON; 500 too, with the security headers (D-125).
+    add_error_handlers(app)
 
     # Pages that need a login raise LoginRequired; this turns it into a redirect.
     app.add_exception_handler(LoginRequired, login_required_response)

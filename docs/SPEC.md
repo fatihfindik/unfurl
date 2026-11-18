@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.20 — 2026-11-18
+> **Durum:** MVP planı, v2.1.21 — 2026-11-18
+> v2.1.21: M13a Design kararları. Hata sayfaları (404, 422 mesaj sayfası, 500 header'larla; htmx'te toast), butonda dönen simge ve çift tıklama kilidi, boş durum envanteri, "Sign out" bütün cihazlardaki oturumları bitirir, Settings › Documents (`default_doc_language`, varsayılan `en`). Kararlar: DECISIONS D-125…D-129.
 > v2.1.20: M13 dörde bölündü: M13a cilalama (hata sayfaları, boş durumlar, yükleme göstergeleri, çıkışta oturumu bitirme, Settings › Documents), M13b GDPR (yasal sayfalar, veri dışa aktarma, hesap silme, Settings › Account), M13c deploy, M13d portföy README'si. Sıra: M13a → M13b → AI milestone'ları → M6 → M13c → M13d (D-123, D-124).
 > v2.1.19: #46: duraklatılmış ya da bitmiş hedefin görevleri çalışma hatırlatmasını ve Next reminder kartını tetiklemez, planda kalır (D-122).
 > v2.1.18: #10: güvenlik header'ları (CSP sadece kendi origin, nosniff, X-Frame-Options, Referrer-Policy) ve `no-store` (D-120).
@@ -317,10 +318,10 @@ Tüm tablolarda: `id` (int, PK), `created_at`, `updated_at` (UTC). Kullanıcıya
 | is_verified | bool | e-posta doğrulandı mı |
 | full_name | str | |
 | ui_locale | str | şimdilik hep "en" |
-| default_doc_language | enum: de/en/tr | |
+| default_doc_language | enum: de/en/tr | Varsayılan `en`. Settings › Documents'ta değişir; New CV bu dille açılır (D-129). |
 | anthropic_api_key_encrypted | str, nullable | Fernet ile şifreli BYOK anahtarı |
 | last_login_at | datetime, nullable | |
-| session_version | int | Varsayılan 0. Şifre değişince/sıfırlanınca +1. Oturum çerezindeki değerle eşleşmeyen oturum geçersizdir. |
+| session_version | int | Varsayılan 0. Şifre değişince/sıfırlanınca ve çıkışta +1 (D-128). Oturum çerezindeki değerle eşleşmeyen oturum geçersizdir. |
 | privacy_accepted_at | datetime | Kayıtta gizlilik onayı |
 | theme | enum system/light/dark | Varsayılan `system` |
 | timezone | str, nullable | Boşsa `DEFAULT_TIMEZONE` (Europe/Vienna). Kayıtta tarayıcıdan algılanır (girişte sadece boşsa), Settings'te değişir. Tarihler, "bugün" ve hatırlatmalar bu dilimdedir. Dilim değişince saatsiz (tüm gün) `interview_at` ve `next_action_at` yeni dilimde aynı güne taşınır (D-108, D-109). |
@@ -545,7 +546,7 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 ### 6.1 Kimlik doğrulama
 - **/register:** ad soyad, e-posta, şifre (min 10 karakter), gizlilik politikası onayı (zorunlu checkbox). Kayıttan sonra doğrulama e-postası gönderilir ve **"Check your inbox"** ekranı gösterilir ("Continue to setup", "Resend email"). Kullanıcı devam edebilir ama AI özellikleri doğrulama olmadan kilitlidir (sarı uyarı bandı + "Resend email" butonu).
 - **/login:** e-posta + şifre. 5 başarısız denemeden sonra 15 dakikalık kilit (IP + e-posta bazlı rate limit). Hata mesajı genel olmalı: "Invalid email or password".
-- **/logout:** POST.
+- **/logout:** POST. Arayüzde "Sign out". `session_version` artar: bu tarayıcının, kopyalanmış bir çerezin ve diğer cihazların oturumları biter (D-128).
 - **/verify-email?token=...:** 48 saat geçerli.
 - **/forgot-password** ve **/reset-password?token=...:** 1 saat geçerli. Kayıtlı olmayan e-posta için de aynı mesaj gösterilir ("If an account exists, we sent an email").
 - Oturum çerezi: HTTP-only, `Secure` (canlıda), `SameSite=Lax`, 14 gün.
@@ -554,7 +555,7 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 - **Yönlendirme güvenliği:** `next=` ve `back_url` yalnızca `/` ile başlayan göreli yolları kabul eder. `//`, `/\`, şema (`https:`, `javascript:`) veya host içeren değerler `/`'e düşer. Tüm yönlendirmeler tek bir `safe_redirect_path()` yardımcısından geçer.
 - **Giriş gerektiren sayfalar:** Oturumsuz GET isteği `303 → /login?next=<path>` alır. HTMX isteklerinde 303 yerine `HX-Redirect` header'ı döner.
 - **Login kilidi:** Aynı IP + e-posta çifti için 15 dakika içinde 5 başarısız denemede 15 dakikalık kilit uygulanır ("Too many attempts. Try again in 15 minutes."). Kilit 5. hatadan itibaren sabit 15 dakika sürer; eski hatalar pencereden çıksa da erken açılmaz. Sayaç bellekte tutulur (D-020). Ayrıca slowapi IP başına genel sınır koyar: login 10/dk, register 5/saat, forgot-password 5/saat. forgot-password ve resend-verification aynı e-posta için 3/saat.
-- **Oturum geçersiz kılma:** Oturum çerezi `user_id` ve `session_version` taşır. `current_user` ikisini DB ile karşılaştırır. Şifre sıfırlanınca veya değişince açık oturumların hepsi düşer (D-021).
+- **Oturum geçersiz kılma:** Oturum çerezi `user_id` ve `session_version` taşır. `current_user` ikisini DB ile karşılaştırır. Şifre sıfırlanınca veya değişince ve çıkışta açık oturumların hepsi düşer (D-021, D-128).
 - **Token'lar:** Reset token `password_hash`'ten türetilen bir parmak izi içerir, şifre değişince geçersiz olur (tek kullanımlık). Verify token idempotenttir: zaten doğrulanmış kullanıcı "Email already verified" görür. Token'lar imzalıdır, DB'de tutulmaz (D-027).
 - **Şifre sıfırlama sonrası:** Reset e-posta sahipliğini kanıtladığı için kullanıcı doğrulanmış sayılır (`is_verified=True`) ve o e-postanın login kilidi kayıtları silinir. Otomatik giriş yapılmaz: kullanıcı `/login`'e yönlendirilir ("Your password was changed. Sign in with your new password.").
 - **Kayıtta mevcut e-posta:** "An account with this email already exists." mesajı login ve forgot-password linkleriyle gösterilir (D-023). forgot-password numaralandırmaya kapalı kalır.
@@ -639,7 +640,7 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 
 ### 6.9 Settings (/settings)
 - **Account:** ad, e-posta (değişirse yeniden doğrulama), şifre değiştirme.
-- **Documents:** varsayılan belge dili.
+- **Documents (M13a):** "Default document language" (German / English / Turkish, varsayılan English); New CV modalı bu dille açılır, M8'de mektup da. Kendi formu, toast "Settings saved." (D-129).
 - **AI:** "How AI credits work" açıklaması, günlük kredi kullanımı ve özellik başına kredi tablosu, BYOK alanı ve asistan ayarları (sayfa bağlamını kullan, sohbet geçmişi saklama süresi, sohbet geçmişini sil):
   - "Add your Anthropic API key" → kaydederken ucuz bir test çağrısıyla doğrulanır → şifreli saklanır → ekranda sadece `sk-ant-...XXXX` (son 4 karakter) gösterilir → "Remove key".
 - **Notifications (M11b'de gelen tek bölüm; diğerleri kendi milestone'larında, D-107):** Learning bölümü (günlük çalışma hatırlatması aç/kapat, saat seçimi: 06:00–23:00 yarım saatlik liste, e-postayla da gönder, dinlenme günleri, saat dilimi, seri ve haftalık hedef: "Celebrate 7, 30 and 100-day streaks and mention your streak in reminders.") ve Job search bölümü (takip, mülakat, bekleyen ilan; AI sonucu M5'te). "Weekly email summary" satırı "Coming soon" etiketiyle görünür (V2). Tek form; dilim değişince sayfa yeniden yüklenir (D-114).
@@ -973,7 +974,7 @@ Versiyon numarası `AIUsage` kaydına ve `FitAnalysis.model` yanına (`model@pro
 - [ ] Dosya yüklemede tip ve boyut kontrolü yapılır. Profil fotoğrafı: JPEG/PNG, max 2 MB, Pillow ile yeniden kaydedilir (EXIF temizlenir).
 - [ ] Jinja autoescape açıktır. AI çıktıları asla `|safe` ile render edilmez.
 - [ ] Güvenlik header'ları: `Content-Security-Policy` (sadece kendi origin'inden script), `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY`. Giriş gerektiren sayfalarda `Cache-Control: no-store` (D-120; HSTS deploy'da).
-- [ ] Production'da `DEBUG=false`, hata sayfaları stack trace göstermez.
+- [ ] Production'da `DEBUG=false`, hata sayfaları stack trace göstermez. 404, 422 ve 500 uygulamanın kendi sayfalarıdır ve güvenlik header'larını alır (500 dahil); htmx isteğinde boş gövde + toast (D-125).
 
 ### 10.2 GDPR
 - **Hosting:** AB bölgesi (Render Frankfurt). Veritabanı da AB'de.

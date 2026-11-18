@@ -39,7 +39,7 @@
 {#- The box that ticks a task off or back on (D-092). It sends the wanted state, so
     a double click can't flip it twice; the answer is a toast and a reloaded region. -#}
 {% macro done_box(row) -%}
-  <input type="checkbox" class="size-5 shrink-0 accent-[#4F46E5]"
+  <input hx-disabled-elt="this" type="checkbox" class="size-5 shrink-0 accent-[#4F46E5]"
          aria-label="{{ 'Mark as not done' if row.done else 'Done' }}: {{ row.title }}"
          {%- if row.done %} checked{% endif %}
          hx-post="/learning/tasks/{{ row.id }}/done" hx-trigger="change" hx-swap="none"
@@ -63,7 +63,7 @@
       {%- endif %}
       <button type="button" data-dialog-load="edit-task" data-dialog-url="/learning/tasks/{{ row.id }}/edit"
               class="self-start border-0 bg-transparent p-0 text-[13px] font-semibold text-link hover:underline">{{ "Edit title or time spent" if row.done else "Edit task" }}</button>
-      <button type="button" hx-post="/learning/tasks/{{ row.id }}/delete" hx-swap="none"
+      <button hx-disabled-elt="this" type="button" hx-post="/learning/tasks/{{ row.id }}/delete" hx-swap="none"
               class="self-start border-0 bg-transparent p-0 text-[13px] font-semibold text-red-text hover:underline">Delete task</button>
     </div>
   </details>

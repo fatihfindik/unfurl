@@ -9,7 +9,7 @@
   <div class="flex justify-end gap-2.5">
     <button type="button" data-dialog-close
             class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Cancel</button>
-    <button type="submit" hx-post="/learning/goals/{{ goal.id }}/delete" hx-swap="none"
+    <button hx-disabled-elt="this" type="submit" hx-post="/learning/goals/{{ goal.id }}/delete" hx-swap="none"
             class="inline-flex h-9 items-center justify-center rounded-lg bg-[#D92D20] px-3 text-sm font-semibold text-white hover:bg-[#B42318]">Delete goal</button>
   </div>
 </div>

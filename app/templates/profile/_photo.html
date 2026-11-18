@@ -35,7 +35,7 @@
           </label>
         </form>
         {%- if profile.photo_path %}
-          <button type="button" class="block w-full rounded-md px-3 py-2 text-left text-sm text-red-text hover:bg-red-bg"
+          <button hx-disabled-elt="this" type="button" class="block w-full rounded-md px-3 py-2 text-left text-sm text-red-text hover:bg-red-bg"
                   hx-delete="/profile/photo" hx-target="#profile-photo" hx-swap="outerHTML">Remove photo</button>
         {%- endif %}
         <p id="profile-photo-hint" class="m-0 border-t border-border px-3 pt-2 pb-1.5 text-xs leading-snug text-text-3">JPEG or PNG, up to 2 MB. Hidden on CVs unless you switch it on.</p>

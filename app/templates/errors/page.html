@@ -1,0 +1,28 @@
+{#- Error pages (D-125): 404, 422, 500 and other errors. A plain layout without the
+    menu or the session: it must work logged out and after a crash. Rendered by
+    app/errors.py with `heading`, `text`, `status` and `theme` (from the cookie). -#}
+{%- from "components/icons.html" import logo_mark -%}
+{%- from "components/footer.html" import legal_links -%}
+<!doctype html>
+<html lang="en" class="theme-{{ theme }}">
+<head>
+  {% include "layouts/_head.html" %}
+  <title>{{ heading }} · Unfurl</title>
+</head>
+<body class="min-h-screen bg-bg">
+  <div class="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-8">
+    <a href="/" class="flex items-center gap-2.5 no-underline">
+      {{ logo_mark() }}
+      <span class="font-display text-[19px] font-bold tracking-[-0.02em] text-text">Unfurl</span>
+    </a>
+    <main class="flex w-full max-w-[440px] flex-col gap-4 rounded-xl border border-border bg-surface p-8">
+      <span class="text-sm font-semibold text-text-3">Error {{ status }}</span>
+      <h1 class="m-0 text-2xl font-bold">{{ heading }}</h1>
+      <p class="m-0 text-[15px] leading-[1.55] text-text-2">{{ text }}</p>
+      {#- Logged out, / sends the visitor to the sign-in page. -#}
+      <a href="/" class="inline-flex h-11 items-center justify-center rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white no-underline hover:bg-[#4338CA]">Back to Unfurl</a>
+    </main>
+    {{ legal_links() }}
+  </div>
+</body>
+</html>

@@ -45,7 +45,7 @@
         {#- A plain <select>: works with the keyboard and screen readers (D-069, D-076).
             A change is sent right away; the answer has the toast with Undo. -#}
         <label class="flex items-center gap-2 text-[13px] font-semibold text-text-2">Status
-          <select name="status" hx-post="/applications/{{ application.id }}/status" hx-trigger="change" hx-swap="none"
+          <select name="status" hx-post="/applications/{{ application.id }}/status" hx-trigger="change" hx-swap="none" hx-disabled-elt="this"
                   class="h-10 font-bold">
             {%- set current = "archived" if application.archived else application.status %}
             {%- for value, label in status_choices %}

@@ -13,7 +13,7 @@
 <div class="flex items-center justify-between px-4 py-3.5">
   <h2 class="m-0 text-[15px] font-bold text-text">Notifications</h2>
   {%- if unread %}
-    <button type="button" hx-post="/notifications/read-all" hx-target="#notification-panel-body" hx-swap="innerHTML"
+    <button hx-disabled-elt="this" type="button" hx-post="/notifications/read-all" hx-target="#notification-panel-body" hx-swap="innerHTML"
             class="border-0 bg-transparent p-1 text-[13px] font-semibold text-link hover:underline">Mark all as read</button>
   {%- endif %}
 </div>

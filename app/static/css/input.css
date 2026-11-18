@@ -265,6 +265,17 @@
   fieldset:disabled label {
     cursor: not-allowed;
   }
+  /* A button disabled while its request runs (D-126) fades a little; a checkbox or
+     select that is saving keeps its look, so a quick tick doesn't flicker. */
+  button:disabled {
+    opacity: 0.7;
+    cursor: default;
+  }
+  input.htmx-request:disabled,
+  select.htmx-request:disabled {
+    opacity: 1;
+    cursor: default;
+  }
 
   input[type="checkbox"],
   input[type="radio"] {
@@ -298,6 +309,43 @@
     opacity: 1;
     visibility: visible;
     transition: opacity 200ms ease-in;
+  }
+
+  /* A small spinner in the button whose request is running (D-126): the submit
+     button of a form, or a button that sends the request itself. htmx puts
+     .htmx-request on the element that sends. It shows after 300 ms, so quick
+     answers don't flash it. */
+  form.htmx-request [type="submit"]::after,
+  button.htmx-request::after {
+    content: "";
+    display: inline-block;
+    width: 0.85em;
+    height: 0.85em;
+    margin-left: 0.5em;
+    vertical-align: -0.1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 9999px;
+    opacity: 0;
+    animation:
+      spinner-appear 0s linear 300ms forwards,
+      spinner-turn 0.7s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    form.htmx-request [type="submit"]::after,
+    button.htmx-request::after {
+      animation: spinner-appear 0s linear 300ms forwards; /* shown, but not turning */
+    }
+  }
+  @keyframes spinner-appear {
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes spinner-turn {
+    to {
+      transform: rotate(360deg);
+    }
   }
 }
 
