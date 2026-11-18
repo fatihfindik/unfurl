@@ -10,6 +10,7 @@ import hashlib
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
+from limits import parse as parse_limit
 from slowapi.util import get_remote_address
 from sqlmodel import Session, col, select
 
@@ -32,21 +33,38 @@ LOCKED_ERROR = "Too many attempts. Try again in 15 minutes."
 SIGN_IN_AGAIN = "Please sign in again."
 
 
+# Requests with a token that doesn't work, per IP. The route limits below only run
+# after require_token has accepted the token (slowapi checks inside the route's
+# wrapper, FastAPI runs dependencies first), so bad tokens need their own limit
+# (M6a security review L1).
+BAD_TOKEN_LIMIT = parse_limit("30/minute")
+
+
+def bearer_token(request: Request) -> str | None:
+    """The token of an `Authorization: Bearer <token>` header, or None."""
+    scheme, _, raw = request.headers.get("authorization", "").partition(" ")
+    raw = raw.strip()
+    return raw if scheme.lower() == "bearer" and raw else None
+
+
 def token_key(request: Request) -> str:
     """The rate limit key: the token, so users behind one proxy IP don't share a
-    limit (#18). The header is hashed again here, so the raw token isn't kept in
-    the limiter's memory. Without a token, the IP address."""
-    header = request.headers.get("authorization", "")
-    if header:
-        return "token:" + hashlib.sha256(header.encode()).hexdigest()
+    limit (#18). The token itself, not the header, so "bearer X" and "Bearer  X"
+    share one limit. Hashed, so the raw token isn't kept in the limiter's memory."""
+    raw = bearer_token(request)
+    if raw:
+        return "token:" + hashlib.sha256(raw.encode()).hexdigest()
     return get_remote_address(request)
 
 
 def require_token(request: Request, session: DbSession) -> tuple[User, ApiToken]:
     """Dependency: the user and token of the Bearer header, or 401."""
-    scheme, _, raw = request.headers.get("authorization", "").partition(" ")
-    found = token_service.check(session, raw.strip()) if scheme.lower() == "bearer" else None
+    ip = client_ip(request)
+    if not limiter.limiter.test(BAD_TOKEN_LIMIT, "ext-bad-token", ip):
+        raise ApiError(429, "rate_limited", "Too many requests. Please wait a minute.")
+    found = token_service.check(session, bearer_token(request))
     if found is None:
+        limiter.limiter.hit(BAD_TOKEN_LIMIT, "ext-bad-token", ip)
         raise ApiError(401, "unauthorized", SIGN_IN_AGAIN)
     return found
 

@@ -710,7 +710,7 @@ Kullanıcı bir iş ilanı sayfasındayken eklenti ikonuna tıklar, ilan otomati
 - Eklenti **yalnızca kullanıcı tıkladığında** ve **yalnızca açık olan sekmede** çalışır.
 - Arka planda tarama, sayfa gezme, toplu çekme, otomatik kaydırma veya tıklama **yok**.
 - Kullanıcının çerezleri veya oturum bilgileri okunmaz, gönderilmez.
-- Sadece sayfanın görünen metni, URL'si ve başlığı gönderilir.
+- Sadece sayfanın URL'si, başlığı ve metni gönderilir: URL popup açılınca "Already saved" kontrolü için (saklanmaz), metin (görünen metin, seçili metin ya da sayfanın JSON-LD ilan açıklaması) ve alanlar sadece kullanıcı kaydedince (D-139).
 
 ### 7.3 Manifest V3
 ```json

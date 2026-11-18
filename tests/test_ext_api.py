@@ -390,3 +390,25 @@ def test_api_requests_are_limited_per_token(client, token):
 
     assert response.status_code == 429
     assert error_code(response) == "rate_limited"
+
+
+def test_bad_tokens_are_limited_per_ip(client, token):
+    # The route limits only see accepted tokens; guessing has its own limit (review L1).
+    for _ in range(30):
+        assert client.get("/api/ext/me", headers=bearer("guess")).status_code == 401
+
+    response = client.get("/api/ext/me", headers=bearer("guess"))
+
+    assert response.status_code == 429
+    assert error_code(response) == "rate_limited"
+
+
+def test_spellings_of_one_token_share_its_limit(client, token):
+    spellings = [f"Bearer {token}", f"bearer {token}", f"Bearer  {token} "]
+    for number in range(60):
+        header = {"Authorization": spellings[number % 3], "Origin": ORIGIN}
+        assert client.get("/api/ext/me", headers=header).status_code == 200
+
+    response = client.get("/api/ext/me", headers={"Authorization": spellings[1], "Origin": ORIGIN})
+
+    assert response.status_code == 429
