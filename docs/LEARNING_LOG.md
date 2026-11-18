@@ -428,3 +428,33 @@
   window, `application_id` and `dedupe_key`, the 200 cap deletes read ones only).
   D-097…D-106.
 - WORKFLOW: D-097, manual testing once at the end of the app.
+
+## M11b — Notifications: settings, time zone, study reminder (2026-11-18, log written by Claude overnight)
+
+**What I learned**
+- A `ContextVar` is a "global per request": the middleware puts the user's time zone
+  in it, every `clock` function reads it, and 60 call sites didn't have to change.
+  Sync routes run on a thread pool, but each call gets a copy of the context.
+- A copy goes one way only: a sync dependency (`current_user`) runs in its own copy,
+  so a value it sets never reaches the route. That is why a zone changed on another
+  device is used from the next request.
+- "All day" dates stored as 00:00 belong to a time zone; when the zone changes they
+  have to move with it, while real times (an interview at 10:00) stay the same moment.
+- An email link that changes something must not do it on GET: mail programs open
+  links by themselves. GET shows a button, POST does the change.
+- Side effects after the commit: the email goes out only when this run wrote the
+  reminder row and the commit worked, so two runs can never send two emails.
+
+**What was hard**
+- Keeping three time zones apart in tests (the test machine's, Vienna, the user's);
+  `TZ=UTC` runs catch mix-ups.
+
+**What I will do differently**
+- Write the "when is the next one?" logic next to the "is one due now?" logic, from
+  the same helpers, so the Learning card and the scheduler can't disagree.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.16 (`User.timezone` nullable and detected, all-day dates move,
+  study reminder only with a planned task, email turn-off page, streak milestones,
+  Settings › Notifications, Next reminder card). D-107…D-115.
+- WORKFLOW: no.
