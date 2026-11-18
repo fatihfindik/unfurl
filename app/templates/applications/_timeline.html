@@ -24,6 +24,9 @@
           <span class="text-xs text-text-3">{{ item.when }}</span>
         </span>
       </li>
+    {%- else %}
+      {#- Every job gets a "Saved" event when it is added; this is for old data (D-127). -#}
+      <li class="text-sm text-text-3">Nothing here yet. Notes and status changes show up here.</li>
     {%- endfor %}
   </ol>
   <form class="m-0 flex flex-col gap-1.5" novalidate
