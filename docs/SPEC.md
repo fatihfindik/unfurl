@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.23 — 2026-11-18
+> **Durum:** MVP planı, v2.1.24 — 2026-11-18
+> v2.1.24: M6 ikiye bölündü: M6a eklenti AI'sız (token'lar, JSON API, URL normalizasyonu, JSON-LD/site ipuçları/sayfa başlığıyla doldurma, Settings › Browser extension), M6b AI'lı (extract, fit, krediler). Sıra: M6a → M5 → M7 → M6b ve diğer AI milestone'ları → M13c → M13d. Token'lar oturum sürümüne bağlı (şifre/e-posta değişince ve Sign out'ta eklenti de çıkar); API sadece Bearer, CORS yerine `host_permissions` + `Origin` kontrolü, 256 KB gövde sınırı; şirket sayfalarında URL sorgusu korunur. Kararlar: DECISIONS D-135…D-141.
 > v2.1.23: #56: e-posta değiştirme (yeni adrese 24 saatlik onay linki, eski adrese istekte ve onayda bildirim; link oturum sürümüne bağlı, şifre sıfırlama/değiştirme ve Sign out bekleyen değişikliği iptal eder; onayda diğer cihazlar çıkar). Karar: DECISIONS D-134.
 > v2.1.22: M13b Design kararları. Dışa aktarma akış olarak JSON (fotoğraf base64, hariçler, kapsama testi), hesap silmede şifre login kilidine bağlı ve onay e-postası sadece doğrulanmış adrese, Settings › Account (ad, şifre; bu oturum kalır), yasal sayfalar taslak + "Draft" bandı, `LEGAL_*` ayarları, alt yaş 16. Kararlar: DECISIONS D-130…D-133.
 > v2.1.21: M13a Design kararları. Hata sayfaları (404, 422 mesaj sayfası, 500 header'larla; htmx'te toast), butonda dönen simge ve çift tıklama kilidi, boş durum envanteri, "Sign out" bütün cihazlardaki oturumları bitirir, Settings › Documents (`default_doc_language`, varsayılan `en`). Kararlar: DECISIONS D-125…D-129.
@@ -421,7 +422,7 @@ Profilin **anlık görüntüsüdür** (snapshot). Bir ilana göre uyarlanan CV, 
 | employment_type | enum full_time/part_time/contract/internship/unknown | |
 | salary_text | str, nullable | İlandaki metin aynen (ör. "ab € 4.000 brutto/Monat") |
 | job_url | str, nullable | |
-| canonical_url | str, nullable, index | Tekrar kaydı önlemek için (bkz. 8.5) |
+| canonical_url | str, nullable, index | Tekrar kaydı önlemek için (bkz. 8.5). `(user_id, canonical_url)` index, unique değil; ekleme ve Details'te link değişince yeniden hesaplanır (D-138) |
 | source | enum linkedin/stepstone/karriere_at/indeed/xing/company_site/other/manual | |
 | description_raw | text | Eklentiden gelen sayfa metni (max 50.000 karakter) |
 | description_structured | JSON | AI çıktısı (bkz. 9.3) |
@@ -522,11 +523,16 @@ Beş Learning tablosunun (NotificationPreference dahil) hepsinde `user_id` (FK, 
 ### 5.12 ApiToken (Chrome eklentisi için)
 | Alan | Tip | Not |
 |---|---|---|
+| user_id | FK | Kullanıcı silinince cascade |
 | name | str | ör. "Chrome extension" |
 | token_hash | str, unique | SHA-256. Ham token sadece oluşturulduğunda bir kez döner. |
-| last_used_at | datetime, nullable | |
+| session_version | int | Oluşturulduğu andaki `User.session_version`. Farklıysa token geçersiz: şifre değişince/sıfırlanınca, e-posta değişince ve Sign out'ta eklenti de çıkar (D-136) |
+| last_used_at | datetime, nullable | En fazla 5 dakikada bir yazılır |
 | expires_at | datetime | 90 gün |
-| revoked | bool | |
+| revoked | bool | Settings › Browser extension'dan ya da eklentiden çıkışla |
+| created_at | datetime | |
+
+Girişte kullanıcının iptal edilmiş ve süresi geçmiş token'ları silinir; en fazla 10 etkin token, fazlası en eskiyi iptal eder. Dışa aktarmaya girmez (D-136).
 
 ---
 
@@ -647,7 +653,7 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
   - "Add your Anthropic API key" → kaydederken ucuz bir test çağrısıyla doğrulanır → şifreli saklanır → ekranda sadece `sk-ant-...XXXX` (son 4 karakter) gösterilir → "Remove key".
 - **Notifications (M11b'de gelen tek bölüm; diğerleri kendi milestone'larında, D-107):** Learning bölümü (günlük çalışma hatırlatması aç/kapat, saat seçimi: 06:00–23:00 yarım saatlik liste, e-postayla da gönder, dinlenme günleri, saat dilimi, seri ve haftalık hedef: "Celebrate 7, 30 and 100-day streaks and mention your streak in reminders.") ve Job search bölümü (takip, mülakat, bekleyen ilan; AI sonucu M5'te). "Weekly email summary" satırı "Coming soon" etiketiyle görünür (V2). Tek form; dilim değişince sayfa yeniden yüklenir (D-114).
 - **Plan:** Free plan özellikleri ve "Pro · coming soon" kartı. "Upgrade to Pro" bekleme listesi modalını açar (bkz. 17.3).
-- **Browser extension:** aktif token'lar listesi (ad, son kullanım, bitiş), "Revoke" butonu.
+- **Browser extension:** aktif token'lar listesi (ad, oluşturma, son kullanım, bitiş), her birinde "Revoke" (toast) ve kısa kurulum adımları ("Load unpacked"; ayrıntı `extension/README.md`'de) (D-140).
 - **Privacy (M13b):** "Export my data" (JSON indir, D-130), "Delete my account" (modal, şifre ile onay → tüm veriler ve yüklenen dosyalar kalıcı olarak silinir, Undo yok, D-131).
 
 ### 6.10 Learning (/learning)
@@ -716,10 +722,11 @@ Kullanıcı bir iş ilanı sayfasındayken eklenti ikonuna tıklar, ilan otomati
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": ["<APP_BASE_URL>/*"],
   "action": { "default_popup": "popup.html", "default_icon": "icons/icon-32.png" },
-  "background": { "service_worker": "background.js" },
-  "icons": { "16": "icons/icon-16.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" }
+  "icons": { "16": "icons/icon-16.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
+  "key": "<public key: keeps the extension ID stable in development>"
 }
 ```
+- `content_scripts` ve `background` yok (M6a'da servis işçisine gerek yok, D-139). `key` açık anahtardır (sır değil); özel anahtar repoya girmez (D-137).
 - `activeTab` + `scripting` sayesinde iş sitelerine özel host izni gerekmez. Script sadece tıklamada, `chrome.scripting.executeScript` ile enjekte edilir.
 - `APP_BASE_URL` geliştirmede `http://localhost:8000`. Eklentide bir `config.js` dosyası ile ayarlanır.
 
@@ -733,14 +740,16 @@ Kullanıcı bir iş ilanı sayfasındayken eklenti ikonuna tıklar, ilan otomati
       - `job_text`: önce `site_hints.js`'teki site-özel selector'lar denenir (ör. LinkedIn ilan açıklama container'ı). Bulunamazsa `main`, `article` veya `body` elementinin `innerText` değeri alınır. Max 50.000 karakter.
       - `selected_text`: kullanıcı metin seçtiyse o metin (öncelikli kullanılır)
    3. Popup, `POST /api/ext/jobs/check` ile URL'nin daha önce kaydedilip kaydedilmediğini sorar. Kaydedildiyse "Already saved → Open in Unfurl" gösterir.
-   4. Değilse `POST /api/ext/jobs/extract` çağrılır → AI yapılandırılmış alanları döner (company, title, location, remote_type, ...). Popup'ta yükleniyor göstergesi görünür.
+   4. Değilse alanlar doldurulur. **M6a (AI'sız, D-139):** `extract.js` sırasıyla schema.org `JobPosting` JSON-LD'yi (başlık, şirket, şehir, uzaktan, açıklama, maaş, `validThrough`), `site_hints.js` selector'larını ve sayfa başlığı/`og:` etiketlerini kullanır. **M6b:** ek olarak "Auto-fill with AI" → `POST /api/ext/jobs/extract` → AI yapılandırılmış alanları döner; popup'ta yükleniyor göstergesi.
    5. Popup düzenlenebilir bir form gösterir: şirket, pozisyon, konum, çalışma şekli, maaş ve durum (varsayılan "saved").
-   6. "Save" → `POST /api/ext/jobs` → başarılı olursa "Saved ✓" + "Analyze fit" butonu + "Open in Unfurl" linki.
-   7. "Analyze fit" → `POST /api/ext/jobs/{id}/fit` → skor ve karar popup'ta gösterilir.
+   6. "Save" → `POST /api/ext/jobs` → başarılı olursa "Saved ✓" + "Open in Unfurl" linki (M6b'de + "Analyze fit" butonu).
+   7. (M6b) "Analyze fit" → `POST /api/ext/jobs/{id}/fit` → skor ve karar popup'ta gösterilir.
+   - **JSON-LD güvenliği (D-139):** `JSON.parse` try/catch içinde, `@graph` ve diziler işlenir, en fazla 10 script ve 200.000 karakter; `description` HTML'i `DOMParser` ile metne çevrilir (asla `innerHTML`); popup alanları sadece `.value`/`textContent` ile doldurur. `extract.js` izole dünyada çalışır, `chrome.storage`'a dokunmaz, API'yi çağırmaz (sadece popup çağırır).
+   - İlan zaten kayıtlıysa sadece "Open in Unfurl"; "Save anyway" yok (D-138).
 3. **Hata durumları:** token süresi doldu veya geçersiz (401) → giriş formuna dön. Kota bitti (429) → "Daily AI limit reached. Add your own API key in Settings or save without AI" + "Save without AI" butonu (alanları kullanıcı elle doldurur). Ağ hatası → tekrar dene butonu.
 
 ### 7.5 Site ipuçları (`site_hints.js`)
-Selector'lar zamanla bozulabilir. Bu yüzden **sadece ipucudur**, asıl çıkarımı her zaman AI yapar. Selector bulunamazsa genel metin yöntemine düşülür ve hata verilmez. Desteklenen siteler: linkedin.com/jobs, stepstone.at/.de, karriere.at, indeed.com, xing.com/jobs. Diğer tüm siteler (şirket kariyer sayfaları dahil) genel yöntemle çalışır.
+Selector'lar zamanla bozulabilir. Bu yüzden **sadece ipucudur**: M6a'da JSON-LD'den sonra ikinci kaynaktır, M6b'den itibaren asıl çıkarımı AI yapar. Selector bulunamazsa genel metin yöntemine düşülür ve hata verilmez. Desteklenen siteler: linkedin.com/jobs, stepstone.at/.de, karriere.at, indeed.com, xing.com/jobs. Diğer tüm siteler (şirket kariyer sayfaları dahil) genel yöntemle çalışır.
 
 ### 7.6 Eklenti UI
 - Popup genişliği 380 px. Web uygulamasıyla aynı renk paleti. Tailwind kullanma, küçük bir `popup.css` yeterli.
@@ -750,25 +759,29 @@ Selector'lar zamanla bozulabilir. Bu yüzden **sadece ipucudur**, asıl çıkar�
 
 ## 8. API (JSON) — Eklenti İçin
 
-Base path: `/api/ext`. Kimlik doğrulama: `Authorization: Bearer <token>`. CORS: sadece `chrome-extension://<EXTENSION_ID>` origin'ine izin verilir (`EXTENSION_ORIGINS` env, virgülle ayrılmış).
+Base path: `/api/ext`. Kimlik doğrulama **sadece** `Authorization: Bearer <token>`: API oturum çerezini okumaz, çerezli ama Bearer'sız istek 401; popup `credentials: "omit"` ile çerez göndermez. CSRF kontrolü yok (D-137).
+- **CORS yok:** MV3'te popup'ın `host_permissions`'taki adrese istekleri CORS'a takılmaz; sunucu CORS header'ı göndermez. Ek savunma: `Origin` header'ı varsa sadece `EXTENSION_ORIGINS`'teki değerler kabul edilir (env, virgülle ayrılmış), diğerleri 403 `forbidden`.
+- **Gövde sınırı:** en fazla 256 KB, fazlası 413 `validation_error`.
+- **Limitler:** login 5/dk (IP), diğerleri 60/dk (token'a göre). Bearer'lı istekler kullanıcının saat diliminde çalışır.
+- M6a: login, logout, `me`, `jobs/check`, `jobs`. M6b: `jobs/extract`, `jobs/{id}/fit` (D-135).
 
 | Method | Path | Açıklama |
 |---|---|---|
-| POST | `/auth/login` | `{email, password}` → `{token, expires_at, user: {full_name, email}}`. Doğrulanmamış hesaplar da token alabilir. Rate limit: 5/dk. |
-| POST | `/auth/logout` | Token'ı iptal eder. |
-| GET | `/me` | `{full_name, email, is_verified, credits_remaining, using_byok}` |
-| POST | `/jobs/check` | `{url}` → `{exists: bool, application_id?, status?}` |
+| POST | `/auth/login` | `{email, password}` → `{token, expires_at, user: {full_name, email}}`. Login formuyla aynı kontroller (login kilidi; bilinen ve bilinmeyen e-posta için aynı hata; kilitliyken 429 `rate_limited`). Doğrulanmamış hesaplar da token alabilir. Rate limit: 5/dk. |
+| POST | `/auth/logout` | Sadece bu token'ı iptal eder. |
+| GET | `/me` | `{full_name, email, is_verified, credits_remaining, using_byok}`. M6b'ye kadar `credits_remaining` ve `using_byok` `null`. |
+| POST | `/jobs/check` | `{url}` → `{exists: bool, application_id?, status?, app_url?}`. `canonical_url` eşleşmesi; arşivdekiler de sayılır; birden fazlaysa en yenisi. |
 | POST | `/jobs/extract` | `{url, title, site, job_text, selected_text?}` → `ExtractedJob` (bkz. 9.3). AI kredisi harcar. |
-| POST | `/jobs` | `{...ExtractedJob alanları (kullanıcı düzenlemiş olabilir), url, site, job_text, status}` → `{application_id, app_url}` |
+| POST | `/jobs` | `{company, job_title, location?, remote_type?, salary_text?, posting_closes_at?, url, job_text, status}` (M6b'de ExtractedJob alanları da) → `{application_id, app_url}`. `source` URL'den türetilir; istemcinin gönderdiği `site` yok sayılır (D-141). |
 | POST | `/jobs/{id}/fit` | → `FitResult` (bkz. 9.4). AI kredisi harcar. |
 
-Hata formatı (tüm API): `{"error": {"code": "quota_exceeded", "message": "..."}}`. Kodlar: `unauthorized`, `email_not_verified`, `quota_exceeded`, `validation_error`, `not_found`, `ai_error`, `rate_limited`.
+Hata formatı (tüm API): `{"error": {"code": "quota_exceeded", "message": "..."}}`. Kodlar: `unauthorized`, `forbidden`, `email_not_verified`, `quota_exceeded`, `validation_error`, `not_found`, `ai_error`, `rate_limited`.
 
 ### 8.5 URL normalizasyonu (`canonical_url`)
-- Query string ve fragment temizlenir. Sadece anlamlı parametreler tutulur (ör. LinkedIn `currentJobId`).
-- LinkedIn: `linkedin.com/jobs/view/{id}` formatına çevrilir (`currentJobId` parametresinden veya path'ten).
-- Sondaki `/` kaldırılır, host küçük harfe çevrilir.
-- Normalizasyon fonksiyonu için birim testleri yazılmalı (en az 8 örnek URL).
+- Şema `https`, host küçük harf ve `www.` olmadan; fragment ve sondaki `/` kaldırılır.
+- **Bilinen iş siteleri** site kuralıyla, diğer sorgu atılır: LinkedIn → `linkedin.com/jobs/view/{id}` (`currentJobId` parametresinden veya path'ten); Indeed `jk`; StepStone, karriere.at ve XING path'teki id.
+- **Diğer bütün siteler** (şirket ve ATS sayfaları: `?jobId=`, `gh_jid`, `career_job_req_id`…): sorgu **korunur**, sadece izleme parametreleri (`utm_*`, `fbclid`, `gclid`, `msclkid`, `refId`, `trackingId`, `trk`, `source`, `ref`…) atılır ve kalanlar sıralanır. Böylece aynı sayfadaki farklı ilanlar birleşmez (D-138).
+- Normalizasyon fonksiyonu için birim testleri yazılmalı (en az 12 örnek URL).
 
 ---
 
@@ -986,6 +999,7 @@ Versiyon numarası `AIUsage` kaydına ve `FitAnalysis.model` yanına (`model@pro
 - **Hesap silme:** şifre onayı (login kilidine bağlı) → tüm satırlar (cascade) ve yüklenen dosyalar (fotoğraf) kalıcı olarak silinir → oturum kapatılır → onay e-postası doğrulanmış adrese gönderilir (D-131).
 - **Veri minimizasyonu:** Yüklenen CV PDF'leri saklanmaz. Doğum tarihi, uyruk ve fotoğraf isteğe bağlıdır ve AI'a gönderilmez.
 - **Çerezler:** Sadece zorunlu oturum çerezi kullanılır, analytics yok. Bu nedenle cookie banner gerekmez, ama gizlilik sayfasında açıklanır.
+- **Tarayıcı eklentisi:** gizlilik sayfasında bir satır: eklenti sadece tıklanınca açık sekmeden ilanı okur, sadece kullanıcının kaydettiği alanları gönderir; token'lar hash'li saklanır, Settings › Browser extension'dan iptal edilir (D-141).
 
 ---
 
@@ -1022,7 +1036,7 @@ AI_GLOBAL_DAILY_CREDITS=3000
 BILLING_ENABLED=false            # true olana kadar Upgrade butonları bekleme listesine yönlendirir
 
 # Extension
-EXTENSION_ORIGINS=chrome-extension://REPLACE_WITH_EXTENSION_ID
+EXTENSION_ORIGINS=chrome-extension://REPLACE_WITH_EXTENSION_ID   # Geliştirmede manifest'teki `key` sayesinde sabit; Web Store kimliği M13c'de eklenir (D-137)
 
 # Scheduler / reminders
 SCHEDULER_ENABLED=true           # Testlerde ve birden fazla instance'ta false
@@ -1177,15 +1191,22 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 - Gizlilik sayfasına Anthropic'i (AI işleme, ABD aktarımı ve dayanağı) ekle (D-133)
 - **Kabul:** Kota aşımı 429 dönüyor. BYOK ile kredi düşmüyor. Testler FakeAIClient ile geçiyor. Eval doğruluğu ≥ %85 (company + job_title).
 
-### M6 — Chrome eklentisi
-- ApiToken modeli, `/api/ext/*` endpoint'leri, CORS, URL normalizasyonu
-- Eklenti: manifest, popup (tüm durumlar), extract.js, site_hints.js
-- Ayarlar sayfasında token yönetimi
-- `extension/README.md`: "Load unpacked" ile kurulum talimatı
-- **Kabul:** LinkedIn, StepStone, karriere.at ve bir şirket kariyer sayfasında ilan kaydı uçtan uca çalışıyor. Aynı ilan ikinci kez "Already saved" gösteriyor. Token iptal edilince eklenti login ekranına dönüyor.
+### M6 — Chrome eklentisi (D-135: M6a ve M6b)
+M6 ikiye bölündü. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve diğer AI milestone'ları → M13c → M13d.
+
+### M6a — Chrome eklentisi: AI'sız kaydetme
+- ApiToken modeli (oturum sürümüne bağlı), `/api/ext` (login, logout, `me`, `jobs/check`, `jobs`), JSON hatalar, `Origin` kontrolü, gövde sınırı, URL normalizasyonu ve `Application.canonical_url`
+- Eklenti: manifest (`key`, `background` yok), popup (logged-out, loading, preview/edit, saved, already-saved, error), extract.js (JSON-LD, site ipuçları, sayfa başlığı), site_hints.js
+- Settings › Browser extension (token listesi, Revoke), gizlilik sayfasında eklenti satırı
+- `extension/README.md` ("Load unpacked" kurulumu) ve `extension/TESTING.md` (elle test listesi)
+- **Kabul:** LinkedIn, StepStone, karriere.at ve bir şirket kariyer sayfasında ilan eklentiden board'a kaydediliyor. Aynı ilan ikinci kez "Already saved → Open in Unfurl" gösteriyor (en az 12 URL örneğiyle birim testi). Token iptal edilince (Settings ya da eklentiden çıkış) eklenti giriş ekranına dönüyor. Eklenti sadece tıklanınca ve sadece açık sekmede çalışıyor; çerez okumuyor ve göndermiyor.
+
+### M6b — Chrome eklentisi: AI ile doldurma ve uyum analizi (M5 ve M7'den sonra)
+- "Auto-fill with AI" (`/api/ext/jobs/extract`), "Analyze fit" (`/api/ext/jobs/{id}/fit`), kredi ve kota hataları (429 → "Save without AI"), `/me`'de krediler
+- **Kabul:** SPEC §7.4'teki akış AI ile uçtan uca çalışıyor; kota bitince AI'sız kaydetmeye düşülüyor.
 
 ### M7 — Uyum analizi
-- `fit_analysis` özelliği, önbellekleme (profile_version), Apply › **Should I apply?** adımı (archive, "prepare" geçişi), Kanban kartında skor rozeti, eklentide "Analyze fit"
+- `fit_analysis` özelliği, önbellekleme (profile_version), Apply › **Should I apply?** adımı (archive, "prepare" geçişi), Kanban kartında skor rozeti (eklentideki "Analyze fit" M6b'de, D-135)
 - `evals/fit_analysis`
 - Should I apply? eksiklerinde "Add to learning plan" modalı (M10'dan taşındı, D-089)
 - **Kabul:** Sonuç kaydediliyor ve önbellekten dönüyor. Profil değişince "Profile changed – re-analyze?" uyarısı çıkıyor. Eval'de verdict'lerin en az 4/5'i beklenen aralıkta. Eksikten oluşturulan hedef başvuruya bağlı.
@@ -1242,7 +1263,7 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 - Settings › Account: ad ve şifre değiştirme (şifre değişince diğer oturumlar kapanır). E-posta değiştirme ayrı bir PR.
 - **Kabul:** Dışa aktarma, hariç listesindekiler dışında kullanıcının her tablosunu içeriyor (test). Hesap silme Postgres'te bütün satırları ve fotoğraf dosyasını siliyor, oturumu kapatıyor ve onay e-postasını gönderiyor. Yasal sayfalarda gerçek metin var.
 
-### M13c — Deploy (D-123; AI milestone'larından ve M6'dan sonra)
+### M13c — Deploy (D-123; AI milestone'larından ve M6b'den sonra)
 - Render'a deploy (Docker, Frankfurt, Postgres), production env, HSTS, proxy header'ları ve `APP_BASE_URL` kontrolü (#18), e-postada `List-Unsubscribe`, eklentide prod URL
 - Zamanlayıcı tek instance'ta; #17 belgelenmiş sınırlama olarak kalır. Deploy öncesi Postgres test çalıştırması (CI `postgres-tests`).
 - Yasal sayfalarda sağlayıcıların gerçek adları; SPEC §10.1 kontrol listesi madde madde işaretlenir.

@@ -5,7 +5,7 @@ SPEC §7 (eklenti), §8 (JSON API), §5.12 (ApiToken), §12 M6. SPEC'teki akış
 - **M6a (bu plan):** token'lar ve Settings › Browser extension, JSON API (giriş, çıkış, `me`, `jobs/check`, `jobs`), URL normalizasyonu, eklentinin kendisi. Alanlar AI olmadan doldurulur (sayfadaki yapılandırılmış veri, site ipuçları, sayfa başlığı); kullanıcı düzeltir ve kaydeder. SPEC'teki "Save without AI" yolu bu.
 - **M6b (M5 ve M7'den sonra):** "Auto-fill with AI" (`/jobs/extract`) ve "Analyze fit" (`/jobs/{id}/fit`), kredi ve kota hataları, `/me`'de krediler.
 
-Durum: **Fatih onayladı (2026-11-18).** plan-reviewer: "Needs changes" (2 Blocker, 13 Should, 7 Nit); hepsi işlendi (en altta tablo). **Definition of Ready:** #56 (PR #62) merge edilmeden başlanmaz (token'lar `change_email`'deki sürüm artışına bağlı). Branch `m6a-extension`, etiket `v0.6a-m6a`.
+Durum: **Fatih onayladı (2026-11-18).** plan-reviewer: "Needs changes" (2 Blocker, 13 Should, 7 Nit); hepsi işlendi (en altta tablo). **Definition of Ready:** #56 (PR #62) merge edilmeden başlanmaz (token'lar `change_email`'deki sürüm artışına bağlı). Branch `m6a-extension`, etiket `v0.6a-m6a`, issue #63.
 
 ### Kabul kriterleri (SPEC §12 M6'nın AI'sız kısmı)
 - LinkedIn, StepStone, karriere.at ve bir şirket kariyer sayfasında ilan, eklentiden board'a kaydediliyor (Fatih'in elle testi; `extension/TESTING.md`).
@@ -68,7 +68,7 @@ Durum: **Fatih onayladı (2026-11-18).** plan-reviewer: "Needs changes" (2 Block
 ### Definition of Done
 - [ ] `uv run pytest` (`TZ=UTC` dahil), ruff, CI yeşil (`postgres-tests` dahil)
 - [ ] security-reviewer bulguları kapatıldı ya da issue oldu
-- [ ] PR'da `Closes #<M6a issue>` ve elle test listesi (eklentiyi yükleme dahil)
+- [ ] PR'da `Closes #63` ve elle test listesi (eklentiyi yükleme dahil)
 - [ ] Fatih'in elle kabul testi (4 sitede kaydetme)
 - [ ] Fatih merge eder, sonra etiket `v0.6a-m6a`
 - [ ] SPEC değişti: claude.ai kopyası yenilenecek (Fatih)

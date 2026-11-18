@@ -650,7 +650,7 @@ Kaynak: #46 (D-119'dan kalan soru); **Claude karar verdi**, Fatih kararı Claude
 
 ### D-123 · M13 dörde bölündü
 Kaynak: M13 bölme önerisi (`docs/plans/M13-split.md`, PR #50), plan-reviewer; Fatih onayladı (2026-11-18: "Dörde bölelim", diğer sorularda "önerilerin gayet makul").
-- **Karar:** M13a cilalama, M13b GDPR + yasal sayfalar + Settings › Account, M13c deploy, M13d portföy README'si. Sıra: M13a → M13b → AI milestone'ları (API anahtarı gelince) → M6 → M13c → M13d. Güvenlik header'ları #10 ile M13'ten önce bitti (D-120).
+- **Karar:** M13a cilalama, M13b GDPR + yasal sayfalar + Settings › Account, M13c deploy, M13d portföy README'si. Sıra: M13a → M13b → AI milestone'ları (API anahtarı gelince) → M6 → M13c → M13d (güncelleme D-135: M6a AI'dan önce, M6b AI milestone'larıyla). Güvenlik header'ları #10 ile M13'ten önce bitti (D-120).
 - **Cevaplar:** Dışa aktarma bugün var olan verileri alır, yeni tablolar otomatik bir testle yakalanır. Hesap silmede Undo yok (şifre onayı ve açık uyarı yeterli). Yasal metinlerin taslağını Claude yazar, Fatih bir uzmana inceletir (özellikle Impressum ve gizlilik metni).
 - **Neden:** Tek milestone WORKFLOW'daki 1–2 haftalık sınırı aşıyordu; deploy AI milestone'larına bağlı (mektup indirme, D-088), cilalama ve GDPR değil.
 - **Alternatifler:** Tek M13; GDPR ve cilalamayı birleştirmek.
@@ -716,3 +716,41 @@ Kaynak: `docs/plans/I56.md`, plan-reviewer; Fatih onayladı (2026-11-18).
 - **Alternatifler:** `pending_email` kolonu; eski adresten de onay istemek; sadece e-posta eşleşmesi (sıfırlama bekleyen değişikliği iptal etmezdi ve A→B→A sonrası eski link canlanırdı).
 - **Güncelleme (security-reviewer):** Eski adrese giden e-postalarda yeni adresin alan adı da maskelenir (`j***@e***.com`; istekte bulunan alan adını seçer, oltalama için kullanılabilirdi) ve "Only trust links that start with …" satırı var. Onay sayfası hangi hesabın değiştiğini (maskeli eski adres) söyler. Aynı tarayıcı kontrolü hesap damgasını da karşılaştırır. Kötü niyetli ve onaylanmış bir değişikliği eski adresten geri alma linki ayrı bir issue.
 
+
+### D-135 · M6 ikiye bölündü (M6a AI'sız, M6b AI'lı)
+Kaynak: `docs/plans/M6a.md`, plan-reviewer; Fatih onayladı (2026-11-18).
+- **Karar:** M6a: token'lar ve Settings › Browser extension, JSON API (giriş, çıkış, `me`, `jobs/check`, `jobs`), URL normalizasyonu, eklentinin kendisi; alanlar AI olmadan doldurulur (D-139), kullanıcı düzeltip kaydeder. M6b (M5 ve M7'den sonra): "Auto-fill with AI" (`/jobs/extract`), "Analyze fit" (`/jobs/{id}/fit`), kredi ve kota hataları, `/me`'de krediler. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve diğer AI milestone'ları → M13c → M13d. D-123'teki sıra bununla değişir.
+- **Neden:** API anahtarı henüz yok (D-088); eklentinin AI'sız kısmı ("Save without AI" yolu) anahtar beklemeden kullanılabilir.
+- **Alternatifler:** M6'yı AI milestone'larından sonraya bırakmak (D-123'teki sıra); tek M6'da AI'yı sahte istemciyle yapmak.
+
+### D-136 · ApiToken ve eklenti girişi
+Kaynak: M6a Design fazı, plan-reviewer; Fatih onayladı (2026-11-18). SPEC §5.12, §8.
+- **Karar:** Tablo `apitoken`: `user_id` (cascade), `name` ("Chrome extension"), `token_hash` (SHA-256, unique), `session_version` (oluşturulduğu andaki kullanıcı sürümü), `last_used_at`, `expires_at` (90 gün), `revoked`, `created_at`. Ham token (`secrets.token_urlsafe(32)`) sadece girişte bir kez döner. Bearer kontrolü token'ın `session_version`'ı kullanıcınınkinden farklıysa reddeder: şifre değişince/sıfırlanınca, e-posta değişince ve Sign out'ta eklenti de çıkar (Fatih onayladı); tek bir kontrol olduğu için ileride eklenecek bir sürüm artışı da unutulmaz. Hesap silinince cascade. `POST /api/ext/auth/login` login formuyla aynı kontrolleri yapar (login kilidi, `authenticate`, bilinen ve bilinmeyen e-posta için aynı hata, kilitliyken 429 `rate_limited`), 5/dk; doğrulanmamış hesaplar da token alır. Girişte iptal edilmiş ve süresi geçmiş token'lar silinir; en fazla 10 etkin token, fazlası en eskiyi iptal eder. `last_used_at` en fazla 5 dakikada bir yazılır; tarihler `as_utc()` ile karşılaştırılır. `POST /api/ext/auth/logout` sadece o token'ı iptal eder. Dışa aktarmada `apitoken` hariç (hash bir sır; D-130'daki kapsama testi).
+- **Neden:** Dört ayrı yerde token iptal etmek kırılgandı; sürüm zaten oturumlar için tek doğruluk kaynağı (D-021, D-128).
+- **Alternatifler:** Şifre/e-posta değişiminde ve çıkışta token'ları tek tek iptal etmek; token'ların oturumdan bağımsız yaşaması.
+
+### D-137 · Eklenti JSON API'sinin ortak kuralları
+Kaynak: M6a Design fazı, plan-reviewer. SPEC §8.
+- **Karar:** Base `/api/ext`, CSRF'siz, JSON gövde (Pydantic), hata biçimi `{"error": {"code", "message"}}` (`unauthorized`, `validation_error`, `not_found`, `rate_limited`, `forbidden`); D-125'teki `/api/` JSON dalı ve `rate_limit_response` bu biçime çevrilir. Kimlik sadece Bearer: API oturum çerezini okumaz, çerezli ama Bearer'sız istek 401; popup `credentials: "omit"` ile çerez göndermez. CORS header'ı gönderilmez: MV3'te popup'ın `host_permissions`'taki adrese istekleri CORS'a takılmaz, içerik script'i API'yi hiç çağırmaz. Ek savunma: `Origin` varsa sadece `EXTENSION_ORIGINS`'teki değerler kabul edilir (403 `forbidden`). Eklenti kimliği geliştirmede sabit olsun diye `manifest.json`'da açık anahtar (`key`, sır değil); özel anahtar repoya girmez; Web Store kimliği M13c'de `EXTENSION_ORIGINS`'e eklenir. Gövde en fazla 256 KB (ara katman, 413 `validation_error`). Bearer bağımlılığı isteği `clock.use_timezone(user.timezone)` ile çalıştırır. Limitler: login 5/dk (IP), diğerleri 60/dk token hash'ine göre (#18: proxy arkasında IP'ler birleşebilir).
+- **Neden:** Eklenti çerez kullanmayınca CSRF ve CORS riskleri ortadan kalkar; JSON istemci HTML hata sayfasını okuyamaz.
+- **Alternatifler:** CORS middleware ile `chrome-extension://` origin'ine izin vermek (SPEC'in eski metni); çerez + CSRF.
+
+### D-138 · URL normalizasyonu ve "Already saved"
+Kaynak: M6a Design fazı, plan-reviewer (Blocker 1 ve 2). SPEC §8.5.
+- **Karar:** `url_service.canonical_url(url)`: şema `https`, host küçük harf ve `www.` olmadan, fragment ve sondaki `/` atılır. Bilinen iş sitelerinde site kuralı (LinkedIn `currentJobId` ya da path → `linkedin.com/jobs/view/{id}`; Indeed `jk`; StepStone, karriere.at ve XING path'teki id), diğer sorgu atılır. Diğer bütün sitelerde (şirket ve ATS sayfaları: `?jobId=`, `gh_jid`…) sorgu korunur, sadece izleme parametreleri (`utm_*`, `fbclid`, `gclid`, `msclkid`, `refId`, `trackingId`, `trk`, `source`, `ref`…) atılır ve kalanlar sıralanır. En az 12 örnekle birim testi. `Application.canonical_url` (nullable, `(user_id, canonical_url)` index, unique değil); `create` ve `update_details` yeniden hesaplar; migration mevcut satırları doldurur. `POST /api/ext/jobs/check` `{url}` → `{exists, application_id?, status?, app_url?}`; birden fazla eşleşmede en yenisi, arşivdekiler de sayılır. Eklentide "Save anyway" yok (Fatih). Web'deki "Add job" değişmez.
+- **Alternatifler:** Her sitede sorguyu atmak (farklı ilanları birleştirirdi); unique index (aynı ilana bilerek ikinci başvuruyu engellerdi).
+
+### D-139 · Eklentide AI'sız doldurma
+Kaynak: M6a Design fazı, plan-reviewer. SPEC §7.4, §7.5.
+- **Karar:** `extract.js` öncelik sırası: (a) schema.org `JobPosting` JSON-LD (başlık, şirket, şehir, uzaktan, açıklama, maaş, `validThrough`), (b) `site_hints.js` selector'ları (bozulursa sessizce atlanır), (c) sayfa başlığı ve `og:` etiketleri. Güvenlik: `JSON.parse` try/catch içinde, `@graph` ve diziler işlenir, en fazla 10 script ve 200.000 karakter, `description` HTML'i `DOMParser` ile metne çevrilir (asla `innerHTML`), popup alanları sadece `.value`/`textContent` ile doldurur. `extract.js` izole dünyada çalışır, `chrome.storage`'a dokunmaz, API çağırmaz. `job_text` görünen metinden (seçili metin önce), en fazla 50.000 karakter. Sadece `activeTab` + `scripting` ile tıklamada enjekte edilir; M6a'da `background.js` yok.
+- **Alternatifler:** Sadece sayfa başlığı (çok zayıf); sunucuda HTML ayrıştırma (sayfanın tamamını göndermek gerekirdi, §7.2).
+
+### D-140 · Settings › Browser extension
+Kaynak: M6a Design fazı, plan-reviewer. SPEC §6.9.
+- **Karar:** Etkin token'ların listesi (ad, oluşturma, son kullanım, bitiş) ve her birinde "Revoke" (`POST /settings/extension/tokens/{id}/revoke`, CSRF, toast). Liste `user_id` ile filtrelenir; başkasının token'ı 404. Kurulum talimatı sayfada kısa adımlar olarak; ayrıntı `extension/README.md`'de (uygulama o dosyayı sunmadığı için link yok).
+- **Alternatifler:** README'ye link; "Revoke all" butonu (Sign out zaten hepsini bitirir, D-136).
+
+### D-141 · Eklentiden kaydedilen alanlar
+Kaynak: M6a Design fazı, plan-reviewer; Fatih onayladı (durum seçimi, 2026-11-18). SPEC §8.
+- **Karar:** `POST /api/ext/jobs` şirket, pozisyon, konum, çalışma şekli, maaş (`salary_text`), ilanın son günü (`posting_closes_at`, JSON-LD `validThrough`'tan), durum (varsayılan Saved; seçilebilir), URL ve `job_text` alır → `{application_id, app_url}`. `application_service.create` `salary_text` ve `posting_closes_at`'i de alır. `source` her zaman `detect_source(url)`'den; istemcinin gönderdiği `site` yok sayılır. Gizlilik sayfasına eklenti ve token'lar için bir satır.
+- **Alternatifler:** `site`'a güvenmek (istemci yanlış kaynak yazabilirdi); durumu her zaman Saved yapmak.
