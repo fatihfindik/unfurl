@@ -22,6 +22,16 @@ from slowapi.util import get_remote_address
 from app.models.base import utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
 
+# --- Errors with a message for the user -----------------------------------------
+
+
+class UserFacingHTTPException(HTTPException):
+    """An HTTP error whose `detail` is written for the user, e.g. "Please verify your
+    email first." The error page and the htmx toast show it (D-125); any other
+    HTTPException gets the fixed text for its status, so internal error text can't
+    reach the page by accident (M13a security review L2)."""
+
+
 # --- Redirects ------------------------------------------------------------------
 
 
@@ -105,7 +115,9 @@ async def verify_csrf(request: Request) -> None:
     expected = request.session.get(CSRF_SESSION_KEY)
     if not expected or not isinstance(sent, str) or not _tokens_match(sent, expected):
         # The text users see on the error page or in the toast (D-125).
-        raise HTTPException(status_code=403, detail="Your session changed. Please reload the page.")
+        raise UserFacingHTTPException(
+            status_code=403, detail="Your session changed. Please reload the page."
+        )
 
 
 def _tokens_match(sent: str, expected: str) -> bool:

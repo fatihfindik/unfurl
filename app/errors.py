@@ -12,7 +12,6 @@ those read the session and the user, and after a crash the database session can
 already be closed. Nothing here touches the database.
 """
 
-import http
 import json
 import logging
 
@@ -22,7 +21,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException
 
-from app.security import SECURITY_HEADERS
+from app.security import SECURITY_HEADERS, UserFacingHTTPException
 from app.templating import TEMPLATES_DIR, THEMES, is_htmx, static_url
 
 logger = logging.getLogger(__name__)
@@ -53,14 +52,10 @@ OTHER_TOAST = "Something went wrong. Please reload the page."
 
 
 def our_detail(exc: HTTPException) -> str | None:
-    """The text a route wrote itself (e.g. "Please verify your email first."), or None
-    if the exception only has the default phrase ("Not Found")."""
-    try:
-        default = http.HTTPStatus(exc.status_code).phrase
-    except ValueError:
-        default = ""
-    if isinstance(exc.detail, str) and exc.detail and exc.detail != default:
-        return exc.detail
+    """The text a route wrote for the user (UserFacingHTTPException), or None: then
+    the page shows the fixed text for the status code."""
+    if isinstance(exc, UserFacingHTTPException) and isinstance(exc.detail, str):
+        return exc.detail or None
     return None
 
 

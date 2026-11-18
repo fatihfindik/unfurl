@@ -9,7 +9,7 @@ import secrets
 from typing import Annotated
 from urllib.parse import quote, urlsplit
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Request
 from fastapi.responses import RedirectResponse, Response
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 from pwdlib import PasswordHash
@@ -22,7 +22,7 @@ from app.db import get_session
 from app.models import User
 from app.models.base import utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
-from app.security import get_csrf_token, safe_redirect_path
+from app.security import UserFacingHTTPException, get_csrf_token, safe_redirect_path
 from app.services import application_service, clock
 
 PASSWORD_MIN_LENGTH = 10
@@ -282,7 +282,7 @@ def mark_verified(session: Session, user: User) -> None:
 def require_verified(user: Annotated[User, Depends(require_user)]) -> User:
     """Dependency for features that need a verified email (AI features from M7, SPEC §6.1)."""
     if not user.is_verified:
-        raise HTTPException(status_code=403, detail="Please verify your email first.")
+        raise UserFacingHTTPException(status_code=403, detail="Please verify your email first.")
     return user
 
 

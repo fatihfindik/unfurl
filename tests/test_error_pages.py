@@ -14,6 +14,7 @@ from sqlmodel import Session
 from app.config import Settings
 from app.db import get_session
 from app.main import create_app
+from app.security import UserFacingHTTPException
 from app.services.auth_service import require_user
 from tests.helpers import csrf_token, log_in
 from tests.test_security_headers import assert_security_headers
@@ -136,7 +137,11 @@ def broken(engine):
 
     @app.get("/unverified")
     def unverified():
-        raise HTTPException(status_code=403, detail="Please verify your email first.")
+        raise UserFacingHTTPException(status_code=403, detail="Please verify your email first.")
+
+    @app.get("/internal-detail")
+    def internal_detail():
+        raise HTTPException(status_code=409, detail="IntegrityError: duplicate key value")
 
     @app.get("/api/thing")
     def api_thing(request: Request):
@@ -201,6 +206,15 @@ def test_the_page_falls_back_to_plain_text(broken, monkeypatch):
 def test_our_own_403_text_is_shown(broken):
     assert_page(broken.get("/unverified"), 403, "Please verify your email first.")
     assert toast(broken.get("/unverified", headers=HTMX)) == "Please verify your email first."
+
+
+def test_an_internal_detail_is_never_shown(broken):
+    # Only UserFacingHTTPException details reach the page (security review L2).
+    page = broken.get("/internal-detail")
+
+    assert_page(page, 409, "This changed in the meantime")
+    assert "IntegrityError" not in page.text
+    assert "IntegrityError" not in toast(broken.get("/internal-detail", headers=HTMX))
 
 
 def test_a_bad_id_in_the_path_is_a_404(broken):
