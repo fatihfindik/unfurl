@@ -1,0 +1,14 @@
+{#- Settings › Privacy (D-130, D-131): download everything, or delete the account.
+    The export is a plain form post (the browser downloads the file). -#}
+<div class="flex flex-col gap-3">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <span class="flex flex-col gap-0.5">
+      <span class="text-sm font-semibold text-text">Export my data</span>
+      <span class="text-[13px] text-text-3">Everything you saved in Unfurl, as one JSON file.</span>
+    </span>
+    <form method="post" action="/settings/export" class="m-0">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3.5 text-sm font-semibold text-text hover:bg-muted">Export my data</button>
+    </form>
+  </div>
+</div>

@@ -5,14 +5,17 @@ The theme is saved here too, with a click and without a page.
 """
 
 import json
+import threading
+import time
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from sqlmodel import Session
 from starlette.datastructures import FormData
 
 from app.db import get_session
+from app.errors import error_response
 from app.models import NotificationPreference, User
 from app.models.cv import CV_LANGUAGES
 from app.models.learning import WEEKDAYS
@@ -24,7 +27,7 @@ from app.schemas.settings import (
     time_value,
 )
 from app.security import limiter
-from app.services import clock, email_service, settings_service
+from app.services import clock, email_service, export_service, settings_service
 from app.services import learning_service as learning
 from app.services.auth_service import (
     FULL_NAME_MAX_LENGTH,
@@ -254,3 +257,52 @@ def save_theme(
     response = Response(status_code=204)
     set_theme_cookie(response, theme)
     return response
+
+
+# --- Privacy: export my data (D-130) -----------------------------------------------------------
+
+# One export per user at a time; an entry older than EXPORT_STALE_SECONDS counts as
+# finished (a download that never started doesn't block the next one for ever).
+EXPORT_STALE_SECONDS = 10 * 60
+_exports_running: dict[int, float] = {}
+_exports_lock = threading.Lock()
+
+
+def _start_export(user_id: int) -> bool:
+    with _exports_lock:
+        started = _exports_running.get(user_id)
+        if started is not None and time.monotonic() - started < EXPORT_STALE_SECONDS:
+            return False
+        _exports_running[user_id] = time.monotonic()
+        return True
+
+
+def _end_export(user_id: int) -> None:
+    with _exports_lock:
+        _exports_running.pop(user_id, None)
+
+
+@router.post("/settings/export")
+@limiter.limit("5/hour")
+def export_data(request: Request, session: DbSession, user: RequiredUser):
+    """Download everything as JSON. A form post, not a link: browsers and link
+    previews don't start it by themselves. The file is streamed with its own
+    database session (the route's one closes when the answer starts)."""
+    if not _start_export(user.id):
+        return error_response(
+            request, 429, detail="An export is already running. Please wait a moment."
+        )
+    user_id, engine = user.id, session.get_bind()
+
+    def pieces():
+        try:
+            with Session(engine) as export_session:
+                yield from export_service.stream(export_session, user_id)
+        finally:
+            _end_export(user_id)
+
+    return StreamingResponse(
+        pieces(),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{export_service.file_name()}"'},
+    )
