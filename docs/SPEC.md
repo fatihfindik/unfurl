@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.21 — 2026-11-18
+> **Durum:** MVP planı, v2.1.22 — 2026-11-18
+> v2.1.22: M13b Design kararları. Dışa aktarma akış olarak JSON (fotoğraf base64, hariçler, kapsama testi), hesap silmede şifre login kilidine bağlı ve onay e-postası sadece doğrulanmış adrese, Settings › Account (ad, şifre; bu oturum kalır), yasal sayfalar taslak + "Draft" bandı, `LEGAL_*` ayarları, alt yaş 16. Kararlar: DECISIONS D-130…D-133.
 > v2.1.21: M13a Design kararları. Hata sayfaları (404, 422 mesaj sayfası, 500 header'larla; htmx'te toast), butonda dönen simge ve çift tıklama kilidi, boş durum envanteri, "Sign out" bütün cihazlardaki oturumları bitirir, Settings › Documents (`default_doc_language`, varsayılan `en`). Kararlar: DECISIONS D-125…D-129.
 > v2.1.20: M13 dörde bölündü: M13a cilalama (hata sayfaları, boş durumlar, yükleme göstergeleri, çıkışta oturumu bitirme, Settings › Documents), M13b GDPR (yasal sayfalar, veri dışa aktarma, hesap silme, Settings › Account), M13c deploy, M13d portföy README'si. Sıra: M13a → M13b → AI milestone'ları → M6 → M13c → M13d (D-123, D-124).
 > v2.1.19: #46: duraklatılmış ya da bitmiş hedefin görevleri çalışma hatırlatmasını ve Next reminder kartını tetiklemez, planda kalır (D-122).
@@ -639,14 +640,14 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 - Önerilen başlangıç soruları sayfaya göre değişir: "Which saved job should I apply to first?", "Am I ready to apply here?", "I missed yesterday, reschedule it", "Shorten the summary", "Prepare me for my interview at {company}".
 
 ### 6.9 Settings (/settings)
-- **Account:** ad, e-posta (değişirse yeniden doğrulama), şifre değiştirme.
+- **Account (M13b, D-132):** ad; e-posta salt okunur (değiştirme ve yeniden doğrulama ayrı bir PR); şifre değiştirme (mevcut şifre login kilidine bağlı, bu oturum kalır, diğer cihazlar çıkar, doğrulanmış adrese bildirim e-postası).
 - **Documents (M13a):** "Default document language" (German / English / Turkish, varsayılan English); New CV modalı bu dille açılır, M8'de mektup da. Kendi formu, toast "Settings saved." (D-129).
 - **AI:** "How AI credits work" açıklaması, günlük kredi kullanımı ve özellik başına kredi tablosu, BYOK alanı ve asistan ayarları (sayfa bağlamını kullan, sohbet geçmişi saklama süresi, sohbet geçmişini sil):
   - "Add your Anthropic API key" → kaydederken ucuz bir test çağrısıyla doğrulanır → şifreli saklanır → ekranda sadece `sk-ant-...XXXX` (son 4 karakter) gösterilir → "Remove key".
 - **Notifications (M11b'de gelen tek bölüm; diğerleri kendi milestone'larında, D-107):** Learning bölümü (günlük çalışma hatırlatması aç/kapat, saat seçimi: 06:00–23:00 yarım saatlik liste, e-postayla da gönder, dinlenme günleri, saat dilimi, seri ve haftalık hedef: "Celebrate 7, 30 and 100-day streaks and mention your streak in reminders.") ve Job search bölümü (takip, mülakat, bekleyen ilan; AI sonucu M5'te). "Weekly email summary" satırı "Coming soon" etiketiyle görünür (V2). Tek form; dilim değişince sayfa yeniden yüklenir (D-114).
 - **Plan:** Free plan özellikleri ve "Pro · coming soon" kartı. "Upgrade to Pro" bekleme listesi modalını açar (bkz. 17.3).
 - **Browser extension:** aktif token'lar listesi (ad, son kullanım, bitiş), "Revoke" butonu.
-- **Privacy:** "Export my data" (JSON indir), "Delete my account" (şifre ile onay → tüm veriler ve yüklenen dosyalar kalıcı olarak silinir).
+- **Privacy (M13b):** "Export my data" (JSON indir, D-130), "Delete my account" (modal, şifre ile onay → tüm veriler ve yüklenen dosyalar kalıcı olarak silinir, Undo yok, D-131).
 
 ### 6.10 Learning (/learning)
 - **Üst özet kartları:** Streak (🔥 ikonlu, "12 days" + seçilen günlerden yazılan dinlenme günü notu ve "Change" linki: 7 gün kutulu küçük modal, en fazla 6 gün, D-090), This week (bu haftanın Pzt–Paz saati / aktif hedeflerin haftalık hedef toplamı, ilerleme çubuğu), Tasks done (x / y), Next reminder (bir sonraki hatırlatma: "Today, 19:00" / "Tomorrow, 19:00" / "Mon, 19:00" + "Change reminder"; kapalıysa "Off" + "Turn on"; aktif hedeflerde hiç açık görev yoksa "No tasks planned" + "Add task"; D-115, D-122).
@@ -670,7 +671,7 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 **Ton kuralları:** Destekleyici ve kısa. Suçlama, korkutma veya baskı yok ("Don't lose your streak!" yerine "Keep your 12-day streak going"). Günde en fazla 1 çalışma hatırlatması. E-postalarda "Turn off these emails" linki: girişsiz bir onay sayfası açar (GET hiçbir şey değiştirmez), butona basınca sadece çalışma hatırlatması e-postaları kapanır; uygulama içi hatırlatma kalır (D-098, D-112).
 
 ### 6.12 Yasal sayfalar
-- `/privacy`, `/terms`, `/imprint` (Avusturya için Impressum zorunlu). İçerikler şimdilik yer tutucu metin + "TODO: legal review" notu. Footer'da linkler.
+- `/privacy`, `/terms`, `/imprint` (Avusturya için Impressum zorunlu). Metinlerin taslağını Claude yazar (M13b); uzman incelemesine kadar üstte "Draft · not yet reviewed by a lawyer" bandı (`LEGAL_REVIEWED`). Impressum'daki ad, adres ve e-posta `.env`'den gelir (`LEGAL_*`), repoda kişisel bilgi yok. Alt yaş sınırı 16. Footer'da linkler (D-133).
 
 ### 6.13 Next step kuralları
 Next step, bir başvuru için yapılacak **tek sonraki iş ve tarihidir**. Hatırlatmalar ve Needs attention buradan beslenir. Mantık `next_step_service.py` içindedir ve birim testleriyle doğrulanır.
@@ -980,8 +981,8 @@ Versiyon numarası `AIUsage` kaydına ve `FitAnalysis.model` yanına (`model@pro
 - **Hosting:** AB bölgesi (Render Frankfurt). Veritabanı da AB'de.
 - **Alt işleyenler** gizlilik sayfasında listelenir: hosting sağlayıcı, e-posta sağlayıcı, Anthropic (AI işleme).
 - **Kayıt sırasında** gizlilik politikası onayı alınır, onay tarihi `User` tablosunda saklanır (`privacy_accepted_at`).
-- **Veri dışa aktarma:** `/settings` → "Export my data" → kullanıcının tüm verileri tek bir JSON dosyası olarak iner (profil, CV'ler, mektuplar, başvurular, eventler, fit analizleri, sohbetler). Şifre hash'i, token'lar ve şifreli API anahtarı hariç tutulur.
-- **Hesap silme:** şifre onayı → tüm satırlar (cascade) ve yüklenen dosyalar (fotoğraf) kalıcı olarak silinir → oturum kapatılır → onay e-postası gönderilir.
+- **Veri dışa aktarma:** `/settings` → "Export my data" → kullanıcının tüm verileri tek bir JSON dosyası olarak iner (profil, CV'ler, mektuplar, başvurular, eventler, fit analizleri, sohbetler). Şifre hash'i, oturum sürümü, token'lar, şifreli API anahtarı ve Undo kopyaları hariç; fotoğraf base64. Akış olarak yazılır; FK yoluyla kullanıcıya bağlı her tablo ya dışa aktarılır ya da gerekçeli hariç listesindedir (test, D-130).
+- **Hesap silme:** şifre onayı (login kilidine bağlı) → tüm satırlar (cascade) ve yüklenen dosyalar (fotoğraf) kalıcı olarak silinir → oturum kapatılır → onay e-postası doğrulanmış adrese gönderilir (D-131).
 - **Veri minimizasyonu:** Yüklenen CV PDF'leri saklanmaz. Doğum tarihi, uyruk ve fotoğraf isteğe bağlıdır ve AI'a gönderilmez.
 - **Çerezler:** Sadece zorunlu oturum çerezi kullanılır, analytics yok. Bu nedenle cookie banner gerekmez, ama gizlilik sayfasında açıklanır.
 
@@ -1028,6 +1029,12 @@ DEFAULT_TIMEZONE=Europe/Vienna
 
 # Uploads
 UPLOAD_DIR=./uploads
+
+# Legal pages (Impressum; kişisel bilgiler sadece .env'de, D-133)
+LEGAL_OPERATOR_NAME=
+LEGAL_ADDRESS=
+LEGAL_EMAIL=
+LEGAL_REVIEWED=false            # uzman incelemesinden sonra true: "Draft" bandı kalkar
 ```
 
 `config.py` uygulama başlarken zorunlu değişkenleri kontrol eder. Production'da `SECRET_KEY` veya `ENCRYPTION_KEY` eksik ya da varsayılan değerdeyse uygulama başlamaz.
@@ -1166,6 +1173,7 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 - Fake door: "Upgrade to Pro" butonları + bekleme listesi modalı + `WaitlistSignup` + `UpgradePromptEvent` (bkz. Bölüm 17.3)
 - Admin için basit maliyet raporu: `uv run python -m app.billing.report` → son 30 gün, plan ve özellik bazında kullanıcı başına ortalama token ve tahmini maliyet
 - `evals/extract_job` + `run_evals.py`
+- Gizlilik sayfasına Anthropic'i (AI işleme, ABD aktarımı ve dayanağı) ekle (D-133)
 - **Kabul:** Kota aşımı 429 dönüyor. BYOK ile kredi düşmüyor. Testler FakeAIClient ile geçiyor. Eval doğruluğu ≥ %85 (company + job_title).
 
 ### M6 — Chrome eklentisi

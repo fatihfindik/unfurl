@@ -688,3 +688,23 @@ Kaynak: M13a Design fazı, D-124.
 - **Karar:** `User.default_doc_language` (SPEC §5.1): `CV_LANGUAGES`'tan biri, varsayılan `en`, NOT NULL (migration `0014`, mevcut kullanıcılar `en`). Settings'te kendi formu (`POST /settings/documents`, CSRF, 30/dk), toast "Settings saved." New CV modalı bu dille açılır; M8'deki mektup da kullanır. Kayıtta `en`, tarayıcı dilinden tahmin yok.
 - **Alternatifler:** Tarayıcı dilinden tahmin; son oluşturulan CV'nin dilini hatırlamak.
 
+### D-130 · Veri dışa aktarma ("Export my data")
+Kaynak: M13b Design fazı (`docs/plans/M13b.md`), plan-reviewer; Fatih planı onayladı (2026-11-18). SPEC §10.2.
+- **Karar:** Settings › Privacy'de bir form (`POST /settings/export`, CSRF, 5/saat/IP, kullanıcı başına aynı anda tek dışa aktarma). Yanıt `unfurl-export-YYYY-MM-DD.json` (UTC tarih), `attachment`. Biçim `{"format": "unfurl-export", "version": 1, …}`: hesap, profil (bölümleriyle), CV'ler, başvurular (eventleri ve belgeleriyle), Learning, bildirimler ve tercihler. Hariç: `password_hash`, `session_version`, (M5'te) şifreli API anahtarı, satırların `user_id`'si ve `deleteditem` (dakikalık Undo kopyaları). Fotoğraf base64 (en fazla 2 MB; Fatih onayladı). En kötü durum sınırlardan GB'larca olabildiği için JSON akış olarak yazılır (`StreamingResponse`, `yield_per`). Bir test, FK yoluyla `user`'a bağlı her tablonun dışa aktarmada ya da gerekçeli hariç listesinde olmasını zorlar.
+- **Alternatifler:** Bellekte üretmek (en kötü durumda sunucu belleğini tüketir); ZIP içinde ayrı dosyalar; GET linki (tarayıcı ve önizlemeler kendiliğinden indirebilir).
+
+### D-131 · Hesap silme ("Delete my account")
+Kaynak: M13b Design fazı, plan-reviewer; Fatih onayladı (2026-11-18). SPEC §10.2, D-034.
+- **Karar:** Settings › Privacy'de modal: kalıcı olduğunu söyleyen uyarı, şifre, kırmızı buton; Undo yok (D-123). `POST /settings/delete-account` (CSRF, 5/saat/IP; htmx'te `HX-Redirect`). Şifre `check_password_with_lockout` ile: login kilidi (IP + e-posta), uzunluk sınırı, başarıda kayıt temizlenir. Sıra: e-posta, doğrulanmış mı ve fotoğraf yolu alınır → kullanıcı silinir (cascade) → fotoğraf dosyası silinir → oturum temizlenir → `/login?deleted=1` → onay e-postası **sadece doğrulanmış adrese** (Fatih onayladı). Zamanlayıcının topladığı hatırlatma e-postaları göndermeden önce kullanıcının hâlâ var ve doğrulanmış olduğu tek sorguyla kontrol edilir.
+- **Alternatifler:** Bekleme süresi ve geri alma (V2); doğrulanmamış adrese de e-posta (adresin sahibine bir hesap olduğunu söylerdi).
+
+### D-132 · Settings › Account
+Kaynak: M13b Design fazı, D-124, plan-reviewer.
+- **Karar:** Ad (`full_name`, kayıttaki kurallar, 30/dk). Şifre: mevcut şifre (D-131'deki kilitli kontrol), yeni şifre ve tekrarı (kayıttaki kurallar), 10/dk; `password_hash` ve `session_version` tek koşullu UPDATE'te (`WHERE password_hash = eski`, D-121). Bu oturumda sadece `SESSION_VERSION` güncellenir (`start_session` CSRF token'ını yenilerdi, sayfadaki htmx istekleri 403 alırdı); diğer cihazlar çıkar (D-021). Doğrulanmış adrese "şifren değişti" e-postası. E-posta salt okunur; değiştirme ayrı bir issue.
+- **Alternatifler:** Şifre değişince bu cihazdan da çıkış.
+
+### D-133 · Yasal sayfalar
+Kaynak: M13b Design fazı, D-123, plan-reviewer; Fatih'in cevapları (2026-11-18).
+- **Karar:** Claude İngilizce taslak yazar; uzman incelemesine kadar sayfaların üstünde "Draft · not yet reviewed by a lawyer" bandı (`LEGAL_REVIEWED=false`). Gizlilik DSGVO Art. 13/14'ü kapsar (sorumlu, veriler ve amaçlar, dayanaklar, alt işleyenler, saklama süreleri, haklar ve Datenschutzbehörde, çerezler, otomatik karar yok, kullanıcının girdiği üçüncü kişi verileri, IP adresleri, verilerin gerekliliği). Şartlar tüketici korumalarını saklı tutar (KSchG § 6, Roma I md. 6). Alt yaş sınırı **16** (Fatih). Impressum ad, adres ve e-postayı `.env`'den alır (`LEGAL_OPERATOR_NAME`, `LEGAL_ADDRESS`, `LEGAL_EMAIL`), repoda kişisel bilgi yok; şimdilik ticari olmayan bir site için yazılır (Fatih: "önce portföy, ileride ticari olabilir"); ticarileşince § 5 ECG'nin tam bilgileri eklenir. Anthropic gizlilik metnine M5'te eklenir; sağlayıcı adları M13c'de.
+- **Alternatifler:** Metinleri doğrudan Fatih'in yazması; kişisel bilgileri şablona yazmak.
+
