@@ -31,6 +31,7 @@ from app.services.auth_service import (
     remember_timezone,
     require_user,
     reset_password,
+    sign_out,
     start_session,
     user_from_reset_token,
     user_from_verify_token,
@@ -412,7 +413,8 @@ def reset_password_submit(
 
 
 @router.post("/logout")
-def logout(request: Request):
+def logout(request: Request, session: DbSession):
     # POST only (with a CSRF token), so another site can't log the user out with a link.
-    end_session(request)
+    # Every device is signed out, not only this browser (D-128).
+    sign_out(session, request)
     return redirect("/login")

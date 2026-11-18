@@ -141,6 +141,28 @@ def end_session(request: Request) -> None:
     request.session.clear()
 
 
+def sign_out(session: Session, request: Request) -> None:
+    """ "Sign out" (D-128): end this session and every other one of the user.
+
+    The session lives in the cookie, so clearing it only helps this browser; a copy
+    of the cookie (or another device) would still work. Raising session_version makes
+    all of them invalid (current_user compares it). Only a session that is still valid
+    raises it: an old cookie can't sign out someone's other devices. One UPDATE, so
+    two sign-outs at once can't lose a step (like reset_password).
+    """
+    user_id = request.session.get(SESSION_USER_ID)
+    version = request.session.get(SESSION_VERSION)
+    if isinstance(user_id, int) and isinstance(version, int):
+        session.exec(
+            update(User)
+            .where(User.id == user_id, User.session_version == version)
+            .values(session_version=User.session_version + 1, updated_at=utcnow())
+            .execution_options(synchronize_session=False)
+        )
+        session.commit()
+    end_session(request)
+
+
 def current_user(
     request: Request, session: Annotated[Session, Depends(get_session)]
 ) -> User | None:
