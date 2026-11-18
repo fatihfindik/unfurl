@@ -428,5 +428,5 @@ def cv_photo(session: DbSession, user: RequiredUser, cv_id: str):
     return Response(
         content=photo,
         media_type="image/jpeg",
-        headers={"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
     )

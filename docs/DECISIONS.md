@@ -627,3 +627,9 @@ Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (2026-11-18). D-
 Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (2026-11-18).
 - **Karar:** "This week" hedefi sadece `active` hedefleri sayar (D-092, değişmez). Paused/Done hedef kartında rozet, kart solgun. Görevleri planda, hatırlatmada ve "Tasks done" sayısında kalır; hatırlatmadan çıkarmak ayrı bir issue (#46, M13 cilasında karar).
 - **Alternatifler:** Duraklatılmış hedefin görevlerini gizlemek.
+
+### D-120 · Güvenlik header'ları ve `no-store`
+Kaynak: #10 (M1a güvenlik incelemesi #7, #8); **Claude karar verdi** (gece çalışması, 2026-11-18), Fatih'in onayını bekliyor. SPEC §10.1.
+- **Karar:** En dıştaki küçük bir ASGI ara katmanı (`SecurityHeaders`) her yanıta, route kendi koymadıysa: `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` (dış linklere adresimiz gitmez; token sayfaları `no-referrer` kalır). `/static/` dışındaki yanıtlara `Cache-Control: no-store` (çıkıştan sonra geri tuşu kişisel sayfayı göstermez). Şablonlarda (CV önizlemesinde tarayıcıda da görünen pdf/ şablonları dahil) inline script, `on…=` ve `style=""` olmadığı bir testle korunur. PDF indirmesi `attachment` olduğu için tarayıcının PDF görüntüleyicisi CSP'den etkilenmez. Sunucu hatası (500) yanıtı ara katmanların dışında üretilir ve header almaz (kabul). HSTS deploy'da.
+- **Güncelleme (security-reviewer):** Profil ve CV fotoğrafları `private, no-store` (paylaşılan bilgisayarda çıkıştan sonra kopya kalmaz). Şablon testi `<style>`, Alpine `:style` ve `javascript:` linklerini de yakalar. 500 yanıtı için header eklemek kabul edilen sınırlama olarak kalır.
+- **Alternatifler:** Header'ları route'larda tek tek koymak; ek paket.

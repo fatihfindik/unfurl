@@ -168,7 +168,7 @@ def test_the_photo_route_serves_the_owner_only(auth_client, session, user, copy)
     assert response.status_code == 200
     assert response.headers["content-type"] == "image/jpeg"
     assert response.headers["x-content-type-options"] == "nosniff"
-    assert response.headers["cache-control"] == "private, no-cache"
+    assert response.headers["cache-control"] == "private, no-store"
 
     other = create_user(session, email="other@example.com", password="x" * 12, full_name="O")
     get_or_create_profile(session, other)
