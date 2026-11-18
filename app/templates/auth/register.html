@@ -7,6 +7,8 @@
 {% block form %}
   <form method="post" action="/register" class="flex flex-col gap-4" novalidate>
     {{ csrf_field(csrf_token) }}
+    {# Filled by app.js with the browser's time zone (D-108). #}
+    <input type="hidden" name="timezone" value="" data-browser-timezone>
     <h2 class="m-0 text-2xl font-bold">Create your free account</h2>
 
     {%- if email_taken %}

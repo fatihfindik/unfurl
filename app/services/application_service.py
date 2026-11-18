@@ -1135,3 +1135,35 @@ def events_of(session: Session, application: Application) -> list[ApplicationEve
             .order_by(col(ApplicationEvent.id))
         )
     )
+
+
+# --- A new time zone (D-108) ----------------------------------------------------------
+
+
+def move_all_day_times(session: Session, user: User, old: str | None, new: str | None) -> None:
+    """Before the user's time zone changes from `old` to `new` (None: the default zone).
+
+    An interview or a next step picked "without a time" is stored as 00:00 of that day
+    (clock.is_start_of_day). 00:00 in Vienna is 02:00 in Istanbul, so after the change
+    it would show a time and maybe another day. Such values move to 00:00 of the same
+    day in the new zone. Values with a real time are moments and stay as they are.
+    Doesn't commit: the caller saves the new zone in the same transaction."""
+    jobs = session.exec(
+        select(Application).where(
+            Application.user_id == user.id,
+            col(Application.interview_at).is_not(None)
+            | col(Application.next_action_at).is_not(None),
+        )
+    )
+    for job in jobs:
+        for field in ("interview_at", "next_action_at"):
+            value = getattr(job, field)
+            if value is None:
+                continue
+            with clock.use_timezone(old):
+                if not clock.is_start_of_day(value):
+                    continue
+                day = clock.local(value).date()
+            with clock.use_timezone(new):
+                setattr(job, field, clock.to_utc(day))
+        session.add(job)

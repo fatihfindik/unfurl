@@ -27,7 +27,8 @@ from app.routers import (
 )
 from app.routers import settings as settings_routes  # `settings` is the app config below
 from app.security import hide_tokens_in_access_log, limiter, verify_csrf
-from app.services.auth_service import LoginRequired, login_required_response
+from app.services import clock
+from app.services.auth_service import SESSION_TIMEZONE, LoginRequired, login_required_response
 from app.templating import templates
 
 SESSION_COOKIE = "unfurl_session"
@@ -72,6 +73,26 @@ class KeepSessionCookie:
         await self.app(scope, receive, send_without_cookie)
 
 
+class UserTimezone:
+    """Use the logged-in user's time zone for this request (D-109).
+
+    Reads "tz" from the session (written at login and when Settings are saved) and
+    puts it into app/services/clock.py's ContextVar. It must run inside the session
+    middleware, which fills scope["session"]. Sync routes run on a thread pool, but
+    the thread gets a copy of this context, so they see the value too.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        with clock.use_timezone(scope.get("session", {}).get(SESSION_TIMEZONE)):
+            await self.app(scope, receive, send)
+
+
 def rate_limit_response(request: Request, exc: RateLimitExceeded):
     """Too many requests from one IP address (slowapi limits in app/routers/auth.py)."""
     # exc.detail is the limit that was hit, e.g. "10 per 1 minute" (login) or
@@ -114,6 +135,10 @@ def create_app(settings: Settings) -> FastAPI:
         # Runs before every route: POST/PUT/PATCH/DELETE need a valid CSRF token.
         dependencies=[Depends(verify_csrf)],
     )
+
+    # Added before the session middleware, so it runs inside it and can read the
+    # session (the middleware added last is the outermost one).
+    app.add_middleware(UserTimezone)
 
     # The session lives in a cookie signed with SECRET_KEY: the browser can read it
     # but not change it. HttpOnly is always on (JavaScript can't read the cookie);

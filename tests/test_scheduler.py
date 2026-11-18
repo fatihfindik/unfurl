@@ -55,7 +55,8 @@ def test_the_jobs_and_their_times():
         built.shutdown(wait=False)
 
     assert set(jobs) == {"generate_notifications", "purge_notifications"}
-    assert jobs["generate_notifications"].trigger.interval == dt.timedelta(minutes=15)
+    generate = {field.name: str(field) for field in jobs["generate_notifications"].trigger.fields}
+    assert generate["minute"] == "*/15"  # :00, :15, :30, :45 (D-109)
     purge = jobs["purge_notifications"].trigger
     fields = {field.name: str(field) for field in purge.fields}
     assert (fields["hour"], fields["minute"]) == ("3", "0")

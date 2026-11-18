@@ -40,5 +40,9 @@ class User(SQLModel, table=True):
     # on every device (D-068). Valid values: app.templating.THEMES.
     theme: str = Field(default="system", max_length=10)
 
+    # An IANA name like "Europe/Istanbul" (D-108). Empty means DEFAULT_TIMEZONE. Dates,
+    # "today" and reminders are in this zone (app/services/clock.py, D-109).
+    timezone: str | None = Field(default=None, max_length=64)
+
     created_at: datetime = created_at_field()
     updated_at: datetime = updated_at_field()

@@ -22,6 +22,7 @@ from app.models import User
 from app.models.base import utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
 from app.security import get_csrf_token, safe_redirect_path
+from app.services import application_service, clock
 
 PASSWORD_MIN_LENGTH = 10
 # An upper limit, so nobody can make the server hash a huge text (argon2 is slow on purpose).
@@ -38,6 +39,8 @@ _DUMMY_HASH = password_hasher.hash(secrets.token_urlsafe(16))
 # Keys in the signed session cookie (D-021).
 SESSION_USER_ID = "user_id"
 SESSION_VERSION = "session_version"
+# The user's time zone name, for app/main.py's UserTimezone (D-109). Empty: the default.
+SESSION_TIMEZONE = "tz"
 
 # Email links (D-027). Each kind of token has its own "salt", so a token made for
 # one purpose is rejected everywhere else.
@@ -61,8 +64,11 @@ def verify_password(password: str, password_hash: str) -> bool:
     return password_hasher.verify(password, password_hash)
 
 
-def create_user(session: Session, *, email: str, password: str, full_name: str) -> User:
-    """Save a new user on the free plan. Raises EmailTaken if the email is in use."""
+def create_user(
+    session: Session, *, email: str, password: str, full_name: str, timezone: str | None = None
+) -> User:
+    """Save a new user on the free plan. Raises EmailTaken if the email is in use.
+    `timezone` comes from the browser (D-108); an unknown name is ignored."""
     email = normalize_email(email)
     if session.exec(select(User).where(User.email == email)).first():
         raise EmailTaken(email)
@@ -72,6 +78,7 @@ def create_user(session: Session, *, email: str, password: str, full_name: str) 
         password_hash=hash_password(password),
         full_name=full_name,
         privacy_accepted_at=utcnow(),
+        timezone=clock.valid_zone(timezone),
     )
     session.add(user)
     try:
@@ -111,7 +118,21 @@ def start_session(request: Request, user: User) -> None:
     request.session.clear()
     request.session[SESSION_USER_ID] = user.id
     request.session[SESSION_VERSION] = user.session_version
+    request.session[SESSION_TIMEZONE] = user.timezone
     get_csrf_token(request)
+
+
+def remember_timezone(session: Session, user: User, name: str | None) -> None:
+    """At login: save the browser's time zone if the user has none yet (D-108). A zone
+    picked in Settings is never overwritten. Dates saved "without a time" so far were
+    saved in the default zone; they move to the same day in the new one."""
+    name = clock.valid_zone(name)
+    if user.timezone is not None or name is None:
+        return
+    application_service.move_all_day_times(session, user, None, name)
+    user.timezone = name
+    session.add(user)
+    session.commit()
 
 
 def end_session(request: Request) -> None:
@@ -136,6 +157,10 @@ def current_user(
         end_session(request)
         return None
     request.state.user = user
+    if request.session.get(SESSION_TIMEZONE) != user.timezone:
+        # Changed on another device: this request already started with the old zone
+        # (app/main.py reads the session first), the next one uses the new zone (D-109).
+        request.session[SESSION_TIMEZONE] = user.timezone
     # Expired "deleted" copies go away here, a little at a time (D-086).
     from app.services import trash_service  # here: trash_service imports undo_service
 

@@ -192,7 +192,9 @@ def generate_due(session: Session, now: dt.datetime) -> int:
         try:
             user = session.get(User, user_id)
             if user is not None:
-                written += generate_for_user(session, user, now)
+                # "Today" and "tomorrow" are the user's own days (D-109).
+                with clock.use_timezone(user.timezone):
+                    written += generate_for_user(session, user, now)
         except Exception as exc:
             session.rollback()
             # Only the id and the kind of error: an error's text can quote data.
