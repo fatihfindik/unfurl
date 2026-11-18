@@ -1,12 +1,30 @@
 {% extends "legal/layout.html" %}
-{#- The final text needs a legal review (M13). -#}
+{#- Draft by Claude (D-133). Consumer protections are kept on purpose (KSchG § 6,
+    Rome I Art. 6); a lawyer reviews the text before LEGAL_REVIEWED is set. -#}
 {% block body %}
-  <p class="m-0">This page will describe the rules for using Unfurl.</p>
-  <h2 class="m-0 mt-2 text-lg font-bold text-text">What it will cover</h2>
-  <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5">
-    <li>Who can use Unfurl and what the free plan includes.</li>
-    <li>Your content stays yours: CVs, cover letters and saved jobs.</li>
-    <li>AI suggestions can be wrong; check them before you send anything.</li>
-    <li>Ending your account and what happens to your data.</li>
-  </ul>
+  <p class="m-0">These terms apply when you use Unfurl, run by {{ operator.name }} (see the Imprint).</p>
+
+  {{ h2("The service") }}
+  <p class="m-0">Unfurl helps you write CVs, track job applications and plan your learning. It is free. Features can change; we will tell you in the app before something important is removed.</p>
+
+  {{ h2("Who can use it") }}
+  <p class="m-0">You must be {{ minimum_age }} or older and give a real email address. One account per person; keep your password to yourself.</p>
+
+  {{ h2("Your content") }}
+  <p class="m-0">What you write and upload stays yours. You give us only the rights needed to store and show it to you, and to make the files you ask for (e.g. a CV as a PDF). You are responsible for what you put in, including other people's data from job ads.</p>
+
+  {{ h2("Suggestions can be wrong") }}
+  <p class="m-0">Reminders, scores and (later) AI suggestions are help, not advice. Check every document before you send it.</p>
+
+  {{ h2("Fair use") }}
+  <p class="m-0">Don't break the law with Unfurl, don't try to reach other people's data, don't overload the service, and don't use it to send spam. We may suspend an account that does.</p>
+
+  {{ h2("Liability") }}
+  <p class="m-0">Unfurl is provided free and as it is. We are not liable for slight negligence. This does not limit liability for intent or gross negligence, for injury to life, body or health, or anything else the law doesn't allow to be limited.</p>
+
+  {{ h2("Ending") }}
+  <p class="m-0">You can delete your account at any time in Settings; everything is deleted at once. We may end the service with at least 30 days' notice by email, so you can export your data first.</p>
+
+  {{ h2("Law") }}
+  <p class="m-0">Austrian law applies. If you are a consumer, you keep the protection of the mandatory laws of the country you live in.</p>
 {% endblock %}

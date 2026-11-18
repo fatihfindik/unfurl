@@ -1,6 +1,8 @@
 {#- Layout for the legal pages: a plain top bar (logo + theme picker), the text and the footer.
     No sidebar, because these pages are also for visitors who are not logged in.
-    Pages extend it and fill the `body` block; the router sets `page_title`. -#}
+    Pages extend it and fill the `body` block; the router sets `page_title`, `operator`,
+    `reviewed`, `minimum_age` and `updated` (app/routers/legal.py). -#}
+{%- macro h2(text) %}<h2 class="m-0 mt-3 text-lg font-bold text-text">{{ text }}</h2>{% endmacro -%}
 {%- from "components/icons.html" import logo_mark -%}
 {%- from "components/theme_picker.html" import theme_picker -%}
 {%- from "components/footer.html" import legal_links -%}
@@ -21,10 +23,13 @@
 
   <main class="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-4 px-4 py-10 md:px-8">
     <h1 class="m-0 text-[28px] font-bold">{{ page_title }}</h1>
-    {#- Placeholder until the legal review before launch (SPEC §6.12, M13). -#}
-    <p class="m-0 rounded-[10px] bg-amber-bg px-3 py-2.5 text-sm font-medium text-amber-text">
-      TODO: legal review. This is a placeholder text, not the final {{ page_title | lower }}.
-    </p>
+    {#- Until a lawyer has reviewed the texts (LEGAL_REVIEWED, D-133). -#}
+    {%- if not reviewed %}
+      <p class="m-0 rounded-[10px] bg-amber-bg px-3 py-2.5 text-sm font-medium text-amber-text">
+        Draft · not yet reviewed by a lawyer.
+      </p>
+    {%- endif %}
+    <p class="m-0 text-sm text-text-3">Last updated: {{ updated }}</p>
     <div class="flex flex-col gap-3 text-[15px] leading-relaxed text-text-2">
       {% block body %}{% endblock %}
     </div>
