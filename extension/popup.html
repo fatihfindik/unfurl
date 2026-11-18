@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Unfurl</title>
+  <link rel="stylesheet" href="popup.css">
+  <!-- MV3 allows no inline scripts: everything is in popup.js. -->
+  <script type="module" src="popup.js"></script>
+</head>
+<body>
+  <header class="top">
+    <img src="icons/icon-32.png" alt="" width="24" height="24">
+    <span class="brand">Unfurl</span>
+  </header>
+
+  <!-- One view is shown at a time (SPEC §7.6); popup.js toggles "hidden". -->
+  <main>
+    <section id="view-loading" class="view">
+      <p class="muted">Loading…</p>
+    </section>
+
+    <section id="view-login" class="view" hidden>
+      <h1>Sign in to Unfurl</h1>
+      <p id="login-note" class="note" hidden></p>
+      <form id="login-form" novalidate>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username" required>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <p id="login-error" class="error" role="alert" hidden></p>
+        <button id="login-button" type="submit" class="primary">Sign in</button>
+      </form>
+      <p class="muted small">No account yet? <a id="register-link" target="_blank" rel="noopener">Create one in Unfurl</a>.</p>
+    </section>
+
+    <section id="view-preview" class="view" hidden>
+      <h1>Save this job</h1>
+      <p id="preview-note" class="note" hidden></p>
+      <form id="job-form" novalidate>
+        <label for="job_title">Position</label>
+        <input id="job_title" name="job_title" maxlength="200" required>
+        <label for="company">Company</label>
+        <input id="company" name="company" maxlength="200" required>
+        <label for="location">Location</label>
+        <input id="location" name="location" maxlength="200">
+        <div class="row">
+          <div>
+            <label for="remote_type">Work mode</label>
+            <select id="remote_type" name="remote_type">
+              <option value="">Not sure</option>
+              <option value="onsite">On-site</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="remote">Remote</option>
+            </select>
+          </div>
+          <div>
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option value="saved">Saved</option>
+              <option value="applied">Applied</option>
+            </select>
+          </div>
+        </div>
+        <label for="salary_text">Salary</label>
+        <input id="salary_text" name="salary_text" maxlength="200">
+        <label for="posting_closes_at">Apply by</label>
+        <input id="posting_closes_at" name="posting_closes_at" type="date">
+        <p id="job-text-info" class="muted small"></p>
+        <p id="save-error" class="error" role="alert" hidden></p>
+        <button id="save-button" type="submit" class="primary">Save to Unfurl</button>
+      </form>
+    </section>
+
+    <section id="view-already" class="view" hidden>
+      <h1>Already saved</h1>
+      <p class="muted">This job is on your board<span id="already-status"></span>.</p>
+      <a id="already-link" class="button-link" target="_blank" rel="noopener">Open in Unfurl</a>
+    </section>
+
+    <section id="view-saved" class="view" hidden>
+      <h1 class="success">Saved ✓</h1>
+      <p class="muted">The job is on your board.</p>
+      <a id="saved-link" class="button-link" target="_blank" rel="noopener">Open in Unfurl</a>
+    </section>
+
+    <section id="view-nojob" class="view" hidden>
+      <h1>Open a job posting</h1>
+      <p class="muted">Go to a job ad (LinkedIn, StepStone, karriere.at, a company's careers page…) and click the Unfurl icon again.</p>
+    </section>
+
+    <section id="view-error" class="view" hidden>
+      <h1>Something went wrong</h1>
+      <p id="error-text" class="muted"></p>
+      <button id="retry-button" type="button" class="secondary">Try again</button>
+    </section>
+  </main>
+
+  <footer id="account" class="account" hidden>
+    <span id="account-email" class="muted small"></span>
+    <button id="logout-button" type="button" class="link">Sign out</button>
+  </footer>
+</body>
+</html>
