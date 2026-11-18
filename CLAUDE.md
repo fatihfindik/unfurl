@@ -49,7 +49,8 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - [ ] M8 Cover letter
 - [ ] M9 Apply flow: prepare documents, document drawer, final check, Progress + CV import
 - [x] M10 Learning
-- [ ] M11 Notifications and reminders
+- [x] M11a Notifications: bell, panel, scheduler, job search reminders
+- [ ] M11b Notifications: settings, timezone, study reminder and email
 - [ ] M12a AI assistant: floating panel, application + learning tools
 - [ ] M12b AI assistant: document editing
 - [ ] M13 GDPR, polish, deploy
