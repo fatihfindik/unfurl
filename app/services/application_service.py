@@ -225,9 +225,12 @@ def create(
     job_url: str | None = None,
     description_raw: str = "",
     status: str = "saved",
+    salary_text: str | None = None,
+    posting_closes_at: dt.date | None = None,
 ) -> Application:
     """Save a new job at the top of its column, with a "created" event.
-    The values were already checked by the form (app.schemas.application)."""
+    The values were already checked by the form (app.schemas.application) or, from
+    the extension, by app.schemas.ext_api (D-141)."""
     count = session.exec(
         select(func.count()).select_from(Application).where(Application.user_id == user.id)
     ).one()
@@ -244,6 +247,8 @@ def create(
         canonical_url=canonical_url(job_url),
         source=detect_source(job_url),
         description_raw=description_raw,
+        salary_text=salary_text,
+        posting_closes_at=posting_closes_at,
         status=status,
         # SPEC §5.6: an application that is "applied" has the date it was sent.
         applied_at=today() if status == "applied" else None,

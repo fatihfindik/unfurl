@@ -2,10 +2,12 @@
 (D-130) and account deletion (D-131) tests, on SQLite and on Postgres."""
 
 import datetime as dt
+import hashlib
 
 from sqlmodel import Session
 
 from app.models import (
+    ApiToken,
     Application,
     ApplicationDocument,
     ApplicationEvent,
@@ -103,4 +105,13 @@ def fill_account(session: Session, user: User, photo_path: str | None = None) ->
         )
     )
     rows["deleted"] = add(DeletedItem(user_id=user.id, kind="cv", payload={"title": "Old CV"}))
+    rows["token"] = add(
+        ApiToken(
+            user_id=user.id,
+            name="Chrome extension",
+            token_hash=hashlib.sha256(user.email.encode()).hexdigest(),  # unique per user
+            session_version=user.session_version,
+            expires_at=dt.datetime(2027, 2, 16, tzinfo=dt.UTC),
+        )
+    )
     return rows

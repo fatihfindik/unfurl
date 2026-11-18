@@ -226,4 +226,5 @@ def test_api_paths_keep_json(broken):
     response = broken.get("/api/thing")
 
     assert response.status_code == 404
-    assert response.json() == {"detail": "Not Found"}
+    # The extension API's error format (SPEC §8, D-137).
+    assert response.json() == {"error": {"code": "not_found", "message": "Not found."}}
