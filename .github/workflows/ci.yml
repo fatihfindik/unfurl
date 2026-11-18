@@ -1,4 +1,5 @@
-# CI: lint + tests on every push, plus a Docker/Postgres smoke test on pull requests to main.
+# CI: lint + tests on every push; on pull requests to main also the Postgres tests
+# (tests/test_postgres.py) and a Docker/Postgres smoke test.
 name: CI
 
 on:
@@ -52,6 +53,53 @@ jobs:
 
       - name: Tests
         run: uv run pytest
+
+  postgres-tests:
+    # Only for pull requests to main: tests/test_postgres.py on a real PostgreSQL 16
+    # (cascades, SELECT ... FOR UPDATE, races), which SQLite can't show.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: unfurl_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d unfurl_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      TEST_POSTGRES_URL: postgresql+psycopg://postgres:test@localhost:5432/unfurl_test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.7"
+          enable-cache: true
+
+      # The app imports WeasyPrint, which needs Pango.
+      - name: Install Pango
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      # -rs lists skipped tests: if TEST_POSTGRES_URL were missing, all three would be
+      # skipped, and the next step fails the job instead of passing silently.
+      - name: Postgres tests
+        run: uv run pytest tests/test_postgres.py -rs -p no:cacheprovider | tee pytest.log
+
+      - name: Nothing was skipped
+        run: "! grep -q skipped pytest.log"
 
   docker:
     # Only for pull requests to main: builds the image and runs it against Postgres.
