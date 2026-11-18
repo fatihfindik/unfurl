@@ -321,6 +321,17 @@ def forgot_password_page(request: Request):
     return templates.TemplateResponse(request, "auth/forgot_password.html", {"email": ""})
 
 
+# Stands in for a missing account in forgot_password (never saved). ".invalid" is a
+# domain that can't exist (RFC 2606).
+NO_ACCOUNT = User(
+    id=0,
+    email="no-account@unfurl.invalid",
+    password_hash="no-account",
+    full_name="",
+    privacy_accepted_at=utcnow(),
+)
+
+
 @router.post("/forgot-password", response_class=HTMLResponse)
 @limiter.limit("5/hour")
 def forgot_password(
@@ -342,14 +353,19 @@ def forgot_password(
     user = None
     if len(email) <= EMAIL_MAX_LENGTH:
         user = session.exec(select(User).where(User.email == normalize_email(email))).first()
+    # The same work with and without an account (#15): a token is signed, the email
+    # rendered and the limiter counted for a stand-in user, then nothing is sent. So
+    # the answer's timing doesn't tell whether the address has an account.
+    account = user or NO_ACCOUNT
+    reset_email = email_service.render_email(
+        "reset_password",
+        to=account.email,
+        full_name=account.full_name,
+        path="/reset-password?token=" + make_reset_token(account),
+    )
     # Over the per-address limit, nothing is sent, but the answer stays the same.
-    if user is not None and email_limiter.allow(user.email):
-        reset_email = email_service.render_email(
-            "reset_password",
-            to=user.email,
-            full_name=user.full_name,
-            path="/reset-password?token=" + make_reset_token(user),
-        )
+    allowed = email_limiter.allow(account.email)
+    if user is not None and allowed:
         # Sent after the response (D-028), so the answer takes as long with or
         # without an account.
         background_tasks.add_task(email_service.send_email, reset_email)
@@ -385,7 +401,8 @@ def reset_password_submit(
         )
 
     # All sessions of this user end, this browser's too; they sign in with the new password.
-    reset_password(session, user, password)
+    if not reset_password(session, user, password):
+        return invalid_reset_link(request)  # the same link was used a moment earlier (#16)
     login_lockout.clear_email(user.email)
     end_session(request)
     return redirect("/login?reset=1")

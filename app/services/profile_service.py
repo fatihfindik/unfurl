@@ -101,7 +101,16 @@ def _touch(session: Session, profile_id: int) -> None:
 
 
 def add_item(session: Session, profile: Profile, model: type[SQLModel], data: dict) -> SQLModel:
-    """Add a row at the end of a section. Raises TooManyItems when the section is full."""
+    """Add a row at the end of a section. Raises TooManyItems when the section is full.
+
+    The profile row is locked first (SELECT ... FOR UPDATE, Postgres), so two requests
+    at the same moment add one after the other and both see the right count (#22).
+    SQLite ignores FOR UPDATE, but it lets only one writer in at a time anyway."""
+    # key_share: FOR NO KEY UPDATE still lines up two adds, but doesn't block inserts
+    # elsewhere that only reference the profile (security review, D-121).
+    session.exec(
+        select(Profile.id).where(Profile.id == profile.id).with_for_update(key_share=True)
+    ).one()
     count = session.exec(select(func.count()).where(model.profile_id == profile.id)).one()
     if count >= MAX_ITEMS_PER_SECTION:
         raise TooManyItems
