@@ -3,12 +3,17 @@
 
 {% block title %}Settings{% endblock %}
 
-{#- docs/prototype/Settings.dc.html, SPEC §6.9. Notifications (M11b) and Documents
-    (M13a); the other sections come with their milestones (D-107, D-124). -#}
+{#- docs/prototype/Settings.dc.html, SPEC §6.9. Account and Privacy (M13b),
+    Notifications (M11b) and Documents (M13a); the other sections come with their milestones (D-107, D-124). -#}
 {% block content %}
   {{ page_header("Settings") }}
   <div class="w-full px-4 pt-6 pb-10 md:px-8">
     <div class="{{ page_width() }}">
+      <section aria-labelledby="account-title" class="mb-6 flex max-w-[720px] flex-col gap-4 rounded-xl border border-border bg-surface p-6">
+        <h2 id="account-title" class="m-0 text-lg font-bold text-text">Account</h2>
+        {% include "settings/_account_name.html" %}
+        {% include "settings/_account_password.html" %}
+      </section>
       <section aria-labelledby="notifications-title" class="flex max-w-[720px] flex-col gap-4 rounded-xl border border-border bg-surface p-6">
         <h2 id="notifications-title" class="m-0 text-lg font-bold text-text">Notifications</h2>
         {% include "settings/_notifications.html" %}

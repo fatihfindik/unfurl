@@ -1,12 +1,13 @@
 """Settings (`/settings`, SPEC §6.9). Notifications came with M11b (D-114), Documents
-with M13a (D-129); the other sections come with their milestones (D-107, D-124).
+with M13a (D-129), Account and Privacy with M13b (D-130…D-132); the other sections
+come with their milestones (D-107, D-124).
 The theme is saved here too, with a click and without a page.
 """
 
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlmodel import Session
 from starlette.datastructures import FormData
@@ -23,9 +24,16 @@ from app.schemas.settings import (
     time_value,
 )
 from app.security import limiter
-from app.services import clock, settings_service
+from app.services import clock, email_service, settings_service
 from app.services import learning_service as learning
-from app.services.auth_service import SESSION_TIMEZONE, require_user
+from app.services.auth_service import (
+    FULL_NAME_MAX_LENGTH,
+    SESSION_TIMEZONE,
+    change_password,
+    check_password_with_lockout,
+    password_error,
+    require_user,
+)
 from app.templating import THEMES, set_flash, set_theme_cookie, templates
 
 router = APIRouter(dependencies=[Depends(require_user)])
@@ -36,6 +44,13 @@ RequiredUser = Annotated[User, Depends(require_user)]
 DAY_CHOICES = list(zip(WEEKDAYS, ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"), strict=True))
 TIME_CHOICES = [(time_value(value), time_value(value)) for value in REMINDER_TIMES]
 SAVED = "Settings saved."
+FormText = Annotated[str, Form()]
+
+# What check_password_with_lockout's answers mean on the page (D-131, D-132).
+PASSWORD_CHECK_ERRORS = {
+    "wrong": "That's not your current password.",
+    "locked": "Too many wrong passwords. Try again in 15 minutes.",
+}
 
 
 async def read_form_data(request: Request) -> FormData:
@@ -82,11 +97,91 @@ def documents_context(user: User, value: str | None = None, error: str | None = 
     }
 
 
+def toast(message: str) -> dict:
+    return {
+        "HX-Trigger": json.dumps({"toast": {"message": message, "undo_url": "", "undo_token": ""}})
+    }
+
+
+def account_context(user: User, name: str | None = None, errors: dict | None = None) -> dict:
+    """What settings/_account.html needs (D-132)."""
+    return {
+        "account_name": user.full_name if name is None else name,
+        "account_email": user.email,
+        "account_errors": errors or {},
+        "name_max_length": FULL_NAME_MAX_LENGTH,
+    }
+
+
 @router.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request, session: DbSession, user: RequiredUser):
     prefs = learning.preferences(session, user)
-    context = form_context(user, prefs) | documents_context(user)
+    context = form_context(user, prefs) | documents_context(user) | account_context(user)
     return templates.TemplateResponse(request, "settings/index.html", context)
+
+
+# --- Account: name and password (D-132) -------------------------------------------------------
+
+
+@router.post("/settings/account/name", response_class=HTMLResponse)
+@limiter.limit("30/minute")
+def save_name(request: Request, session: DbSession, user: RequiredUser, full_name: FormText = ""):
+    full_name = full_name.strip()
+    error = None
+    if not full_name:
+        error = "Enter your full name."
+    elif len(full_name) > FULL_NAME_MAX_LENGTH:
+        error = f"Name must be at most {FULL_NAME_MAX_LENGTH} characters."
+    if error:
+        context = account_context(user, full_name, {"full_name": error})
+        return templates.TemplateResponse(request, "settings/_account_name.html", context)
+    user.full_name = full_name
+    session.add(user)
+    session.commit()
+    return templates.TemplateResponse(
+        request, "settings/_account_name.html", account_context(user), headers=toast("Name saved.")
+    )
+
+
+@router.post("/settings/account/password", response_class=HTMLResponse)
+@limiter.limit("10/minute")
+def save_password(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    background_tasks: BackgroundTasks,
+    current_password: FormText = "",
+    new_password: FormText = "",
+    repeat_password: FormText = "",
+):
+    """Change the password: the current one is checked like at sign in (lockout), the
+    other devices are signed out, this one stays (D-132)."""
+    errors = {}
+    if error := password_error(new_password):
+        errors["new_password"] = error
+    elif new_password != repeat_password:
+        errors["repeat_password"] = "The passwords don't match."
+    if not errors:
+        check = check_password_with_lockout(request, user, current_password)
+        if check != "ok":
+            errors["current_password"] = PASSWORD_CHECK_ERRORS[check]
+    if not errors and not change_password(session, request, user, new_password):
+        errors["current_password"] = "Your password changed in the meantime. Reload the page."
+    if errors:
+        context = account_context(user, errors=errors)
+        return templates.TemplateResponse(request, "settings/_account_password.html", context)
+
+    if user.is_verified:  # never to an address that might not be theirs (D-112)
+        email = email_service.render_email(
+            "password_changed", to=user.email, full_name=user.full_name
+        )
+        background_tasks.add_task(email_service.send_email, email)
+    return templates.TemplateResponse(
+        request,
+        "settings/_account_password.html",
+        account_context(user),
+        headers=toast("Password changed. You were signed out on other devices."),
+    )
 
 
 @router.post("/settings/documents", response_class=HTMLResponse)
@@ -107,9 +202,7 @@ def save_documents(
     response = templates.TemplateResponse(
         request, "settings/_documents.html", documents_context(user)
     )
-    response.headers["HX-Trigger"] = json.dumps(
-        {"toast": {"message": SAVED, "undo_url": "", "undo_token": ""}}
-    )
+    response.headers.update(toast(SAVED))
     return response
 
 
@@ -142,9 +235,7 @@ def save_notifications(
     response = templates.TemplateResponse(
         request, "settings/_notifications.html", form_context(user, prefs)
     )
-    response.headers["HX-Trigger"] = json.dumps(
-        {"toast": {"message": SAVED, "undo_url": "", "undo_token": ""}}
-    )
+    response.headers.update(toast(SAVED))
     return response
 
 
