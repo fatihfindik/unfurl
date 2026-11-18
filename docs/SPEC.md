@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.22 — 2026-11-18
+> **Durum:** MVP planı, v2.1.23 — 2026-11-18
+> v2.1.23: #56: e-posta değiştirme (yeni adrese 24 saatlik onay linki, eski adrese istekte ve onayda bildirim; link oturum sürümüne bağlı, şifre sıfırlama/değiştirme ve Sign out bekleyen değişikliği iptal eder; onayda diğer cihazlar çıkar). Karar: DECISIONS D-134.
 > v2.1.22: M13b Design kararları. Dışa aktarma akış olarak JSON (fotoğraf base64, hariçler, kapsama testi), hesap silmede şifre login kilidine bağlı ve onay e-postası sadece doğrulanmış adrese, Settings › Account (ad, şifre; bu oturum kalır), yasal sayfalar taslak + "Draft" bandı, `LEGAL_*` ayarları, alt yaş 16. Kararlar: DECISIONS D-130…D-133.
 > v2.1.21: M13a Design kararları. Hata sayfaları (404, 422 mesaj sayfası, 500 header'larla; htmx'te toast), butonda dönen simge ve çift tıklama kilidi, boş durum envanteri, "Sign out" bütün cihazlardaki oturumları bitirir, Settings › Documents (`default_doc_language`, varsayılan `en`). Kararlar: DECISIONS D-125…D-129.
 > v2.1.20: M13 dörde bölündü: M13a cilalama (hata sayfaları, boş durumlar, yükleme göstergeleri, çıkışta oturumu bitirme, Settings › Documents), M13b GDPR (yasal sayfalar, veri dışa aktarma, hesap silme, Settings › Account), M13c deploy, M13d portföy README'si. Sıra: M13a → M13b → AI milestone'ları → M6 → M13c → M13d (D-123, D-124).
@@ -322,7 +323,7 @@ Tüm tablolarda: `id` (int, PK), `created_at`, `updated_at` (UTC). Kullanıcıya
 | default_doc_language | enum: de/en/tr | Varsayılan `en`. Settings › Documents'ta değişir; New CV bu dille açılır (D-129). |
 | anthropic_api_key_encrypted | str, nullable | Fernet ile şifreli BYOK anahtarı |
 | last_login_at | datetime, nullable | |
-| session_version | int | Varsayılan 0. Şifre değişince/sıfırlanınca ve çıkışta +1 (D-128). Oturum çerezindeki değerle eşleşmeyen oturum geçersizdir. |
+| session_version | int | Varsayılan 0. Şifre değişince/sıfırlanınca, çıkışta ve e-posta değişince +1 (D-128, D-134). Oturum çerezindeki değerle eşleşmeyen oturum geçersizdir. |
 | privacy_accepted_at | datetime | Kayıtta gizlilik onayı |
 | theme | enum system/light/dark | Varsayılan `system` |
 | timezone | str, nullable | Boşsa `DEFAULT_TIMEZONE` (Europe/Vienna). Kayıtta tarayıcıdan algılanır (girişte sadece boşsa), Settings'te değişir. Tarihler, "bugün" ve hatırlatmalar bu dilimdedir. Dilim değişince saatsiz (tüm gün) `interview_at` ve `next_action_at` yeni dilimde aynı güne taşınır (D-108, D-109). |
@@ -556,8 +557,8 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 - **Yönlendirme güvenliği:** `next=` ve `back_url` yalnızca `/` ile başlayan göreli yolları kabul eder. `//`, `/\`, şema (`https:`, `javascript:`) veya host içeren değerler `/`'e düşer. Tüm yönlendirmeler tek bir `safe_redirect_path()` yardımcısından geçer.
 - **Giriş gerektiren sayfalar:** Oturumsuz GET isteği `303 → /login?next=<path>` alır. HTMX isteklerinde 303 yerine `HX-Redirect` header'ı döner.
 - **Login kilidi:** Aynı IP + e-posta çifti için 15 dakika içinde 5 başarısız denemede 15 dakikalık kilit uygulanır ("Too many attempts. Try again in 15 minutes."). Kilit 5. hatadan itibaren sabit 15 dakika sürer; eski hatalar pencereden çıksa da erken açılmaz. Sayaç bellekte tutulur (D-020). Ayrıca slowapi IP başına genel sınır koyar: login 10/dk, register 5/saat, forgot-password 5/saat. forgot-password ve resend-verification aynı e-posta için 3/saat.
-- **Oturum geçersiz kılma:** Oturum çerezi `user_id` ve `session_version` taşır. `current_user` ikisini DB ile karşılaştırır. Şifre sıfırlanınca veya değişince ve çıkışta açık oturumların hepsi düşer (D-021, D-128).
-- **Token'lar:** Reset token `password_hash`'ten türetilen bir parmak izi içerir, şifre değişince geçersiz olur (tek kullanımlık). Verify token idempotenttir: zaten doğrulanmış kullanıcı "Email already verified" görür. Token'lar imzalıdır, DB'de tutulmaz (D-027).
+- **Oturum geçersiz kılma:** Oturum çerezi `user_id` ve `session_version` taşır. `current_user` ikisini DB ile karşılaştırır. Şifre sıfırlanınca veya değişince, çıkışta ve e-posta değişince açık oturumların hepsi düşer (değişikliği yapan tarayıcı hariç; D-021, D-128, D-134).
+- **Token'lar:** Reset token `password_hash`'ten türetilen bir parmak izi içerir, şifre değişince geçersiz olur (tek kullanımlık). Verify token idempotenttir: zaten doğrulanmış kullanıcı "Email already verified" görür. E-posta değişikliği token'ı (`/confirm-email`, 24 saat) kullanıcı, eski ve yeni adres ile `session_version` taşır: e-posta ya da oturum sürümü değişince geçersizdir (D-134). Token'lar imzalıdır, DB'de tutulmaz (D-027).
 - **Şifre sıfırlama sonrası:** Reset e-posta sahipliğini kanıtladığı için kullanıcı doğrulanmış sayılır (`is_verified=True`) ve o e-postanın login kilidi kayıtları silinir. Otomatik giriş yapılmaz: kullanıcı `/login`'e yönlendirilir ("Your password was changed. Sign in with your new password.").
 - **Kayıtta mevcut e-posta:** "An account with this email already exists." mesajı login ve forgot-password linkleriyle gösterilir (D-023). forgot-password numaralandırmaya kapalı kalır.
 - **Doğrulanmamış kullanıcı:** Kayıttan sonra otomatik giriş yapılır ve "Check your inbox" açılır. "Continue to setup" M9'a kadar `/` sayfasına gider. `base.html`'de sarı bant ve "Resend email" butonu gösterilir. `require_verified` dependency'si 403 döner, AI endpoint'leri bunu M7'den itibaren kullanır.
@@ -640,7 +641,7 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 - Önerilen başlangıç soruları sayfaya göre değişir: "Which saved job should I apply to first?", "Am I ready to apply here?", "I missed yesterday, reschedule it", "Shorten the summary", "Prepare me for my interview at {company}".
 
 ### 6.9 Settings (/settings)
-- **Account (M13b, D-132):** ad; e-posta salt okunur (değiştirme ve yeniden doğrulama ayrı bir PR); şifre değiştirme (mevcut şifre login kilidine bağlı, bu oturum kalır, diğer cihazlar çıkar, doğrulanmış adrese bildirim e-postası).
+- **Account (M13b, D-132):** ad; e-posta değiştirme (#56, D-134: yeni adres + mevcut şifre → yeni adrese onay linki, eski adrese bildirim; onaylanınca adres değişir ve doğrulanmış sayılır); şifre değiştirme (mevcut şifre login kilidine bağlı, bu oturum kalır, diğer cihazlar çıkar, doğrulanmış adrese bildirim e-postası).
 - **Documents (M13a):** "Default document language" (German / English / Turkish, varsayılan English); New CV modalı bu dille açılır, M8'de mektup da. Kendi formu, toast "Settings saved." (D-129).
 - **AI:** "How AI credits work" açıklaması, günlük kredi kullanımı ve özellik başına kredi tablosu, BYOK alanı ve asistan ayarları (sayfa bağlamını kullan, sohbet geçmişi saklama süresi, sohbet geçmişini sil):
   - "Add your Anthropic API key" → kaydederken ucuz bir test çağrısıyla doğrulanır → şifreli saklanır → ekranda sadece `sk-ant-...XXXX` (son 4 karakter) gösterilir → "Remove key".

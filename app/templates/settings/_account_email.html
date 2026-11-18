@@ -1,0 +1,14 @@
+{#- Settings › Account: change the email address (#56, D-134). Nothing changes until
+    the link sent to the new address is opened. The password field always comes back
+    empty. Context: account_email, account_errors, email_value (after an error). -#}
+{%- from "components/forms.html" import primary_button, text_field -%}
+<form id="account-email" class="m-0 flex flex-col gap-4 border-t border-muted pt-4" novalidate
+      hx-post="/settings/account/email" hx-target="this" hx-swap="outerHTML">
+  <span class="text-sm font-semibold text-text">Change email</span>
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ text_field("new_email", "New email", type="email", value=email_value, error=account_errors.new_email, autocomplete="email", id_prefix="account-email") }}
+    {{ text_field("password", "Current password", type="password", error=account_errors.password, autocomplete="current-password", id_prefix="account-email") }}
+  </div>
+  <p class="m-0 text-[13px] text-text-3">We send a link to the new address; your email changes when you open it. Your current address gets a notice.</p>
+  <div>{{ primary_button("Send link", size="sm") }}</div>
+</form>

@@ -1,0 +1,19 @@
+{% extends "auth/layout.html" %}
+{% from "components/forms.html" import csrf_field %}
+
+{#- The link sent to the new address (#56, D-134). Opening it changes nothing; the
+    button does. Context: new_email, old_email (masked), token. -#}
+{% block title %}Confirm your new email{% endblock %}
+
+{% block form %}
+  <div class="flex flex-col gap-4">
+    <h2 class="m-0 text-2xl font-bold">Confirm your new email</h2>
+    <p class="m-0 text-[15px] leading-[1.55] text-text-2">The Unfurl account of {{ old_email }} will use <b>{{ new_email }}</b> from now on. Other devices are signed out.</p>
+    <p class="m-0 text-sm text-text-3">If you didn't ask for this, close this page; nothing changes.</p>
+    <form method="post" action="/confirm-email" class="m-0">
+      {{ csrf_field(csrf_token) }}
+      <input type="hidden" name="token" value="{{ token }}">
+      <button type="submit" class="inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]">Use this email</button>
+    </form>
+  </div>
+{% endblock %}

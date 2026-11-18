@@ -1,0 +1,11 @@
+Subject: Your Unfurl email was changed
+
+Hi {{ full_name }},
+
+The email of your Unfurl account was changed to {{ new_email }}. This address no longer signs in.
+
+If this wasn't you, contact us at the address on {{ base_url }}/imprint.
+
+Only trust links that start with {{ base_url }}.
+
+Unfurl

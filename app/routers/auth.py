@@ -8,25 +8,33 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import User
 from app.models.base import utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
+from app.routers.reminders import TOKEN_PAGE_HEADERS
 from app.security import client_ip, email_limiter, limiter, login_lockout, safe_redirect_path
 from app.services import email_service
 from app.services.auth_service import (
     FULL_NAME_MAX_LENGTH,
+    SESSION_ACCOUNT,
+    SESSION_USER_ID,
+    SESSION_VERSION,
     EmailTaken,
+    account_stamp,
     authenticate,
+    change_email,
     create_user,
     current_user,
+    email_change_from_token,
+    email_is_valid,
     end_session,
     make_reset_token,
     make_verify_token,
     mark_verified,
+    masked_address,
     password_error,
     remember_timezone,
     require_user,
@@ -36,7 +44,7 @@ from app.services.auth_service import (
     user_from_reset_token,
     user_from_verify_token,
 )
-from app.templating import is_htmx, set_theme_cookie, templates
+from app.templating import is_htmx, set_flash, set_theme_cookie, templates
 
 router = APIRouter()
 
@@ -54,13 +62,11 @@ WAIT_MESSAGE = "Please wait a few minutes before asking for another email."
 FORGOT_MESSAGE = "If an account exists, we sent an email."
 PASSWORD_CHANGED_MESSAGE = "Your password was changed. Sign in with your new password."
 ACCOUNT_DELETED_MESSAGE = "Your account and all your data were deleted."
+EMAIL_CHANGED_MESSAGE = "Your email was changed. Sign in with the new address."
 
 # Verify and reset links carry their token in the URL. "Referrer-Policy: no-referrer"
 # stops the browser from sending that URL to any other page opened from there.
 NO_REFERRER = {"Referrer-Policy": "no-referrer"}
-
-# Checks the email format (no DNS lookup), the same rules as a Pydantic EmailStr field.
-email_adapter = TypeAdapter(EmailStr)
 
 
 def redirect(url: str) -> RedirectResponse:
@@ -85,7 +91,12 @@ def send_verification_email(background_tasks: BackgroundTasks, user: User) -> No
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(
-    request: Request, user: CurrentUser, next: str = "", reset: str = "", deleted: str = ""
+    request: Request,
+    user: CurrentUser,
+    next: str = "",
+    reset: str = "",
+    deleted: str = "",
+    email_changed: str = "",
 ):
     if user is not None:
         return redirect(safe_redirect_path(next))
@@ -94,6 +105,8 @@ def login_page(
         notice = PASSWORD_CHANGED_MESSAGE
     elif deleted:
         notice = ACCOUNT_DELETED_MESSAGE  # after Delete my account (D-131)
+    elif email_changed:
+        notice = EMAIL_CHANGED_MESSAGE  # after /confirm-email in another browser (D-134)
     return templates.TemplateResponse(
         request,
         "auth/login.html",
@@ -161,11 +174,7 @@ def validate_registration(full_name: str, email: str, password: str, privacy: st
     elif len(full_name) > FULL_NAME_MAX_LENGTH:
         errors["full_name"] = f"Name must be at most {FULL_NAME_MAX_LENGTH} characters."
 
-    try:
-        if len(email) > EMAIL_MAX_LENGTH:
-            raise ValueError
-        email_adapter.validate_python(email)
-    except (ValidationError, ValueError):
+    if not email_is_valid(email):
         errors["email"] = "Enter a valid email address."
 
     if error := password_error(password):
@@ -417,3 +426,92 @@ def logout(request: Request, session: DbSession):
     # Every device is signed out, not only this browser (D-128).
     sign_out(session, request)
     return redirect("/login")
+
+
+# --- Confirm a new email address (#56, D-134) ---------------------------------------------
+
+
+def invalid_email_link(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "auth/message.html",
+        {
+            "heading": "This link is no longer valid",
+            "text": "Email change links work for 24 hours and only once. A new password or "
+            "signing out also cancels them. Ask for a new link in Settings.",
+            "action_url": "/settings",
+            "action_label": "Open Settings",
+        },
+        status_code=400,
+        headers=TOKEN_PAGE_HEADERS,
+    )
+
+
+@router.get("/confirm-email", response_class=HTMLResponse)
+@limiter.limit("30/minute")
+def confirm_email_page(request: Request, session: DbSession, token: str = ""):
+    """The link in the email to the new address. Opening it changes nothing (email
+    programs open links by themselves, D-112); the button does."""
+    found = email_change_from_token(session, token)
+    if found is None:
+        return invalid_email_link(request)
+    user, new_email = found
+    return templates.TemplateResponse(
+        request,
+        "auth/email_change.html",
+        # Whose account: the owner of the new address can tell whether they asked
+        # (security review #56, L3). The old address is in the token anyway.
+        {"token": token, "new_email": new_email, "old_email": masked_address(user.email)},
+        headers=TOKEN_PAGE_HEADERS,
+    )
+
+
+@router.post("/confirm-email", response_class=HTMLResponse)
+@limiter.limit("10/minute")
+def confirm_email(
+    request: Request,
+    session: DbSession,
+    background_tasks: BackgroundTasks,
+    token: FormText = "",
+):
+    found = email_change_from_token(session, token)  # checked again: the form can be sent alone
+    if found is None:
+        return invalid_email_link(request)
+    user, new_email = found
+    old_email, was_verified = user.email, user.is_verified
+    # Is this browser signed in as this user? Then it stays signed in (D-134).
+    same_user = (
+        request.session.get(SESSION_USER_ID) == user.id
+        and request.session.get(SESSION_VERSION) == user.session_version
+        and request.session.get(SESSION_ACCOUNT) == account_stamp(user)
+    )
+    result = change_email(session, user, new_email)
+    if result == "taken":
+        return templates.TemplateResponse(
+            request,
+            "auth/message.html",
+            {
+                "heading": "This email is already in use",
+                "text": "Another account uses this address now. Your email was not changed.",
+                "action_url": "/settings",
+                "action_label": "Open Settings",
+            },
+            status_code=409,
+            headers=TOKEN_PAGE_HEADERS,
+        )
+    if result != "ok":
+        return invalid_email_link(request)
+
+    if was_verified:
+        notice = email_service.render_email(
+            "email_changed",
+            to=old_email,
+            full_name=user.full_name,
+            new_email=masked_address(new_email),
+        )
+        background_tasks.add_task(email_service.send_email, notice)
+    if same_user:
+        request.session[SESSION_VERSION] = user.session_version
+        set_flash(request, f"Your email is now {new_email}.")
+        return redirect("/settings")
+    return redirect("/login?email_changed=1")
