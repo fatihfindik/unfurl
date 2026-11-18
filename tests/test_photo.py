@@ -239,7 +239,7 @@ def test_the_owner_gets_their_photo(auth_client, upload_dir):
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "image/jpeg"
-    assert response.headers["cache-control"] == "private, no-cache"
+    assert response.headers["cache-control"] == "private, no-store"
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.content == stored_files(upload_dir)[0].read_bytes()
 

@@ -163,8 +163,9 @@ def photo_file(session: DbSession, user: RequiredUser):
         path,
         media_type=photo_service.media_type(profile.photo_path),
         headers={
-            # Only this browser may keep a copy, and it asks again before using it.
-            "Cache-Control": "private, no-cache",
+            # No copy stays in the browser: on a shared computer the photo is gone
+            # after signing out (security review #10, L4).
+            "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
         },
     )

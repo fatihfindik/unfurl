@@ -73,6 +73,59 @@ class KeepSessionCookie:
         await self.app(scope, receive, send_without_cookie)
 
 
+# Sent with every answer unless the route set its own (D-120, SPEC §10.1).
+# The CSP allows only our own origin: no inline scripts or styles, no other sites.
+# Alpine's CSP build and the htmx settings in layouts/_head.html work under it.
+CONTENT_SECURITY_POLICY = "; ".join(
+    [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self'",
+        "img-src 'self'",
+        "font-src 'self'",
+        "connect-src 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "base-uri 'none'",
+        "object-src 'none'",
+    ]
+)
+SECURITY_HEADERS = {
+    b"content-security-policy": CONTENT_SECURITY_POLICY.encode(),
+    b"x-content-type-options": b"nosniff",  # the browser trusts our Content-Type
+    b"x-frame-options": b"DENY",  # no other site can show us in a frame
+    b"referrer-policy": b"same-origin",  # links to other sites don't get our addresses
+}
+
+
+class SecurityHeaders:
+    """Add SECURITY_HEADERS to every answer, and `Cache-Control: no-store` to everything
+    but /static/: after signing out, the back button doesn't show a cached page with
+    the user's data. A header the route set itself is kept (e.g. no-referrer on pages
+    with a token in the address)."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        wanted = dict(SECURITY_HEADERS)
+        if not scope["path"].startswith("/static/"):
+            wanted[b"cache-control"] = b"no-store"
+
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                present = {name.lower() for name, _ in headers}
+                headers += [(name, value) for name, value in wanted.items() if name not in present]
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
+
+
 class UserTimezone:
     """Use the logged-in user's time zone for this request (D-109).
 
@@ -156,6 +209,9 @@ def create_app(settings: Settings) -> FastAPI:
     # Added after the session middleware, so it wraps it: the bell's polling answers
     # don't rewrite the session cookie (M11a review L1/L2).
     app.add_middleware(KeepSessionCookie, paths=BACKGROUND_GETS)
+
+    # Added last, so it is the outermost: every answer gets the headers, errors too.
+    app.add_middleware(SecurityHeaders)
 
     # Pages that need a login raise LoginRequired; this turns it into a redirect.
     app.add_exception_handler(LoginRequired, login_required_response)
