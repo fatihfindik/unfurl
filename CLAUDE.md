@@ -53,6 +53,9 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - [x] M11b Notifications: settings, timezone, study reminder and email
 - [ ] M12a AI assistant: floating panel, application + learning tools
 - [ ] M12b AI assistant: document editing
-- [ ] M13 GDPR, polish, deploy
+- [ ] M13a Polish: error pages, empty states, loading, Settings › Documents
+- [ ] M13b GDPR: legal pages, data export, account deletion, Settings › Account
+- [ ] M13c Deploy (after the AI milestones and M6)
+- [ ] M13d Portfolio README
 
 Update this checklist when a milestone is done.

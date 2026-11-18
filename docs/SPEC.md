@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.19 — 2026-11-18
+> **Durum:** MVP planı, v2.1.20 — 2026-11-18
+> v2.1.20: M13 dörde bölündü: M13a cilalama (hata sayfaları, boş durumlar, yükleme göstergeleri, çıkışta oturumu bitirme, Settings › Documents), M13b GDPR (yasal sayfalar, veri dışa aktarma, hesap silme, Settings › Account), M13c deploy, M13d portföy README'si. Sıra: M13a → M13b → AI milestone'ları → M6 → M13c → M13d (D-123, D-124).
 > v2.1.19: #46: duraklatılmış ya da bitmiş hedefin görevleri çalışma hatırlatmasını ve Next reminder kartını tetiklemez, planda kalır (D-122).
 > v2.1.18: #10: güvenlik header'ları (CSP sadece kendi origin, nosniff, X-Frame-Options, Referrer-Policy) ve `no-store` (D-120).
 > v2.1.17: #39: görevi ve hedefi düzenleme (Edit modalları), tamamlanmış görevin süresini düzeltme (StudyLog), hedef durumu (Active / Paused / Done) ve kartta rozet. Kararlar: DECISIONS D-116…D-119.
@@ -1073,7 +1074,7 @@ Her milestone sonunda: testler geçer, lint temiz, `docs/LEARNING_LOG.md` günce
   - Doğrulanmamış kullanıcı `require_verified` korumalı test endpoint'inden 403 alır.
   - Console backend'de e-posta terminale yazılır (Fatih elle dener).
 
-M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması (M4), BYOK'ta kredi düşmemesi testi (M7), gerçek yasal metinler (M13), Google ile giriş (V2).
+M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması (M4), BYOK'ta kredi düşmemesi testi (M7), gerçek yasal metinler (M13b), Google ile giriş (V2).
 
 ### M2a — Profil bölümleri
 - Profile + alt tablolar (Experience, Education, Skill, LanguageSkill, Certification, Project) + migration
@@ -1217,12 +1218,29 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 - Editörde ve belge panelinde "Edit with assistant" (asistanı belge bağlamıyla açar)
 - **Kabul:** Belge önerisi önizlemesiz uygulanmıyor. Sadece taslak kopyalar değişiyor; master ve kilitli belgeler hiçbir yoldan değişmiyor (test var). Undo önceki içeriği geri getiriyor. Öneriler profilde olmayan bilgi içermiyor (eval'de 5 örnek).
 
-### M13 — GDPR, cilalama, deploy
-- Veri dışa aktarma (Learning, bildirimler ve belge versiyonları dahil), hesap silme, yasal sayfalar, güvenlik header'ları
-- Boş durumlar (empty states), hata sayfaları (404/500), yükleme göstergeleri
-- Render'a deploy (Docker, Frankfurt, Postgres), production env, eklentide prod URL
-- README: ekran görüntüleri, mimari şema, "What I learned" bölümü (portföy için)
+### M13a — Cilalama: hata sayfaları, boş durumlar, yükleme göstergeleri (D-123)
+- 404 ve 500 sayfaları (tam sayfa ve htmx isteğinde toast), stack trace yok; 500 yanıtı da güvenlik header'larını alır (D-120)
+- Her listede boş durum (empty state), htmx isteklerinde yükleme göstergesi ve çift tıklamaya karşı butonun kilitlenmesi
+- Çıkışta oturum biter (`session_version` artar, D-105 notu)
+- Settings › Documents: varsayılan belge dili, yeni CV bu dille açılır (D-124). Settings › Plan bekleme listesi modalıyla birlikte M5'te (fake door).
+- **Kabul:** Bilinmeyen bir adres ve bir sunucu hatası uygulamanın kendi sayfasını header'larla gösteriyor; htmx isteğinde toast çıkıyor. Her listenin boş durumu var. Çıkıştan sonra eski oturum çerezi işe yaramıyor. Yeni bir CV varsayılan belge diliyle açılıyor.
+
+### M13b — GDPR: yasal sayfalar, veri dışa aktarma, hesap silme, Settings › Account (D-123, D-124)
+- Yasal sayfalar: gizlilik (alt işleyenler, çerezler), şartlar, Impressum. Metinlerin taslağını Claude yazar, Fatih bir uzmana inceletir; sağlayıcıların gerçek adları M13c'de doldurulur.
+- "Export my data": tek JSON dosyası (hesap, profil, CV'ler ve versiyonları, başvurular ve eventleri, Learning, bildirimler, tercihler; şifre hash'i ve token'lar hariç). Henüz olmayan veriler (mektup, fit analizi, sohbet) kendi milestone'larında eklenir; bir test, `user_id`'li her tablonun ya dışa aktarmada ya da açık bir hariç listesinde olduğunu kontrol eder.
+- "Delete my account": şifre onayıyla, Undo yok; tüm satırlar ve yüklenen dosyalar silinir, oturum kapanır, onay e-postası gider. Cascade Postgres'te test edilir.
+- Settings › Account: ad ve şifre değiştirme (şifre değişince diğer oturumlar kapanır). E-posta değiştirme ayrı bir PR.
+- **Kabul:** Dışa aktarma, hariç listesindekiler dışında kullanıcının her tablosunu içeriyor (test). Hesap silme Postgres'te bütün satırları ve fotoğraf dosyasını siliyor, oturumu kapatıyor ve onay e-postasını gönderiyor. Yasal sayfalarda gerçek metin var.
+
+### M13c — Deploy (D-123; AI milestone'larından ve M6'dan sonra)
+- Render'a deploy (Docker, Frankfurt, Postgres), production env, HSTS, proxy header'ları ve `APP_BASE_URL` kontrolü (#18), e-postada `List-Unsubscribe`, eklentide prod URL
+- Zamanlayıcı tek instance'ta; #17 belgelenmiş sınırlama olarak kalır. Deploy öncesi Postgres test çalıştırması (CI `postgres-tests`).
+- Yasal sayfalarda sağlayıcıların gerçek adları; SPEC §10.1 kontrol listesi madde madde işaretlenir.
 - **Kabul:** Canlı URL'de kayıttan ilan kaydına, CV ve mektup indirmeye kadar tüm akış çalışıyor.
+
+### M13d — Portföy README'si (D-123)
+- Ekran görüntüleri, mimari şema, "What I learned" bölümü
+- **Kabul:** README'de canlı URL, şema ve ekran görüntüleri var.
 
 ---
 

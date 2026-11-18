@@ -646,3 +646,17 @@ Kaynak: #46 (D-119'dan kalan soru); **Claude karar verdi**, Fatih kararı Claude
 - **Karar:** Çalışma hatırlatması ve Learning'deki Next reminder kartı sadece `active` hedeflerin açık görevlerine bakar. Paused/Done hedefin görevleri planda görünmeye ve "Tasks done" sayısında sayılmaya devam eder; hedef tekrar Active olunca görevleri hatırlatmaya geri döner. O gün duraklatılmış bir hedefin görevi tamamlandıysa da o günün hatırlatması gelmez (çalışılmış sayılır). Yalnız duraklatılmış hedeflerde açık görev varsa kart "No tasks planned" der.
 - **Neden:** Bir hedefi duraklatmak "şimdilik bununla uğraşmıyorum" demek; onun gecikmiş görevleri için her akşam hatırlatma gelmesi tam tersini söyler. Görevleri gizlemek ya da silmek ise veriyi kaybettirmiş gibi görünür.
 - **Alternatifler:** Görevlerin hatırlatmada kalması (D-119'daki durum); duraklatılmış hedefin görevlerini plandan da gizlemek.
+
+### D-123 · M13 dörde bölündü
+Kaynak: M13 bölme önerisi (`docs/plans/M13-split.md`, PR #50), plan-reviewer; Fatih onayladı (2026-11-18: "Dörde bölelim", diğer sorularda "önerilerin gayet makul").
+- **Karar:** M13a cilalama, M13b GDPR + yasal sayfalar + Settings › Account, M13c deploy, M13d portföy README'si. Sıra: M13a → M13b → AI milestone'ları (API anahtarı gelince) → M6 → M13c → M13d. Güvenlik header'ları #10 ile M13'ten önce bitti (D-120).
+- **Cevaplar:** Dışa aktarma bugün var olan verileri alır, yeni tablolar otomatik bir testle yakalanır. Hesap silmede Undo yok (şifre onayı ve açık uyarı yeterli). Yasal metinlerin taslağını Claude yazar, Fatih bir uzmana inceletir (özellikle Impressum ve gizlilik metni).
+- **Neden:** Tek milestone WORKFLOW'daki 1–2 haftalık sınırı aşıyordu; deploy AI milestone'larına bağlı (mektup indirme, D-088), cilalama ve GDPR değil.
+- **Alternatifler:** Tek M13; GDPR ve cilalamayı birleştirmek.
+
+### D-124 · Settings bölümlerinin sahipleri
+Kaynak: M13 bölme önerisi, soru 4 ve 7; Fatih önerileri onayladı (soru 7 için öneriyi **Claude karar verdi**, 2026-11-18).
+- **Karar:** Settings › Account (ad, şifre) M13b'de; e-posta değiştirme ayrı bir PR (doğrulama akışını değiştirir, D-027). Settings › Documents (varsayılan belge dili) M13a'da. Settings › Plan (Free plan kartı, "Pro · coming soon") M5'te, çünkü "Upgrade to Pro" bekleme listesi modalı ve `WaitlistSignup` zaten M5'in fake door kapsamında. Settings › AI M5'te (BYOK ve krediler) ve M12a'da (asistan ayarları), Browser extension M6'da, Privacy M13b'de.
+- **Neden:** SPEC §6.9'daki bölümlerin §12'de sahibi yoktu; her bölüm, verisini getiren milestone'a gider; verisi zaten var olan küçük bölüm (Documents) cilalamaya.
+- **Alternatifler:** Bütün Settings'i M13b'de toplamak (M13b'yi büyütür).
+
