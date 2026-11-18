@@ -1,0 +1,20 @@
+{#- The "Edit goal" form, loaded into its modal (D-118). Only active goals count for
+    the weekly target (D-119). Context: goal_id, values, errors, status_choices. -#}
+{%- from "components/forms.html" import text_field, select_field, primary_button -%}
+<form id="edit-goal-form" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/learning/goals/{{ goal_id }}" hx-target="this" hx-swap="outerHTML">
+  {{ text_field("title", "Goal", value=values.title or "", error=errors.title, maxlength=200, id_prefix="edit-goal") }}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{ text_field("target_date", "Target date", type="date", value=values.target_date or "", error=errors.target_date, id_prefix="edit-goal", required=False) }}
+    {{ text_field("weekly_hours", "Hours per week", type="number", value=values.weekly_hours or "", error=errors.weekly_hours, id_prefix="edit-goal", required=False, min=0.5, max=40, step=0.5) }}
+  </div>
+  <div class="flex flex-col gap-1.5">
+    {{ select_field("status", "Status", status_choices, value=values.status or "", error=errors.status, id_prefix="edit-goal") }}
+    <span class="text-xs text-text-3">Paused and done goals don't count for this week's target.</span>
+  </div>
+  <div class="flex justify-end gap-2.5">
+    <button type="button" data-dialog-close
+            class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Cancel</button>
+    {{ primary_button("Save", size="sm") }}
+  </div>
+</form>

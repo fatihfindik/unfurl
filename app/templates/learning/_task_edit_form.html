@@ -1,0 +1,29 @@
+{#- The "Edit task" form, loaded into its modal (D-116). An open task has title, date
+    and duration; a completed one has title and the time really spent (D-117). `kind`
+    says which form was shown: if the task changed in between, nothing is saved.
+    Context: task_id, done, values, errors. -#}
+{%- from "components/forms.html" import text_field, primary_button -%}
+<form id="edit-task-form" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/learning/tasks/{{ task_id }}" hx-target="this" hx-swap="outerHTML">
+  <input type="hidden" name="kind" value="{{ 'done' if done else 'open' }}">
+  {%- if errors.form %}
+    <p role="alert" class="m-0 rounded-[10px] bg-red-bg px-3 py-2.5 text-sm font-medium text-red-text">{{ errors.form }}</p>
+  {%- endif %}
+  {{ text_field("title", "Task", value=values.title or "", error=errors.title, maxlength=200, id_prefix="edit-task") }}
+  {%- if done %}
+    <div class="flex flex-col gap-1.5">
+      {{ text_field("spent_minutes", "Time spent (minutes)", type="number", value=values.spent_minutes or "", error=errors.spent_minutes, id_prefix="edit-task", min=1, max=600, step=1) }}
+      <span class="text-xs text-text-3">Counts for this week's hours and the goal's time.</span>
+    </div>
+  {%- else %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      {{ text_field("due_date", "Date", type="date", value=values.due_date or "", error=errors.due_date, id_prefix="edit-task") }}
+      {{ text_field("minutes", "Duration (minutes)", type="number", value=values.minutes or "", error=errors.minutes, id_prefix="edit-task", min=5, max=600, step=5) }}
+    </div>
+  {%- endif %}
+  <div class="flex justify-end gap-2.5">
+    <button type="button" data-dialog-close
+            class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Cancel</button>
+    {{ primary_button("Save", size="sm") }}
+  </div>
+</form>

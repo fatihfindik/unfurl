@@ -17,7 +17,16 @@ from starlette.datastructures import FormData
 from app.db import get_session
 from app.models import LearningGoal, LearningTask, User
 from app.models.learning import UNIT_LABELS, WEEKDAYS
-from app.schemas.learning import GoalForm, TaskForm, check_rest_days, check_task_date
+from app.schemas.learning import (
+    GOAL_STATUS_LABELS,
+    DoneTaskEditForm,
+    GoalEditForm,
+    GoalForm,
+    TaskEditForm,
+    TaskForm,
+    check_rest_days,
+    check_task_date,
+)
 from app.schemas.profile import form_errors
 from app.security import limiter
 from app.services import clock, undo_service
@@ -75,8 +84,13 @@ def rest_days_text(rest_days: list[str]) -> str:
     return f"Rest days: {names}. Your streak is safe."
 
 
-def task_row(task, today: dt.date, goal_info: dict) -> dict:
+def task_row(task, today: dt.date, goal_info: dict, spent: dict | None = None) -> dict:
+    """One task for the templates. `spent`: minutes logged per task; a done task shows
+    the time really spent (D-117), an open one its estimate."""
     goal = goal_info.get(task.goal_id, {"title": "Goal", "color": 0})
+    minutes = task.estimated_minutes
+    if task.done and spent:
+        minutes = spent.get(task.id, minutes)
     when = day_text(task.due_date, today)
     if not task.done and task.due_date < today:
         when = f"Was due {when}" if when != "Yesterday" else "Was due yesterday"
@@ -88,7 +102,7 @@ def task_row(task, today: dt.date, goal_info: dict) -> dict:
         "goal": goal["title"],
         "color": goal["color"],
         "when": when,
-        "duration": duration_text(task.estimated_minutes),
+        "duration": duration_text(minutes),
         "url": task.url,
     }
 
@@ -102,6 +116,7 @@ def page_context(session: Session, user: User, view: str) -> dict:
     resources = learning.resources_by_goal(session, user)
     tasks = learning.tasks(session, user)
     minutes = learning.minutes_by_goal(session, user)
+    spent = learning.minutes_by_task(session, user)
     plan = learning.build_plan(tasks, view, today)
 
     goal_info = {}
@@ -126,6 +141,7 @@ def page_context(session: Session, user: User, view: str) -> dict:
                 "resource": resource,
                 "progress": progress,
                 "meta": " · ".join(meta),
+                "status": goal.status,  # Paused / Done get a badge (D-119)
             }
         )
 
@@ -140,7 +156,7 @@ def page_context(session: Session, user: User, view: str) -> dict:
             {"label": group.label, "rows": [task_row(t, today, goal_info) for t in group.tasks]}
             for group in plan.groups
         ],
-        "done_rows": [task_row(t, today, goal_info) for t in plan.done],
+        "done_rows": [task_row(t, today, goal_info, spent) for t in plan.done],
         "streak": learning.streak(session, user),
         "rest_note": rest_days_text(prefs.rest_days),
         "week_hours": hours_text(week.minutes),
@@ -375,6 +391,76 @@ def task_reschedule(
     return Response(status_code=204, headers=page_events(toast=toast))
 
 
+# --- Editing a task (#39, D-116, D-117) ---------------------------------------------------
+
+CHANGED_MEANWHILE = "This task changed in the meantime. Check the values and save again."
+
+
+def task_edit_form(
+    request: Request, session: Session, user: User, task: LearningTask, values=None, errors=None
+) -> HTMLResponse:
+    if values is None:  # first opened: the saved values
+        values = {"title": task.title}
+        if task.done:
+            spent = learning.minutes_by_task(session, user).get(task.id)
+            values["spent_minutes"] = str(spent or task.estimated_minutes)
+        else:
+            values |= {
+                "due_date": task.due_date.isoformat(),
+                "minutes": str(task.estimated_minutes),
+            }
+    return templates.TemplateResponse(
+        request,
+        "learning/_task_edit_form.html",
+        {"task_id": task.id, "done": task.done, "values": values, "errors": errors or {}},
+    )
+
+
+@router.get("/learning/tasks/{task_id}/edit", response_class=HTMLResponse)
+def task_edit(request: Request, session: DbSession, user: RequiredUser, task_id: str):
+    """The "Edit task" form, loaded into its modal (app.js data-dialog-load)."""
+    task = learning.get_owned(session, user, LearningTask, task_id)
+    return task_edit_form(request, session, user, task)
+
+
+@router.post("/learning/tasks/{task_id}", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def task_update(
+    request: Request, session: DbSession, user: RequiredUser, task_id: str, data: SubmittedForm
+):
+    task = learning.get_owned(session, user, LearningTask, task_id)
+    values = dict(data)
+    # The form fits the task as it is now: ticked or unticked in another tab since the
+    # form opened, nothing is saved and the right form comes back.
+    if values.get("kind") != ("done" if task.done else "open"):
+        return task_edit_form(request, session, user, task, errors={"form": CHANGED_MEANWHILE})
+
+    try:
+        if task.done:
+            done_form = DoneTaskEditForm.model_validate(values)
+        else:
+            open_form = TaskEditForm.model_validate(values, context={"saved": task.due_date})
+    except ValidationError as exc:
+        return task_edit_form(request, session, user, task, values, form_errors(exc))
+
+    if task.done:
+        learning.update_done_task(
+            session, user, task, title=done_form.title, spent_minutes=done_form.spent_minutes
+        )
+    else:
+        learning.update_task(
+            session,
+            user,
+            task,
+            title=open_form.title,
+            due_date=open_form.due_date,
+            minutes=open_form.minutes,
+        )
+    response = task_edit_form(request, session, user, task)
+    response.headers.update(page_events(toast="Task updated.", **{"close-dialog": "edit-task"}))
+    return response
+
+
 @router.post("/learning/tasks/{task_id}/delete")
 @limiter.limit("60/minute")
 def task_delete(request: Request, session: DbSession, user: RequiredUser, task_id: str):
@@ -385,6 +471,62 @@ def task_delete(request: Request, session: DbSession, user: RequiredUser, task_i
         status_code=204,
         headers=page_events(toast="Task deleted.", undo_url=DELETE_UNDO_URL, undo_token=token),
     )
+
+
+# --- Editing a goal (#39, D-118, D-119) ---------------------------------------------------
+
+
+def goal_edit_form(request: Request, goal: LearningGoal, values=None, errors=None) -> HTMLResponse:
+    if values is None:  # first opened: the saved values
+        hours = goal.weekly_hours_target
+        values = {
+            "title": goal.title,
+            "target_date": goal.target_date.isoformat() if goal.target_date else "",
+            "weekly_hours": f"{hours:g}" if hours else "",
+            "status": goal.status,
+        }
+    return templates.TemplateResponse(
+        request,
+        "learning/_goal_edit_form.html",
+        {
+            "goal_id": goal.id,
+            "values": values,
+            "errors": errors or {},
+            "status_choices": list(GOAL_STATUS_LABELS.items()),
+        },
+    )
+
+
+@router.get("/learning/goals/{goal_id}/edit", response_class=HTMLResponse)
+def goal_edit(request: Request, session: DbSession, user: RequiredUser, goal_id: str):
+    """The "Edit goal" form, loaded into its modal (app.js data-dialog-load)."""
+    goal = learning.get_owned(session, user, LearningGoal, goal_id)
+    return goal_edit_form(request, goal)
+
+
+@router.post("/learning/goals/{goal_id}", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def goal_update(
+    request: Request, session: DbSession, user: RequiredUser, goal_id: str, data: SubmittedForm
+):
+    goal = learning.get_owned(session, user, LearningGoal, goal_id)
+    values = dict(data)
+    try:
+        form = GoalEditForm.model_validate(values, context={"saved": goal.target_date})
+    except ValidationError as exc:
+        return goal_edit_form(request, goal, values, form_errors(exc))
+    learning.update_goal(
+        session,
+        user,
+        goal,
+        title=form.title,
+        target_date=form.target_date,
+        weekly_hours=form.weekly_hours,
+        status=form.status,
+    )
+    response = goal_edit_form(request, goal)
+    response.headers.update(page_events(toast="Goal updated.", **{"close-dialog": "edit-goal"}))
+    return response
 
 
 @router.get("/learning/goals/{goal_id}/delete", response_class=HTMLResponse)

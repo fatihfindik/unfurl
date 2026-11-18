@@ -6,9 +6,9 @@ has a message that fits the field.
 
 import datetime as dt
 
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationInfo, field_validator
 
-from app.models.learning import UNIT_LABELS, WEEKDAYS
+from app.models.learning import GOAL_STATUSES, UNIT_LABELS, WEEKDAYS
 from app.models.profile import SHORT_TEXT, URL_TEXT
 from app.schemas.profile import ProfileForm, check_url
 from app.services import clock
@@ -21,6 +21,7 @@ TARGET_YEARS = 5  # a target date at most 5 years ahead
 TASK_DAYS_BACK = 30  # a task can be dated up to 30 days back …
 TASK_YEARS = 2  # … and 2 years ahead
 MAX_REST_DAYS = 6  # at least one day a week counts
+MIN_SPENT_MINUTES = 1  # time spent can be short; the estimate starts at 5 (D-117)
 
 
 def _number(value, kind, low, high, message: str):
@@ -175,3 +176,90 @@ def check_rest_days(days: list[str]) -> list[str]:
     if len(chosen) > MAX_REST_DAYS:
         raise ValueError("Keep at least one day to study.")
     return chosen
+
+
+# --- Editing (#39, D-116…D-118) ------------------------------------------------------------
+# The saved value comes in the validation context ({"saved": ...}): a date that wasn't
+# changed is kept even if it is now outside the range (an old Catch-up task, a target
+# date that has passed), so the user can still fix only the title.
+
+
+def _minutes(value, low: int) -> int:
+    message = f"Enter minutes from {low} to {MAX_TASK_MINUTES}."
+    number = _number(value, int, low, MAX_TASK_MINUTES, message)
+    if number is None:
+        raise ValueError(message)
+    return number
+
+
+def _unchanged(value, info: ValidationInfo) -> dt.date | None:
+    """The saved date if `value` is that same date, else None."""
+    saved = (info.context or {}).get("saved")
+    if saved is not None and str(value or "").strip() == saved.isoformat():
+        return saved
+    return None
+
+
+class TaskEditForm(ProfileForm):
+    """Edit an open task: title, date, duration (D-116)."""
+
+    title: str = Field(max_length=SHORT_TEXT)
+    due_date: dt.date
+    minutes: int
+
+    @field_validator("due_date", mode="before")
+    @classmethod
+    def check_due_date(cls, value, info: ValidationInfo):
+        return _unchanged(value, info) or check_task_date(value)
+
+    @field_validator("minutes", mode="before")
+    @classmethod
+    def check_minutes(cls, value):
+        return _minutes(value, MIN_TASK_MINUTES)
+
+
+class DoneTaskEditForm(ProfileForm):
+    """Edit a completed task: title and the time really spent (D-116, D-117)."""
+
+    title: str = Field(max_length=SHORT_TEXT)
+    spent_minutes: int
+
+    @field_validator("spent_minutes", mode="before")
+    @classmethod
+    def check_spent(cls, value):
+        return _minutes(value, MIN_SPENT_MINUTES)
+
+
+GOAL_STATUS_LABELS = {"active": "Active", "paused": "Paused", "done": "Done"}
+
+
+class GoalEditForm(ProfileForm):
+    """Edit a goal: title, target date, weekly hours, status (D-118). Empty target date
+    and hours mean "none"."""
+
+    title: str = Field(max_length=SHORT_TEXT)
+    target_date: dt.date | None = None
+    weekly_hours: float | None = None
+    status: str
+
+    @field_validator("target_date", mode="before")
+    @classmethod
+    def check_target_date(cls, value, info: ValidationInfo):
+        if kept := _unchanged(value, info):
+            return kept
+        today = clock.today()
+        message = f"Pick a date between today and {TARGET_YEARS} years from now."
+        return _date(value, today, years_ahead(today, TARGET_YEARS), message)
+
+    @field_validator("weekly_hours", mode="before")
+    @classmethod
+    def check_hours(cls, value):
+        message = f"Enter hours from 0.5 to {MAX_HOURS_PER_WEEK}."
+        return _number(value, float, 0.5, MAX_HOURS_PER_WEEK, message)
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def check_status(cls, value):
+        if str(value or "").strip() not in GOAL_STATUSES:
+            raise ValueError("Choose from the list.")
+        return str(value).strip()

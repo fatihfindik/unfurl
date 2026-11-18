@@ -510,6 +510,7 @@ Kaynak: M10 Design fazı, plan-reviewer; Fatih onayladı (2026-11-17).
 - **Karar:** Görev satırında "Reschedule" (tamamlanmış görevde yok) ve "Delete"; Goals kartında hedef için "Delete" (onay modalı: "This also deletes its tasks"). Silme D-086'daki `DeletedItem` düzeniyle yapılır (`kind`: `learning_goal`, `learning_task`); hedef payload'ı kaynaklarını ve görevlerini de taşır, Undo yeni id'lerle geri koyup birbirine bağlar. `StudyLog.goal_id` ve `task_id` `SET NULL`: silmek geçmiş saati ve seriyi değiştirmez; Undo logları payload'daki id'lerle (`user_id` filtresiyle) yeniden bağlar. Tam düzenleme ve hedef durumu değiştirme M10'da yok.
 - **Gerekçe:** Catch-up bandı "you can reschedule them" diyor; yanlış hedef silinebilmeli.
 - **Alternatifler:** Hiç düzenleme olmaması ve band metnini değiştirmek.
+- **Güncelleme (D-116…D-119, #39):** Görevi ve hedefi düzenleme ile hedef durumu sonradan geldi.
 
 ### D-096 · Learning görünüm detayları
 Kaynak: M10 Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-11-17).
@@ -606,3 +607,23 @@ Kaynak: M11b Design fazı, plan-reviewer S7/S10 (2026-11-18). SPEC §6.9.
 ### D-115 · Next reminder kartı ve panel linki
 Kaynak: M11b Design fazı, plan-reviewer S6 (2026-11-18). SPEC §6.10.
 - **Karar:** Kart bir sonraki hatırlatmayı gösterir ("Today, 19:00", "Tomorrow, 19:00", "Mon, 19:00"; dinlenme günleri, bugün gitmiş hatırlatma ve açık görevler hesaba katılır, 14 gün ileri) + "Change reminder". Kapalıysa "Off" + "Turn on"; hiç açık görev yoksa "No tasks planned" + "Add task". Zil panelinin altında "Notification settings" linki.
+
+### D-116 · Görevi düzenleme
+Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (gece çalışması, 2026-11-18), Fatih'in onayını bekliyor. D-095'i günceller.
+- **Karar:** Görev menüsünde "Edit" → "Edit task" modalı. Açık görevde başlık, tarih, süre (D-094 sınırları; değişmeyen tarih aralık kontrolüne girmez, eski Catch-up görevleri kaydedilebilsin). Tamamlanmış görevde başlık ve "Time spent" (1–600 dk, D-117). Hedef değiştirilemez. POST formu veritabanındaki şu anki duruma göre seçer; görev arada açıldı/kapandıysa hiçbir şey değişmez ve doğru form mesajla gelir. Undo yok (sadece silmede).
+- **Alternatifler:** Satır içinde düzenleme; görevi başka hedefe taşımak.
+
+### D-117 · Çalışma süresini düzeltme
+Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (2026-11-18). D-089'u günceller; SPEC §5.10.
+- **Karar:** "Time spent" görevin `StudyLog` satırını günceller (fazlası silinir); satır yoksa `goal_id`, `task_id` ve tamamlandığı yerel günle yazılır. "Done (n)" satırları kaydedilen süreyi gösterir. Görev geri açılınca log yine silinir; düzeltilen süre kaybolur (kabul). Seri değişmez (tamamlanmış görev günü zaten aktif yapar).
+- **Alternatifler:** Ayrı bir "log" ekranı; 5–600 sınırı.
+
+### D-118 · Hedefi düzenleme
+Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (2026-11-18). D-095'i günceller.
+- **Karar:** Hedef kartında "Edit" → "Edit goal" modalı: başlık, hedef tarih, haftalık saat, durum (Active / Paused / Done). D-094 sınırları; değişmeyen geçmiş hedef tarihi kalabilir; tarih ve saat boşaltılabilir. Kaynak düzenlenmez.
+- **Alternatifler:** Kaynağı da düzenlemek (sonraya).
+
+### D-119 · Hedef durumunun etkisi
+Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (2026-11-18).
+- **Karar:** "This week" hedefi sadece `active` hedefleri sayar (D-092, değişmez). Paused/Done hedef kartında rozet, kart solgun. Görevleri planda, hatırlatmada ve "Tasks done" sayısında kalır; hatırlatmadan çıkarmak ayrı bir issue (#46, M13 cilasında karar).
+- **Alternatifler:** Duraklatılmış hedefin görevlerini gizlemek.
