@@ -458,3 +458,32 @@
   study reminder only with a planned task, email turn-off page, streak milestones,
   Settings › Notifications, Next reminder card). D-107…D-115.
 - WORKFLOW: no.
+
+## M13a — Polish: error pages, loading, empty states, sign out, Settings › Documents (2026-11-18, log written by Claude)
+
+**What I learned**
+- Starlette has two places for errors: `ExceptionMiddleware` (404, 403, … inside all
+  other middleware) and `ServerErrorMiddleware` (500, the outermost). A 500 handler
+  runs outside our `SecurityHeaders`, so it has to add the headers itself, and it must
+  not touch the session or the database: they may be what broke.
+- htmx reads `HX-Trigger` on every answer, errors too. So the server can explain an
+  error with a toast and the page stays as it is.
+- `hx-disabled-elt` is inherited like most htmx attributes: one rule on `<body>` guards
+  every form, `this` covers a button that sends its own request, `unset` opts a form out.
+- With the session in a signed cookie, the server can't "delete" one session. A
+  version number per user is the switch: raising it ends every copy of the cookie.
+- A test that freezes time can still meet real time: a library's background thread
+  (the rate limiter's cleanup) doesn't see freezegun's clock.
+
+**What was hard**
+- Finding every element that sends a request: tags span lines and contain Jinja, so a
+  regex was too slow; a small tag scanner in the test does it.
+
+**What I will do differently**
+- Check each test's text against random data in the page (a CSRF token can contain "B1").
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.21 (error pages, spinner, empty states, sign out on every device,
+  Settings › Documents). D-125…D-129. Earlier the same day: M13 split (D-123, D-124).
+- WORKFLOW: no.
+
