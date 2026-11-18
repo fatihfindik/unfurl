@@ -58,7 +58,9 @@ def build(settings: Settings) -> BackgroundScheduler:
     )
     scheduler.add_job(
         purge_notifications,
-        CronTrigger(hour=PURGE_AT_HOUR, minute=0),
+        # The trigger needs the time zone too: without it APScheduler 3 uses the
+        # machine's (UTC on CI and in Docker), not the scheduler's.
+        CronTrigger(hour=PURGE_AT_HOUR, minute=0, timezone=settings.default_timezone),
         id="purge_notifications",
     )
     return scheduler

@@ -420,6 +420,8 @@
 **What I will do differently**
 - Check generated migrations against Postgres types (autogenerate wrote a SQLite
   default `sa.text("1")` for a boolean).
+- Run time-zone tests with `TZ=UTC` too: my Mac is in Vienna, so a cron trigger without
+  its own time zone passed locally and failed on CI (it would have run at 04:00 in Docker).
 
 **SPEC / WORKFLOW changes?**
 - SPEC: yes, v2.1.15 (M11 split into M11a/M11b, reminders from `next_step()`, 7-day
