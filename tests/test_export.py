@@ -185,7 +185,7 @@ def test_many_rows_are_streamed(auth_client, session, user):
 def test_the_stream_comes_in_pieces(session, user):
     fill_account(session, user)
 
-    pieces = list(export_service.stream(session, user.id))
+    pieces = list(export_service.stream(session.get_bind(), user.id))
 
     assert len(pieces) > 10
     json.loads("".join(pieces))
@@ -218,6 +218,37 @@ def test_one_export_at_a_time(auth_client, user):
 
     assert response.status_code == 429
     assert "already running" in response.text
+
+
+def test_at_most_two_exports_run_at_once(auth_client, user):
+    settings_routes._start_export(1001)
+    settings_routes._start_export(1002)
+
+    assert export(auth_client).status_code == 429
+
+
+def test_photo_path_is_not_in_the_file(auth_client, session, user):
+    fill_account(session, user, photo_path="photos/abc.jpg")
+
+    assert "photos/abc.jpg" not in export(auth_client).text
+
+
+def test_a_failure_midway_leaves_a_broken_file_and_frees_the_slot(
+    auth_client, session, user, monkeypatch
+):
+    fill_account(session, user)
+
+    def broken(*args):
+        yield '{"format": "unfurl-export"'
+        raise RuntimeError("database gone")
+
+    monkeypatch.setattr(export_service, "stream", broken)
+
+    response = export(auth_client)
+
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(response.content)
+    assert user.id not in settings_routes._exports_running
 
 
 def test_a_stuck_export_does_not_block_for_ever(auth_client, user, monkeypatch):

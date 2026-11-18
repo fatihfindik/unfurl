@@ -20,7 +20,7 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.db import get_session
 from app.models import User
-from app.models.base import utcnow
+from app.models.base import as_utc, utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
 from app.security import (
     UserFacingHTTPException,
@@ -46,6 +46,10 @@ _DUMMY_HASH = password_hasher.hash(secrets.token_urlsafe(16))
 # Keys in the signed session cookie (D-021).
 SESSION_USER_ID = "user_id"
 SESSION_VERSION = "session_version"
+# When the account was created: on SQLite a deleted user's id can be given to the
+# next sign-up, so id + version alone could let an old cookie into a new account
+# (security review M13b, M2).
+SESSION_ACCOUNT = "account"
 # The user's time zone name, for app/main.py's UserTimezone (D-109). Empty: the default.
 SESSION_TIMEZONE = "tz"
 
@@ -137,8 +141,14 @@ def start_session(request: Request, user: User) -> None:
     request.session.clear()
     request.session[SESSION_USER_ID] = user.id
     request.session[SESSION_VERSION] = user.session_version
+    request.session[SESSION_ACCOUNT] = account_stamp(user)
     request.session[SESSION_TIMEZONE] = user.timezone
     get_csrf_token(request)
+
+
+def account_stamp(user: User) -> str:
+    """The account's creation time as text, kept in the session (SESSION_ACCOUNT)."""
+    return as_utc(user.created_at).isoformat()
 
 
 def remember_timezone(session: Session, user: User, name: str | None) -> None:
@@ -237,7 +247,11 @@ def current_user(
     if user_id is None:
         return None
     user = session.get(User, user_id)
-    if user is None or user.session_version != request.session.get(SESSION_VERSION):
+    if (
+        user is None
+        or user.session_version != request.session.get(SESSION_VERSION)
+        or account_stamp(user) != request.session.get(SESSION_ACCOUNT)
+    ):
         end_session(request)
         return None
     request.state.user = user

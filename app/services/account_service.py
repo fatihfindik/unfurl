@@ -8,7 +8,7 @@ the profile photo is deleted after the commit.
 import logging
 from dataclasses import dataclass
 
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
 from app.models import Profile, User
 from app.security import login_lockout
@@ -27,13 +27,17 @@ class DeletedAccount:
     verified: bool
 
 
-def delete_account(session: Session, user: User) -> DeletedAccount:
-    """Delete `user` and everything of theirs, for good. There is no Undo."""
+def delete_account(session: Session, user: User) -> DeletedAccount | None:
+    """Delete `user` and everything of theirs, for good. There is no Undo. None if
+    another request deleted the account a moment earlier (a double click): then
+    there is nothing left to do, and no second confirmation email."""
     gone = DeletedAccount(email=user.email, full_name=user.full_name, verified=user.is_verified)
     photo_path = session.exec(select(Profile.photo_path).where(Profile.user_id == user.id)).first()
 
-    session.delete(user)
+    result = session.exec(delete(User).where(User.id == user.id))
     session.commit()
+    if result.rowcount != 1:
+        return None
 
     # After the commit: if it failed, the photo is still needed.
     try:

@@ -5,6 +5,7 @@ The theme is saved here too, with a click and without a page.
 """
 
 import json
+import logging
 import threading
 import time
 from typing import Annotated
@@ -12,6 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from sqlmodel import Session
+from starlette.background import BackgroundTask
 from starlette.datastructures import FormData
 
 from app.db import get_session
@@ -45,6 +47,8 @@ from app.services.auth_service import (
     require_user,
 )
 from app.templating import THEMES, set_flash, set_theme_cookie, templates
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(require_user)])
 
@@ -268,8 +272,11 @@ def save_theme(
 
 # --- Privacy: export my data (D-130) -----------------------------------------------------------
 
-# One export per user at a time; an entry older than EXPORT_STALE_SECONDS counts as
-# finished (a download that never started doesn't block the next one for ever).
+# One export per user at a time, and at most EXPORTS_AT_ONCE for everyone (security
+# review M13b, M1). A user's entry older than EXPORT_STALE_SECONDS counts as
+# finished: a download that never started doesn't block the next one for ever.
+# Each piece sent refreshes it, so a long export keeps its place.
+EXPORTS_AT_ONCE = 2
 EXPORT_STALE_SECONDS = 10 * 60
 _exports_running: dict[int, float] = {}
 _exports_lock = threading.Lock()
@@ -277,11 +284,20 @@ _exports_lock = threading.Lock()
 
 def _start_export(user_id: int) -> bool:
     with _exports_lock:
-        started = _exports_running.get(user_id)
-        if started is not None and time.monotonic() - started < EXPORT_STALE_SECONDS:
+        now = time.monotonic()
+        for other, started in list(_exports_running.items()):
+            if now - started >= EXPORT_STALE_SECONDS:
+                del _exports_running[other]
+        if user_id in _exports_running or len(_exports_running) >= EXPORTS_AT_ONCE:
             return False
-        _exports_running[user_id] = time.monotonic()
+        _exports_running[user_id] = now
         return True
+
+
+def _still_exporting(user_id: int) -> None:
+    with _exports_lock:
+        if user_id in _exports_running:
+            _exports_running[user_id] = time.monotonic()
 
 
 def _end_export(user_id: int) -> None:
@@ -293,8 +309,8 @@ def _end_export(user_id: int) -> None:
 @limiter.limit("5/hour")
 def export_data(request: Request, session: DbSession, user: RequiredUser):
     """Download everything as JSON. A form post, not a link: browsers and link
-    previews don't start it by themselves. The file is streamed with its own
-    database session (the route's one closes when the answer starts)."""
+    previews don't start it by themselves. The file is streamed and read with short
+    database sessions of its own (the route's one closes when the answer starts)."""
     if not _start_export(user.id):
         return error_response(
             request, 429, detail="An export is already running. Please wait a moment."
@@ -303,8 +319,13 @@ def export_data(request: Request, session: DbSession, user: RequiredUser):
 
     def pieces():
         try:
-            with Session(engine) as export_session:
-                yield from export_service.stream(export_session, user_id)
+            for piece in export_service.stream(engine, user_id):
+                _still_exporting(user_id)
+                yield piece
+        except Exception as exc:
+            # The file stops without its closing "}": broken on purpose, so it can't
+            # pass as complete. Only the kind of error is logged (it can quote data).
+            logger.error("Export for user %s failed: %s", user_id, type(exc).__name__)
         finally:
             _end_export(user_id)
 
@@ -312,6 +333,8 @@ def export_data(request: Request, session: DbSession, user: RequiredUser):
         pieces(),
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{export_service.file_name()}"'},
+        # Also frees the slot when the body was never read (the client went away).
+        background=BackgroundTask(_end_export, user_id),
     )
 
 
@@ -336,7 +359,7 @@ def delete_account(
 
     gone = account_service.delete_account(session, user)
     end_session(request)
-    if gone.verified:  # never to an address that might not be theirs (D-131)
+    if gone is not None and gone.verified:  # never to an unverified address (D-131)
         email = email_service.render_email(
             "account_deleted", to=gone.email, full_name=gone.full_name
         )

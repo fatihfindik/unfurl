@@ -268,3 +268,40 @@ def test_writing_a_reminder_for_a_deleted_user_is_rolled_back(session, user, mon
     )
 
     assert written == 0
+
+
+# --- A reused id can't be entered with an old cookie (security review M13b, M2) -------------
+
+
+def test_an_old_cookie_does_not_open_a_new_account_with_the_same_id(
+    auth_client, session, engine, user
+):
+    old_cookie = dict(auth_client.cookies)
+    old_id = user.id
+    delete(auth_client)
+
+    # SQLite can give the next sign-up the deleted user's id; force it here.
+    newcomer = User(
+        id=old_id,
+        email="newcomer@example.com",
+        password_hash="x",
+        full_name="New",
+        privacy_accepted_at=user.created_at,
+        created_at=user.created_at + dt.timedelta(seconds=5),
+    )
+    with Session(engine) as other:
+        other.add(newcomer)
+        other.commit()
+
+    stale = TestClient(app, cookies=old_cookie)
+    assert stale.get("/", follow_redirects=False).status_code == 303
+
+
+def test_a_double_click_sends_one_email(session, engine, user, outbox):
+    from app.services import account_service
+
+    verified(session, user)
+    first = session.get(User, user.id)
+
+    assert account_service.delete_account(session, first) is not None
+    assert account_service.delete_account(session, first) is None  # already gone

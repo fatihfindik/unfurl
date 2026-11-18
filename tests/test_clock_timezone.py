@@ -13,7 +13,13 @@ from app.models import User
 from app.models.base import as_utc
 from app.services import application_service as apps
 from app.services import clock
-from app.services.auth_service import SESSION_TIMEZONE, create_user, current_user
+from app.services.auth_service import (
+    SESSION_ACCOUNT,
+    SESSION_TIMEZONE,
+    account_stamp,
+    create_user,
+    current_user,
+)
 from tests.helpers import USER_EMAIL, csrf_token
 
 UTC = dt.UTC
@@ -168,7 +174,12 @@ def test_current_user_puts_a_changed_zone_into_the_session(session, user):
     session.commit()
     scope = {
         "type": "http",
-        "session": {"user_id": user.id, "session_version": 0, SESSION_TIMEZONE: None},
+        "session": {
+            "user_id": user.id,
+            "session_version": 0,
+            SESSION_ACCOUNT: account_stamp(user),
+            SESSION_TIMEZONE: None,
+        },
         "headers": [],
     }
     request = Request(scope)

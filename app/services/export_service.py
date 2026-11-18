@@ -2,7 +2,7 @@
 
 The file is written piece by piece (a generator), never built in memory: with the
 app's limits one account could reach gigabytes (2000 jobs with long descriptions
-and notes). Rows are read in batches of BATCH (`yield_per`).
+and notes). Rows are read in pages of BATCH, each in a short session of its own.
 
 Every table that belongs to a user, directly or through another table, is either
 exported (SECTIONS) or in EXCLUDED_TABLES with a reason. tests/test_export.py walks
@@ -16,6 +16,7 @@ import json
 from collections.abc import Iterator
 from dataclasses import dataclass
 
+from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel, col, select
 
 from app.models import (
@@ -46,7 +47,8 @@ VERSION = 1
 BATCH = 200
 
 # Never in the file: secrets, internal state, and the owner (it's always the same user).
-DROPPED_FIELDS = frozenset({"user_id", "password_hash", "session_version"})
+# photo_path is where the file is stored; the photo itself is in "profile_photo".
+DROPPED_FIELDS = frozenset({"user_id", "password_hash", "session_version", "photo_path"})
 
 # Tables of a user that are not exported, and why.
 EXCLUDED_TABLES = {
@@ -97,7 +99,8 @@ def as_dict(row: SQLModel) -> dict:
     }
 
 
-def _query(section: Section, user_id: int):
+def _query(section: Section, user_id: int, after_id: int):
+    """One page of a section: the next BATCH rows after `after_id` (keyset paging)."""
     model = section.model
     if section.owner == "profile":
         query = select(model).join(Profile, Profile.id == model.profile_id)
@@ -107,13 +110,24 @@ def _query(section: Section, user_id: int):
         query = query.where(Application.user_id == user_id)
     else:
         query = select(model).where(model.user_id == user_id)
-    return query.order_by(col(model.id)).execution_options(yield_per=BATCH)
+    return query.where(col(model.id) > after_id).order_by(col(model.id)).limit(BATCH)
 
 
-def _array(session: Session, section: Section, user_id: int) -> Iterator[str]:
+def _array(engine: Engine, section: Section, user_id: int) -> Iterator[str]:
+    """A section as a JSON array. Each page is read in its own short session, which is
+    closed before the text is sent: a slow download never holds a database
+    connection (security review M13b, M1)."""
     yield "["
-    for number, row in enumerate(session.exec(_query(section, user_id))):
-        yield ("," if number else "") + json.dumps(as_dict(row), ensure_ascii=False)
+    after_id, first = 0, True
+    while True:
+        with Session(engine) as session:
+            page = [as_dict(row) for row in session.exec(_query(section, user_id, after_id))]
+        for row in page:
+            yield ("" if first else ",") + json.dumps(row, ensure_ascii=False)
+            first = False
+        if len(page) < BATCH:
+            break
+        after_id = page[-1]["id"]
     yield "]"
 
 
@@ -130,29 +144,30 @@ def _photo(profile: Profile | None) -> dict | None:
     }
 
 
-def stream(session: Session, user_id: int, now: dt.datetime | None = None) -> Iterator[str]:
-    """The export file of `user_id`, as pieces of text. `session` must stay open
-    while the pieces are read (the route gives the stream its own session)."""
-    user = session.get(User, user_id)
-    if user is None:
-        return
-    profile = session.exec(select(Profile).where(Profile.user_id == user_id)).first()
-    prefs = session.exec(
-        select(NotificationPreference).where(NotificationPreference.user_id == user_id)
-    ).first()
-
-    head = {
-        "format": FORMAT,
-        "version": VERSION,
-        "exported_at": (now or utcnow()).isoformat(),
-        "account": as_dict(user),
-        "profile": as_dict(profile) if profile else None,
-        "profile_photo": _photo(profile),
-        "notification_preferences": as_dict(prefs) if prefs else None,
-    }
+def stream(engine: Engine, user_id: int, now: dt.datetime | None = None) -> Iterator[str]:
+    """The export file of `user_id`, as pieces of text. Reads with short sessions of
+    its own (`engine`), so it can run after the route's session is closed."""
+    with Session(engine) as session:
+        user = session.get(User, user_id)
+        if user is None:  # deleted after the request came in: still a valid file
+            yield "{}"
+            return
+        profile = session.exec(select(Profile).where(Profile.user_id == user_id)).first()
+        prefs = session.exec(
+            select(NotificationPreference).where(NotificationPreference.user_id == user_id)
+        ).first()
+        head = {
+            "format": FORMAT,
+            "version": VERSION,
+            "exported_at": (now or utcnow()).isoformat(),
+            "account": as_dict(user),
+            "profile": as_dict(profile) if profile else None,
+            "profile_photo": _photo(profile),
+            "notification_preferences": as_dict(prefs) if prefs else None,
+        }
     # The head without its closing "}", then one array per section.
     yield json.dumps(head, ensure_ascii=False)[:-1]
     for section in SECTIONS:
         yield f', "{section.key}": '
-        yield from _array(session, section, user_id)
+        yield from _array(engine, section, user_id)
     yield "}"
