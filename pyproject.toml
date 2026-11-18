@@ -39,6 +39,9 @@ known-third-party = ["alembic"]
 testpaths = ["tests"]
 # Put the repo root on the import path so tests can `import app`.
 pythonpath = ["."]
+markers = [
+    "real_clock: run without the module's frozen clock (rate limit tests, see tests/test_learning_edit.py)",
+]
 
 [dependency-groups]
 dev = [

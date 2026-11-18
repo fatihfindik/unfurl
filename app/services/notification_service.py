@@ -14,7 +14,14 @@ from sqlalchemy import delete, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
-from app.models import Application, LearningTask, Notification, NotificationPreference, User
+from app.models import (
+    Application,
+    LearningGoal,
+    LearningTask,
+    Notification,
+    NotificationPreference,
+    User,
+)
 from app.models.base import as_utc
 from app.models.notification import BODY_TEXT, TITLE_TEXT
 from app.services import clock, learning_service, next_step_service, reminder_email
@@ -172,16 +179,27 @@ def _done_today(session: Session, user: User, today: dt.date) -> bool:
     )
 
 
+def _open_tasks(user: User):
+    """Open tasks of active goals: a paused or done goal's tasks stay in the plan but
+    don't trigger the study reminder (D-122, #46)."""
+    return (
+        select(LearningTask)
+        .join(LearningGoal, col(LearningGoal.id) == LearningTask.goal_id)
+        .where(
+            LearningTask.user_id == user.id,
+            LearningGoal.user_id == user.id,
+            LearningGoal.status == "active",
+            col(LearningTask.done).is_(False),
+        )
+    )
+
+
 def _open_tasks_until(session: Session, user: User, day: dt.date) -> list[LearningTask]:
     """Open tasks planned for `day` or earlier (overdue ones stay open), oldest day first."""
     return list(
         session.exec(
-            select(LearningTask)
-            .where(
-                LearningTask.user_id == user.id,
-                col(LearningTask.done).is_(False),
-                LearningTask.due_date <= day,
-            )
+            _open_tasks(user)
+            .where(LearningTask.due_date <= day)
             .order_by(
                 col(LearningTask.due_date), col(LearningTask.sort_order), col(LearningTask.id)
             )
@@ -274,9 +292,7 @@ def next_reminder(session: Session, user: User, now: dt.datetime) -> NextReminde
     if not prefs.study_reminder_enabled:
         return NextReminder("off")
     first_open = session.exec(
-        select(func.min(LearningTask.due_date)).where(
-            LearningTask.user_id == user.id, col(LearningTask.done).is_(False)
-        )
+        _open_tasks(user).with_only_columns(func.min(LearningTask.due_date))
     ).one()
     if first_open is None:
         return NextReminder("no_tasks")

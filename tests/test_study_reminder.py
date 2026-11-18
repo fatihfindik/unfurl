@@ -476,3 +476,63 @@ def test_the_card_offers_to_add_a_task_once_there_is_a_goal(auth_client, session
     card = html.split('data-card="reminder"')[1].split("</div>")[0]
     assert "No tasks planned" in card
     assert 'data-dialog-url="/learning/tasks/new"' in card
+
+
+# --- Paused and done goals (D-122, #46) -----------------------------------------------------
+
+
+def goal_with_status(session, user, status, title="Paused") -> LearningGoal:
+    goal = LearningGoal(user_id=user.id, title=title, status=status)
+    session.add(goal)
+    session.commit()
+    session.refresh(goal)
+    return goal
+
+
+def task_of(session, user, goal, due, title):
+    row = LearningTask(user_id=user.id, goal_id=goal.id, title=title, due_date=due)
+    session.add(row)
+    session.commit()
+    return row
+
+
+@pytest.mark.parametrize("status", ["paused", "done"])
+def test_a_paused_or_done_goals_tasks_get_no_reminder(session, user, status):
+    goal = goal_with_status(session, user, status)
+    task_of(session, user, goal, WED, "Old course")
+
+    run(session, at(WED, 19, 0))
+
+    assert rows(session, user, "study_reminder") == []
+    assert card(session, user, at(WED, 10, 0)) == notes.NextReminder("no_tasks")
+
+
+def test_the_active_goals_task_is_named_not_the_paused_one(session, user):
+    paused = goal_with_status(session, user, "paused")
+    task_of(session, user, paused, WED - dt.timedelta(days=3), "Old course")  # older
+    active = goal_with_status(session, user, "active", "Python")
+    task_of(session, user, active, WED - dt.timedelta(days=1), "Active one")
+
+    run(session, at(WED, 19, 0))
+
+    [reminder] = rows(session, user, "study_reminder")
+    assert reminder.body.startswith("Active one")
+
+
+def test_resuming_a_goal_brings_its_tasks_back(session, user):
+    goal = goal_with_status(session, user, "paused")
+    task_of(session, user, goal, WED, "Old course")
+    goal.status = "active"
+    session.add(goal)
+    session.commit()
+
+    assert card(session, user, at(WED, 10, 0)).text == "Today, 19:00"
+
+
+def test_the_card_waits_for_the_active_goals_first_task(session, user):
+    paused = goal_with_status(session, user, "paused")
+    task_of(session, user, paused, WED, "Old course")
+    active = goal_with_status(session, user, "active", "Python")
+    task_of(session, user, active, WED + dt.timedelta(days=2), "Friday")
+
+    assert card(session, user, at(WED, 10, 0)).text == "Fri, 19:00"

@@ -627,6 +627,7 @@ Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (2026-11-18). D-
 ### D-119 · Hedef durumunun etkisi
 Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (2026-11-18).
 - **Karar:** "This week" hedefi sadece `active` hedefleri sayar (D-092, değişmez). Paused/Done hedef kartında rozet, kart solgun. Görevleri planda, hatırlatmada ve "Tasks done" sayısında kalır; hatırlatmadan çıkarmak ayrı bir issue (#46, M13 cilasında karar).
+- **Güncelleme (D-122):** Paused/Done hedefin görevleri artık çalışma hatırlatmasını ve Next reminder kartını tetiklemez; planda ve "Tasks done" sayısında kalır.
 - **Alternatifler:** Duraklatılmış hedefin görevlerini gizlemek.
 
 ### D-120 · Güvenlik header'ları ve `no-store`
@@ -639,3 +640,9 @@ Kaynak: #10 (M1a güvenlik incelemesi #7, #8); **Claude karar verdi** (gece çal
 Kaynak: M1b ve M2a security-reviewer bulguları; **Claude karar verdi** (gece çalışması, 2026-11-18).
 - **Karar:** Forgot password, hesap yokken de aynı işi yapar (kaydedilmeyen bir yer tutucu kullanıcıyla token imzalanır, e-posta oluşturulur, sınırlayıcı sayılır; gönderilmez). Şifre sıfırlama tek bir koşullu UPDATE'tir (`WHERE password_hash = eski`); aynı linkle aynı anda gelen ikinci istek "geçersiz link" görür. Profil bölümüne satır eklerken profil satırı `SELECT … FOR UPDATE` ile kilitlenir (Postgres; SQLite zaten tek yazıcı), 50 sınırı yarışta aşılmaz.
 - **Alternatifler:** Token'ı arka plan görevinde üretmek (arka plan görevinin kendi veritabanı oturumu gerekirdi); eklemeden sonra yeniden saymak.
+
+### D-122 · Duraklatılmış ya da bitmiş hedefin görevleri hatırlatma göndermez (#46)
+Kaynak: #46 (D-119'dan kalan soru); **Claude karar verdi**, Fatih kararı Claude'a bıraktı (2026-11-18).
+- **Karar:** Çalışma hatırlatması ve Learning'deki Next reminder kartı sadece `active` hedeflerin açık görevlerine bakar. Paused/Done hedefin görevleri planda görünmeye ve "Tasks done" sayısında sayılmaya devam eder; hedef tekrar Active olunca görevleri hatırlatmaya geri döner. O gün duraklatılmış bir hedefin görevi tamamlandıysa da o günün hatırlatması gelmez (çalışılmış sayılır). Yalnız duraklatılmış hedeflerde açık görev varsa kart "No tasks planned" der.
+- **Neden:** Bir hedefi duraklatmak "şimdilik bununla uğraşmıyorum" demek; onun gecikmiş görevleri için her akşam hatırlatma gelmesi tam tersini söyler. Görevleri gizlemek ya da silmek ise veriyi kaybettirmiş gibi görünür.
+- **Alternatifler:** Görevlerin hatırlatmada kalması (D-119'daki durum); duraklatılmış hedefin görevlerini plandan da gizlemek.
