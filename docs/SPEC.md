@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.17 — 2026-11-18
+> **Durum:** MVP planı, v2.1.18 — 2026-11-18
+> v2.1.18: #10: güvenlik header'ları (CSP sadece kendi origin, nosniff, X-Frame-Options, Referrer-Policy) ve `no-store` (D-120).
 > v2.1.17: #39: görevi ve hedefi düzenleme (Edit modalları), tamamlanmış görevin süresini düzeltme (StudyLog), hedef durumu (Active / Paused / Done) ve kartta rozet. Kararlar: DECISIONS D-116…D-119.
 > v2.1.16: M11b Design kararları. `User.timezone` nullable (boşsa `DEFAULT_TIMEZONE`), tarayıcıdan algılanır, Settings'te değişir; dilim değişince tüm gün tarihler taşınır. Tarihler ve hatırlatmalar kullanıcının diliminde (D-071 tamamlandı). Çalışma hatırlatması sadece planlı ya da gecikmiş görev varken; e-postadaki "Turn off these emails" sadece e-postayı kapatır (onay sayfası + buton). Seri kutlaması, Settings › Notifications, Next reminder kartı. Kararlar: DECISIONS D-107…D-115.
 > v2.1.15: M11 ikiye bölündü (M11a bildirim temeli ve iş arama bildirimleri, M11b Settings › Notifications, saat dilimi ve çalışma hatırlatması). İş arama bildirimleri `next_step()`'ten üretilir (Needs attention ile aynı gün), her yeni adım için bir kez, 7 günlük pencere; `Notification.application_id` ve `dedupe_key`; 200 sınırında sadece okunmuşlar silinir. Elle test uygulamanın sonunda (D-097). Kararlar: DECISIONS D-097…D-106.
@@ -969,7 +970,7 @@ Versiyon numarası `AIUsage` kaydına ve `FitAnalysis.model` yanına (`model@pro
 - [ ] API token'ları hash'li saklanır.
 - [ ] Dosya yüklemede tip ve boyut kontrolü yapılır. Profil fotoğrafı: JPEG/PNG, max 2 MB, Pillow ile yeniden kaydedilir (EXIF temizlenir).
 - [ ] Jinja autoescape açıktır. AI çıktıları asla `|safe` ile render edilmez.
-- [ ] Güvenlik header'ları: `Content-Security-Policy` (sadece kendi origin'inden script), `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY`.
+- [ ] Güvenlik header'ları: `Content-Security-Policy` (sadece kendi origin'inden script), `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY`. Giriş gerektiren sayfalarda `Cache-Control: no-store` (D-120; HSTS deploy'da).
 - [ ] Production'da `DEBUG=false`, hata sayfaları stack trace göstermez.
 
 ### 10.2 GDPR
