@@ -58,6 +58,8 @@ class Application(SQLModel, table=True):
     __table_args__ = (
         # The board reads one user's cards column by column, in order.
         Index("ix_application_board", "user_id", "archived", "status", "position"),
+        # "Already saved" in the extension looks a job up by its canonical link (D-138).
+        Index("ix_application_canonical_url", "user_id", "canonical_url"),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -68,6 +70,8 @@ class Application(SQLModel, table=True):
     location: str | None = Field(default=None, max_length=SHORT_TEXT)
     remote_type: str = Field(default="unknown", max_length=10)  # one of REMOTE_TYPES
     job_url: str | None = Field(default=None, max_length=JOB_URL_TEXT)
+    # job_url in one form per job (url_service.canonical_url); not unique on purpose.
+    canonical_url: str | None = Field(default=None, max_length=JOB_URL_TEXT)
     source: str = Field(default="manual", max_length=20)  # one of SOURCES
     description_raw: str = Field(default="", sa_column=Column(Text, nullable=False))
 

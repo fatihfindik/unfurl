@@ -7,7 +7,6 @@ import datetime as dt
 import hashlib
 import unicodedata
 from dataclasses import dataclass
-from urllib.parse import urlsplit
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
@@ -18,15 +17,10 @@ from app.models.application import BOARD_STATUSES, INTERVIEW_TYPES, NEXT_ACTION_
 from app.models.base import as_utc, utcnow
 from app.services import clock, document_service, profile_service
 from app.services import next_step_service as next_step_text
+from app.services.url_service import canonical_url, detect_source
 
 MAX_APPLICATIONS_PER_USER = 2000  # archived ones count too (D-061)
 MAX_ID = profile_service.MAX_ID
-
-# Job sites we know, by a name in the host (D-062). "stepstone" and "indeed" use many
-# country domains (stepstone.at, at.indeed.com), so any label of the host may match.
-_SOURCE_BY_DOMAIN = {"linkedin.com": "linkedin", "karriere.at": "karriere_at", "xing.com": "xing"}
-_SOURCE_BY_LABEL = {"stepstone": "stepstone", "indeed": "indeed"}
-
 
 # Sources that only come from a link: without a link they become "manual" again.
 SOURCES_FROM_LINKS = ("linkedin", "stepstone", "karriere_at", "indeed", "xing", "company_site")
@@ -52,27 +46,6 @@ class NothingToUndo(Exception):
 def today() -> dt.date:
     """Today's date where the user is (D-071; was UTC in M4a)."""
     return clock.today()
-
-
-def detect_source(job_url: str | None) -> str:
-    """Where a job was found, from its link: "linkedin", "stepstone", …; any other
-    link is "company_site", no link is "manual".
-
-    The host is compared exactly or as a parent domain, never as a piece of text:
-    "linkedin.com.evil.example" is not LinkedIn.
-    """
-    if not job_url:
-        return "manual"
-    host = (urlsplit(job_url).hostname or "").lower()
-    for domain, source in _SOURCE_BY_DOMAIN.items():
-        if host == domain or host.endswith("." + domain):
-            return source
-    labels = host.split(".")
-    for label, source in _SOURCE_BY_LABEL.items():
-        # Not the last label: "jobs.indeed" would be a made-up top-level domain.
-        if label in labels[:-1]:
-            return source
-    return "company_site"
 
 
 def get_owned_application(
@@ -268,6 +241,7 @@ def create(
         location=location,
         remote_type=remote_type,
         job_url=job_url,
+        canonical_url=canonical_url(job_url),
         source=detect_source(job_url),
         description_raw=description_raw,
         status=status,
@@ -940,7 +914,8 @@ def update_details(
     session: Session, user: User, application: Application, values: dict
 ) -> Application:
     """The Details form (D-075). `values` were checked by DetailsForm; only the
-    DETAIL_FIELDS are taken. A new link also gives a new source. No event: details
+    DETAIL_FIELDS are taken. A new link also gives a new source and canonical
+    link (D-138). No event: details
     are not part of the timeline, and the form can simply be edited again."""
     for field in DETAIL_FIELDS:
         setattr(application, field, values.get(field))
@@ -949,6 +924,7 @@ def update_details(
         if application.job_url
         else ("manual" if application.source in SOURCES_FROM_LINKS else application.source)
     )
+    application.canonical_url = canonical_url(application.job_url)
     session.add(application)
     session.commit()
     session.refresh(application)
