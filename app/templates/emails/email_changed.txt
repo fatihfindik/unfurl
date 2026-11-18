@@ -6,4 +6,6 @@ The email of your Unfurl account was changed to {{ new_email }}. This address no
 
 If this wasn't you, contact us at the address on {{ base_url }}/imprint.
 
+Only trust links that start with {{ base_url }}.
+
 Unfurl

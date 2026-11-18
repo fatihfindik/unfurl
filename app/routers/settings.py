@@ -35,7 +35,6 @@ from app.services import (
     clock,
     email_service,
     export_service,
-    reminder_email,
     settings_service,
 )
 from app.services import learning_service as learning
@@ -48,6 +47,7 @@ from app.services.auth_service import (
     email_is_valid,
     end_session,
     make_email_change_token,
+    masked_address,
     password_error,
     require_user,
 )
@@ -321,7 +321,7 @@ def ask_email_change(
             "email_change_requested",
             to=user.email,
             full_name=user.full_name,
-            new_email=reminder_email.masked(new_email),
+            new_email=masked_address(new_email),
         )
         background_tasks.add_task(email_service.send_email, notice)
     return templates.TemplateResponse(

@@ -87,7 +87,7 @@ def test_the_old_address_gets_a_masked_notice(auth_client, session, user, outbox
     ask(auth_client)
 
     [notice] = [email for email in outbox if email.to == USER_EMAIL]
-    assert reminder_email.masked(NEW) in notice.body
+    assert auth_service.masked_address(NEW) in notice.body
     assert NEW not in notice.body
     assert "/forgot-password" in notice.body
 
@@ -272,7 +272,7 @@ def test_the_old_address_is_told_after_the_change(auth_client, session, user, ou
 
     [changed] = [email for email in outbox[before:] if email.to == USER_EMAIL]
     assert "was changed" in changed.subject
-    assert reminder_email.masked(NEW) in changed.body
+    assert auth_service.masked_address(NEW) in changed.body
 
 
 def test_a_link_works_once(auth_client, engine, user, outbox):
@@ -414,3 +414,48 @@ def test_losing_the_race_for_the_address_is_rolled_back(session, user, monkeypat
     assert auth_service.change_email(session, user, NEW) == "taken"
     session.expire_all()
     assert session.get(User, user.id).email == USER_EMAIL
+
+
+@pytest.mark.parametrize(
+    ("email", "shown"),
+    [
+        ("jana.new@example.com", "j***@e***.com"),
+        ("a@sub.domain.co.uk", "a***@s***.uk"),
+        ("x@localhost", "x***@l***"),
+    ],
+)
+def test_addresses_are_masked_with_their_domain(email, shown):
+    assert auth_service.masked_address(email) == shown
+
+
+def test_the_page_says_whose_account_it_is(auth_client, outbox):
+    ask(auth_client)
+
+    page = TestClient(app).get("/confirm-email", params={"token": token_of(link_in(outbox))})
+
+    assert "j***@e***.com" in page.text  # USER_EMAIL is jana@example.com
+    assert USER_EMAIL not in page.text
+
+
+@pytest.mark.parametrize("value", ["Jana <jana.new@example.com>", '"x" <jana.new@example.com>'])
+def test_an_address_with_a_display_name_is_refused_at_sign_up(client, value):
+    response = client.post(
+        "/register",
+        data={
+            "full_name": "Jana",
+            "email": value,
+            "password": "x" * 12,
+            "privacy": "yes",
+            "csrf_token": csrf_token(client),
+        },
+    )
+
+    assert "Enter a valid email address." in response.text
+
+
+def test_an_address_with_a_display_name_is_refused_on_the_profile():
+    from app.schemas.profile import check_email_address
+
+    with pytest.raises(ValueError):
+        check_email_address("Jana <jana@example.com>")
+    assert check_email_address("jana@example.com") == "jana@example.com"

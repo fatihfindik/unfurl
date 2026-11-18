@@ -405,14 +405,27 @@ _email_adapter = TypeAdapter(EmailStr)
 
 
 def email_is_valid(email: str) -> bool:
-    """The register form's rule for an address (length, then format)."""
-    if len(email) > EMAIL_MAX_LENGTH:
+    """The rule for an address (register, Settings › Account): length, then format.
+    Only a bare address: EmailStr also accepts "Name <a@b.com>" and hands back the
+    address inside, but callers save what the user typed (#56 test-writer)."""
+    if len(email) > EMAIL_MAX_LENGTH or any(char in email for char in '<>"'):
         return False
     try:
-        _email_adapter.validate_python(email)
+        bare = _email_adapter.validate_python(email)
     except ValidationError:
         return False
-    return True
+    return bare.lower() == email.lower()  # EmailStr lowercases the domain
+
+
+def masked_address(email: str) -> str:
+    """ "jana.new@example.com" -> "j***@e***.com". The domain is masked too: the person
+    asking for the change picks it, and a readable domain in a real Unfurl email could
+    be used for phishing (security review #56, L2)."""
+    name, _, domain = email.partition("@")
+    host, dot, tld = domain.rpartition(".")
+    if not host:  # no dot in the domain
+        host, dot, tld = domain, "", ""
+    return f"{name[:1]}***@{host[:1]}***{dot}{tld}"
 
 
 def email_in_use(session: Session, email: str) -> bool:

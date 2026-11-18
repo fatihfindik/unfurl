@@ -8,7 +8,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -17,21 +16,25 @@ from app.models.base import utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
 from app.routers.reminders import TOKEN_PAGE_HEADERS
 from app.security import client_ip, email_limiter, limiter, login_lockout, safe_redirect_path
-from app.services import email_service, reminder_email
+from app.services import email_service
 from app.services.auth_service import (
     FULL_NAME_MAX_LENGTH,
+    SESSION_ACCOUNT,
     SESSION_USER_ID,
     SESSION_VERSION,
     EmailTaken,
+    account_stamp,
     authenticate,
     change_email,
     create_user,
     current_user,
     email_change_from_token,
+    email_is_valid,
     end_session,
     make_reset_token,
     make_verify_token,
     mark_verified,
+    masked_address,
     password_error,
     remember_timezone,
     require_user,
@@ -64,9 +67,6 @@ EMAIL_CHANGED_MESSAGE = "Your email was changed. Sign in with the new address."
 # Verify and reset links carry their token in the URL. "Referrer-Policy: no-referrer"
 # stops the browser from sending that URL to any other page opened from there.
 NO_REFERRER = {"Referrer-Policy": "no-referrer"}
-
-# Checks the email format (no DNS lookup), the same rules as a Pydantic EmailStr field.
-email_adapter = TypeAdapter(EmailStr)
 
 
 def redirect(url: str) -> RedirectResponse:
@@ -174,11 +174,7 @@ def validate_registration(full_name: str, email: str, password: str, privacy: st
     elif len(full_name) > FULL_NAME_MAX_LENGTH:
         errors["full_name"] = f"Name must be at most {FULL_NAME_MAX_LENGTH} characters."
 
-    try:
-        if len(email) > EMAIL_MAX_LENGTH:
-            raise ValueError
-        email_adapter.validate_python(email)
-    except (ValidationError, ValueError):
+    if not email_is_valid(email):
         errors["email"] = "Enter a valid email address."
 
     if error := password_error(password):
@@ -459,11 +455,13 @@ def confirm_email_page(request: Request, session: DbSession, token: str = ""):
     found = email_change_from_token(session, token)
     if found is None:
         return invalid_email_link(request)
-    _, new_email = found
+    user, new_email = found
     return templates.TemplateResponse(
         request,
         "auth/email_change.html",
-        {"token": token, "new_email": new_email},
+        # Whose account: the owner of the new address can tell whether they asked
+        # (security review #56, L3). The old address is in the token anyway.
+        {"token": token, "new_email": new_email, "old_email": masked_address(user.email)},
         headers=TOKEN_PAGE_HEADERS,
     )
 
@@ -485,6 +483,7 @@ def confirm_email(
     same_user = (
         request.session.get(SESSION_USER_ID) == user.id
         and request.session.get(SESSION_VERSION) == user.session_version
+        and request.session.get(SESSION_ACCOUNT) == account_stamp(user)
     )
     result = change_email(session, user, new_email)
     if result == "taken":
@@ -508,7 +507,7 @@ def confirm_email(
             "email_changed",
             to=old_email,
             full_name=user.full_name,
-            new_email=reminder_email.masked(new_email),
+            new_email=masked_address(new_email),
         )
         background_tasks.add_task(email_service.send_email, notice)
     if same_user:

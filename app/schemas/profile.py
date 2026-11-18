@@ -57,10 +57,14 @@ def check_url(value: str | None) -> str | None:
 def check_email_address(value: str | None) -> str | None:
     """A field's email, if filled in, must look like an email address."""
     if value is not None:
+        # Only a bare address: EmailStr also accepts "Name <a@b.com>", but the field
+        # keeps what was typed, and that would go on the CV (#56 test-writer).
         try:
-            _email_adapter.validate_python(value)
+            bare = _email_adapter.validate_python(value)
         except ValidationError:
-            raise ValueError("Enter a valid email address.") from None
+            bare = None
+        if bare is None or bare.lower() != value.lower() or any(c in value for c in '<>"'):
+            raise ValueError("Enter a valid email address.")
     return value
 
 
