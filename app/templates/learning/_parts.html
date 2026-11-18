@@ -46,8 +46,8 @@
          hx-vals='{"done": "{{ "no" if row.done else "yes" }}"}'>
 {%- endmacro %}
 
-{#- The task's small menu (D-095): a native <details>, no script. An open task can
-    get a new date; any task can be deleted (toast + Undo). -#}
+{#- The task's small menu (D-095, D-116): a native <details>, no script. An open task
+    can get a new date; any task can be edited (modal) and deleted (toast + Undo). -#}
 {% macro task_menu(row) %}
   <details class="relative shrink-0">
     <summary aria-label="More for {{ row.title }}" title="More"
@@ -61,6 +61,8 @@
           <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-[13px] font-semibold text-text hover:bg-muted">Save</button>
         </form>
       {%- endif %}
+      <button type="button" data-dialog-load="edit-task" data-dialog-url="/learning/tasks/{{ row.id }}/edit"
+              class="self-start border-0 bg-transparent p-0 text-[13px] font-semibold text-link hover:underline">{{ "Edit title or time spent" if row.done else "Edit task" }}</button>
       <button type="button" hx-post="/learning/tasks/{{ row.id }}/delete" hx-swap="none"
               class="self-start border-0 bg-transparent p-0 text-[13px] font-semibold text-red-text hover:underline">Delete task</button>
     </div>

@@ -290,6 +290,16 @@ def minutes_by_goal(session: Session, user: User) -> dict[int, int]:
     return {goal_id: minutes or 0 for goal_id, minutes in rows}
 
 
+def minutes_by_task(session: Session, user: User) -> dict[int, int]:
+    """Time logged per task: the "Done (n)" rows show what was really spent (D-117)."""
+    rows = session.exec(
+        select(StudyLog.task_id, func.sum(StudyLog.minutes))
+        .where(StudyLog.user_id == user.id, col(StudyLog.task_id).is_not(None))
+        .group_by(StudyLog.task_id)
+    )
+    return {task_id: minutes or 0 for task_id, minutes in rows}
+
+
 def _check_room(session: Session, user: User, model, limit: int, adding: int = 1) -> None:
     """Raise TooMany if `adding` more rows of `model` would pass the user's limit."""
     count = session.exec(
@@ -421,6 +431,72 @@ def reschedule(session: Session, user: User, task: LearningTask, due_date: dt.da
     """A new date for an open task (the route refuses done ones)."""
     task.due_date = due_date
     session.add(task)
+    session.commit()
+
+
+# --- Editing (#39, D-116…D-118) --------------------------------------------------------------
+
+
+def update_task(
+    session: Session, user: User, task: LearningTask, *, title: str, due_date: dt.date, minutes: int
+) -> None:
+    """Title, date and duration of an open task (the route sends done ones elsewhere)."""
+    task.title, task.due_date, task.estimated_minutes = title, due_date, minutes
+    session.add(task)
+    session.commit()
+
+
+def update_done_task(
+    session: Session, user: User, task: LearningTask, *, title: str, spent_minutes: int
+) -> None:
+    """Title of a completed task and the time really spent (D-117).
+
+    Completing a task wrote one StudyLog row with the estimate (D-092); it gets the new
+    minutes. Older data may have none: then one is written for the day the task was
+    done. Extra rows are removed, so the task counts once."""
+    task.title = title
+    session.add(task)
+    logs = list(
+        session.exec(
+            select(StudyLog)
+            .where(StudyLog.user_id == user.id, StudyLog.task_id == task.id)
+            .order_by(col(StudyLog.id))
+        )
+    )
+    if logs:
+        logs[0].minutes = spent_minutes
+        session.add(logs[0])
+        for extra in logs[1:]:
+            session.delete(extra)
+    else:
+        day = clock.local(task.done_at).date() if task.done_at else clock.today()
+        session.add(
+            StudyLog(
+                user_id=user.id,
+                goal_id=task.goal_id,
+                task_id=task.id,
+                date=day,
+                minutes=spent_minutes,
+            )
+        )
+    session.commit()
+
+
+def update_goal(
+    session: Session,
+    user: User,
+    goal: LearningGoal,
+    *,
+    title: str,
+    target_date: dt.date | None,
+    weekly_hours: float | None,
+    status: str,
+) -> None:
+    """A goal's title, target date, weekly hours and status (D-118). Only active goals
+    count for the weekly target (D-092, D-119)."""
+    goal.title, goal.target_date = title, target_date
+    goal.weekly_hours_target, goal.status = weekly_hours, status
+    session.add(goal)
     session.commit()
 
 

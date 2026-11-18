@@ -625,5 +625,5 @@ Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (2026-11-18). D-
 
 ### D-119 · Hedef durumunun etkisi
 Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (2026-11-18).
-- **Karar:** "This week" hedefi sadece `active` hedefleri sayar (D-092, değişmez). Paused/Done hedef kartında rozet, kart solgun. Görevleri planda, hatırlatmada ve "Tasks done" sayısında kalır; hatırlatmadan çıkarmak ayrı bir issue (M13 cilasında karar).
+- **Karar:** "This week" hedefi sadece `active` hedefleri sayar (D-092, değişmez). Paused/Done hedef kartında rozet, kart solgun. Görevleri planda, hatırlatmada ve "Tasks done" sayısında kalır; hatırlatmadan çıkarmak ayrı bir issue (#46, M13 cilasında karar).
 - **Alternatifler:** Duraklatılmış hedefin görevlerini gizlemek.

@@ -123,9 +123,12 @@
         <span class="text-xs text-text-3">Goal → where you study → tasks</span>
       </div>
       {%- for goal in goal_cards %}
-        <article data-goal="{{ goal.id }}" class="flex flex-col gap-2 rounded-[10px] border border-border p-3.5">
+        <article data-goal="{{ goal.id }}" class="flex flex-col gap-2 rounded-[10px] border border-border p-3.5{{ ' opacity-70' if goal.status != 'active' }}">
           <div class="flex items-baseline justify-between gap-2.5">
-            <h3 class="m-0 flex min-w-0 items-center gap-2 text-sm font-bold [overflow-wrap:anywhere]">{{ goal_dot(goal.color) }}{{ goal.title }}</h3>
+            <h3 class="m-0 flex min-w-0 items-center gap-2 text-sm font-bold [overflow-wrap:anywhere]">{{ goal_dot(goal.color) }}{{ goal.title }}
+              {%- if goal.status != "active" %}
+                <span data-goal-status class="shrink-0 rounded-[10px] bg-muted px-2 py-0.5 text-[11px] font-semibold text-text-3">{{ "Paused" if goal.status == "paused" else "Done" }}</span>
+              {%- endif %}</h3>
             <span class="text-[13px] font-bold text-link">{{ goal.pct }}%</span>
           </div>
           <progress value="{{ goal.pct }}" max="100" aria-label="Progress of {{ goal.title }}"
@@ -145,6 +148,9 @@
           <div class="flex flex-wrap items-center justify-between gap-2">
             <span class="text-xs text-text-3">{{ goal.meta }}</span>
             <span class="ml-auto flex items-center gap-3">
+              <button type="button" data-dialog-load="edit-goal" data-dialog-url="/learning/goals/{{ goal.id }}/edit"
+                      aria-label="Edit {{ goal.title }}"
+                      class="border-0 bg-transparent p-0 text-xs font-semibold text-text-3 hover:text-text hover:underline">Edit</button>
               <button type="button" data-dialog-load="delete-goal" data-dialog-url="/learning/goals/{{ goal.id }}/delete"
                       aria-label="Delete {{ goal.title }}"
                       class="border-0 bg-transparent p-0 text-xs font-semibold text-text-3 hover:text-red-text hover:underline">Delete</button>
