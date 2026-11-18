@@ -14,6 +14,7 @@ SQLModel.metadata.naming_convention = {
 }
 
 # Imported after the naming convention is set, so the tables use it.
+from app.models.api_token import ApiToken  # noqa: E402
 from app.models.application import (  # noqa: E402
     Application,
     ApplicationDocument,
@@ -41,6 +42,7 @@ from app.models.trash import DeletedItem  # noqa: E402
 from app.models.user import User  # noqa: E402
 
 __all__ = [
+    "ApiToken",
     "Application",
     "ApplicationDocument",
     "ApplicationEvent",
