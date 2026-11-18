@@ -14,7 +14,7 @@
     <span class="rounded-md px-2 py-[3px] text-[11px] font-bold uppercase tracking-[0.04em] {{ tag_colours.get(item.tag, 'bg-muted text-text-3') }}">{{ item.tag }}</span>
     <span class="min-w-0 flex-[1_1_240px] break-words text-sm text-text"><b>{{ item.application.company }}</b> · {{ item.text }}</span>
     <a href="/applications/{{ item.application.id }}" class="text-[13px] font-semibold text-link no-underline hover:underline">Open<span class="sr-only"> {{ item.application.company }}</span></a>
-    <button type="button" hx-post="/applications/{{ item.application.id }}/snooze" hx-swap="none"
+    <button hx-disabled-elt="this" type="button" hx-post="/applications/{{ item.application.id }}/snooze" hx-swap="none"
             class="text-[13px] text-text-3 hover:text-text hover:underline">Snooze<span class="sr-only"> {{ item.application.company }}</span></button>
   </li>
 {%- endmacro %}

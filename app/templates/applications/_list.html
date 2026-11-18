@@ -37,10 +37,10 @@
             {#- Archive here until the detail page has its status picker (M4b, D-066). -#}
             {%- if job.archived %}
               <span class="mr-2 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-bold text-text-3">ARCHIVED</span>
-              <button type="button" hx-post="/applications/{{ job.id }}/restore" hx-swap="none"
+              <button hx-disabled-elt="this" type="button" hx-post="/applications/{{ job.id }}/restore" hx-swap="none"
                       class="text-[13px] font-semibold text-link hover:underline">Restore<span class="sr-only"> {{ job.company }}</span></button>
             {%- else %}
-              <button type="button" hx-post="/applications/{{ job.id }}/archive" hx-swap="none"
+              <button hx-disabled-elt="this" type="button" hx-post="/applications/{{ job.id }}/archive" hx-swap="none"
                       class="text-[13px] font-semibold text-text-3 hover:text-text hover:underline">Archive<span class="sr-only"> {{ job.company }}</span></button>
             {%- endif %}
           </td>

@@ -45,7 +45,7 @@
 {#- ↑ / ↓ for one row (SPEC §6.4: the keyboard way to reorder). The whole section
     comes back in the new order. -#}
 {% macro move_button(url, section, direction, label, disabled, focus) %}
-  <button type="button" data-tooltip="Move {{ direction }}" {% if disabled %}disabled{% endif %} {% if focus %}autofocus{% endif %}
+  <button hx-disabled-elt="this" type="button" data-tooltip="Move {{ direction }}" {% if disabled %}disabled{% endif %} {% if focus %}autofocus{% endif %}
           hx-post="{{ url }}/move" hx-vals='{"direction": "{{ direction }}"}'
           hx-target="#profile-{{ section.key }}" hx-swap="outerHTML"
           class="inline-flex size-7 items-center justify-center rounded-md border border-border-strong text-text-2 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">
@@ -80,7 +80,7 @@
     <button type="button" data-tooltip="Edit"
             class="inline-flex size-7 items-center justify-center rounded-md text-text-2 hover:bg-muted hover:text-text"
             hx-get="{{ url }}/edit" hx-target="closest li" hx-swap="outerHTML">{{ icon("edit") }}<span class="sr-only">Edit {{ label }}</span></button>
-    <button type="button" data-tooltip="Delete"
+    <button hx-disabled-elt="this" type="button" data-tooltip="Delete"
             class="inline-flex size-7 items-center justify-center rounded-md text-red-text hover:bg-red-bg"
             hx-delete="{{ url }}" hx-target="#profile-{{ section.key }}" hx-swap="outerHTML">{{ icon("trash") }}<span class="sr-only">Delete {{ label }}</span></button>
   </div>

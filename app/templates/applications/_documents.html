@@ -19,12 +19,12 @@
         <a href="/cvs/{{ current_cv.id }}?application={{ application.id }}" class="text-link no-underline hover:underline">Open</a>
         <a href="/cvs/{{ current_cv.id }}/pdf" class="text-link no-underline hover:underline">PDF</a>
         {%- if not current_cv.is_locked and not application.archived %}
-          <button type="button" hx-delete="/applications/{{ application.id }}/cv" hx-swap="none" class="text-text-3 hover:text-text hover:underline">Remove</button>
+          <button hx-disabled-elt="this" type="button" hx-delete="/applications/{{ application.id }}/cv" hx-swap="none" class="text-text-3 hover:text-text hover:underline">Remove</button>
         {%- endif %}
       </div>
       {%- if can_send %}
         <p class="m-0 text-xs text-text-3">This job is sent already. Lock the CV once it matches what you sent.</p>
-        <button type="button" hx-post="/applications/{{ application.id }}/cv/send" hx-swap="none"
+        <button hx-disabled-elt="this" type="button" hx-post="/applications/{{ application.id }}/cv/send" hx-swap="none"
                 class="self-start text-[13px] font-semibold text-link hover:underline">Lock as sent</button>
       {%- elif not current_cv.is_locked %}
         <p class="m-0 text-xs text-text-3">It is locked when you mark the job as applied, so you can always see what you sent.</p>
