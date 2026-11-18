@@ -516,3 +516,38 @@
   Settings › Account, legal pages with `LEGAL_*`, minimum age 16). D-130…D-133.
 - WORKFLOW: no.
 
+
+## M6a — Chrome extension without AI (2026-11-18, log written by Claude)
+
+**Concepts**
+- A browser extension popup is its own small web page. With Manifest V3 and
+  `host_permissions`, its `fetch` to Unfurl isn't blocked by CORS, so the server
+  sends no CORS headers; an `Origin` check is only a second wall behind the token.
+- API tokens: the raw value is shown once and only its SHA-256 hash is stored. A
+  random 32-byte token needs no slow, salted hash like a password does. Tying each
+  token to `session_version` means every "sign out everywhere" event also signs the
+  extension out, with one check in one place.
+- Bearer token instead of the session cookie: a web page can make the browser send
+  cookies, but not a token it doesn't know, so the API needs no CSRF protection.
+- An ASGI middleware sees the raw request before FastAPI parses it; that is the place
+  for a body size limit, because FastAPI reads the JSON body before any dependency runs.
+- `activeTab` + `chrome.scripting.executeScript`: the extension gets access to a tab
+  only when the user clicks, and the injected script runs in an isolated world.
+  Data from the page (JSON-LD) is untrusted: parse it in `try`, cap its size, turn
+  HTML into text with `DOMParser`, and only ever use `textContent` and `.value`.
+- A migration that fills a new column keeps a frozen copy of the function it uses;
+  a test checks that the copy and the app's function still agree.
+
+**What was hard**
+- A `ContextVar` set inside a sync FastAPI dependency doesn't reach the route (sync
+  dependencies run in a worker thread), so the user's time zone is set in the route.
+- Normalizing job links: dropping the query string works for LinkedIn but merges
+  different jobs on company pages (`?jobId=17` vs `?jobId=18`).
+
+**What I will do differently**
+- Run only the related tests while working and the full suite once before each commit.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.24 (M6 split into M6a/M6b, tokens tied to the session version,
+  Bearer-only API without CORS, body limit, URL rules). D-135…D-141.
+- WORKFLOW: no.
