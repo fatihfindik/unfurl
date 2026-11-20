@@ -77,6 +77,40 @@ def test_canonical_url(url, expected):
     assert canonical_url(url) == expected
 
 
+# Added after migration 0015, so not in EXAMPLES (its copy doesn't know them).
+NEWER_EXAMPLES = [
+    # karriere.at search pages: the job shown next to the list is in the fragment (D-144).
+    (
+        "https://www.karriere.at/jobs?keywords=product+manager&locations=vienna#10035685",
+        "https://karriere.at/jobs/10035685",
+    ),
+    ("https://www.karriere.at/jobs/python/wien#10035685", "https://karriere.at/jobs/10035685"),
+    # A job page wins over the fragment; a fragment that isn't an id is dropped.
+    ("https://www.karriere.at/jobs/123#456", "https://karriere.at/jobs/123"),
+    ("https://www.karriere.at/jobs#abc", "https://karriere.at/jobs"),
+    ("https://www.karriere.at/jobs#1234567890123", "https://karriere.at/jobs"),
+    (
+        "https://www.karriere.at/jobs#\u0661\u0662\u0663",
+        "https://karriere.at/jobs",
+    ),  # Arabic digits
+    # LinkedIn's newer search page.
+    (
+        "https://www.linkedin.com/jobs/search-results/?currentJobId=4490740687&keywords=pm",
+        "https://linkedin.com/jobs/view/4490740687",
+    ),
+]
+
+
+@pytest.mark.parametrize(("url", "expected"), NEWER_EXAMPLES)
+def test_canonical_url_newer_rules(url, expected):
+    assert canonical_url(url) == expected
+
+
+def test_two_karriere_jobs_from_one_search_page_stay_two_jobs():
+    search = "https://www.karriere.at/jobs?keywords=product+manager"
+    assert canonical_url(search + "#10035685") != canonical_url(search + "#10036885")
+
+
 def test_two_job_ids_on_one_company_page_stay_two_jobs():
     first = canonical_url("https://careers.acme.com/jobs?jobId=17")
     second = canonical_url("https://careers.acme.com/jobs?jobId=18")

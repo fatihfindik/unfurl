@@ -38,6 +38,9 @@ _TRACKING_PARAMS = {
 
 # LinkedIn job pages: /jobs/view/1234567890 or /jobs/view/backend-developer-at-acme-1234567890
 _LINKEDIN_VIEW = re.compile(r"^/jobs/view/(?:[^/]*?-)?(\d+)$")
+# karriere.at search pages show one job next to the list and keep its id in the
+# fragment: /jobs?keywords=…#10035685 or /jobs/python/wien#10035685 (D-144).
+_KARRIERE_FRAGMENT_ID = re.compile(r"[0-9]{1,12}")  # ASCII digits only, like extract.js
 
 # The canonical link is indexed; Postgres can't index very long values (D-138).
 MAX_CANONICAL_BYTES = 2000
@@ -107,7 +110,13 @@ def canonical_url(url: str | None) -> str | None:
         if job_key:
             return f"https://{host}/viewjob?" + urlencode({"jk": job_key})
         query = []
-    elif source in ("stepstone", "karriere_at", "xing"):
+    elif source == "karriere_at":
+        last_segment = path.rsplit("/", 1)[-1]
+        is_job_page = re.fullmatch(r"[0-9]+", last_segment) is not None
+        if not is_job_page and _KARRIERE_FRAGMENT_ID.fullmatch(parts.fragment):
+            return f"https://{host}/jobs/{parts.fragment}"
+        query = []  # a job page: the id is in the path
+    elif source in ("stepstone", "xing"):
         query = []  # the job id is in the path
     else:
         # Company and ATS pages: the query may be the job, so keep it, sorted.
