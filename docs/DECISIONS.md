@@ -756,3 +756,8 @@ Kaynak: M6a Design fazı, plan-reviewer. SPEC §6.9.
 Kaynak: M6a Design fazı, plan-reviewer; Fatih onayladı (durum seçimi, 2026-11-18). SPEC §8.
 - **Karar:** `POST /api/ext/jobs` şirket, pozisyon, konum, çalışma şekli, maaş (`salary_text`), ilanın son günü (`posting_closes_at`, JSON-LD `validThrough`'tan), durum (varsayılan Saved; seçilebilir), URL ve `job_text` alır → `{application_id, app_url}`. `application_service.create` `salary_text` ve `posting_closes_at`'i de alır. `source` her zaman `detect_source(url)`'den; istemcinin gönderdiği `site` yok sayılır. Gizlilik sayfasına eklenti ve token'lar için bir satır.
 - **Alternatifler:** `site`'a güvenmek (istemci yanlış kaynak yazabilirdi); durumu her zaman Saved yapmak.
+
+### D-142 · HEAD istekleri
+Kaynak: #5 (M0 test-writer), `docs/plans/T5.md`, plan-reviewer. **Claude karar verdi** (2026-11-20, Fatih'in onayını bekliyor).
+- **Karar:** En dışta küçük bir ASGI ara katmanı (`HeadAsGet`, `app/main.py`): `/static/` dışındaki HEAD isteklerini uygulamaya GET olarak verir (scope'un kopyası) ve yanıtın gövdesini atar; status ve header'lar (Content-Length dahil) GET'inkiyle aynı. FastAPI 0.162.3 GET route'larına HEAD eklemiyor. HEAD, GET ile aynı kodu çalıştırır: `/verify-email` HEAD'de de doğrular (M1b'den beri GET'in davranışı), rate limit'ler HEAD'i de sayar.
+- **Alternatifler:** Her route'a `methods=["GET", "HEAD"]` (yeni route'larda unutulur); özel bir `APIRouter` sınıfı; `/verify-email`'de HEAD'i route'u çalıştırmadan yanıtlamak (tek bir yol için özel durum).
