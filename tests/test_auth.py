@@ -8,6 +8,7 @@ from sqlmodel import select
 from app.billing.entitlements import effective_plan
 from app.models import User
 from app.services.auth_service import PASSWORD_MAX_LENGTH, SESSION_USER_ID
+from tests.conftest import PRODUCTION_DUMMY_HASH, PRODUCTION_HASHER
 from tests.helpers import USER_EMAIL, USER_PASSWORD, csrf_token, log_in
 
 
@@ -83,6 +84,15 @@ def test_register_logs_in_and_shows_check_your_inbox_on_the_free_plan(client, se
     assert user.password_hash.startswith("$argon2")
     assert effective_plan(user) == "free"
     assert logged_in_user_id(client) == user.id
+
+
+def test_the_app_hashes_passwords_with_the_recommended_argon2_settings():
+    # Tests use cheap settings (conftest.py, D-145); the app keeps pwdlib's recommended
+    # ones. The dummy hash too: it makes a login with an unknown email take as long as
+    # one with a wrong password. If pwdlib changes its defaults, this fails on purpose.
+    expected = "$argon2id$v=19$m=65536,t=3,p=4$"
+    assert PRODUCTION_HASHER.hash("a-password-for-this-test").startswith(expected)
+    assert PRODUCTION_DUMMY_HASH.startswith(expected)
 
 
 def test_register_stores_the_email_lowercase(client, session):

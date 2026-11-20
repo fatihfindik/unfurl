@@ -21,6 +21,8 @@ from collections.abc import Iterator  # noqa: E402
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from pwdlib import PasswordHash  # noqa: E402
+from pwdlib.hashers.argon2 import Argon2Hasher  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 
@@ -29,9 +31,25 @@ from app.db import enable_sqlite_foreign_keys, get_session  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
 from app.security import email_limiter, limiter, login_lockout  # noqa: E402
-from app.services import email_service  # noqa: E402
+from app.services import auth_service, email_service  # noqa: E402
 from app.services.auth_service import create_user  # noqa: E402
 from tests.helpers import USER_EMAIL, USER_PASSWORD, log_in  # noqa: E402
+
+# The app's real password hashing, kept before any test swaps it (test_auth.py checks
+# its settings).
+PRODUCTION_HASHER = auth_service.password_hasher
+PRODUCTION_DUMMY_HASH = auth_service._DUMMY_HASH
+
+# Still argon2id, but cheap: a hash takes well under a millisecond instead of ~60 ms,
+# and most tests create a user or log in (D-145). FOR TESTS ONLY, never in app/.
+CHEAP_HASHER = PasswordHash((Argon2Hasher(time_cost=1, memory_cost=8, parallelism=1),))
+CHEAP_DUMMY_HASH = CHEAP_HASHER.hash("not-a-real-password")
+
+
+@pytest.fixture(autouse=True)
+def cheap_password_hashing(monkeypatch):
+    monkeypatch.setattr(auth_service, "password_hasher", CHEAP_HASHER)
+    monkeypatch.setattr(auth_service, "_DUMMY_HASH", CHEAP_DUMMY_HASH)
 
 
 @pytest.fixture(autouse=True)

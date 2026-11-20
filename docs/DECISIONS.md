@@ -779,3 +779,9 @@ Kaynak: M6a elle testi (2026-11-20, adım 5 ve 7 başarısız), `docs/plans/M6a-
   - İş formundaki alanlara `autocomplete="off"`.
 - **Gerekçe:** LinkedIn'in sınıfları her yayında değişiyor; erişilebilirlik etiketleri ve sayfa başlığı kalıcı. karriere.at panelinde güvenilir yapı yok; ilanın kendi sayfası tam JSON-LD veriyor ve aynı sitede.
 - **Alternatifler:** Rastgele sınıfları selector olarak yazmak; karriere.at panelinin DOM'unu okumak; eklentiye karriere.at host izni vermek; arama sayfasında "ilanı açın" demek.
+
+### D-145 · Testlerde ucuz argon2
+Kaynak: #72, `docs/plans/T72.md`, plan-reviewer. **Claude karar verdi** (2026-11-20, Fatih "kendin ilerleyebilirsin" dedi; onayını bekliyor).
+- **Karar:** `tests/conftest.py`'de autouse fixture `auth_service.password_hasher`'ı `Argon2Hasher(time_cost=1, memory_cost=8, parallelism=1)` ile, `_DUMMY_HASH`'i onunla yapılmış bir hash'le değiştirir (`monkeypatch`). Gerçek nesneler conftest'in başında saklanır; bir test production hasher'ın ve dummy hash'in `$argon2id$v=19$m=65536,t=3,p=4$` ile başladığını kontrol eder (pwdlib varsayılanlarını değiştirirse test bilerek kırılır). Bu ayarlar sadece testler için, `app/` içinde asla. security-reviewer bilinçli olarak çalıştırılmadı: production kodu değişmiyor, ayarı yeni test koruyor.
+- **Gerekçe:** Test takımının ~230 sn'lik setup'ının çoğu argon2'ydi (~60 ms/hash). Hash/verify yolu aynı kod, sadece maliyet düşük.
+- **Alternatifler:** `pytest-xdist` (yeni bağımlılık); önceden hesaplanmış hash'ler (her şifre için işe yaramaz); `freezegun` (yeni bağımlılık).
