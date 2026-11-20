@@ -12,6 +12,7 @@ from sqlmodel import Session, select
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.db import get_session
+from app.main import app
 from app.models import User
 from app.models.base import utcnow
 from app.services.auth_service import (
@@ -38,6 +39,19 @@ def register(client, email="ana@example.com"):
 def link_path(email) -> str:
     """The /verify-email?token=... part of the link in an email."""
     return re.search(r"https?://[^/\s]+(/verify-email\?token=\S+)", email.body).group(1)
+
+
+def confirm(client, token):
+    """Press "Verify my email" on the link's page (D-146)."""
+    return client.post(
+        "/verify-email",
+        data={"token": token, "csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+
+
+def token_of(path: str) -> str:
+    return path.split("token=", 1)[1]
 
 
 def resend(client, htmx=False):
@@ -102,9 +116,24 @@ def test_check_inbox_sends_verified_users_home(auth_client, session, user):
 # --- The link ---------------------------------------------------------------------------
 
 
-def test_link_verifies_the_email(client, session, outbox):
+def test_opening_the_link_shows_a_button_and_changes_nothing(client, session, outbox):
+    # Email programs and link scanners open links by themselves (D-146).
     register(client)
     response = client.get(link_path(outbox[0]))
+
+    assert response.status_code == 200
+    assert "Verify your email" in response.text
+    assert "<b>ana@example.com</b>" in response.text
+    assert "Ana Silva" not in response.text  # whoever signed up chose the name
+    assert 'action="/verify-email"' in response.text
+    assert ">Verify my email</button>" in response.text
+    user = session.exec(select(User).where(User.email == "ana@example.com")).one()
+    assert not user.is_verified
+
+
+def test_the_button_verifies_the_email(client, session, outbox):
+    register(client)
+    response = confirm(client, token_of(link_path(outbox[0])))
 
     assert response.status_code == 200
     assert "Email verified" in response.text
@@ -115,19 +144,108 @@ def test_link_verifies_the_email(client, session, outbox):
 
 def test_second_click_says_already_verified(client, outbox):
     register(client)
-    client.get(link_path(outbox[0]))
-    response = client.get(link_path(outbox[0]))
+    token = token_of(link_path(outbox[0]))
+    confirm(client, token)
 
+    assert "Email already verified" in client.get(link_path(outbox[0])).text
+    response = confirm(client, token)
     assert response.status_code == 200
     assert "Email already verified" in response.text
 
 
 def test_link_works_without_a_session(client, session, user):
-    # The email may be opened on another device.
-    response = client.get("/verify-email?token=" + make_verify_token(user))
-    assert response.status_code == 200
+    # The email may be opened on another device: a new browser, no session. (`client`
+    # points the app at the test database; other_device uses the same app.)
+    other_device = TestClient(app)
+    token = make_verify_token(user)
+    page = other_device.get("/verify-email?token=" + token)
+    assert page.status_code == 200
+    session.refresh(user)
+    assert not user.is_verified
+
+    assert confirm(other_device, token).status_code == 200
     session.refresh(user)
     assert user.is_verified
+
+
+def test_opening_the_link_while_signed_in_changes_nothing(auth_client, session, user):
+    response = auth_client.get("/verify-email?token=" + make_verify_token(user))
+
+    assert response.status_code == 200
+    session.refresh(user)
+    assert not user.is_verified
+
+
+def test_the_button_needs_a_csrf_token(client, session, user):
+    response = client.post("/verify-email", data={"token": make_verify_token(user)})
+
+    assert response.status_code == 403
+    session.refresh(user)
+    assert not user.is_verified
+
+
+def test_the_button_needs_this_browsers_csrf_token(client, session, user):
+    other_browser = TestClient(app)
+    response = client.post(
+        "/verify-email",
+        data={"token": make_verify_token(user), "csrf_token": csrf_token(other_browser)},
+    )
+
+    assert response.status_code == 403
+    session.refresh(user)
+    assert not user.is_verified
+
+
+@pytest.mark.parametrize("token", [None, "", "not-a-token"], ids=str)
+def test_the_button_with_a_broken_token_changes_nothing(client, session, user, token):
+    data = {"csrf_token": csrf_token(client)}
+    if token is not None:
+        data["token"] = token
+    response = client.post("/verify-email", data=data)
+
+    assert response.status_code == 400
+    assert "This link has expired or is invalid" in response.text
+    session.refresh(user)
+    assert not user.is_verified
+
+
+def test_the_button_checks_the_48_hours_again(client, session, user):
+    with freeze_time(utcnow()) as frozen:
+        token = make_verify_token(user)
+        assert client.get("/verify-email?token=" + token).status_code == 200
+        frozen.tick(timedelta(hours=48, seconds=1))
+        response = confirm(client, token)
+
+    assert response.status_code == 400
+    session.refresh(user)
+    assert not user.is_verified
+
+
+def test_the_button_rejects_a_token_for_an_old_email_address(client, session, user):
+    token = make_verify_token(user)
+    user.email = "new@example.com"
+    session.add(user)
+    session.commit()
+
+    assert confirm(client, token).status_code == 400
+    session.refresh(user)
+    assert not user.is_verified
+
+
+def test_opening_the_link_is_limited(client, user):
+    url = "/verify-email?token=" + make_verify_token(user)
+    for _ in range(30):
+        assert client.get(url).status_code == 200
+    assert client.get(url).status_code == 429
+
+
+def test_the_button_is_limited(client, session, user):
+    token = make_verify_token(user)
+    for _ in range(10):
+        confirm(client, "not-a-token")
+    assert confirm(client, token).status_code == 429
+    session.refresh(user)
+    assert not user.is_verified
 
 
 def test_link_works_until_48_hours(client, session, user):

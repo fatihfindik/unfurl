@@ -1,0 +1,20 @@
+{% extends "auth/layout.html" %}
+{% from "components/forms.html" import csrf_field %}
+
+{#- The link in the verification email (D-146). Opening it changes nothing; the button
+    does, so email programs that open links by themselves don't verify anyone.
+    Context: email, token. -#}
+{% block title %}Verify your email{% endblock %}
+
+{% block form %}
+  <div class="flex flex-col gap-4">
+    <h2 class="m-0 text-2xl font-bold">Verify your email</h2>
+    <p class="m-0 text-[15px] leading-[1.55] text-text-2">Confirm that <b>{{ email }}</b> is your email address. This unlocks the AI features.</p>
+    <p class="m-0 text-sm text-text-3">If you didn't create an Unfurl account, close this page; nothing changes.</p>
+    <form method="post" action="/verify-email" class="m-0">
+      {{ csrf_field(csrf_token) }}
+      <input type="hidden" name="token" value="{{ token }}">
+      <button type="submit" class="inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]">Verify my email</button>
+    </form>
+  </div>
+{% endblock %}

@@ -18,7 +18,6 @@ from app.routers.reminders import TOKEN_PAGE_HEADERS
 from app.security import (
     client_ip,
     email_limiter,
-    is_head_request,
     limiter,
     login_lockout,
     safe_redirect_path,
@@ -277,44 +276,68 @@ def resend_verification(request: Request, user: RequiredUser, background_tasks: 
     return redirect("/check-inbox?resent=1")
 
 
-@router.get("/verify-email", response_class=HTMLResponse)
-def verify_email(request: Request, session: DbSession, user: CurrentUser, token: str = ""):
-    # token is optional: without it the page says the link is invalid (not a 422 error).
-    # The link may be opened on another device, so it works without a session too.
-    account = user_from_verify_token(session, token)
-    if account is None:
-        text = "Verification links work for 48 hours."
-        show_resend = user is not None and not user.is_verified
-        if show_resend:
-            text += " Ask for a new one below."
-        elif user is None:
-            text += " Sign in to ask for a new one."
-        return templates.TemplateResponse(
-            request,
-            "auth/message.html",
-            {
-                "heading": "This link has expired or is invalid",
-                "text": text,
-                "show_resend": show_resend,
-            },
-            status_code=400,
-            headers=NO_REFERRER,
-        )
+def invalid_verify_link(request: Request, user: User | None) -> HTMLResponse:
+    """The page for a verification link that is expired, changed or not ours. With a
+    session, a resend button; without one, a hint to sign in."""
+    text = "Verification links work for 48 hours."
+    show_resend = user is not None and not user.is_verified
+    if show_resend:
+        text += " Ask for a new one below."
+    elif user is None:
+        text += " Sign in to ask for a new one."
+    return templates.TemplateResponse(
+        request,
+        "auth/message.html",
+        {
+            "heading": "This link has expired or is invalid",
+            "text": text,
+            "show_resend": show_resend,
+        },
+        status_code=400,
+        headers=TOKEN_PAGE_HEADERS,
+    )
 
-    if account.is_verified:
-        heading = "Email already verified"
-    elif is_head_request(request):
-        # A link checker asking with HEAD doesn't verify; only opening the link does (D-142).
-        heading = "Email verified"
-    else:
-        mark_verified(session, account)
-        heading = "Email verified"
+
+def verified_page(request: Request, heading: str) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "auth/message.html",
         {"heading": heading, "text": "AI features are now unlocked.", "show_resend": False},
-        headers=NO_REFERRER,
+        headers=TOKEN_PAGE_HEADERS,
     )
+
+
+@router.get("/verify-email", response_class=HTMLResponse)
+@limiter.limit("30/minute")
+def verify_email_page(request: Request, session: DbSession, user: CurrentUser, token: str = ""):
+    """The link in the verification email. Opening it changes nothing: email programs
+    and link scanners open links by themselves (D-146); the button does.
+    token is optional: without it the page says the link is invalid (not a 422 error).
+    The link may be opened on another device, so it works without a session too."""
+    account = user_from_verify_token(session, token)
+    if account is None:
+        return invalid_verify_link(request, user)
+    if account.is_verified:
+        return verified_page(request, "Email already verified")
+    return templates.TemplateResponse(
+        request,
+        "auth/verify_email.html",
+        # The address only, never the name: whoever signed up chose the name.
+        {"token": token, "email": account.email},
+        headers=TOKEN_PAGE_HEADERS,
+    )
+
+
+@router.post("/verify-email", response_class=HTMLResponse)
+@limiter.limit("10/minute")
+def verify_email(request: Request, session: DbSession, user: CurrentUser, token: FormText = ""):
+    account = user_from_verify_token(session, token)  # checked again: the form can be sent alone
+    if account is None:
+        return invalid_verify_link(request, user)
+    if account.is_verified:
+        return verified_page(request, "Email already verified")
+    mark_verified(session, account)
+    return verified_page(request, "Email verified")
 
 
 # --- Password reset -----------------------------------------------------------------
