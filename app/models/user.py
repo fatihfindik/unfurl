@@ -29,6 +29,13 @@ class User(SQLModel, table=True):
 
     # Goes up by 1 when the password changes; older sessions stop working (D-021).
     session_version: int = Field(default=0)
+    # When an email change last set `email` (D-147). Empty: the address from sign-up,
+    # or one put back by an undo. An address set by a change less than 8 days ago gets
+    # no undo link when it is replaced, so whoever set it can't take the account back
+    # with one.
+    email_changed_at: datetime | None = Field(
+        default=None, sa_column=datetime_column(nullable=True)
+    )
 
     # Stored as plain text, not a database enum (enums are hard to change later).
     # Valid values are the keys of app.billing.plans.PLANS. Code never reads this

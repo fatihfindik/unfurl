@@ -9,6 +9,6 @@
     {{ text_field("new_email", "New email", type="email", value=email_value, error=account_errors.new_email, autocomplete="email", id_prefix="account-email") }}
     {{ text_field("password", "Current password", type="password", error=account_errors.password, autocomplete="current-password", id_prefix="account-email") }}
   </div>
-  <p class="m-0 text-[13px] text-text-3">We send a link to the new address; your email changes when you open it. Your current address gets a notice.</p>
+  <p class="m-0 text-[13px] text-text-3">We send a link to the new address; your email changes when you open it. Your current address gets a notice, and for 7 days it can undo the change and take the account back.</p>
   <div>{{ primary_button("Send link", size="sm") }}</div>
 </form>

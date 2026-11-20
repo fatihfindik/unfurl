@@ -38,15 +38,19 @@ from app.services.auth_service import (
     email_is_valid,
     end_session,
     make_reset_token,
+    make_undo_email_token,
     make_verify_token,
     mark_verified,
     masked_address,
+    old_address_can_undo,
     password_error,
     remember_timezone,
     require_user,
     reset_password,
     sign_out,
     start_session,
+    undo_email_change,
+    undo_email_from_token,
     user_from_reset_token,
     user_from_verify_token,
 )
@@ -517,6 +521,7 @@ def confirm_email(
         return invalid_email_link(request)
     user, new_email = found
     old_email, was_verified = user.email, user.is_verified
+    old_can_undo = old_address_can_undo(user.email_changed_at, utcnow())
     # Is this browser signed in as this user? Then it stays signed in (D-134).
     same_user = (
         request.session.get(SESSION_USER_ID) == user.id
@@ -546,6 +551,13 @@ def confirm_email(
             to=old_email,
             full_name=user.full_name,
             new_email=masked_address(new_email),
+            # "This wasn't me" (#60, D-147): only to an address the owner proved, and
+            # not to one set by a change less than 7 days ago (security review H1).
+            undo_path=(
+                "/undo-email-change?token=" + make_undo_email_token(user, old_email)
+                if old_can_undo
+                else ""
+            ),
         )
         background_tasks.add_task(email_service.send_email, notice)
     if same_user:
@@ -553,3 +565,128 @@ def confirm_email(
         set_flash(request, f"Your email is now {new_email}.")
         return redirect("/settings")
     return redirect("/login?email_changed=1")
+
+
+# --- Undo an email change from the old address (#60, D-147) -------------------------------
+
+
+def invalid_undo_link(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "auth/message.html",
+        {
+            "heading": "This link is no longer valid",
+            "text": "Undo links work for 7 days after an email change, and only while the "
+            "account doesn't use that address again. If you still can't get into your "
+            "account, contact us at the address on the Imprint page.",
+            "action_url": "/imprint",
+            "action_label": "Open Imprint",
+        },
+        status_code=400,
+        headers=TOKEN_PAGE_HEADERS,
+    )
+
+
+def old_email_taken_page(request: Request, old_email: str) -> HTMLResponse:
+    """Someone signed up with the old address after the change. Its owner can still
+    get it back: they own the inbox (D-147)."""
+    return templates.TemplateResponse(
+        request,
+        "auth/message.html",
+        {
+            "heading": "This email is used by another account",
+            "text": f"Another Unfurl account uses {old_email} now. Because you own that "
+            "address, you can free it: use Forgot password with it, sign in, delete that "
+            "account in Settings › Account, then open this link again (it works for 7 "
+            "days after the change).",
+            "action_url": "/forgot-password",
+            "action_label": "Forgot password",
+        },
+        status_code=409,
+        headers=TOKEN_PAGE_HEADERS,
+    )
+
+
+@router.get("/undo-email-change", response_class=HTMLResponse)
+@limiter.limit("30/minute")
+def undo_email_change_page(request: Request, session: DbSession, token: str = ""):
+    """The "This wasn't me" link in the email to the old address. Opening it changes
+    nothing (email programs open links by themselves, D-112); the button does."""
+    found = undo_email_from_token(session, token)
+    if found is None:
+        return invalid_undo_link(request)
+    user, old_email = found
+    return templates.TemplateResponse(
+        request,
+        "auth/undo_email_change.html",
+        # The old address in full (the link went there), the current one masked: it may
+        # be the address of whoever took the account (D-134).
+        {"token": token, "old_email": old_email, "current_email": masked_address(user.email)},
+        headers=TOKEN_PAGE_HEADERS,
+    )
+
+
+@router.post("/undo-email-change", response_class=HTMLResponse)
+@limiter.limit("10/minute")
+def undo_email_change_submit(
+    request: Request,
+    session: DbSession,
+    background_tasks: BackgroundTasks,
+    token: FormText = "",
+):
+    found = undo_email_from_token(session, token)  # checked again: the form can be sent alone
+    if found is None:
+        return invalid_undo_link(request)
+    user, old_email = found
+    replaced = user.email
+    result = undo_email_change(session, user, old_email)
+    if result == "taken":
+        return old_email_taken_page(request, old_email)
+    if result != "ok":
+        # The address changed between the check and the update. The link may still
+        # be valid: say so instead of "no longer valid" (security review L2).
+        return templates.TemplateResponse(
+            request,
+            "auth/message.html",
+            {
+                "heading": "Something changed",
+                "text": "The account changed while you were undoing. Open the link from "
+                "the email again.",
+            },
+            status_code=409,
+            headers=TOKEN_PAGE_HEADERS,
+        )
+
+    # The owner proved the address: old login failures for it don't count any more.
+    login_lockout.clear_email(old_email)
+    # Counted towards the address's limit, but always sent: the undo is single use
+    # and its own limit is 10 per minute.
+    email_limiter.allow(old_email)
+    reset_email = email_service.render_email(
+        "reset_password",
+        to=old_email,
+        full_name=user.full_name,
+        path="/reset-password?token=" + make_reset_token(user),  # from the new hash
+    )
+    background_tasks.add_task(email_service.send_email, reset_email)
+    # The replaced address hears about it too: if a former employer's mail server
+    # undid a real change, the owner can contact us (security review M1).
+    changed_back = email_service.render_email(
+        "email_changed_back", to=replaced, full_name=user.full_name
+    )
+    background_tasks.add_task(email_service.send_email, changed_back)
+    request.session.clear()  # signed out here too, like everywhere else
+    return templates.TemplateResponse(
+        request,
+        "auth/message.html",
+        {
+            "heading": "Your email is back",
+            "text": f"Your account uses {old_email} again. Every device is signed out and "
+            "the old password no longer works. Use the link we sent to "
+            f"{old_email} to set a new password (it works for 1 hour; after that use "
+            "Forgot password).",
+            "action_url": "/forgot-password",
+            "action_label": "Forgot password",
+        },
+        headers=TOKEN_PAGE_HEADERS,
+    )

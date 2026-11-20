@@ -1,0 +1,11 @@
+Subject: Your Unfurl email was changed back
+
+Hi {{ full_name }},
+
+The email of your Unfurl account was changed back to the previous address with the "This wasn't me" link we sent there. This address no longer signs in, and the password was reset.
+
+If you changed your email yourself and didn't expect this, contact us at the address on {{ base_url }}/imprint.
+
+Only trust links that start with {{ base_url }}.
+
+Unfurl

@@ -4,6 +4,7 @@ email verification and password reset tokens.
 SPEC §6.1, D-021, D-027. CSRF and redirect checks live in app/security.py.
 """
 
+import datetime as dt
 import hashlib
 import secrets
 from typing import Annotated
@@ -60,8 +61,9 @@ VERIFY_TOKEN_SALT = "verify-email"
 VERIFY_TOKEN_MAX_AGE = 48 * 60 * 60  # 48 hours, in seconds (SPEC §6.1)
 RESET_TOKEN_SALT = "reset-password"
 RESET_TOKEN_MAX_AGE = 60 * 60  # 1 hour (SPEC §6.1)
-# Our tokens are about 100 characters. Longer ones are rejected before any work.
-TOKEN_MAX_LENGTH = 512
+# Our tokens are about 100–300 characters; with two 254-character addresses (the email
+# change link) close to 1000. Longer ones are rejected before any work.
+TOKEN_MAX_LENGTH = 1024
 
 
 class EmailTaken(Exception):
@@ -449,12 +451,103 @@ def change_email(session: Session, user: User, new_email: str) -> str:
                 email=new_email,
                 is_verified=True,
                 session_version=User.session_version + 1,
+                email_changed_at=utcnow(),
                 updated_at=utcnow(),
             )
             .execution_options(synchronize_session=False)
         )
         session.commit()
     except IntegrityError:  # another account took the address a moment earlier
+        session.rollback()
+        return "taken"
+    session.refresh(user)
+    return "ok" if result.rowcount == 1 else "stale"
+
+
+# --- Undoing an email change (#60, D-147) ------------------------------------------------
+
+UNDO_EMAIL_TOKEN_SALT = "email-change-undo"
+UNDO_EMAIL_TOKEN_MAX_AGE = 7 * 24 * 60 * 60  # 7 days
+
+
+def old_address_can_undo(changed_at: dt.datetime | None, now: dt.datetime) -> bool:
+    """Does the address being replaced get an undo link? Yes for the sign-up address
+    (or one put back by an undo, whose inbox proved itself), and for one in use longer
+    than the undo window plus a day; no for an address set by a change less than that
+    ago. Otherwise whoever took the account could change it twice (A to B to C), get a
+    link for B, their own address, and take the account back after the owner's undo
+    (security review #60, H1). The extra day keeps the owner's link and the taker's
+    from ever being valid at the same moment (L-a)."""
+    if changed_at is None:
+        return True
+    window = dt.timedelta(seconds=UNDO_EMAIL_TOKEN_MAX_AGE) + dt.timedelta(days=1)
+    return as_utc(now) - as_utc(changed_at) > window
+
+
+def make_undo_email_token(user: User, old_email: str) -> str:
+    """The "This wasn't me" link sent to the old address after a change.
+
+    Not tied to the session version (whoever took the account could otherwise kill it
+    by signing out) and not to the new address (a second change, B to C, must not
+    escape it). The account stamp keeps it away from a new account with the same id."""
+    data = {"user_id": user.id, "account": account_stamp(user), "old_email": old_email}
+    return token_serializer(UNDO_EMAIL_TOKEN_SALT).dumps(data)
+
+
+def undo_email_from_token(session: Session, token: str) -> tuple[User, str] | None:
+    """(the user, the address to put back), or None if the link is not valid (any
+    more): too old, changed, for another account, or the account uses that address
+    again (it was undone already)."""
+    data = read_token(token, UNDO_EMAIL_TOKEN_SALT, UNDO_EMAIL_TOKEN_MAX_AGE)
+    if data is None or type(data.get("user_id")) is not int:
+        return None
+    old_email = data.get("old_email")
+    user = session.get(User, data["user_id"])
+    if (
+        user is None
+        or not isinstance(old_email, str)
+        or data.get("account") != account_stamp(user)
+        or user.email == old_email
+    ):
+        return None
+    return user, old_email
+
+
+def email_used_by_another(session: Session, email: str, user: User) -> bool:
+    """Another account only: after a double click the first one already put the
+    address back on this account, which isn't "taken" (test-writer #60)."""
+    query = select(User.id).where(User.email == email, User.id != user.id)
+    return session.exec(query).first() is not None
+
+
+def undo_email_change(session: Session, user: User, old_email: str) -> str:
+    """Put `old_email` back (D-147): verified, every session and extension token out
+    (session_version + 1), and a random password nobody knows, because whoever changed
+    the address knew the password (D-134). The owner sets a new one with the reset link
+    sent to the old address. One UPDATE that only matches while the account still uses
+    the address read here. Returns "ok", "taken" (another account uses `old_email`) or
+    "stale" (something changed in the meantime)."""
+    current = user.email
+    if email_used_by_another(session, old_email, user):
+        return "taken"
+    try:
+        result = session.exec(
+            update(User)
+            .where(User.id == user.id, User.email == current)
+            .values(
+                email=old_email,
+                is_verified=True,
+                password_hash=hash_password(secrets.token_urlsafe(32)),
+                session_version=User.session_version + 1,
+                # Trusted like a sign-up address: its inbox just proved itself, so it
+                # gets an undo link if it is taken again (security review #60, L-b).
+                email_changed_at=None,
+                updated_at=utcnow(),
+            )
+            .execution_options(synchronize_session=False)
+        )
+        session.commit()
+    except IntegrityError:  # someone signed up with that address a moment earlier
         session.rollback()
         return "taken"
     session.refresh(user)

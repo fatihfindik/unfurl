@@ -1,0 +1,20 @@
+{% extends "auth/layout.html" %}
+{% from "components/forms.html" import csrf_field %}
+
+{#- The "This wasn't me" link in the email to the old address (#60, D-147). Opening it
+    changes nothing; the button does. Context: old_email, current_email (masked), token. -#}
+{% block title %}Undo the email change{% endblock %}
+
+{% block form %}
+  <div class="flex flex-col gap-4">
+    <h2 class="m-0 text-2xl font-bold">Undo the email change</h2>
+    <p class="m-0 text-[15px] leading-[1.55] text-text-2">The Unfurl account of <b>{{ old_email }}</b> now uses {{ current_email }}.</p>
+    <p class="m-0 text-[15px] leading-[1.55] text-text-2">Undoing it puts back {{ old_email }}, signs out every device and the browser extension, and makes the current password stop working. We then send a link to {{ old_email }} to set a new password.</p>
+    <p class="m-0 text-sm text-text-3">If you changed the email yourself, close this page; nothing changes.</p>
+    <form method="post" action="/undo-email-change" class="m-0">
+      {{ csrf_field(csrf_token) }}
+      <input type="hidden" name="token" value="{{ token }}">
+      <button type="submit" class="inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]">Undo the change</button>
+    </form>
+  </div>
+{% endblock %}
