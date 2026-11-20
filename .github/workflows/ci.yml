@@ -24,12 +24,13 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # setup-uv publishes only exact release tags (no moving "v10" tag).
-      - uses: astral-sh/setup-uv@v10.3.3
+      # Actions are pinned to a commit SHA (D-143): a tag can be moved, a SHA can't.
+      # Dependabot updates the SHA and the version comment.
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.7"
           enable-cache: true
@@ -61,7 +62,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        # The same image as docker-compose.yml (the docker job checks it, D-143).
+        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
         env:
           POSTGRES_PASSWORD: test
           POSTGRES_DB: unfurl_test
@@ -75,11 +77,11 @@ jobs:
     env:
       TEST_POSTGRES_URL: postgresql+psycopg://postgres:test@localhost:5432/unfurl_test
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.7"
           enable-cache: true
@@ -106,9 +108,18 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # Dependabot updates docker-compose.yml and the Dockerfile, not this file:
+      # fail until ci.yml uses the same Postgres image and uv version (D-143).
+      - name: Pinned versions match ci.yml
+        run: |
+          pg=$(grep -oE 'postgres:[^ ]+@sha256:[0-9a-f]+' docker-compose.yml)
+          grep -qF "image: $pg" .github/workflows/ci.yml || { echo "ci.yml postgres image is not $pg"; exit 1; }
+          uv=$(grep -oE 'astral-sh/uv:[0-9.]+' Dockerfile | cut -d: -f2)
+          test "$(grep -cF "version: \"$uv\"" .github/workflows/ci.yml)" -eq 2 || { echo "ci.yml uv version is not $uv"; exit 1; }
 
       - name: Create .env from the example
         run: cp .env.example .env
