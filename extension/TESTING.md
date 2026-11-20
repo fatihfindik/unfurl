@@ -16,9 +16,13 @@ only checks its permissions. Test in Chrome on `http://localhost:8000`.
 4. In the popup's console: no red errors, especially no "CORS" or "blocked" messages.
 
 **Save a job (one each)**
-5. LinkedIn job page (`linkedin.com/jobs/view/…`) → click the icon → position and company are filled in → Save → "Saved ✓".
+5. LinkedIn job page (`linkedin.com/jobs/view/…`) → click the icon → position (only the position), company, location and work mode are filled in, salary if the ad shows one → Save → "Saved ✓".
+5b. LinkedIn search (`linkedin.com/jobs/search…`), click another job in the list → click the icon → the fields of the job shown on the right, as in 5.
+5c. LinkedIn in German (Settings & Privacy › Language: Deutsch) → 5 again → the same fields. Switch back afterwards.
 6. StepStone job ad → same.
-7. karriere.at job ad → same.
+7. karriere.at job ad (`karriere.at/jobs/1234567`) → position, company, location, salary and "Apply by" if the ad has them.
+7b. karriere.at search, a job open on the right (the address ends with `#1234567`) → click the icon → the same fields as on the job's own page → Save → "Open in Unfurl" shows the link `karriere.at/jobs/1234567`, not the search.
+7c. Still on that search page, open another job on the right → the form, not "Already saved".
 8. A company careers page (e.g. a Greenhouse or Personio job) → same; fill in what's missing.
 9. "Open in Unfurl" → the job's page in the app; source, salary and "Apply by" are there if the ad had them.
 
