@@ -17,6 +17,7 @@ from app.models import User
 from app.models.base import utcnow
 from app.services.auth_service import (
     LoginRequired,
+    create_user,
     login_required_response,
     make_verify_token,
     require_verified,
@@ -174,6 +175,15 @@ def test_opening_the_link_while_signed_in_changes_nothing(auth_client, session, 
     assert response.status_code == 200
     session.refresh(user)
     assert not user.is_verified
+
+
+def test_the_page_says_when_another_account_is_signed_in(auth_client, session, user):
+    other = create_user(session, email="other@example.com", password="x" * 12, full_name="O")
+    page = auth_client.get("/verify-email?token=" + make_verify_token(other)).text
+    assert "You are signed in with another account" in page
+
+    own = auth_client.get("/verify-email?token=" + make_verify_token(user)).text
+    assert "You are signed in with another account" not in own
 
 
 def test_the_button_needs_a_csrf_token(client, session, user):

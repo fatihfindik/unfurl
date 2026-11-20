@@ -323,7 +323,12 @@ def verify_email_page(request: Request, session: DbSession, user: CurrentUser, t
         request,
         "auth/verify_email.html",
         # The address only, never the name: whoever signed up chose the name.
-        {"token": token, "email": account.email},
+        {
+            "token": token,
+            "email": account.email,
+            # Signed in as someone else: say that this verifies the link's account.
+            "other_account": user is not None and user.id != account.id,
+        },
         headers=TOKEN_PAGE_HEADERS,
     )
 
