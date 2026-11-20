@@ -20,13 +20,14 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
+from freezegun import freeze_time
 from sqlalchemy import create_engine, inspect, text
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.main import app
-from app.models import Experience, User
-from app.services import auth_service, profile_service
+from app.models import ApiToken, Experience, User
+from app.services import auth_service, profile_service, token_service
 from tests.account_data import fill_account
 from tests.helpers import USER_EMAIL, USER_PASSWORD, csrf_token, log_in
 
@@ -195,3 +196,20 @@ def test_an_email_change_that_loses_the_race_is_rolled_back(pg, monkeypatch):
     assert result == "taken"
     pg.expire_all()
     assert pg.get(User, user.id).email == "jana@example.com"
+
+
+# --- Extension tokens (D-136) ----------------------------------------------------------------
+
+
+def test_extension_tokens_expire_and_are_cleaned_up_on_postgres(pg):
+    user = new_user(pg)
+    with freeze_time("2026-01-01 12:00:00"):
+        old_raw, old = token_service.issue(pg, user)
+        old_id = old.id
+        assert token_service.check(pg, old_raw) is not None
+    with freeze_time("2026-04-02 12:00:00"):  # 91 days later
+        assert token_service.check(pg, old_raw) is None
+        raw, _ = token_service.issue(pg, user)  # deletes the expired one in SQL
+        assert token_service.check(pg, raw) is not None
+
+    assert pg.get(ApiToken, old_id) is None

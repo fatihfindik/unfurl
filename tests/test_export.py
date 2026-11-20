@@ -106,7 +106,7 @@ def test_dates_are_iso_text(auth_client, session, user):
 
 
 def test_nothing_secret_or_internal_is_in_it(auth_client, session, user):
-    fill_account(session, user)
+    rows = fill_account(session, user)
 
     text = export(auth_client).text
 
@@ -115,6 +115,8 @@ def test_nothing_secret_or_internal_is_in_it(auth_client, session, user):
     assert "session_version" not in text
     assert '"user_id"' not in text
     assert "Old CV" not in text  # the Undo copy (deleteditem) is excluded
+    assert rows["token"].token_hash not in text  # extension tokens are excluded (D-136)
+    assert "token_hash" not in text
 
 
 def test_nothing_of_another_user_is_in_it(auth_client, session, user):

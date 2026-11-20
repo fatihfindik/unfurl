@@ -5,7 +5,8 @@
 - 500 (a bug): "Something went wrong", never the error itself.
 - htmx requests get an empty body and a toast in the HX-Trigger header, so the
   page stays as it is (app.js shows the toast).
-- Paths under /api/ keep JSON (the browser extension, M6).
+- Paths under /api/ answer JSON `{"error": {"code", "message"}}` (the browser
+  extension, SPEC §8, D-137).
 
 The pages use their own templates object without the shared context processors:
 those read the session and the user, and after a crash the database session can
@@ -21,7 +22,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException
 
-from app.security import SECURITY_HEADERS, UserFacingHTTPException
+from app.security import SECURITY_HEADERS, ApiError, UserFacingHTTPException
 from app.templating import TEMPLATES_DIR, THEMES, is_htmx, static_url
 
 logger = logging.getLogger(__name__)
@@ -92,10 +93,45 @@ def wants_json(request: Request) -> bool:
     return request.url.path.startswith("/api/")
 
 
+# The API's error code for a status the router or FastAPI raised itself.
+API_CODES = {
+    401: "unauthorized",
+    403: "forbidden",
+    404: "not_found",
+    405: "not_found",
+    413: "validation_error",
+    422: "validation_error",
+    429: "rate_limited",
+}
+API_TEXT = {
+    401: "Please sign in again.",
+    403: "Not allowed.",
+    404: "Not found.",
+    405: "Not found.",
+    413: "This request is too large.",
+    422: "Some fields are missing or not valid.",
+    429: "Too many requests. Please wait a minute.",
+    500: "Something went wrong. Please try again.",
+}
+
+
+def api_error(status: int, *, code: str | None = None, message: str | None = None, headers=None):
+    """The JSON error of the extension API (SPEC §8)."""
+    body = {
+        "error": {
+            "code": code or API_CODES.get(status, "server_error"),
+            "message": message or API_TEXT.get(status, API_TEXT[500]),
+        }
+    }
+    return JSONResponse(body, status_code=status, headers=headers)
+
+
 async def http_error_response(request: Request, exc: HTTPException) -> Response:
     """404, 403, 405, 409, …: raised by routes or by the router itself."""
     if wants_json(request):
-        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+        if isinstance(exc, ApiError):
+            return api_error(exc.status_code, code=exc.code, message=exc.detail)
+        return api_error(exc.status_code, headers=getattr(exc, "headers", None))
     return error_response(
         request, exc.status_code, detail=our_detail(exc), headers=getattr(exc, "headers", None)
     )
@@ -105,7 +141,12 @@ async def validation_error_response(request: Request, exc: RequestValidationErro
     """A request FastAPI couldn't read. A bad value in the path (an id that isn't
     a number) means the page doesn't exist: 404. Anything else keeps 422."""
     if wants_json(request):
-        return JSONResponse({"detail": exc.errors()}, status_code=422)
+        # Which fields, never Pydantic's own texts or the values that were sent.
+        fields = sorted({str(error["loc"][-1]) for error in exc.errors() if error.get("loc")})
+        message = API_TEXT[422]
+        if fields and len(fields) <= 5:
+            message += " Check: " + ", ".join(fields) + "."
+        return api_error(422, message=message)
     in_path = any(error.get("loc", ("",))[0] == "path" for error in exc.errors())
     return error_response(request, 404 if in_path else 422)
 
@@ -119,7 +160,7 @@ def server_error_response(request: Request, exc: Exception) -> Response:
     headers["cache-control"] = "no-store"
     try:
         if wants_json(request):
-            return JSONResponse({"detail": "Server error"}, status_code=500, headers=headers)
+            return api_error(500, headers=headers)
         return error_response(request, 500, headers=headers)
     except Exception:  # even the page failed: plain text, still with the headers
         logger.exception("The error page failed too")

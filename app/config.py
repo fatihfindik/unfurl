@@ -52,8 +52,13 @@ class Settings(BaseSettings):
     # Billing (off in the MVP)
     billing_enabled: bool = False
 
-    # Extension
+    # Extension: comma-separated "chrome-extension://<id>" values (D-137)
     extension_origins: str = ""
+
+    @property
+    def extension_origin_list(self) -> frozenset[str]:
+        origins = (origin.strip().rstrip("/") for origin in self.extension_origins.split(","))
+        return frozenset(origin for origin in origins if origin)
 
     # Scheduler / reminders
     scheduler_enabled: bool = True

@@ -196,7 +196,9 @@ def test_a_server_error_under_api_is_json_with_the_headers(api_app):
     response = api_app.get("/api/boom")
 
     assert response.status_code == 500
-    assert response.json() == {"detail": "Server error"}
+    assert response.json() == {
+        "error": {"code": "server_error", "message": "Something went wrong. Please try again."}
+    }
     assert "secret detail" not in response.text
     assert_security_headers(response)
     assert response.headers["Cache-Control"] == "no-store"
@@ -206,7 +208,12 @@ def test_a_bad_id_under_api_keeps_a_json_422(api_app):
     response = api_app.get("/api/items/abc")
 
     assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["path", "item_id"]
+    # The field is named, Pydantic's own text and the value are not (D-137).
+    assert response.json()["error"] == {
+        "code": "validation_error",
+        "message": "Some fields are missing or not valid. Check: item_id.",
+    }
+    assert "abc" not in response.text
 
 
 def test_a_plain_http_errors_text_is_never_shown(api_app):

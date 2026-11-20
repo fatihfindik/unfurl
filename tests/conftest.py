@@ -14,6 +14,8 @@ os.environ["EMAIL_BACKEND"] = "console"  # never SMTP from tests, whatever .env 
 for name in ("LEGAL_OPERATOR_NAME", "LEGAL_ADDRESS", "LEGAL_EMAIL"):
     os.environ[name] = ""
 os.environ["LEGAL_REVIEWED"] = "false"
+# The extension's origin in tests (D-137); .env may hold the real one.
+os.environ["EXTENSION_ORIGINS"] = "chrome-extension://testextensionid"
 
 from collections.abc import Iterator  # noqa: E402
 

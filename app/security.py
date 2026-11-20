@@ -32,6 +32,16 @@ class UserFacingHTTPException(HTTPException):
     reach the page by accident (M13a security review L2)."""
 
 
+class ApiError(HTTPException):
+    """An error of the extension API (SPEC §8, D-137): app/errors.py answers
+    `{"error": {"code": code, "message": detail}}`. Codes: unauthorized, forbidden,
+    not_found, validation_error, rate_limited."""
+
+    def __init__(self, status_code: int, code: str, message: str):
+        super().__init__(status_code=status_code, detail=message)
+        self.code = code
+
+
 # --- Redirects ------------------------------------------------------------------
 
 

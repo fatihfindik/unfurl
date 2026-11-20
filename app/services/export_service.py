@@ -53,6 +53,7 @@ DROPPED_FIELDS = frozenset({"user_id", "password_hash", "session_version", "phot
 # Tables of a user that are not exported, and why.
 EXCLUDED_TABLES = {
     "deleteditem": "Copies of deleted rows, kept for a few minutes for Undo (D-086).",
+    "apitoken": "Extension sign-ins; the token hash is a secret (D-136).",
 }
 
 

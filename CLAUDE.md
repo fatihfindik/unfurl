@@ -44,7 +44,8 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - [x] M4b Application detail: next step, interview, needs attention, timeline
 - [x] M4c Documents in applications: link, lock on applied, duplicate, undo for deletes
 - [ ] M5 AI foundation + job extraction
-- [ ] M6 Chrome extension
+- [x] M6a Chrome extension without AI: tokens, JSON API, save jobs
+- [ ] M6b Chrome extension: AI auto-fill and fit analysis (after M5 and M7)
 - [ ] M7 Fit analysis (Apply › Should I apply?)
 - [ ] M8 Cover letter
 - [ ] M9 Apply flow: prepare documents, document drawer, final check, Progress + CV import

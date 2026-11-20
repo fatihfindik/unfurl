@@ -10,15 +10,17 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
+from starlette.datastructures import Headers
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import scheduler
 from app.config import Settings, get_settings
-from app.errors import add_error_handlers, error_response
+from app.errors import add_error_handlers, api_error, error_response, wants_json
 from app.routers import (
     applications,
     auth,
     cvs,
+    ext_api,
     learning,
     legal,
     notifications,
@@ -128,6 +130,65 @@ class UserTimezone:
             await self.app(scope, receive, send)
 
 
+EXTENSION_API = "/api/ext/"
+MAX_API_BODY = 256 * 1024  # bytes; a job's text is at most 50,000 characters (D-137)
+
+
+class ExtensionApiGuard:
+    """Two checks for /api/ext/ before any route code runs (D-137):
+
+    - Origin: browsers send it with requests from pages and extensions. If there is
+      one, it must be our extension (EXTENSION_ORIGINS); a web page gets 403. The
+      Bearer token is still needed after this; this is only a second wall.
+    - Body size: at most MAX_API_BODY. FastAPI reads the whole JSON body before the
+      token is checked, so without this anyone could make the server read huge bodies.
+      The body is read here (up to the limit) and then handed on to the route.
+    """
+
+    def __init__(self, app, settings: Settings):
+        self.app = app
+        self.settings = settings
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or not scope["path"].startswith(EXTENSION_API):
+            await self.app(scope, receive, send)
+            return
+        headers = Headers(scope=scope)
+        origin = headers.get("origin")
+        if origin is not None and origin.rstrip("/") not in self.settings.extension_origin_list:
+            response = api_error(403, message="This page can't use the Unfurl API.")
+            await response(scope, receive, send)
+            return
+        length = headers.get("content-length", "")
+        if length and (not length.isdigit() or int(length) > MAX_API_BODY):
+            await api_error(413)(scope, receive, send)
+            return
+
+        # Content-Length can be missing (chunked) or wrong, so count what arrives too.
+        body = b""
+        while True:
+            message = await receive()
+            if message["type"] != "http.request":  # the client went away
+                return
+            body += message.get("body", b"")
+            if len(body) > MAX_API_BODY:
+                await api_error(413)(scope, receive, send)
+                return
+            if not message.get("more_body", False):
+                break
+
+        replayed = False
+
+        async def replay():
+            nonlocal replayed
+            if not replayed:
+                replayed = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            return await receive()  # after the body: waits for a disconnect
+
+        await self.app(scope, replay, send)
+
+
 def rate_limit_response(request: Request, exc: RateLimitExceeded):
     """Too many requests from one IP address (slowapi limits in app/routers/auth.py)."""
     # exc.detail is the limit that was hit, e.g. "10 per 1 minute" (login) or
@@ -137,6 +198,8 @@ def rate_limit_response(request: Request, exc: RateLimitExceeded):
         text = "Please try again in an hour."
     else:
         text = "Please wait a few minutes and try again."
+    if wants_json(request):  # the extension (D-137)
+        return api_error(429, message="Too many requests. " + text)
     if is_htmx(request):  # the page stays; a toast says why nothing happened
         return error_response(request, 429, detail="Too many requests. " + text)
     return templates.TemplateResponse(
@@ -194,6 +257,9 @@ def create_app(settings: Settings) -> FastAPI:
     # don't rewrite the session cookie (M11a review L1/L2).
     app.add_middleware(KeepSessionCookie, paths=BACKGROUND_GETS)
 
+    # Origin check and body limit for the extension API, before any route (D-137).
+    app.add_middleware(ExtensionApiGuard, settings=settings)
+
     # Added last, so it is the outermost: every answer gets the headers, errors too.
     app.add_middleware(SecurityHeaders)
 
@@ -224,6 +290,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(profile.router)
     app.include_router(cvs.router)
     app.include_router(legal.router)
+    app.include_router(ext_api.router)
     return app
 
 

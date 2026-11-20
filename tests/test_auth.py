@@ -404,6 +404,10 @@ def test_every_page_except_the_public_ones_needs_login(client):
         if path in EMPTY_WITHOUT_LOGIN:
             assert response.status_code == 204 and not response.content, path
             continue
+        if path.startswith("/api/ext/"):  # the extension's API: a Bearer token (D-137)
+            assert response.status_code == 401, f"{path} is open without a token"
+            assert response.json()["error"]["code"] == "unauthorized", path
+            continue
         assert response.status_code == 303, f"{path} is open without login"
         assert response.headers["location"].startswith("/login"), path
 
