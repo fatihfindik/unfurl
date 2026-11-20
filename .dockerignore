@@ -1,7 +1,7 @@
 # Files Docker does not copy into the build. Keeps the image small and secrets out of it.
 
-# Secrets and local data
-.env
+# Secrets and local data (every .env file, examples too: the image doesn't need them)
+.env*
 *.db
 uploads/
 

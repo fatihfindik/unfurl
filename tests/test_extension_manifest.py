@@ -23,8 +23,9 @@ def extension_id(key: str) -> str:
 def test_only_the_permissions_the_spec_allows():
     assert MANIFEST["manifest_version"] == 3
     assert sorted(MANIFEST["permissions"]) == ["activeTab", "scripting", "storage"]
-    # The only site it may call is Unfurl; job sites are reached through activeTab.
-    assert MANIFEST["host_permissions"] == ["http://localhost:8000/*"]
+    # The only sites it may call are Unfurl's: the development server and the personal
+    # instance (D-156). Job sites are reached through activeTab.
+    assert MANIFEST["host_permissions"] == ["http://localhost:8000/*", "http://127.0.0.1:8100/*"]
     assert "optional_permissions" not in MANIFEST
     assert "optional_host_permissions" not in MANIFEST
 
@@ -49,10 +50,12 @@ def test_the_files_it_names_exist():
         assert (EXTENSION / path).is_file(), path
 
 
-def test_the_app_address_is_the_same_in_config_and_manifest():
+def test_the_app_address_is_one_the_manifest_allows():
     config = (EXTENSION / "config.js").read_text()
-    base = MANIFEST["host_permissions"][0].removesuffix("/*")
-    assert f'APP_BASE_URL = "{base}"' in config
+    allowed = [host.removesuffix("/*") for host in MANIFEST["host_permissions"]]
+    assert any(f'APP_BASE_URL = "{base}"' in config for base in allowed)
+    # The default is the personal instance (D-156).
+    assert 'APP_BASE_URL = "http://127.0.0.1:8100"' in config
 
 
 def test_the_popup_never_uses_inner_html_or_sends_cookies():
