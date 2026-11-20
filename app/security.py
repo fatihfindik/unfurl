@@ -188,62 +188,107 @@ class _LockoutEntry:
         return self.locked_until is None and not self.failures
 
 
+def _prune(entries: OrderedDict, now: datetime, window: timedelta) -> None:
+    """Drop entries that are empty again, oldest first (see the note above)."""
+    while entries:
+        key, entry = next(iter(entries.items()))  # the oldest
+        entry.refresh(now, window)
+        if not entry.is_empty():
+            break
+        del entries[key]
+
+
+def _is_locked(entries: OrderedDict, key, now: datetime, window: timedelta) -> bool:
+    _prune(entries, now, window)
+    entry = entries.get(key)
+    if entry is None:
+        return False
+    entry.refresh(now, window)
+    return entry.locked_until is not None
+
+
+def _count_failure(
+    entries: OrderedDict, key, now: datetime, window: timedelta, limit: int, lock: timedelta
+) -> None:
+    _prune(entries, now, window)
+    entry = entries.setdefault(key, _LockoutEntry())
+    entry.refresh(now, window)
+    entry.failures.append(now)
+    if len(entry.failures) >= limit:
+        # A fixed lock time: it doesn't end early when old failures leave the window.
+        entry.locked_until = now + lock
+        entry.failures = []
+    entries.move_to_end(key)
+    _drop_oldest(entries)
+
+
 class LoginLockout:
-    """5 failed logins for the same IP + email within 15 minutes lock that pair
-    for 15 minutes, counted from the 5th failure (SPEC §6.1)."""
+    """Two counters for failed logins (SPEC §6.1):
+
+    - per IP + email: 5 within 15 minutes lock that pair for 15 minutes (D-020);
+    - per email, from every IP: 20 within an hour lock that email for an hour, so
+      someone with many IP addresses can't guess faster (#57, D-149). A password reset
+      unlocks it (clear_email). Settings checks use only the first (per_email=False):
+      a signed-in owner can't be blocked by someone who only knows the address.
+    Both locks count from the failure that reached the limit.
+    """
 
     MAX_FAILURES = 5
     WINDOW = timedelta(minutes=15)
     LOCK_TIME = timedelta(minutes=15)
+    # Window and lock time are equal, so an entry that changed earlier also runs out
+    # earlier and the oldest-first clean-up stays right.
+    EMAIL_MAX_FAILURES = 20
+    EMAIL_WINDOW = timedelta(hours=1)
+    EMAIL_LOCK_TIME = timedelta(hours=1)
 
     def __init__(self) -> None:
         self._entries: OrderedDict[tuple[str, str], _LockoutEntry] = OrderedDict()
+        self._by_email: OrderedDict[str, _LockoutEntry] = OrderedDict()
 
-    def _prune(self, now: datetime) -> None:
-        while self._entries:
-            key, entry = next(iter(self._entries.items()))  # the oldest
-            entry.refresh(now, self.WINDOW)
-            if not entry.is_empty():
-                break
-            del self._entries[key]
-
-    def is_locked(self, ip: str, email: str) -> bool:
+    def is_locked(self, ip: str, email: str, *, per_email: bool = True) -> bool:
         now = utcnow()
-        self._prune(now)
-        entry = self._entries.get((ip, _email_key(email)))
-        if entry is None:
-            return False
-        entry.refresh(now, self.WINDOW)
-        return entry.locked_until is not None
+        email_key = _email_key(email)
+        if _is_locked(self._entries, (ip, email_key), now, self.WINDOW):
+            return True
+        if per_email and email_key is not None:
+            return _is_locked(self._by_email, email_key, now, self.EMAIL_WINDOW)
+        return False
 
-    def record_failure(self, ip: str, email: str) -> None:
+    def record_failure(self, ip: str, email: str, *, per_email: bool = True) -> None:
         email_key = _email_key(email)
         if email_key is None:
             return
         now = utcnow()
-        self._prune(now)
-        entry = self._entries.setdefault((ip, email_key), _LockoutEntry())
-        entry.refresh(now, self.WINDOW)
-        entry.failures.append(now)
-        if len(entry.failures) >= self.MAX_FAILURES:
-            # A fixed lock time: it doesn't end early when old failures leave the window.
-            entry.locked_until = now + self.LOCK_TIME
-            entry.failures = []
-        self._entries.move_to_end((ip, email_key))
-        _drop_oldest(self._entries)
+        _count_failure(
+            self._entries, (ip, email_key), now, self.WINDOW, self.MAX_FAILURES, self.LOCK_TIME
+        )
+        if per_email:
+            _count_failure(
+                self._by_email,
+                email_key,
+                now,
+                self.EMAIL_WINDOW,
+                self.EMAIL_MAX_FAILURES,
+                self.EMAIL_LOCK_TIME,
+            )
 
     def clear(self, ip: str, email: str) -> None:
-        """After a successful login."""
+        """After a successful login: only this pair. The email counter stays, so the
+        owner signing in doesn't reset the count of someone guessing elsewhere."""
         self._entries.pop((ip, _email_key(email)), None)
 
     def clear_email(self, email: str) -> None:
-        """After a password reset: the owner proved who they are, on any IP."""
+        """After a password reset (or an undone email change, a deleted account): the
+        owner proved who they are, so every lock on this email goes, on any IP."""
         email_key = _email_key(email)
         for key in [key for key in self._entries if key[1] == email_key]:
             del self._entries[key]
+        self._by_email.pop(email_key, None)
 
     def reset(self) -> None:
         self._entries.clear()
+        self._by_email.clear()
 
 
 class EmailLimiter:
