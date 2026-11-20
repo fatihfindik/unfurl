@@ -209,7 +209,8 @@ def test_a_new_zone_is_saved_and_the_page_reloads_with_the_toast(auth_client, se
 
 def test_the_new_zone_is_used_from_the_next_request(auth_client, session, user):
     job = apps.create(session, user, company="Acme", job_title="PM")
-    job.interview_at = clock.to_utc(dt.date(2026, 11, 20), dt.time(9, 0))  # 09:00 Vienna
+    # A winter day far ahead: a past interview would not show its time.
+    job.interview_at = clock.to_utc(dt.date(2036, 1, 15), dt.time(9, 0))  # 09:00 Vienna
     job.status = "interview"
     session.add(job)
     session.commit()

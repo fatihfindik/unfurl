@@ -37,6 +37,7 @@ Kaynak: `docs/plans/M0.md` §12 (açık sorular, Fatih onayı) ve Build sırası
 - **Gerekçe:** Her makinede, CI'da ve Docker'da aynı kurulum. Vendored JS dosyalarının sha256'sı başlıkta, böylece değişip değişmediği `tail -n +10 <dosya> | shasum -a 256` ile kontrol edilebilir.
 - **Not:** `setup-uv` kayan major etiket (`v10`) yayınlamıyor; tam sürüm kullanılmalı (ilk CI çalışması bu yüzden kırıldı).
 - **Alternatifler:** Sadece major sürümler (`v4`, `latest`); Action'ları commit SHA ile sabitlemek (daha güvenli, ama okunması zor — ileride değerlendirilebilir).
+- **Kısmen yerine geçen: D-143** (Action'lar SHA ile, Docker image'ları digest ile; Dependabot).
 
 ### D-004 · Tailwind v4
 - **Karar:** Tailwind v4, CSS tabanlı config (`@theme inline`), `pytailwindcss` ile standalone CLI.
@@ -756,3 +757,9 @@ Kaynak: M6a Design fazı, plan-reviewer. SPEC §6.9.
 Kaynak: M6a Design fazı, plan-reviewer; Fatih onayladı (durum seçimi, 2026-11-18). SPEC §8.
 - **Karar:** `POST /api/ext/jobs` şirket, pozisyon, konum, çalışma şekli, maaş (`salary_text`), ilanın son günü (`posting_closes_at`, JSON-LD `validThrough`'tan), durum (varsayılan Saved; seçilebilir), URL ve `job_text` alır → `{application_id, app_url}`. `application_service.create` `salary_text` ve `posting_closes_at`'i de alır. `source` her zaman `detect_source(url)`'den; istemcinin gönderdiği `site` yok sayılır. Gizlilik sayfasına eklenti ve token'lar için bir satır.
 - **Alternatifler:** `site`'a güvenmek (istemci yanlış kaynak yazabilirdi); durumu her zaman Saved yapmak.
+
+### D-143 · Action'lar SHA'ya, Docker image'ları digest'e; Dependabot
+Kaynak: #3 (M0 güvenlik incelemesi #5, #6), `docs/plans/T3.md`, plan-reviewer. **Claude karar verdi** (2026-11-20, Fatih'in onayını bekliyor). D-003'ün Action ve image satırlarının yerine geçer.
+- **Karar:** `ci.yml`'deki Action'lar tam commit SHA'sı + `# vX.Y.Z` yorumuyla. Image'lar `tag@sha256:<multi-arch index digest>` ile (Dockerfile: python ve uv; docker-compose ve CI: postgres). Dockerfile'da `ARG PYTHON_IMAGE` yerine `base` stage'i. `.github/dependabot.yml`: `github-actions`, `docker`, `docker-compose`; haftalık, 7 gün cooldown, `build(deps)` commit'leri. Python'un minor/major ve Postgres'in major güncellemeleri `ignore`'da: SPEC §3 sürümleri (Python 3.12, PostgreSQL 16) bot PR'ıyla değişmez. CI'daki postgres image'ı ve uv sürümü Dependabot'un dışında: CI'ın `docker` job'ı bunların compose/Dockerfile ile aynı olduğunu kontrol eder; bir Dependabot PR'ından sonra ci.yml elle güncellenir.
+- **Gerekçe:** Tag'ler başka koda taşınabilir; SHA ve digest değişmez, build birebir tekrarlanır. Dependabot sabitlenmiş sürümleri güncel tutar.
+- **Alternatifler:** Tag'lerde kalmak; digest'i tag'siz yazmak (okunmaz); Renovate (ayrı GitHub App, daha fazla ayar).
