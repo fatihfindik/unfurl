@@ -39,6 +39,28 @@ def _is_active(token: ApiToken, user: User, now: dt.datetime) -> bool:
     )
 
 
+def _dead(now: dt.datetime, current_version):
+    """The rows that no longer work: the exact opposite of _is_active. `current_version`
+    is the user's session version: a number, or a subquery that reads it per row."""
+    return or_(
+        col(ApiToken.revoked),
+        col(ApiToken.expires_at) <= now,
+        ApiToken.session_version != current_version,
+    )
+
+
+def purge_dead(session: Session, now: dt.datetime) -> int:
+    """Delete every user's dead tokens (D-148); the nightly job calls this. Returns how
+    many rows were deleted. Built with SQLAlchemy only, so the "user" table, a reserved
+    word on Postgres, is quoted for us."""
+    users_version = (
+        select(User.session_version).where(User.id == ApiToken.user_id).scalar_subquery()
+    )
+    result = session.exec(delete(ApiToken).where(_dead(now, users_version)))
+    session.commit()
+    return result.rowcount
+
+
 def active_tokens(session: Session, user: User) -> list[ApiToken]:
     """The user's tokens that still work, newest first."""
     now = utcnow()
@@ -58,14 +80,7 @@ def issue(session: Session, user: User) -> tuple[str, ApiToken]:
     are deleted, and if MAX_ACTIVE_TOKENS still work, the oldest ones are revoked."""
     now = utcnow()
     session.exec(
-        delete(ApiToken).where(
-            ApiToken.user_id == user.id,
-            or_(
-                col(ApiToken.revoked),
-                col(ApiToken.expires_at) <= now,
-                ApiToken.session_version != user.session_version,
-            ),
-        )
+        delete(ApiToken).where(ApiToken.user_id == user.id, _dead(now, user.session_version))
     )
     active = active_tokens(session, user)  # newest first
     for old in active[MAX_ACTIVE_TOKENS - 1 :]:
