@@ -1,0 +1,48 @@
+# Dependabot opens pull requests when a pinned Action or image has a new version
+# (D-143). Python 3.12 and PostgreSQL 16 are fixed in SPEC §3, so only their patch
+# and digest updates come here; a new minor/major version is a SPEC change.
+# After an update of the uv image or Postgres, update ci.yml too (the CI docker
+# job fails until it matches).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7 # new releases wait a week: a bad one is usually noticed by then
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker # the Dockerfile: python and uv images
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
+      include: scope
+    ignore:
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker-compose # docker-compose.yml: postgres
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
+      include: scope
+    ignore:
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
+    open-pull-requests-limit: 5
