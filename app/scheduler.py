@@ -2,8 +2,9 @@
 
 APScheduler runs them on a background thread. Started from the app's lifespan in
 app/main.py, only when SCHEDULER_ENABLED=true; with several workers or servers only
-one of them may have it on. The rules live in app/services/notification_service.py:
-the jobs here only open a database session and call them with the current time.
+one of them may have it on. The rules live in the services (notification_service,
+token_service): the jobs here only open a database session and call them with the
+current time.
 """
 
 import logging
@@ -15,12 +16,14 @@ from sqlmodel import Session
 
 from app import db
 from app.config import Settings
-from app.services import clock, notification_service
+from app.services import clock, notification_service, token_service
 
 logger = logging.getLogger(__name__)
 
 GENERATE_EVERY_MINUTES = 15
 PURGE_AT_HOUR = 3  # 03:00 in DEFAULT_TIMEZONE, when hardly anyone uses the app
+# Dead extension tokens at 03:10, so the two clean-ups don't hit the database at once.
+PURGE_TOKENS_AT_MINUTE = 10
 
 
 def generate_notifications(engine: Engine | None = None) -> None:
@@ -37,6 +40,17 @@ def purge_notifications(engine: Engine | None = None) -> None:
         except Exception:
             session.rollback()
             logger.exception("Purging notifications failed")
+
+
+def purge_api_tokens(engine: Engine | None = None) -> None:
+    """Delete dead extension tokens (D-148); a failure is logged and tried again tomorrow."""
+    with Session(engine or db.engine) as session:
+        try:
+            deleted = token_service.purge_dead(session, clock.now())
+            logger.info("Deleted %d dead extension tokens", deleted)
+        except Exception:
+            session.rollback()
+            logger.exception("Purging extension tokens failed")
 
 
 def build(settings: Settings) -> BackgroundScheduler:
@@ -63,6 +77,13 @@ def build(settings: Settings) -> BackgroundScheduler:
         # machine's (UTC on CI and in Docker), not the scheduler's.
         CronTrigger(hour=PURGE_AT_HOUR, minute=0, timezone=settings.default_timezone),
         id="purge_notifications",
+    )
+    scheduler.add_job(
+        purge_api_tokens,
+        CronTrigger(
+            hour=PURGE_AT_HOUR, minute=PURGE_TOKENS_AT_MINUTE, timezone=settings.default_timezone
+        ),
+        id="purge_api_tokens",
     )
     return scheduler
 

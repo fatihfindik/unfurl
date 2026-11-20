@@ -213,3 +213,24 @@ def test_extension_tokens_expire_and_are_cleaned_up_on_postgres(pg):
         assert token_service.check(pg, raw) is not None
 
     assert pg.get(ApiToken, old_id) is None
+
+
+def test_the_nightly_token_purge_works_on_postgres(pg):
+    # The query reads the "user" table (a reserved word on Postgres) per row (D-148).
+    jana, other = new_user(pg), new_user(pg, email="other@example.com")
+    with freeze_time("2026-11-16 01:00:00"):
+        jana_raw, _ = token_service.issue(pg, jana)
+        _, revoked = token_service.issue(pg, other)
+        other_raw, _ = token_service.issue(pg, other)
+        token_service.revoke(pg, revoked)
+        _, old_version = token_service.issue(pg, jana)
+    jana.session_version += 1  # signed out everywhere: Jana's tokens die
+    pg.add(jana)
+    pg.commit()
+
+    with freeze_time("2026-11-16 02:10:00"):
+        deleted = token_service.purge_dead(pg, auth_service.utcnow())
+
+    assert deleted == 3  # revoked + Jana's two old-version tokens
+    assert token_service.check(pg, other_raw) is not None
+    assert token_service.check(pg, jana_raw) is None
