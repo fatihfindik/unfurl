@@ -551,3 +551,15 @@
 - SPEC: yes, v2.1.24 (M6 split into M6a/M6b, tokens tied to the session version,
   Bearer-only API without CORS, body limit, URL rules). D-135…D-141.
 - WORKFLOW: no.
+
+### M6a — Manual test addendum (2026-11-20, written by Claude)
+- Automated tests don't show that the extension works on real sites: LinkedIn had
+  changed its job page (random class names, no JSON-LD), and only the manual test
+  found it. Fixed in PR #71 (D-144) before the tag.
+- On sites that change often, read what stays stable instead of CSS classes:
+  accessibility labels (`aria-label`), the page title, `data-testid`.
+- A job opened next to search results lives at another address (karriere.at keeps
+  its id in `#…`). "Already saved" must use the job's own link, or different jobs
+  look like the same one.
+- A fix that changes a product rule (here SPEC §7.2) is approved before it is coded,
+  and the SPEC changes in the same PR.
