@@ -70,6 +70,11 @@ def test_not_written_again_after_the_purge(session, user):
     applied_job(session, user, days=10)
     notes.generate_due(session, NOW)
     notes.mark_all_read(session, user, NOW)
+    # The row gets the real time as created_at; the test's clock is NOW.
+    for note in rows(session):
+        note.created_at = NOW
+        session.add(note)
+    session.commit()
 
     later = NOW + dt.timedelta(days=31)
     notes.purge(session, later)
