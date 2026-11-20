@@ -4,6 +4,7 @@
 > **Sahibi:** Fatih Findik
 > **Durum:** MVP planı, v2.1.29 — 2026-11-20
 > v2.1.29: #57: login kilidine e-posta başına ikinci sınır (bütün IP'lerden saatte 20 hata → 1 saat); şifreyi sıfırlayan tarayıcı 15 dk muaf; Settings şifre kontrolleri e-posta kilidine bakmaz, kendi kullanıcı sayacı var (saatte 20 hata → 1 saat) (D-149).
+> v2.1.28: #64 (E4): ölü eklenti token'ları (iptal, süresi dolmuş, eski oturum sürümü) her gece 03:10'da silinir (D-148).
 > v2.1.27: #60: e-posta değişikliğinden sonra eski adrese 7 gün geçerli "undo" linki; geri alma eski adresi geri getirir, bütün oturumları kapatır, şifreyi geçersiz kılar ve eski adrese şifre sıfırlama linki gönderir (D-147).
 > v2.1.26: #66: e-posta doğrulama linki açılınca onay sayfası; doğrulama butonla (POST, CSRF), e-posta tarayıcıları doğrulamaz (D-146).
 > v2.1.25: M6a elle testinden sonra (D-144): LinkedIn'in yeni ilan sayfası ve arama sayfası için site okuyucusu (aria-label, sayfa başlığı, üst kart; İngilizce ve Almanca arayüz); karriere.at arama panelinde ilan `#id`'den okunur: eklenti tıklamadan sonra aynı sitede ilanın kendi sayfasına tek bir çerezsiz GET yapar, `canonical_url` fragment'taki id'yi kullanır.
@@ -536,7 +537,7 @@ Beş Learning tablosunun (NotificationPreference dahil) hepsinde `user_id` (FK, 
 | revoked | bool | Settings › Browser extension'dan ya da eklentiden çıkışla |
 | created_at | datetime | |
 
-Girişte kullanıcının iptal edilmiş ve süresi geçmiş token'ları silinir; en fazla 10 etkin token, fazlası en eskiyi iptal eder. Dışa aktarmaya girmez (D-136).
+Ölü token'lar (iptal edilmiş, süresi geçmiş ya da eski oturum sürümüne ait) eklentiye girişte o kullanıcı için, ayrıca her gece 03:10'da bütün kullanıcılar için silinir (D-148); en fazla 10 etkin token, fazlası en eskiyi iptal eder. Dışa aktarmaya girmez (D-136).
 
 ---
 

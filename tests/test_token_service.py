@@ -3,6 +3,7 @@ revoking, expiry or a new session version."""
 
 import datetime as dt
 
+import pytest
 from freezegun import freeze_time
 from sqlmodel import select
 
@@ -139,3 +140,63 @@ def test_deleting_the_user_deletes_the_tokens(session, user):
     session.commit()
 
     assert session.exec(select(ApiToken)).all() == []
+
+
+# --- The nightly clean-up (D-148) -------------------------------------------------------
+
+
+NOW = dt.datetime(2026, 11, 20, 3, 10, tzinfo=dt.UTC)
+
+
+def add_token(session, user, *, revoked=False, expires_in=dt.timedelta(days=30), version=None):
+    token = ApiToken(
+        user_id=user.id,
+        name="Chrome extension",
+        token_hash=token_service.hash_token(f"raw-{user.id}-{revoked}-{expires_in}-{version}"),
+        session_version=user.session_version if version is None else version,
+        revoked=revoked,
+        expires_at=NOW + expires_in,
+    )
+    session.add(token)
+    session.commit()
+    session.refresh(token)
+    return token
+
+
+@pytest.mark.parametrize(
+    ("kind", "fields"),
+    [
+        ("revoked", {"revoked": True}),
+        ("expires now", {"expires_in": dt.timedelta(0)}),
+        ("expired", {"expires_in": -dt.timedelta(days=1)}),
+        ("old session version", {"version": -1}),
+        ("works for 1 more second", {"expires_in": dt.timedelta(seconds=1)}),
+        ("works", {}),
+    ],
+    ids=lambda value: value if isinstance(value, str) else "",
+)
+def test_purge_deletes_exactly_the_tokens_that_no_longer_work(session, user, kind, fields):
+    token = add_token(session, user, **fields)
+    works = token_service._is_active(token, user, NOW)
+
+    deleted = token_service.purge_dead(session, NOW)
+
+    session.expire_all()
+    assert deleted == (0 if works else 1)
+    assert (session.get(ApiToken, token.id) is not None) is works
+
+
+def test_purge_cleans_every_user_and_leaves_working_tokens(session, user):
+    other = create_user(session, email="other@example.com", password="x" * 12, full_name="O")
+    other.session_version = 3
+    session.add(other)
+    session.commit()
+    keep = [add_token(session, user), add_token(session, other)]
+    add_token(session, user, revoked=True)
+    add_token(session, other, expires_in=-dt.timedelta(hours=1))
+    add_token(session, other, version=2)  # from before the other user's last sign-out
+
+    assert token_service.purge_dead(session, NOW) == 3
+
+    left = session.exec(select(ApiToken)).all()
+    assert sorted(row.id for row in left) == sorted(token.id for token in keep)

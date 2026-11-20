@@ -12,9 +12,10 @@ from sqlmodel import Session, select
 from app import scheduler
 from app.config import Settings, get_settings
 from app.main import create_app
-from app.models import Notification
+from app.models import ApiToken, Notification
 from app.services import application_service as apps
-from app.services import notification_service
+from app.services import notification_service, token_service
+from app.services.auth_service import create_user
 
 
 def settings(**overrides) -> Settings:
@@ -54,13 +55,17 @@ def test_the_jobs_and_their_times():
     finally:
         built.shutdown(wait=False)
 
-    assert set(jobs) == {"generate_notifications", "purge_notifications"}
+    assert set(jobs) == {"generate_notifications", "purge_notifications", "purge_api_tokens"}
     generate = {field.name: str(field) for field in jobs["generate_notifications"].trigger.fields}
     assert generate["minute"] == "*/15"  # :00, :15, :30, :45 (D-109)
     purge = jobs["purge_notifications"].trigger
     fields = {field.name: str(field) for field in purge.fields}
     assert (fields["hour"], fields["minute"]) == ("3", "0")
     assert str(purge.timezone) == "Europe/Vienna"
+    tokens = jobs["purge_api_tokens"].trigger
+    fields = {field.name: str(field) for field in tokens.fields}
+    assert (fields["hour"], fields["minute"]) == ("3", "10")  # after the notifications (D-148)
+    assert str(tokens.timezone) == "Europe/Vienna"
     assert str(built.timezone) == "Europe/Vienna"
     for job in jobs.values():
         assert job.max_instances == 1 and job.coalesce is True
@@ -126,6 +131,33 @@ def test_the_purge_job_deletes_old_read_ones(engine, session, user):
         assert fresh.exec(select(Notification)).all() == []
 
 
+def test_the_token_job_deletes_dead_extension_tokens(engine, session, user):
+    with freeze_time("2026-08-01 09:00:00"):
+        _, expired = token_service.issue(session, user)  # works for 90 days: until 30 Oct
+        expired_id = expired.id
+    other = create_user(session, email="other@example.com", password="x" * 12, full_name="O")
+    with freeze_time("2026-11-16 01:00:00"):
+        raw, _ = token_service.issue(session, other)  # another user: leaves Jana's alone
+
+    with freeze_time("2026-11-16 02:10:00"):  # 03:10 in Vienna
+        scheduler.purge_api_tokens(engine)
+
+    with Session(engine) as fresh:
+        assert fresh.get(ApiToken, expired_id) is None
+        assert token_service.check(fresh, raw) is not None
+
+
+def test_a_failing_token_purge_is_logged(engine, monkeypatch, caplog):
+    def broken(session, now):
+        raise RuntimeError("database gone")
+
+    monkeypatch.setattr(token_service, "purge_dead", broken)
+
+    scheduler.purge_api_tokens(engine)  # does not raise
+
+    assert "Purging extension tokens failed" in caplog.text
+
+
 def test_a_failing_purge_is_logged(engine, monkeypatch, caplog):
     def broken(session, now):
         raise RuntimeError("database gone")
@@ -137,7 +169,9 @@ def test_a_failing_purge_is_logged(engine, monkeypatch, caplog):
     assert "Purging notifications failed" in caplog.text
 
 
-@pytest.mark.parametrize("job", ["generate_notifications", "purge_notifications"])
+@pytest.mark.parametrize(
+    "job", ["generate_notifications", "purge_notifications", "purge_api_tokens"]
+)
 def test_jobs_use_the_app_database_by_default(monkeypatch, job):
     used = []
 
@@ -154,6 +188,7 @@ def test_jobs_use_the_app_database_by_default(monkeypatch, job):
     monkeypatch.setattr(scheduler, "Session", FakeSession)
     monkeypatch.setattr(notification_service, "generate_due", lambda s, now: 0)
     monkeypatch.setattr(notification_service, "purge", lambda s, now: None)
+    monkeypatch.setattr(token_service, "purge_dead", lambda s, now: 0)
 
     getattr(scheduler, job)()
 
