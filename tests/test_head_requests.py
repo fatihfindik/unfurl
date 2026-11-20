@@ -7,6 +7,7 @@ from app.services import application_service as apps
 from app.services import document_service as docs
 from app.services.auth_service import make_verify_token
 from app.services.profile_service import get_or_create_profile
+from tests.helpers import csrf_token
 from tests.test_photo import image_bytes, upload
 from tests.test_settings_page import save as save_settings
 
@@ -121,7 +122,8 @@ def test_head_on_a_post_only_route_is_still_not_allowed(client):
 
 
 def test_head_on_the_verify_link_does_not_verify(client, session, user):
-    # Link checkers in email programs may ask with HEAD; only opening the link verifies.
+    # Link checkers in email programs may ask with HEAD or GET; only the button verifies
+    # (D-142, D-146).
     user.is_verified = False
     session.add(user)
     session.commit()
@@ -132,6 +134,11 @@ def test_head_on_the_verify_link_does_not_verify(client, session, user):
     assert not user.is_verified
 
     assert client.get(link).status_code == 200
+    session.refresh(user)
+    assert not user.is_verified
+
+    token = link.split("token=", 1)[1]
+    client.post("/verify-email", data={"token": token, "csrf_token": csrf_token(client)})
     session.refresh(user)
     assert user.is_verified
 

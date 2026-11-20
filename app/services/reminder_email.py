@@ -26,7 +26,7 @@ def make_off_token(user: User) -> str:
 def user_from_off_token(session: Session, token: str) -> User | None:
     """The user a "Turn off these emails" link belongs to, or None if it isn't valid."""
     data = auth_service.read_token(token, OFF_TOKEN_SALT, OFF_TOKEN_MAX_AGE)
-    if data is None or not isinstance(data.get("user_id"), int):
+    if data is None or type(data.get("user_id")) is not int:
         return None
     user = session.get(User, data["user_id"])
     if user is None or user.email != data.get("email"):

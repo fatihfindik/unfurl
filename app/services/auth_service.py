@@ -224,7 +224,7 @@ def sign_out(session: Session, request: Request) -> None:
     """
     user_id = request.session.get(SESSION_USER_ID)
     version = request.session.get(SESSION_VERSION)
-    if isinstance(user_id, int) and isinstance(version, int):
+    if type(user_id) is int and type(version) is int:  # not bool (True is an int)
         session.exec(
             update(User)
             .where(User.id == user_id, User.session_version == version)
@@ -341,7 +341,8 @@ def make_verify_token(user: User) -> str:
 def user_from_verify_token(session: Session, token: str) -> User | None:
     """The user a verification link belongs to, or None if the link is not valid."""
     data = read_token(token, VERIFY_TOKEN_SALT, VERIFY_TOKEN_MAX_AGE)
-    if data is None or not isinstance(data.get("user_id"), int):
+    # `type(...) is int`, not isinstance: True is an int in Python and would mean user 1.
+    if data is None or type(data.get("user_id")) is not int:
         return None
     user = session.get(User, data["user_id"])
     if user is None or user.email != data.get("email"):
@@ -386,7 +387,7 @@ def email_change_from_token(session: Session, token: str) -> tuple[User, str] | 
     """(the user, the new address) a change link is for, or None if it is not valid
     (any more)."""
     data = read_token(token, EMAIL_CHANGE_TOKEN_SALT, EMAIL_CHANGE_TOKEN_MAX_AGE)
-    if data is None or not isinstance(data.get("user_id"), int):
+    if data is None or type(data.get("user_id")) is not int:
         return None
     new_email = data.get("new_email")
     user = session.get(User, data["user_id"])
@@ -480,7 +481,7 @@ def make_reset_token(user: User) -> str:
 def user_from_reset_token(session: Session, token: str) -> User | None:
     """The user a reset link belongs to, or None if the link is invalid, too old or used."""
     data = read_token(token, RESET_TOKEN_SALT, RESET_TOKEN_MAX_AGE)
-    if data is None or not isinstance(data.get("user_id"), int):
+    if data is None or type(data.get("user_id")) is not int:
         return None
     user = session.get(User, data["user_id"])
     fingerprint = data.get("fingerprint")
