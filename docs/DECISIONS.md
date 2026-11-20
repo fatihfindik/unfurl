@@ -136,6 +136,7 @@ Kaynak: claude.ai Plan fazı (`docs/plans/M1-handoff.md`), Fatih onayı.
 - **Gerekçe:** Tek instance (APScheduler da bunu varsayıyor), ek altyapı gerekmiyor.
 - **Maliyet:** Restart sayaçları sıfırlar. Birden fazla instance'a geçilirse DB veya Redis'e taşınmalı.
 - **Alternatifler:** DB tablosu (kalıcı ama her login'de yazma), Redis (yeni servis).
+- **Güncelleme: D-149** (#57): e-posta başına ikinci sayaç (aynı bellek deposu mantığı).
 
 ### D-021 · Oturum geçersiz kılma: `User.session_version`
 - **Karar:** İmzalı oturum çerezi `session_version` taşır, `current_user` bunu DB ile karşılaştırır. Şifre değişince/sıfırlanınca değer +1 olur.
@@ -799,3 +800,9 @@ Kaynak: #60 (#56 security review L1), `docs/plans/I60.md`, plan-reviewer (Blocke
 - **Güncelleme (security-reviewer H1, M1, L2; Fatih onayladı 2026-11-20):** `User.email_changed_at` (migration 0017): değişiklik ve geri alma onu yazar. Değiştirilen adres son 8 gün içinde (link ömrü + 1 gün pay, ikinci inceleme L-a) bir değişiklikle gelmişse bildirimde undo linki **yok**: yoksa A→B→C yapan saldırgan kendi B adresine link alıp sahibin geri almasından sonra hesabı yeniden alabilirdi. Kayıttaki adres ve bir geri almayla dönen adres (kutusu kendini kanıtladı; `email_changed_at = NULL`, ikinci inceleme L-b) her zaman link alır. Geri alınınca değiştirilen adrese "changed back" bildirimi gider. Settings'te değiştirirken "for 7 days it can undo the change and take the account back" uyarısı. Arada adres değişirse "Something changed, open the link again" (409).
 - **Kabul edilen riskler:** (a) 7 gün boyunca eski adrese erişimi olan biri (ör. eski iş yerinin posta sunucusu) **hesabın tamamını** ele geçirebilir: adres geri gelir, şifre sıfırlanır ve sıfırlama linki ona gider (Fatih kabul etti; azaltma: değiştirilen adrese bildirim ve Settings uyarısı); (b) pencere içinde silinen/dışa aktarılan veri geri gelmez; (c) eski adresle açılan bir hesap geri almayı geciktirebilir; (d) adresini 8 gün içinde iki kez değiştiren kullanıcı, aradaki adres için undo linki almaz; (e) 0017 öncesi değişmiş hesaplar (canlıda yok, M13c) kayıt adresi sayılır.
 - **Alternatifler:** oturum sürümüne bağlamak (saldırgan Sign out ile öldürürdü); sadece B'deyken çalışmak (B→C ile atlatılır); şifreyi bırakmak (D-134 değişiklik için şifre istediği için saldırgan şifreyi biliyor); eski adresi 7 gün ayırmak (migration).
+
+### D-149 · E-posta başına ikinci login sınırı (#57)
+Kaynak: #57 (M13b security review L4), `docs/plans/I57.md`, plan-reviewer. Fatih onayladı (2026-11-20): bütün IP'lerden saatte 20 hata → e-posta 1 saat kilitli; sıfırlama kilidi açar ve sıfırlayan tarayıcı 15 dk muaf; Settings şifre kontrolleri sadece IP + e-posta kilidi. SPEC §6.1. (D-148 PR #77'de.)
+- **Karar:** `LoginLockout`'ta ayrı e-posta deposu (1 saat pencere, 1 saat kilit, bellek sınırı `MAX_TRACKED_KEYS`). `is_locked`/`record_failure` `per_email` parametresi alır: web ve eklenti girişi `True`, Settings `False`. `clear` sadece çifti, `clear_email` ikisini de temizler. Sıfırlamadan sonra tarayıcı oturumunda `lockout_exempt` (e-posta + 15 dk): o tarayıcının web girişi e-posta kilidine bakmaz. Mesaj: "Too many attempts. Try again later, or reset your password."
+- **Kabul edilen riskler:** e-postayı bilen biri sahibi 1 saat girişten alıkoyabilir (sıfırlama + 15 dk muafiyet çıkış yolu; eklentinin muafiyeti yok); bellek sınırı ~10.000 farklı adresle eski kayıtları (kilitli olsa da) düşürebilir (çift deposunda da aynı).
+- **Alternatifler:** sadece Settings; hiçbir şey yapmamak; bekletme; CAPTCHA; sıfırlamada otomatik giriş.
