@@ -60,8 +60,9 @@ VERIFY_TOKEN_SALT = "verify-email"
 VERIFY_TOKEN_MAX_AGE = 48 * 60 * 60  # 48 hours, in seconds (SPEC §6.1)
 RESET_TOKEN_SALT = "reset-password"
 RESET_TOKEN_MAX_AGE = 60 * 60  # 1 hour (SPEC §6.1)
-# Our tokens are about 100 characters. Longer ones are rejected before any work.
-TOKEN_MAX_LENGTH = 512
+# Our tokens are about 100–300 characters; with two 254-character addresses (the email
+# change link) close to 1000. Longer ones are rejected before any work.
+TOKEN_MAX_LENGTH = 1024
 
 
 class EmailTaken(Exception):
@@ -455,6 +456,72 @@ def change_email(session: Session, user: User, new_email: str) -> str:
         )
         session.commit()
     except IntegrityError:  # another account took the address a moment earlier
+        session.rollback()
+        return "taken"
+    session.refresh(user)
+    return "ok" if result.rowcount == 1 else "stale"
+
+
+# --- Undoing an email change (#60, D-147) ------------------------------------------------
+
+UNDO_EMAIL_TOKEN_SALT = "email-change-undo"
+UNDO_EMAIL_TOKEN_MAX_AGE = 7 * 24 * 60 * 60  # 7 days
+
+
+def make_undo_email_token(user: User, old_email: str) -> str:
+    """The "This wasn't me" link sent to the old address after a change.
+
+    Not tied to the session version (whoever took the account could otherwise kill it
+    by signing out) and not to the new address (a second change, B to C, must not
+    escape it). The account stamp keeps it away from a new account with the same id."""
+    data = {"user_id": user.id, "account": account_stamp(user), "old_email": old_email}
+    return token_serializer(UNDO_EMAIL_TOKEN_SALT).dumps(data)
+
+
+def undo_email_from_token(session: Session, token: str) -> tuple[User, str] | None:
+    """(the user, the address to put back), or None if the link is not valid (any
+    more): too old, changed, for another account, or the account uses that address
+    again (it was undone already)."""
+    data = read_token(token, UNDO_EMAIL_TOKEN_SALT, UNDO_EMAIL_TOKEN_MAX_AGE)
+    if data is None or type(data.get("user_id")) is not int:
+        return None
+    old_email = data.get("old_email")
+    user = session.get(User, data["user_id"])
+    if (
+        user is None
+        or not isinstance(old_email, str)
+        or data.get("account") != account_stamp(user)
+        or user.email == old_email
+    ):
+        return None
+    return user, old_email
+
+
+def undo_email_change(session: Session, user: User, old_email: str) -> str:
+    """Put `old_email` back (D-147): verified, every session and extension token out
+    (session_version + 1), and a random password nobody knows, because whoever changed
+    the address knew the password (D-134). The owner sets a new one with the reset link
+    sent to the old address. One UPDATE that only matches while the account still uses
+    the address read here. Returns "ok", "taken" (another account uses `old_email`) or
+    "stale" (something changed in the meantime)."""
+    current = user.email
+    if email_in_use(session, old_email):
+        return "taken"
+    try:
+        result = session.exec(
+            update(User)
+            .where(User.id == user.id, User.email == current)
+            .values(
+                email=old_email,
+                is_verified=True,
+                password_hash=hash_password(secrets.token_urlsafe(32)),
+                session_version=User.session_version + 1,
+                updated_at=utcnow(),
+            )
+            .execution_options(synchronize_session=False)
+        )
+        session.commit()
+    except IntegrityError:  # someone signed up with that address a moment earlier
         session.rollback()
         return "taken"
     session.refresh(user)
