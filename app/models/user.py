@@ -29,9 +29,10 @@ class User(SQLModel, table=True):
 
     # Goes up by 1 when the password changes; older sessions stop working (D-021).
     session_version: int = Field(default=0)
-    # When an email change or an undo last set `email` (D-147). Empty: the address
-    # from sign-up. An address set less than 7 days ago gets no undo link when it is
-    # replaced, so whoever set it can't take the account back with one.
+    # When an email change last set `email` (D-147). Empty: the address from sign-up,
+    # or one put back by an undo. An address set by a change less than 8 days ago gets
+    # no undo link when it is replaced, so whoever set it can't take the account back
+    # with one.
     email_changed_at: datetime | None = Field(
         default=None, sa_column=datetime_column(nullable=True)
     )

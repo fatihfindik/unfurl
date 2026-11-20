@@ -472,13 +472,16 @@ UNDO_EMAIL_TOKEN_MAX_AGE = 7 * 24 * 60 * 60  # 7 days
 
 def old_address_can_undo(changed_at: dt.datetime | None, now: dt.datetime) -> bool:
     """Does the address being replaced get an undo link? Yes for the sign-up address
-    and for one in use for at least the undo window; no for an address set by a change
-    (or an undo) less than 7 days ago. Otherwise whoever took the account could change
-    it twice (A→B→C) and get a link for B, their own address, and use it to take the
-    account back after the owner's undo (security review #60, H1)."""
+    (or one put back by an undo, whose inbox proved itself), and for one in use longer
+    than the undo window plus a day; no for an address set by a change less than that
+    ago. Otherwise whoever took the account could change it twice (A to B to C), get a
+    link for B, their own address, and take the account back after the owner's undo
+    (security review #60, H1). The extra day keeps the owner's link and the taker's
+    from ever being valid at the same moment (L-a)."""
     if changed_at is None:
         return True
-    return as_utc(now) - as_utc(changed_at) >= dt.timedelta(seconds=UNDO_EMAIL_TOKEN_MAX_AGE)
+    window = dt.timedelta(seconds=UNDO_EMAIL_TOKEN_MAX_AGE) + dt.timedelta(days=1)
+    return as_utc(now) - as_utc(changed_at) > window
 
 
 def make_undo_email_token(user: User, old_email: str) -> str:
@@ -536,7 +539,9 @@ def undo_email_change(session: Session, user: User, old_email: str) -> str:
                 is_verified=True,
                 password_hash=hash_password(secrets.token_urlsafe(32)),
                 session_version=User.session_version + 1,
-                email_changed_at=utcnow(),
+                # Trusted like a sign-up address: its inbox just proved itself, so it
+                # gets an undo link if it is taken again (security review #60, L-b).
+                email_changed_at=None,
                 updated_at=utcnow(),
             )
             .execution_options(synchronize_session=False)

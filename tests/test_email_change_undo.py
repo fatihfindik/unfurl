@@ -218,23 +218,42 @@ def test_the_taker_gets_no_link_to_take_the_account_back(client, session, engine
     assert saved(engine, user).email == USER_EMAIL
 
 
-def test_an_address_in_use_for_7_days_gets_a_link_again(client, session, engine, user, outbox):
+@pytest.mark.parametrize(("days", "gets_link"), [(7, False), (8, False), (8.001, True)], ids=str)
+def test_an_address_gets_a_link_again_after_8_days(
+    client, session, engine, user, outbox, days, gets_link
+):
+    # 7 days (the link's life) plus a day, so the owner's link and the taker's are
+    # never valid at the same moment (security review #60, L-a).
     with freeze_time(utcnow()) as frozen:
         take_over(client, session, user, outbox)
-        frozen.tick(dt.timedelta(days=7, seconds=1))
+        frozen.tick(dt.timedelta(days=days))
         outbox.clear()
         log_in(client, email=NEW)
         ask(client, new_email=THIRD, password=USER_PASSWORD)
         confirm(client, token_of(link_in_for(outbox, THIRD)))
 
     [notice_to_b] = [email for email in outbox if email.to == NEW and "changed" in email.subject]
-    assert "/undo-email-change" in notice_to_b.body
+    assert ("/undo-email-change" in notice_to_b.body) is gets_link
 
 
-def test_an_undone_address_gets_no_link_for_7_days(client, session, engine, user, outbox):
+def test_an_undone_address_gets_a_link_if_it_is_taken_again(client, session, engine, user, outbox):
+    # Its inbox proved itself with the undo: trusted like a sign-up address (L-b).
     link = take_over(client, session, user, outbox)
     undo(TestClient(app), token_of(link))
-    assert saved(engine, user).email_changed_at is not None
+    assert saved(engine, user).email_changed_at is None
+
+    with Session(engine) as edit:  # the owner set a new password; the taker steals it
+        owner = edit.get(User, user.id)
+        owner.password_hash = auth_service.hash_password(USER_PASSWORD)
+        edit.add(owner)
+        edit.commit()
+    outbox.clear()
+    log_in(client)
+    ask(client, new_email=THIRD, password=USER_PASSWORD)
+    confirm(client, token_of(link_in_for(outbox, THIRD)))
+
+    [notice] = [email for email in outbox if email.to == USER_EMAIL and "changed" in email.subject]
+    assert "/undo-email-change" in notice.body
 
 
 def test_the_settings_form_warns_about_the_undo(auth_client):
