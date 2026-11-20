@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.24 — 2026-11-18
+> **Durum:** MVP planı, v2.1.25 — 2026-11-20
+> v2.1.25: M6a elle testinden sonra (D-144): LinkedIn'in yeni ilan sayfası ve arama sayfası için site okuyucusu (aria-label, sayfa başlığı, üst kart; İngilizce ve Almanca arayüz); karriere.at arama panelinde ilan `#id`'den okunur: eklenti tıklamadan sonra aynı sitede ilanın kendi sayfasına tek bir çerezsiz GET yapar, `canonical_url` fragment'taki id'yi kullanır.
 > v2.1.24: M6 ikiye bölündü: M6a eklenti AI'sız (token'lar, JSON API, URL normalizasyonu, JSON-LD/site ipuçları/sayfa başlığıyla doldurma, Settings › Browser extension), M6b AI'lı (extract, fit, krediler). Sıra: M6a → M5 → M7 → M6b ve diğer AI milestone'ları → M13c → M13d. Token'lar oturum sürümüne bağlı (şifre/e-posta değişince ve Sign out'ta eklenti de çıkar); API sadece Bearer, CORS yerine `host_permissions` + `Origin` kontrolü, 256 KB gövde sınırı; şirket sayfalarında URL sorgusu korunur. Kararlar: DECISIONS D-135…D-141.
 > v2.1.23: #56: e-posta değiştirme (yeni adrese 24 saatlik onay linki, eski adrese istekte ve onayda bildirim; link oturum sürümüne bağlı, şifre sıfırlama/değiştirme ve Sign out bekleyen değişikliği iptal eder; onayda diğer cihazlar çıkar). Karar: DECISIONS D-134.
 > v2.1.22: M13b Design kararları. Dışa aktarma akış olarak JSON (fotoğraf base64, hariçler, kapsama testi), hesap silmede şifre login kilidine bağlı ve onay e-postası sadece doğrulanmış adrese, Settings › Account (ad, şifre; bu oturum kalır), yasal sayfalar taslak + "Draft" bandı, `LEGAL_*` ayarları, alt yaş 16. Kararlar: DECISIONS D-130…D-133.
@@ -709,6 +710,7 @@ Kullanıcı bir iş ilanı sayfasındayken eklenti ikonuna tıklar, ilan otomati
 ### 7.2 Hukuki ve etik sınırlar (ZORUNLU)
 - Eklenti **yalnızca kullanıcı tıkladığında** ve **yalnızca açık olan sekmede** çalışır.
 - Arka planda tarama, sayfa gezme, toplu çekme, otomatik kaydırma veya tıklama **yok**.
+- Tek istisna (D-144): sekme bir iş sitesinin arama sayfasıysa ve seçili ilan sayfada eksikse (karriere.at), eklenti tıklamadan sonra **aynı sitede o ilanın kendi sayfasına tek bir GET** yapar: çerez gönderilmez, yönlendirme izlenmez, en fazla 2 MB. Unfurl'e giden veri değişmez.
 - Kullanıcının çerezleri veya oturum bilgileri okunmaz, gönderilmez.
 - Sadece sayfanın URL'si, başlığı ve metni gönderilir: URL popup açılınca "Already saved" kontrolü için (saklanmaz), metin (görünen metin, seçili metin ya da sayfanın JSON-LD ilan açıklaması) ve alanlar sadece kullanıcı kaydedince (D-139).
 
@@ -740,7 +742,7 @@ Kullanıcı bir iş ilanı sayfasındayken eklenti ikonuna tıklar, ilan otomati
       - `job_text`: önce `site_hints.js`'teki site-özel selector'lar denenir (ör. LinkedIn ilan açıklama container'ı). Bulunamazsa `main`, `article` veya `body` elementinin `innerText` değeri alınır. Max 50.000 karakter.
       - `selected_text`: kullanıcı metin seçtiyse o metin (öncelikli kullanılır)
    3. Popup, `POST /api/ext/jobs/check` ile URL'nin daha önce kaydedilip kaydedilmediğini sorar. Kaydedildiyse "Already saved → Open in Unfurl" gösterir.
-   4. Değilse alanlar doldurulur. **M6a (AI'sız, D-139):** `extract.js` sırasıyla schema.org `JobPosting` JSON-LD'yi (başlık, şirket, şehir, uzaktan, açıklama, maaş, `validThrough`), `site_hints.js` selector'larını ve sayfa başlığı/`og:` etiketlerini kullanır. **M6b:** ek olarak "Auto-fill with AI" → `POST /api/ext/jobs/extract` → AI yapılandırılmış alanları döner; popup'ta yükleniyor göstergesi.
+   4. Değilse alanlar doldurulur. **M6a (AI'sız, D-139, D-144):** `extract.js` sırasıyla schema.org `JobPosting` JSON-LD'yi (başlık, şirket, şehir, uzaktan, açıklama, maaş, `validThrough`), site okuyucularını ve `site_hints.js` selector'larını, en son sayfa başlığı/`og:` etiketlerini kullanır (sondaki ` | <site>` atılır). **M6b:** ek olarak "Auto-fill with AI" → `POST /api/ext/jobs/extract` → AI yapılandırılmış alanları döner; popup'ta yükleniyor göstergesi.
    5. Popup düzenlenebilir bir form gösterir: şirket, pozisyon, konum, çalışma şekli, maaş ve durum (varsayılan "saved").
    6. "Save" → `POST /api/ext/jobs` → başarılı olursa "Saved ✓" + "Open in Unfurl" linki (M6b'de + "Analyze fit" butonu).
    7. (M6b) "Analyze fit" → `POST /api/ext/jobs/{id}/fit` → skor ve karar popup'ta gösterilir.
@@ -750,6 +752,7 @@ Kullanıcı bir iş ilanı sayfasındayken eklenti ikonuna tıklar, ilan otomati
 
 ### 7.5 Site ipuçları (`site_hints.js`)
 Selector'lar zamanla bozulabilir. Bu yüzden **sadece ipucudur**: M6a'da JSON-LD'den sonra ikinci kaynaktır, M6b'den itibaren asıl çıkarımı AI yapar. Selector bulunamazsa genel metin yöntemine düşülür ve hata verilmez. Desteklenen siteler: linkedin.com/jobs, stepstone.at/.de, karriere.at, indeed.com, xing.com/jobs. Diğer tüm siteler (şirket kariyer sayfaları dahil) genel yöntemle çalışır.
+- **Site okuyucuları (D-144):** Selector listesiyle anlatılamayan siteler için `extract.js`'te küçük fonksiyonlar. LinkedIn (sınıf adları rastgele): şirket linkinin `aria-label`'ı, sayfa başlığı ve üst karttaki satırlar (konum, maaş, çalışma şekli); İngilizce ve Almanca arayüz. karriere.at arama paneli: adresteki `#id` ile ilanın kendi sayfasının JSON-LD'si (§7.2 istisnası).
 
 ### 7.6 Eklenti UI
 - Popup genişliği 380 px. Web uygulamasıyla aynı renk paleti. Tailwind kullanma, küçük bir `popup.css` yeterli.
@@ -779,7 +782,7 @@ Hata formatı (tüm API): `{"error": {"code": "quota_exceeded", "message": "..."
 
 ### 8.5 URL normalizasyonu (`canonical_url`)
 - Şema `https`, host küçük harf ve `www.` olmadan; fragment ve sondaki `/` kaldırılır.
-- **Bilinen iş siteleri** site kuralıyla, diğer sorgu atılır: LinkedIn → `linkedin.com/jobs/view/{id}` (`currentJobId` parametresinden veya path'ten); Indeed `jk`; StepStone, karriere.at ve XING path'teki id.
+- **Bilinen iş siteleri** site kuralıyla, diğer sorgu atılır: LinkedIn → `linkedin.com/jobs/view/{id}` (`currentJobId` parametresinden veya path'ten); Indeed `jk`; StepStone, karriere.at ve XING path'teki id. karriere.at arama sayfası (path'in son parçası rakam değil, fragment 1–12 rakam) → `karriere.at/jobs/{fragment}` (D-144).
 - **Diğer bütün siteler** (şirket ve ATS sayfaları: `?jobId=`, `gh_jid`, `career_job_req_id`…): sorgu **korunur**, sadece izleme parametreleri (`utm_*`, `fbclid`, `gclid`, `msclkid`, `refId`, `trackingId`, `trk`, `source`, `ref`…) atılır ve kalanlar sıralanır. Böylece aynı sayfadaki farklı ilanlar birleşmez (D-138).
 - Normalizasyon fonksiyonu için birim testleri yazılmalı (en az 12 örnek URL).
 
