@@ -33,6 +33,7 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - Migrations: `uv run alembic revision --autogenerate -m "..."` and `uv run alembic upgrade head`
 
 ## Milestone status
+The MVP ships without AI (D-150): items marked V2 are not built now. Order: M8a → M8b → M9a → M13c → M13d.
 - [x] M0 Project skeleton
 - [x] M1a Authentication: session core, CSRF, redirects, entitlements
 - [x] M1b Authentication: email verification, password reset, login lockout
@@ -43,20 +44,21 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - [x] M4a Board: applications, add job, kanban, list, filters, archive, toast + undo, theme
 - [x] M4b Application detail: next step, interview, needs attention, timeline
 - [x] M4c Documents in applications: link, lock on applied, duplicate, undo for deletes
-- [ ] M5 AI foundation + job extraction
+- [ ] M5 AI foundation + job extraction · V2 (D-150)
 - [x] M6a Chrome extension without AI: tokens, JSON API, save jobs
-- [ ] M6b Chrome extension: AI auto-fill and fit analysis (after M5 and M7)
-- [ ] M7 Fit analysis (Apply › Should I apply?)
-- [ ] M8 Cover letter
-- [ ] M9 Apply flow: prepare documents, document drawer, final check, Progress + CV import
+- [ ] M6b Chrome extension: AI auto-fill and fit analysis · V2 (D-150)
+- [ ] M7 Fit analysis (Apply › Should I apply?) · V2 (D-150)
+- [ ] M8a Cover letter: model and editor (no AI)
+- [ ] M8b Cover letter: PDF and applications
+- [ ] M9a Apply flow without AI: prepare documents, final check, drawer, Progress
 - [x] M10 Learning
 - [x] M11a Notifications: bell, panel, scheduler, job search reminders
 - [x] M11b Notifications: settings, timezone, study reminder and email
-- [ ] M12a AI assistant: floating panel, application + learning tools
-- [ ] M12b AI assistant: document editing
+- [ ] M12a AI assistant: floating panel, application + learning tools · V2 (D-150)
+- [ ] M12b AI assistant: document editing · V2 (D-150)
 - [x] M13a Polish: error pages, empty states, loading, Settings › Documents
 - [x] M13b GDPR: legal pages, data export, account deletion, Settings › Account
-- [ ] M13c Deploy (after the AI milestones and M6)
+- [ ] M13c Deploy (after M9a)
 - [ ] M13d Portfolio README
 
 Update this checklist when a milestone is done.

@@ -252,7 +252,7 @@ def register(
             email_taken = True
         else:
             # Logged in right away; the app can be used before the email is verified,
-            # only AI features wait for it (SPEC §6.1).
+            # only emails wait for it (SPEC §6.1).
             send_verification_email(background_tasks, user)
             start_session(request, user)
             return redirect("/check-inbox")
@@ -328,7 +328,11 @@ def verified_page(request: Request, heading: str) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "auth/message.html",
-        {"heading": heading, "text": "AI features are now unlocked.", "show_resend": False},
+        {
+            "heading": heading,
+            "text": "You will now get reminder and account emails.",
+            "show_resend": False,
+        },
         headers=TOKEN_PAGE_HEADERS,
     )
 

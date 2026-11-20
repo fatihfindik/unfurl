@@ -361,7 +361,7 @@ def mark_verified(session: Session, user: User) -> None:
 
 
 def require_verified(user: Annotated[User, Depends(require_user)]) -> User:
-    """Dependency for features that need a verified email (AI features from M7, SPEC §6.1)."""
+    """Dependency for features that need a verified email (AI features in V2, D-150; SPEC §6.1)."""
     if not user.is_verified:
         raise UserFacingHTTPException(status_code=403, detail="Please verify your email first.")
     return user

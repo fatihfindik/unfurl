@@ -1,6 +1,7 @@
 {% extends "legal/layout.html" %}
 {#- Draft by Claude (D-133), following GDPR Art. 13/14. Provider names come at deploy
-    (M13c); Anthropic is added with the AI features (M5). -#}
+    (M13c); Anthropic is added with the AI features (V2, D-150), together with a
+    "What is never sent to AI" section (date of birth, nationality, photo). -#}
 {% block body %}
   <p class="m-0">This page explains what personal data Unfurl stores, why, how long, and what you can do about it.</p>
 
@@ -25,7 +26,7 @@
   <ul class="m-0 flex list-disc flex-col gap-1.5 pl-5">
     <li><b>Hosting and database</b> in the EU (Frankfurt, Germany). [Provider named before launch.]</li>
     <li><b>Email delivery</b> for verification, password and reminder emails. [Provider named before launch.]</li>
-    <li>Each provider works under a data processing agreement (Art. 28). AI features are not active yet; this page will list the AI provider before they are.</li>
+    <li>Each provider works under a data processing agreement (Art. 28). Unfurl has no AI features yet; this page will list the AI provider before it does.</li>
   </ul>
 
   {{ h2("No automated decisions") }}
@@ -56,7 +57,4 @@
 
   {{ h2("Minimum age") }}
   <p class="m-0">Unfurl is for people aged {{ minimum_age }} or older.</p>
-
-  {{ h2("What is never sent to AI") }}
-  <p class="m-0">Your date of birth, nationality and photo are optional and are never sent to an AI provider.</p>
 {% endblock %}

@@ -1,7 +1,7 @@
 {#- Shown above every app page until the email is verified (SPEC §6.1). -#}
 {%- from "components/resend.html" import resend_button %}
 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 bg-amber-bg px-4 py-2.5 text-sm text-amber-text md:px-8">
-  <p class="m-0 font-medium">Verify your email to unlock AI features. We sent a link to {{ current_user.email }}.</p>
+  <p class="m-0 font-medium">Verify your email so we can send you reminders and account emails. We sent a link to {{ current_user.email }}.</p>
   {#- Outlined in the banner colour so it reads as a button, not as more text. -#}
   {{ resend_button(csrf_token, "rounded-md border border-current px-2.5 py-1 font-semibold hover:bg-amber-text/10") }}
 </div>

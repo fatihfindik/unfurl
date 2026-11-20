@@ -1,7 +1,7 @@
 {#- The "Add job" form inside the modal (index.html; SPEC §6.7, D-062). htmx sends it;
     errors come back as this form, a saved job as an empty form (the modal is then
-    closed by the "close-dialog" event). No AI button and no extension hint until
-    M5 and M6 (D-060). Context: values, errors, remote_choices, status_choices. -#}
+    closed by the "close-dialog" event). No AI button (V2, D-150) and no extension
+    hint (D-060). Context: values, errors, remote_choices, status_choices. -#}
 {%- from "components/forms.html" import text_field, select_field, textarea_field, primary_button -%}
 <form id="add-job-form" class="m-0 flex flex-col gap-4" novalidate
       hx-post="/applications" hx-target="this" hx-swap="outerHTML">

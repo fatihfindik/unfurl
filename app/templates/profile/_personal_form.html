@@ -19,7 +19,7 @@
     {#- Open by itself when one of these fields has an error. -#}
     <details class="rounded-lg border border-border p-3"{% if errors.date_of_birth or errors.nationality or values.date_of_birth or values.nationality %} open{% endif %}>
       <summary class="cursor-pointer text-sm font-semibold text-text-2">Optional for DACH CVs: date of birth, nationality</summary>
-      <p class="mt-2 mb-3 text-xs text-text-3">These are never sent to the AI and are hidden on CVs by default.</p>
+      <p class="mt-2 mb-3 text-xs text-text-3">These are hidden on CVs by default.</p>
       <div class="grid gap-4 sm:grid-cols-2">
         {{ text_field("date_of_birth", "Date of birth", type="date", value=values.date_of_birth, error=errors.date_of_birth, required=False, id_prefix="personal", placeholder="YYYY-MM-DD") }}
         {{ text_field("nationality", "Nationality", value=values.nationality, error=errors.nationality, maxlength=200, required=False, id_prefix="personal") }}
