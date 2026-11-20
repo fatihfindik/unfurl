@@ -686,6 +686,8 @@ def undo_email_change_submit(
         )
 
     # The owner proved the address: old login failures for it don't count any more.
+    # No user_id on purpose: the Settings user lock stays. Undo ends every session and
+    # the password, so only the reset sent below gets back in, and it clears that lock.
     login_lockout.clear_email(old_email)
     # Counted towards the address's limit, but always sent: the undo is single use
     # and its own limit is 10 per minute.

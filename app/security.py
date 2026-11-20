@@ -210,13 +210,21 @@ def _is_locked(entries: OrderedDict, key, now: datetime, window: timedelta) -> b
     return entry.locked_until is not None
 
 
-def _drop_oldest_unlocked(entries: OrderedDict) -> None:
-    """Like _drop_oldest, but a locked entry goes only when every entry is locked:
-    failures on thousands of other emails must not push a lock out (#57, D-149)."""
+# How far _drop_oldest_unlocked looks for an unlocked entry: it runs under the store's
+# lock, so a store full of locks must not make every failure walk 10,000 entries.
+EVICTION_SCAN = 100
+
+
+def _drop_oldest_unlocked(entries: OrderedDict, now: datetime) -> None:
+    """Like _drop_oldest, but an unlocked entry (or one whose lock has ended) among the
+    oldest EVICTION_SCAN goes first: failures on thousands of other emails must not
+    push a lock out (#57, D-149). If they are all locked, the oldest goes."""
     while len(entries) > MAX_TRACKED_KEYS:
-        victim = next((key for key, e in entries.items() if e.locked_until is None), None)
-        if victim is None:
-            victim = next(iter(entries))
+        victim = next(iter(entries))
+        for _, (key, entry) in zip(range(EVICTION_SCAN), entries.items(), strict=False):
+            if entry.locked_until is None or entry.locked_until <= now:
+                victim = key
+                break
         del entries[victim]
 
 
@@ -232,7 +240,7 @@ def _count_failure(
         entry.locked_until = now + lock
         entry.failures = []
     entries.move_to_end(key)
-    _drop_oldest_unlocked(entries)
+    _drop_oldest_unlocked(entries, now)
 
 
 class LoginLockout:
