@@ -19,8 +19,12 @@ After changing a file here, click the reload arrow on the extension's card in
 
 - It runs **only when you click it**, and only on the tab you have open (`activeTab`):
   no background script, no content scripts on other pages (SPEC §7.2).
-- It reads the job from the page in this order: schema.org `JobPosting` data, the
-  site's selectors in `site_hints.js`, then the page title. You can change every field.
+- It reads the job from the page in this order: schema.org `JobPosting` data, a site
+  reader (LinkedIn's job card) or the site's selectors in `site_hints.js`, then the page
+  title. You can change every field.
+- On a karriere.at search page the job shown on the right has its id in the address
+  (`#1234567`). The extension then reads that job's own page on karriere.at once
+  (`/jobs/1234567`), without cookies (SPEC §7.2, D-144).
 - It sends to Unfurl only what you save: the fields, the link and the page text (or the
   text you selected), at most 50,000 characters.
 - It never reads or sends cookies. It signs in with a token kept in

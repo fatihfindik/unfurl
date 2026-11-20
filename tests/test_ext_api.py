@@ -267,6 +267,24 @@ def test_check_finds_a_saved_job_by_its_canonical_link(client, user, token, sess
     assert check(client, token, "not a link") == {"exists": False}
 
 
+def test_check_matches_a_karriere_job_from_the_search_page(client, user, token, session):
+    # D-144: the search page keeps the job's id in the fragment.
+    search = "https://www.karriere.at/jobs?keywords=product+manager"
+    from_search = application_service.create(
+        session, user, company="Acme", job_title="PM", job_url=search + "#10035685"
+    )
+
+    assert check(client, token, "https://www.karriere.at/jobs/10035685")["application_id"] == (
+        from_search.id
+    )
+    assert check(client, token, search + "#10036885") == {"exists": False}
+
+    from_job_page = application_service.create(
+        session, user, company="Beta", job_title="PO", job_url="https://karriere.at/jobs/777"
+    )
+    assert check(client, token, search + "#777")["application_id"] == from_job_page.id
+
+
 def test_check_counts_archived_jobs_and_gives_the_newest(client, user, token, session):
     with freeze_time("2026-11-01"):
         older = application_service.create(

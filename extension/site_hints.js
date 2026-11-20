@@ -17,7 +17,15 @@ var unfurlSiteHints = [
       ".job-details-jobs-unified-top-card__primary-description-container .tvm__text",
       ".topcard__flavor--bullet",
     ],
-    description: ["#job-details", ".jobs-description__content", ".show-more-less-html__markup"],
+    // The class names above are from older pages; the newer page has random ones and
+    // is read by linkedInJob() in extract.js (D-144). The description box keeps a
+    // test id.
+    description: [
+      '[data-testid="expandable-text-box"]',
+      "#job-details",
+      ".jobs-description__content",
+      ".show-more-less-html__markup",
+    ],
   },
   {
     hosts: ["stepstone.at", "stepstone.de"],
@@ -32,6 +40,8 @@ var unfurlSiteHints = [
     company: [".m-jobHeader__companyName", ".m-jobHeader__companyLink"],
     location: [".m-jobHeader__jobLocations", ".m-jobHeader__jobLocation"],
     description: [".m-jobContent__jobText", ".m-jobContent"],
+    // "On-site", "Hybrid"… in the job's key facts; JSON-LD only marks remote jobs.
+    workMode: [".keyfactbox__sectionItemContentText"],
   },
   {
     hosts: ["indeed.com", "indeed.at", "indeed.de"],

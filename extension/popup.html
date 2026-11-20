@@ -38,11 +38,11 @@
       <p id="preview-note" class="note" hidden></p>
       <form id="job-form" novalidate>
         <label for="job_title">Position</label>
-        <input id="job_title" name="job_title" maxlength="200" required>
+        <input id="job_title" name="job_title" maxlength="200" autocomplete="off" required>
         <label for="company">Company</label>
-        <input id="company" name="company" maxlength="200" required>
+        <input id="company" name="company" maxlength="200" autocomplete="off" required>
         <label for="location">Location</label>
-        <input id="location" name="location" maxlength="200">
+        <input id="location" name="location" maxlength="200" autocomplete="off">
         <div class="row">
           <div>
             <label for="remote_type">Work mode</label>
@@ -62,9 +62,9 @@
           </div>
         </div>
         <label for="salary_text">Salary</label>
-        <input id="salary_text" name="salary_text" maxlength="200">
+        <input id="salary_text" name="salary_text" maxlength="200" autocomplete="off">
         <label for="posting_closes_at">Apply by</label>
-        <input id="posting_closes_at" name="posting_closes_at" type="date">
+        <input id="posting_closes_at" name="posting_closes_at" type="date" autocomplete="off">
         <p id="job-text-info" class="muted small"></p>
         <p id="save-error" class="error" role="alert" hidden></p>
         <button id="save-button" type="submit" class="primary">Save to Unfurl</button>
