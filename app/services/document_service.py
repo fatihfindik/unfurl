@@ -1,12 +1,11 @@
 """CV documents: snapshot, master, versions and locks (SPEC §5.3, D-043…D-048).
 
-The rules for masters and locked documents live only here (CLAUDE.md). Routes and
-the assistant (M12) change documents through these functions, never directly.
+The rules for masters and locked documents live here and in app/services/lineage.py,
+which cover letters share (D-153; CLAUDE.md). Routes and the assistant (M12) change
+documents through these functions, never directly.
 """
 
 from fastapi import HTTPException
-from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, or_, select
 
 from app.models import (
@@ -32,34 +31,20 @@ from app.schemas.cv import (
     CVProject,
     CVSkill,
 )
-from app.services import photo_service, profile_service
+from app.services import lineage, photo_service, profile_service
+
+# The errors live in lineage (shared with cover letters); routes keep using them
+# as document_service.DocumentLocked and so on.
+from app.services.lineage import (  # noqa: F401  (re-exported)
+    DocumentLocked,
+    MasterHasCopies,
+    MasterNotUnlocked,
+    NothingChanged,
+    TooManyDocuments,
+)
 
 MAX_CVS_PER_USER = 100
 MAX_ID = profile_service.MAX_ID
-
-
-class DocumentLocked(Exception):
-    """The document is locked (sent with an application) and can never change."""
-
-
-class MasterNotUnlocked(Exception):
-    """A master is changed only after the user unlocks it in the editor (D-048)."""
-
-
-class MasterHasCopies(Exception):
-    """A master with copies can't be deleted (D-047)."""
-
-    def __init__(self, copies: int):
-        super().__init__(f"{copies} copies")
-        self.copies = copies
-
-
-class TooManyDocuments(Exception):
-    """The user already has MAX_CVS_PER_USER documents."""
-
-
-class NothingChanged(Exception):
-    """A new version would be the same as the draft it comes from."""
 
 
 def snapshot_from_profile(session: Session, user: User) -> tuple[CVContent, int]:
@@ -164,75 +149,28 @@ def list_cvs(session: Session, user: User) -> list[CVDocument]:
 
 
 def current_master(session: Session, user: User, language: str) -> CVDocument | None:
-    return session.exec(
-        select(CVDocument).where(
-            CVDocument.user_id == user.id,
-            CVDocument.language == language,
-            CVDocument.is_master,
-        )
-    ).first()
+    return lineage.current_master(session, CVDocument, user, language)
 
 
 def versions_in_lineage(session: Session, user: User, cv: CVDocument) -> list[CVDocument]:
     """The master and all its copies, for the version picker (master first)."""
-    master_id = cv.id if cv.is_master else cv.parent_id
-    if master_id is None:
-        return [cv]
-    return list(
-        session.exec(
-            select(CVDocument)
-            .where(
-                CVDocument.user_id == user.id,
-                or_(CVDocument.id == master_id, CVDocument.parent_id == master_id),
-            )
-            .order_by(CVDocument.version)
-        )
-    )
+    return lineage.versions_in_lineage(session, CVDocument, user, cv)
 
 
 def copy_count(session: Session, master: CVDocument) -> int:
-    return session.exec(
-        select(func.count()).where(
-            CVDocument.parent_id == master.id, CVDocument.user_id == master.user_id
-        )
-    ).one()
+    return lineage.copy_count(session, CVDocument, master)
 
 
 # --- Creating -----------------------------------------------------------------------
 
 
 def _check_room(session: Session, user: User) -> None:
-    count = session.exec(select(func.count()).where(CVDocument.user_id == user.id)).one()
-    if count >= MAX_CVS_PER_USER:
-        raise TooManyDocuments
-
-
-def _next_version(session: Session, user_id: int, master_id: int | None) -> int:
-    """The next free number under a master: the highest one + 1 (D-045)."""
-    highest = session.exec(
-        select(func.max(CVDocument.version)).where(
-            CVDocument.parent_id == master_id, CVDocument.user_id == user_id
-        )
-    ).one()
-    return (highest or 0) + 1
+    # MAX_CVS_PER_USER is read here, at call time: tests lower it.
+    lineage.check_room(session, CVDocument, user, MAX_CVS_PER_USER)
 
 
 def _save_copy(session: Session, copy: CVDocument) -> CVDocument:
-    """Save a new copy with the next version number. If another request took the same
-    number at the same moment, the unique index refuses it; try once more."""
-    for attempt in range(2):
-        copy.version = _next_version(session, copy.user_id, copy.parent_id)
-        session.add(copy)
-        try:
-            session.commit()
-        except IntegrityError:
-            session.rollback()
-            if attempt == 1:
-                raise
-            continue
-        session.refresh(copy)
-        return copy
-    raise AssertionError("unreachable")
+    return lineage.save_copy(session, CVDocument, copy)
 
 
 def create_cv(session: Session, user: User, title: str, language: str, template: str) -> CVDocument:
@@ -249,22 +187,7 @@ def create_cv(session: Session, user: User, title: str, language: str, template:
         "source_profile_version": profile_version,
     }
 
-    master = current_master(session, user, language)
-    if master is None:
-        cv = _stamped(CVDocument(**fields, is_master=True, version=0))
-        session.add(cv)
-        try:
-            session.commit()
-            session.refresh(cv)
-            return cv
-        except IntegrityError:
-            # Two "New CV" clicks at the same moment: the other one became the master.
-            session.rollback()
-            master = current_master(session, user, language)
-            if master is None:
-                raise  # some other database error, not the race: don't hide it
-
-    return _save_copy(session, _stamped(CVDocument(**fields, parent_id=master.id)))
+    return lineage.create_master_or_copy(session, CVDocument, user, fields)
 
 
 def _copy_of(source: CVDocument, title: str) -> CVDocument:
@@ -291,27 +214,18 @@ def save_as_new_version(session: Session, user: User, source: CVDocument) -> CVD
     """For "Save as new version" (draft) and "Duplicate as new version" (locked): the
     same content as the next version under the same master. Works on locked documents too:
     that is how a sent CV is changed (into a new draft)."""
-    # A draft that was never edited would only give an identical copy (Fatih's test:
-    # v8, v9, v10 all the same). A locked copy is different: its new draft is where
-    # the changes go, so it is always allowed.
-    if not source.is_locked and not source.is_master and never_edited(source):
-        raise NothingChanged
+    lineage.check_new_version_allowed(source)
     _check_room(session, user)
     return _save_copy(session, _copy_of(source, source.title))
 
 
 def never_edited(cv: CVDocument) -> bool:
-    """True while a document is exactly as it was created. New documents get the same
-    created_at and updated_at (_stamped); any save moves updated_at."""
-    return as_utc(cv.updated_at) == as_utc(cv.created_at)
+    """True while a document is exactly as it was created (see lineage.never_edited)."""
+    return lineage.never_edited(cv)
 
 
 def _stamped(cv: CVDocument) -> CVDocument:
-    """Give a new document one moment for created_at and updated_at (see never_edited)."""
-    now = utcnow()
-    cv.created_at = now
-    cv.updated_at = now
-    return cv
+    return lineage.stamped(cv)
 
 
 def duplicate(session: Session, user: User, source: CVDocument) -> CVDocument:
@@ -380,16 +294,9 @@ def unlock_after_undo(session: Session, cv: CVDocument, locked_at) -> bool:
 
 
 def _ensure_changeable(cv: CVDocument, master_unlocked: bool) -> None:
-    """The rules for changing a document in place (CLAUDE.md, D-048):
-    a locked document never changes; a master only after the user unlocked it.
-
-    `master_unlocked` means: the user clicked "Edit master" and confirmed in the
-    editor. Only the editor routes may pass True. The assistant (M12) and any other
-    automatic caller must never pass it: they create a new draft instead (SPEC §9.8)."""
-    if cv.is_locked:
-        raise DocumentLocked
-    if cv.is_master and not master_unlocked:
-        raise MasterNotUnlocked
+    """A locked CV never changes; a master only after the user unlocked it in the
+    editor (CLAUDE.md, D-048; the full rule is in lineage.ensure_changeable)."""
+    lineage.ensure_changeable(cv, master_unlocked)
 
 
 def update_content(
@@ -477,12 +384,7 @@ def delete_cv(session: Session, cv: CVDocument, user: User) -> int:
     from app.models import Application
     from app.services import trash_service
 
-    if cv.is_locked:
-        raise DocumentLocked
-    if cv.is_master:
-        copies = copy_count(session, cv)
-        if copies:
-            raise MasterHasCopies(copies)
+    lineage.ensure_deletable(session, CVDocument, cv)
     payload = trash_service.payload_of(cv)
     used_by = session.exec(
         select(Application.id).where(Application.cv_id == cv.id, Application.user_id == user.id)
@@ -504,22 +406,8 @@ def restore_cv(session: Session, user: User, payload: dict) -> CVDocument:
     if payload.get("user_id") != user.id:
         raise trash_service.CannotRestore
     cv = trash_service.row_from(CVDocument, payload)
-    if cv.is_master:
-        if current_master(session, user, cv.language) is not None:
-            raise trash_service.CannotRestore
-    else:
-        parent = session.get(CVDocument, cv.parent_id) if cv.parent_id else None
-        if parent is None or parent.user_id != user.id:
-            raise trash_service.CannotRestore
-        taken = session.exec(
-            select(CVDocument.id).where(
-                CVDocument.user_id == user.id,
-                CVDocument.parent_id == cv.parent_id,
-                CVDocument.version == cv.version,
-            )
-        ).first()
-        if taken is not None:
-            cv.version = _next_version(session, user.id, cv.parent_id)
+    if not lineage.fits_for_restore(session, CVDocument, user, cv):
+        raise trash_service.CannotRestore
     if cv.application_id is not None:
         owner = session.get(Application, cv.application_id)
         if owner is None or owner.user_id != user.id:
