@@ -8,7 +8,7 @@ DEFAULT_PLAN = "free"
 
 PLANS = {
     "free": {
-        "ai_daily_credits": 30,
+        "ai_daily_credits": 30,  # AI is V2 (D-150): not used yet
         "cv_templates": ["classic", "modern", "compact"],
         "max_active_applications": None,  # None = no limit
         "features": set(),

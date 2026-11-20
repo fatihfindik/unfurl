@@ -43,4 +43,4 @@ After changing a file here, click the reload arrow on the extension's card in
 | `site_hints.js` | Selectors for LinkedIn, StepStone, karriere.at, Indeed and XING. Only hints. |
 | `icons/` | Made by `scripts/make_extension_icons.py`. |
 
-Manual test list: `TESTING.md`. AI auto-fill and "Analyze fit" come with M6b.
+Manual test list: `TESTING.md`. AI auto-fill and "Analyze fit" are planned for V2 (M6b, D-150).

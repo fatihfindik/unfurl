@@ -368,7 +368,7 @@ def test_resend_needs_login_and_csrf(client, auth_client):
 
 def test_banner_is_shown_until_verified(auth_client, session, user):
     html = auth_client.get("/").text
-    assert "Verify your email to unlock AI features." in html
+    assert "Verify your email so we can send you reminders and account emails." in html
     assert 'hx-post="/resend-verification"' in html
 
     user.is_verified = True

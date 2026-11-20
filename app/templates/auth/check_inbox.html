@@ -10,9 +10,9 @@
     <p class="m-0 text-[15px] leading-[1.55] text-text-2">
       We sent a link to <b>{{ email }}</b>. Open it and confirm your email. The link works for 48 hours.
     </p>
-    <p class="m-0 text-sm text-text-3">You can set up your account now. AI features unlock once your email is verified.</p>
-    {#- "Continue to setup" goes to / until the onboarding wizard exists (M9). -#}
-    <a href="/" class="inline-flex h-11 items-center justify-center rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white no-underline hover:bg-[#4338CA]">Continue to setup</a>
+    <p class="m-0 text-sm text-text-3">You can set up your account now. Reminder and account emails start once your email is verified.</p>
+    {#- "Continue to setup" goes to My profile; the onboarding wizard is V2 (D-150). -#}
+    <a href="/profile" class="inline-flex h-11 items-center justify-center rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white no-underline hover:bg-[#4338CA]">Continue to setup</a>
     <div class="flex justify-center text-sm">
       {%- if message %}
         {% include "components/resend_result.html" %}

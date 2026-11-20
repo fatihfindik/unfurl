@@ -247,7 +247,7 @@ def test_the_button_doesnt_switch_the_session_to_the_tokens_owner(client, user, 
     # Still B (unverified), so B's banner is still there.
     home = client.get("/", follow_redirects=False)
     assert home.status_code == 200
-    assert "Verify your email to unlock AI features." in home.text
+    assert "Verify your email so we can send you reminders and account emails." in home.text
 
 
 def test_the_button_doesnt_sign_anyone_in(client, user):
