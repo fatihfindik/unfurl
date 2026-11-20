@@ -26,7 +26,7 @@ Kaynak: `docs/plans/M0.md` §12 (açık sorular, Fatih onayı) ve Build sırası
   | Ne | Sürüm | Nerede sabit |
   |---|---|---|
   | Python | 3.12 | `.python-version`, `requires-python` |
-  | uv | 0.13.7 | Dockerfile, CI |
+  | uv | 0.13.9 (Dependabot günceller, D-143) | Dockerfile, CI |
   | Tailwind CLI | v4.3.5 | `scripts/build_css.sh` |
   | htmx | 2.0.11 | `app/static/js/htmx.min.js` başlığı (+ sha256) |
   | @alpinejs/csp | 3.17.5 | `app/static/js/alpine.min.js` başlığı (+ sha256) |
