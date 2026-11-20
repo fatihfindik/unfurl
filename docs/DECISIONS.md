@@ -763,6 +763,7 @@ Kaynak: M6a Design fazı, plan-reviewer; Fatih onayladı (durum seçimi, 2026-11
 Kaynak: #5 (M0 test-writer), `docs/plans/T5.md`, plan-reviewer. **Claude karar verdi** (2026-11-20, Fatih'in onayını bekliyor).
 - **Karar:** En dışta küçük bir ASGI ara katmanı (`HeadAsGet`, `app/main.py`): `/static/` dışındaki HEAD isteklerini uygulamaya GET olarak verir (scope'un kopyası) ve yanıtın gövdesini atar; status ve header'lar (Content-Length dahil) GET'inkiyle aynı. FastAPI 0.162.3 GET route'larına HEAD eklemiyor. HEAD, GET ile aynı kodu çalıştırır; rate limit'ler HEAD'i de sayar. Ara katman kopyaya bir işaret koyar (`is_head_request`): `/verify-email` HEAD'de doğrulamaz ve bekleyen toast HEAD'de harcanmaz (security review L1, I1). Dosya yanıtlarının `pathsend` mesajı da gövdesiz gönderilir (I3).
 - **Alternatifler:** Her route'a `methods=["GET", "HEAD"]` (yeni route'larda unutulur); özel bir `APIRouter` sınıfı; `/verify-email`'de doğrulamayı GET yerine bir butona (POST) taşımak, `/confirm-email` gibi (D-112): akış değişir, ayrı issue.
+- **Güncelleme: D-146** (#66): `/verify-email` artık GET'te hiç doğrulamıyor, `is_head_request` özel durumu kalktı.
 
 ### D-143 · Action'lar SHA'ya, Docker image'ları digest'e; Dependabot
 Kaynak: #3 (M0 güvenlik incelemesi #5, #6), `docs/plans/T3.md`, plan-reviewer. **Claude karar verdi** (2026-11-20, Fatih'in onayını bekliyor). D-003'ün Action ve image satırlarının yerine geçer.
@@ -779,3 +780,9 @@ Kaynak: M6a elle testi (2026-11-20, adım 5 ve 7 başarısız), `docs/plans/M6a-
   - İş formundaki alanlara `autocomplete="off"`.
 - **Gerekçe:** LinkedIn'in sınıfları her yayında değişiyor; erişilebilirlik etiketleri ve sayfa başlığı kalıcı. karriere.at panelinde güvenilir yapı yok; ilanın kendi sayfası tam JSON-LD veriyor ve aynı sitede.
 - **Alternatifler:** Rastgele sınıfları selector olarak yazmak; karriere.at panelinin DOM'unu okumak; eklentiye karriere.at host izni vermek; arama sayfasında "ilanı açın" demek.
+
+### D-146 · E-posta doğrulama butonla
+Kaynak: #66 (#5 security review L1), `docs/plans/I66.md`, plan-reviewer. **Claude karar verdi** (2026-11-20, Fatih "kendin ilerleyebilirsin" dedi; onayını bekliyor). SPEC §6.1. D-112 ve D-134'ün kalıbı.
+- **Karar:** `GET /verify-email?token=…` (30/dk) hiçbir şeyi değiştirmez: geçerli ve doğrulanmamışsa "Verify your email" sayfası (adres, "If you didn't create an Unfurl account, close this page", **Verify my email** POST formu: gizli token + CSRF); zaten doğrulanmışsa "Email already verified"; geçersizse bugünkü 400 sayfası. `POST /verify-email` (10/dk) token'ı yeniden kontrol eder ve doğrular. Adres maskelenmez (imzalı token'da zaten okunur, link o adrese gitti); `full_name` gösterilmez. Yanıtlar `TOKEN_PAGE_HEADERS` ile.
+- **Gerekçe:** E-posta programları ve link tarayıcıları linkleri kendiliğinden açar; başkasının adresiyle açılan bir hesap, adres sahibi tıklamadan doğrulanabiliyordu.
+- **Alternatifler:** GET'te doğrulamak; JavaScript ile otomatik POST (CSP inline script'e izin vermez, tarayıcılar yine çalıştırabilir); doğrulama için giriş istemek.
