@@ -85,6 +85,16 @@ CSRF_HEADER = "X-CSRF-Token"  # sent by htmx (hx-headers in base.html)
 
 # Methods that only read data are not checked.
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
+# HeadAsGet (app/main.py) hands HEAD requests on as GET and marks them with this key.
+HEAD_SCOPE_KEY = "unfurl.head"
+
+
+def is_head_request(request: Request) -> bool:
+    """A HEAD request that runs as GET (D-142): it only asks what GET would answer,
+    so it must not change anything (verify an email, use up a toast)."""
+    return bool(request.scope.get(HEAD_SCOPE_KEY))
+
+
 # The Chrome extension API is protected by its own API tokens instead (M6).
 CSRF_EXEMPT_PREFIXES = ("/api/ext/",)
 
