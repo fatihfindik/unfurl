@@ -4,6 +4,7 @@ Limits (SPEC §6.1, D-020): login lockout per IP + email, emails per address,
 and requests per IP address (slowapi decorators, under the route decorator).
 """
 
+import datetime as dt
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
@@ -65,7 +66,7 @@ RequiredUser = Annotated[User, Depends(require_user)]
 FormText = Annotated[str, Form()]
 
 LOGIN_ERROR = "Invalid email or password."
-LOCKED_ERROR = "Too many attempts. Try again in 15 minutes."
+LOCKED_ERROR = "Too many attempts. Try again later, or reset your password."
 RESENT_MESSAGE = "Email sent. Check your spam folder too."
 WAIT_MESSAGE = "Please wait a few minutes before asking for another email."
 # The same answer whether the email has an account or not (no account guessing).
@@ -73,6 +74,23 @@ FORGOT_MESSAGE = "If an account exists, we sent an email."
 PASSWORD_CHANGED_MESSAGE = "Your password was changed. Sign in with your new password."
 ACCOUNT_DELETED_MESSAGE = "Your account and all your data were deleted."
 EMAIL_CHANGED_MESSAGE = "Your email was changed. Sign in with the new address."
+
+# After a password reset: the email this browser may sign in with past the per-email
+# lock, and until when (D-149).
+LOCKOUT_EXEMPT = "lockout_exempt"
+RESET_EXEMPTION = dt.timedelta(minutes=15)
+
+
+def reset_exempts(request: Request, email: str) -> bool:
+    exempt = request.session.get(LOCKOUT_EXEMPT)
+    if not isinstance(exempt, dict) or exempt.get("email") != normalize_email(email):
+        return False
+    try:
+        until = dt.datetime.fromisoformat(str(exempt.get("until")))
+    except ValueError:
+        return False
+    return utcnow() < until
+
 
 # Verify and reset links carry their token in the URL. "Referrer-Policy: no-referrer"
 # stops the browser from sending that URL to any other page opened from there.
@@ -139,7 +157,9 @@ def login(
     timezone: FormText = "",
 ):
     ip = client_ip(request)
-    if login_lockout.is_locked(ip, email):
+    # After a password reset this browser gets past the per-email lock (D-149).
+    per_email = not reset_exempts(request, email)
+    if login_lockout.is_locked(ip, email, per_email=per_email):
         # While locked, the password is not even checked (also the right one).
         return templates.TemplateResponse(
             request,
@@ -150,7 +170,7 @@ def login(
 
     user = authenticate(session, email, password)
     if user is None:
-        login_lockout.record_failure(ip, email)
+        login_lockout.record_failure(ip, email, per_email=per_email)
         # One message for every failure: it never tells whether the email has an account.
         return templates.TemplateResponse(
             request,
@@ -456,6 +476,12 @@ def reset_password_submit(
         return invalid_reset_link(request)  # the same link was used a moment earlier (#16)
     login_lockout.clear_email(user.email)
     end_session(request)
+    # Whoever locked the email can lock it again within seconds; this browser gets
+    # past that lock for a while, so the owner can sign in (D-149).
+    request.session[LOCKOUT_EXEMPT] = {
+        "email": normalize_email(user.email),
+        "until": (utcnow() + RESET_EXEMPTION).isoformat(),
+    }
     return redirect("/login?reset=1")
 
 

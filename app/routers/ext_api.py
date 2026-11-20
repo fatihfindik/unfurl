@@ -29,7 +29,7 @@ router = APIRouter(prefix="/api/ext", tags=["extension"])
 DbSession = Annotated[Session, Depends(get_session)]
 
 LOGIN_ERROR = "Invalid email or password."
-LOCKED_ERROR = "Too many attempts. Try again in 15 minutes."
+LOCKED_ERROR = "Too many attempts. Try again later, or reset your password."
 SIGN_IN_AGAIN = "Please sign in again."
 
 
