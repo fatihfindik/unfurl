@@ -8,8 +8,11 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# Secrets - never commit
+# Secrets - never commit (every .env.* file except the examples, e.g. test copies)
 .env
+.env.*
+!.env.example
+!.env.personal.example
 # The extension's private key and packed builds ("Pack extension"), D-137
 *.pem
 *.crx

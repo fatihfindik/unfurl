@@ -1,0 +1,78 @@
+# Personal local instance: Unfurl for your own, real job applications (D-155, D-156).
+# Fully separate from development: its own database, photo volume and port.
+#
+#   cp .env.personal.example .env.personal     (once; fill in the keys)
+#   scripts/start_personal.sh      (checks the keys, then: up -d --build)
+#   open http://127.0.0.1:8100
+#
+# Always pass --env-file .env.personal: the ${...} values below are read from it.
+# Without it, Docker Compose would read the development .env instead.
+# Backup and restore: scripts/backup_personal.sh, scripts/restore_personal.sh.
+#
+# UNFURL_PROJECT, UNFURL_PORT and UNFURL_ENV_FILE exist for testing the scripts on a
+# separate copy (its own volumes, port and settings). Leave them unset for daily use.
+
+name: ${UNFURL_PROJECT:-unfurl-personal}
+
+services:
+  db:
+    # Same image as docker-compose.yml and ci.yml (D-143).
+    image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env.personal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.personal}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env.personal}
+    volumes:
+      - db:/var/lib/postgresql/data
+    # No "ports": the database is reachable only by the app, inside this compose network.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: ${UNFURL_ENV_FILE:-.env.personal}
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Fixed here, whatever the env file says (D-156): development mode because
+      # production needs a mail server, but never debug pages with real data.
+      APP_ENV: development
+      DEBUG: "false"
+      EMAIL_BACKEND: console
+      # Development mode skips the app's own production checks (D-156), so the keys
+      # are required here instead: without them the instance does not start.
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env.personal}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env.personal}
+    ports:
+      # 127.0.0.1 only: not reachable from other devices on the same network.
+      - "127.0.0.1:${UNFURL_PORT:-8100}:8000"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    # Email links are printed in the logs (console email): keep the logs small.
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    # The image's command runs `alembic upgrade head` before starting the app.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  # Named after the project: unfurl-personal_db, unfurl-personal_uploads.
+  # They survive `down` and rebuilds. Only `down -v` deletes them: don't use -v here.
+  db:
+    name: ${UNFURL_PROJECT:-unfurl-personal}_db
+  uploads:
+    name: ${UNFURL_PROJECT:-unfurl-personal}_uploads
