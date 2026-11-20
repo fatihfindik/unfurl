@@ -4,7 +4,11 @@ Hi {{ full_name }},
 
 The email of your Unfurl account was changed to {{ new_email }}. This address no longer signs in.
 
-If this wasn't you, contact us at the address on {{ base_url }}/imprint.
+If this wasn't you, undo the change here (the link works for 7 days):
+
+{{ base_url }}{{ undo_path }}
+
+If you can't, contact us at the address on {{ base_url }}/imprint.
 
 Only trust links that start with {{ base_url }}.
 
