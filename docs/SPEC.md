@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.29 — 2026-11-20
+> **Durum:** MVP planı, v2.1.30 — 2026-11-20
+> v2.1.30: **AI'sız MVP (D-150):** AI özellikleri (M5, M6b, M7, M12a, M12b; M8/M9'un AI kısımları; onboarding sihirbazı; yapılandırılmış ilan; krediler, BYOK, Pro/fake door) V2'ye ertelendi. AI tasarımı silinmedi, "V2 (D-150)" diye işaretli. Yeni sıra: M8a → M8b → M9a → M13c → M13d. Apply sekmesi AI'sız 2 adım (Prepare documents → Final check).
 > v2.1.29: #57: login kilidine e-posta başına ikinci sınır (bütün IP'lerden saatte 20 hata → 1 saat); şifreyi sıfırlayan tarayıcı 15 dk muaf; Settings şifre kontrolleri e-posta kilidine bakmaz, kendi kullanıcı sayacı var (saatte 20 hata → 1 saat) (D-149).
 > v2.1.28: #64 (E4): ölü eklenti token'ları (iptal, süresi dolmuş, eski oturum sürümü) her gece 03:10'da silinir (D-148).
 > v2.1.27: #60: e-posta değişikliğinden sonra eski adrese 7 gün geçerli "undo" linki; geri alma eski adresi geri getirir, bütün oturumları kapatır, şifreyi geçersiz kılar ve eski adrese şifre sıfırlama linki gönderir (D-147).
@@ -49,7 +50,8 @@
 5. **Yeni bağımlılık ekleme:** Bölüm 3'teki stack dışında paket eklemeden önce gerekçesini `docs/DECISIONS.md` dosyasına yaz.
 6. **Gizli bilgiler:** API anahtarlarını, şifreleri ve token'ları asla koda, loglara veya commit'lere yazma. Her şey `.env` dosyasından gelir. `.env` dosyası `.gitignore`'da olmalı, `.env.example` ise repoda olmalı.
 7. **Öğrenme projesi:** Proje sahibi Python öğreniyor. Kodu okunabilir yaz, gereksiz soyutlamadan kaçın, önemli yerlere kısa ve açıklayıcı yorumlar ekle. Her milestone sonunda "bu adımda öğrenilen kavramlar" diye 3-5 maddelik bir not ekle (`docs/LEARNING_LOG.md`).
-8. **Prototip referansı:** Ekranların düzeni, metinleri ve etkileşimleri için `docs/prototype/*.dc.html` dosyalarına bak. Prototip ile bu doküman çelişirse bu doküman geçerlidir.
+8. **AI'sız MVP (D-150):** "V2 (D-150)" işaretli her şey (bölüm, tablo satırı, madde) MVP'de **uygulanmaz**. AI'ya dayanan metin, buton veya ayar arayüze eklenmez.
+9. **Prototip referansı:** Ekranların düzeni, metinleri ve etkileşimleri için `docs/prototype/*.dc.html` dosyalarına bak. Prototip ile bu doküman çelişirse bu doküman geçerlidir.
 
 ---
 
@@ -63,7 +65,7 @@
 - İlanlarda gördükleri eksikleri (dil, beceri, sertifika) kapatmak için kendini geliştirmek istiyor, ama öğrenme planını ayrı araçlarda (Notion, kurs siteleri) tutuyor ve iş aramayla bağlantısını kuramıyor.
 
 ### 1.2 Çözüm
-Ücretsiz bir web uygulaması ve onunla birlikte çalışan bir Chrome eklentisi:
+Ücretsiz bir web uygulaması ve onunla birlikte çalışan bir Chrome eklentisi. **V2 (D-150):** MVP AI'sızdır; aşağıda AI geçen kısımlar (içe aktarma, ilanı AI ile yapılandırma, uyum skoru, "Should I apply?", asistan) V2'dedir. MVP'de profil elle girilir, ilan eklentiyle (JSON-LD, site ipuçları) veya formla kaydedilir, Apply akışı 2 adımdır (Prepare documents → Final check).
 1. Kullanıcı profilini **bir kez** girer (veya mevcut CV'sini / LinkedIn profil PDF'ini yükleyip AI ile içe aktarır).
 2. Bu profilden tek tıkla **ATS uyumlu CV** ve **motivasyon mektubu** üretir (DE / EN / TR).
 3. LinkedIn, StepStone, karriere.at, Indeed gibi sitelerde gezerken **eklentiyle tek tıkla ilanı kaydeder**. AI ilanı otomatik olarak yapılandırılmış veriye çevirir.
@@ -99,6 +101,7 @@
 - Learning için takvim görünümü → V2 (Google Calendar senkronuyla birlikte)
 - Mülakat bilgisini e-posta veya takvimden otomatik okuma → V2
 - Takım / ajans özellikleri
+- **AI özellikleri** (ilan çıkarımı, uyum analizi, AI ile belge hazırlama ve kontrol, CV içe aktarma, asistan, krediler, BYOK, Pro bekleme listesi) → V2 (D-150)
 - Google / LinkedIn ile giriş (OAuth) → Faz 2
 
 ### 1.6 Kapsam tablosu (V1 = MVP, V2 = sonraki sürüm)
@@ -106,25 +109,25 @@
 | Modül | MVP (Version 1) | Version 2 |
 |---|---|---|
 | **Hesap ve giriş** | E-posta + şifre, e-posta doğrulama, şifre sıfırlama, güvenli oturum | Google ile giriş |
-| **Onboarding** | "Check your inbox" ekranı, CV veya LinkedIn PDF'inden AI ile profil doldurma (kurulumda ücretsiz) veya "Enter my details myself" kısa formu, belge dili seçimi, 3 adımlı eklenti kurulum anlatımı, AI kredisi açıklaması | – |
+| **Onboarding** | "Check your inbox" ekranı; "Continue to setup" My profile'a gider | Sihirbaz: CV veya LinkedIn PDF'inden AI ile profil doldurma (kurulumda ücretsiz) veya "Enter my details myself" kısa formu, belge dili seçimi, 3 adımlı eklenti kurulum anlatımı, AI kredisi açıklaması (D-150) |
 | **Profil (My profile)** | Avatar menüsünden açılır. Deneyim, eğitim, beceri, dil, sertifika, proje. İsteğe bağlı fotoğraf ve doğum tarihi. Tamamlanma yüzdesi (Documents sayfasında "Profile strength" kartı). | Biten kurs ve sertifikalar otomatik eklenir |
-| **CV oluşturucu** | 3 ATS uyumlu şablon, DE/EN/TR, canlı önizleme, PDF, **master CV ve başvuruya özel versiyonlar**, AI ile ilana uyarlama (kabul/ret) | Premium şablonlar, versiyon karşılaştırma ve geri yükleme |
-| **Motivasyon mektubu** | AI taslağı (dil, ton, uzunluk, vurgu), DACH formatı, düzenleme, PDF, **master mektup ve versiyonlar** | Takip (follow-up) e-postası taslakları |
-| **Apply akışı** | Detay sayfasında 3 adım: ① Should I apply? ② Prepare documents (seçilebilir öneriler + serbest metin isteği, sonuç bu ilana özel taslak kopya) ③ Final check ("Ready to apply?" kontrolleri, tek tıkla düzeltme, PDF indirme, "I have applied"). Belgeler sağdan açılan panelde önizlenir. Başvurudan sonra sekme **Progress** görünümüne döner, **gönderilen versiyonlar kilitlenir**. | – |
-| **Başvuru takibi (ana sayfa)** | Applications giriş sonrası açılan sayfadır: 5 durum özet kartı (Rejected dahil, tıklayınca filtreler), Needs attention (en acil 3 + "Show all"), Kanban (sürükle-bırak) ve liste (sıralama, sayfalama), arama (şirket, rol, şehir), kaynak / çalışma şekli / skor filtreleri, arşiv ("Show archived" + Restore), Interview modalı, otomatik **Next step** (Bölüm 6.13), zaman çizelgesi, notlar | – |
+| **CV oluşturucu** | 3 ATS uyumlu şablon, DE/EN/TR, canlı önizleme, PDF, **master CV ve başvuruya özel versiyonlar** | AI ile ilana uyarlama (kabul/ret, D-150), premium şablonlar, versiyon karşılaştırma ve geri yükleme |
+| **Motivasyon mektubu** | Elle yazma, DACH formatı, düzenleme, PDF, **master mektup ve versiyonlar** (M8a, M8b) | AI taslağı (dil, ton, uzunluk, vurgu; D-150), takip (follow-up) e-postası taslakları |
+| **Apply akışı** | Detay sayfasında 2 adım (M9a, D-150): ① Prepare documents (master CV ve mektuptan bu ilana özel taslak kopya) ② Final check (kural tabanlı kontrol listesi, PDF indirme, "I have applied"). Belgeler sağdan açılan panelde önizlenir. Başvurudan sonra sekme **Progress** görünümüne döner, **gönderilen versiyonlar kilitlenir**. | ① Should I apply? (uyum analizi), Prepare documents'ta AI önerileri (seçilebilir öneriler + serbest metin isteği), AI ile "Ready to apply?" kontrolü ve tek tıkla düzeltme (D-150) |
+| **Başvuru takibi (ana sayfa)** | Applications giriş sonrası açılan sayfadır: 5 durum özet kartı (Rejected dahil, tıklayınca filtreler), Needs attention (en acil 3 + "Show all"), Kanban (sürükle-bırak) ve liste (sıralama, sayfalama), arama (şirket, rol, şehir), kaynak / çalışma şekli filtreleri (skor filtresi V2, D-150), arşiv ("Show archived" + Restore), Interview modalı, otomatik **Next step** (Bölüm 6.13), zaman çizelgesi, notlar | – |
 | **Dashboard** | Yok. Kartları ilgili sayfalara dağıtıldı: durum ve Needs attention → Applications, seri → Learning, profil gücü → Documents. | Haftalık özet ve öneriler |
-| **Chrome eklentisi** | LinkedIn, StepStone, karriere.at, Indeed, Xing ve kariyer sayfalarından tek tıkla kayıt, AI ile otomatik doldurma, tekrar kaydı önleme, popup'ta uyum analizi | Firefox ve Edge (V3) |
+| **Chrome eklentisi** | LinkedIn, StepStone, karriere.at, Indeed, Xing ve kariyer sayfalarından tek tıkla kayıt (JSON-LD, site ipuçları), tekrar kaydı önleme | AI ile otomatik doldurma, popup'ta uyum analizi (M6b, D-150); Firefox ve Edge (V3) |
 | **İş keşfi** | – | Adzuna/Jooble ile ilan önerileri ve otomatik skor, takip edilen şirketler (Greenhouse, Lever, Personio, Workable), LinkedIn iş alarmı e-postalarını içe aktarma |
-| **Uyum analizi** | Skor 0–100, karar, eşleşenler, eksikler, anahtar kelimeler, mülakat noktaları, **"Add to learning plan"** | Önerilen ilanlar için otomatik analiz |
+| **Uyum analizi** | – (D-150) | Skor 0–100, karar, eşleşenler, eksikler, anahtar kelimeler, mülakat noktaları, "Add to learning plan" (M7); önerilen ilanlar için otomatik analiz |
 | **Learning** | Hedefler (kaynak hedefin içinde), görevler (her görev bir hedefe bağlı), Today / Next 7 days / All tasks / Catch-up, tamamlananlar "Done" bölümünde, New goal ve Add task modalları, haftalık saat hedefi, seri, dinlenme günleri | AI ile öğrenme planı, ilerleme grafikleri, Notion içe aktarma, Google Calendar senkronizasyonu |
-| **Bildirimler** | Uygulama içi bildirim zili, günlük çalışma hatırlatması (uygulama içi ve e-posta), takip, mülakat, bekleyen ilan ve AI sonucu bildirimleri, tür bazında ayarlar | Haftalık e-posta özeti, takip hatırlatmaları e-postayla, tarayıcı push bildirimleri (PWA) |
-| **Assistant: bilgi** | Her sayfada sağ altta yüzen panel (geçmiş, büyütme). Profil, başvurular, uyum analizleri, belgeler, Learning planı ve bulunduğun sayfa | Geçmiş haftaların özeti |
-| **Assistant: başvuru işlemleri** | Listeleme ve detay, durum değiştirme, not ekleme, Next step ve mülakat tarihi belirleme, uyum analizi çalıştırma, mektup taslağı oluşturma, **Final check** | Takip e-postası yazma, iş önerilerini açıklama |
-| **Assistant: Learning işlemleri** | Hedef oluşturma, görev ekleme, görev taşıma, tamamlandı işaretleme, saat kaydetme | Eksiklerden haftalara bölünmüş plan oluşturma, kaçırılan günleri otomatik yeniden planlama |
-| **Assistant: belge işlemleri** | Taslak CV ve mektuplarda değişiklik önerisi (önce/sonra), "Apply to draft" → Undo. Master ve gönderilmiş versiyonlar asla doğrudan değişmez. | Versiyonlar arası karşılaştırma |
-| **Assistant: deneyim** | Toplu değişikliklerde önizleme → Apply / Discard → Undo. Silme yok. Her işlem görünür bir kart. Mesaj başına 1 kredi. | Cevap akışı (streaming), mülakat modu (soru ve geri bildirim), proaktif haftalık değerlendirme |
-| **Ayarlar** | Account, Documents, AI (krediler, kendi API anahtarı/BYOK, asistan ayarları), Notifications, Browser extension, Plan, Privacy. Tema sadece üst bardan değişir. | Arayüz dili DE ve TR |
-| **Plan ve ödeme** | Free plan, "Pro" bekleme listesi (fake door), plan altyapısı | Ödeme ve Pro plan (V3) |
+| **Bildirimler** | Uygulama içi bildirim zili, günlük çalışma hatırlatması (uygulama içi ve e-posta), takip, mülakat ve bekleyen ilan bildirimleri, tür bazında ayarlar | AI sonucu bildirimi (D-150), haftalık e-posta özeti, takip hatırlatmaları e-postayla, tarayıcı push bildirimleri (PWA) |
+| **Assistant: bilgi** | – (V2, D-150). Tasarım: Her sayfada sağ altta yüzen panel (geçmiş, büyütme). Profil, başvurular, uyum analizleri, belgeler, Learning planı ve bulunduğun sayfa | Geçmiş haftaların özeti |
+| **Assistant: başvuru işlemleri** | – (V2, D-150). Tasarım: Listeleme ve detay, durum değiştirme, not ekleme, Next step ve mülakat tarihi belirleme, uyum analizi çalıştırma, mektup taslağı oluşturma, **Final check** | Takip e-postası yazma, iş önerilerini açıklama |
+| **Assistant: Learning işlemleri** | – (V2, D-150). Tasarım: Hedef oluşturma, görev ekleme, görev taşıma, tamamlandı işaretleme, saat kaydetme | Eksiklerden haftalara bölünmüş plan oluşturma, kaçırılan günleri otomatik yeniden planlama |
+| **Assistant: belge işlemleri** | – (V2, D-150). Tasarım: Taslak CV ve mektuplarda değişiklik önerisi (önce/sonra), "Apply to draft" → Undo. Master ve gönderilmiş versiyonlar asla doğrudan değişmez. | Versiyonlar arası karşılaştırma |
+| **Assistant: deneyim** | – (V2, D-150). Tasarım: Toplu değişikliklerde önizleme → Apply / Discard → Undo. Silme yok. Her işlem görünür bir kart. Mesaj başına 1 kredi. | Cevap akışı (streaming), mülakat modu (soru ve geri bildirim), proaktif haftalık değerlendirme |
+| **Ayarlar** | Account, Documents, Notifications, Browser extension, Privacy. Tema sadece üst bardan değişir. | AI (krediler, kendi API anahtarı/BYOK, asistan ayarları) ve Plan (D-150), arayüz dili DE ve TR |
+| **Plan ve ödeme** | Free plan, plan altyapısı (`entitlements`) | "Pro" bekleme listesi (fake door, D-150); ödeme ve Pro plan (V3) |
 | **Güvenlik ve GDPR** | Veri dışa aktarma, hesap silme, AB'de hosting, yasal sayfalar | – |
 
 ---
@@ -138,19 +141,19 @@
 | Kimlik doğrulama | E-posta + şifre (doğrulama e-postası, şifre sıfırlama) |
 | Arayüz dili | İngilizce |
 | CV / mektup dilleri | Almanca (DE), İngilizce (EN), Türkçe (TR) |
-| AI sağlayıcı | Anthropic Claude API |
-| AI maliyet modeli | Kullanıcı başına günlük ücretsiz kredi **ve** isteğe bağlı kendi API anahtarı (BYOK). BYOK varsa limit uygulanmaz. |
-| İlan alma | Chrome eklentisi (kullanıcı tıklar → sayfa metni → AI ile yapılandırma). Manuel form da yedek olarak var. |
+| AI sağlayıcı | Anthropic Claude API. **V2 (D-150):** MVP'de AI yok. |
+| AI maliyet modeli | **V2 (D-150).** Kullanıcı başına günlük ücretsiz kredi **ve** isteğe bağlı kendi API anahtarı (BYOK). BYOK varsa limit uygulanmaz. |
+| İlan alma | Chrome eklentisi (kullanıcı tıklar → JSON-LD, site ipuçları, sayfa başlığı → düzenlenebilir form; AI ile yapılandırma V2, D-150). Manuel form da var. |
 | Veri koruma | GDPR uyumlu: hesap silme, veri dışa aktarma, gizlilik sayfası, AB bölgesinde hosting |
 | Ürün adı ve logo | Unfurl. Logo: indigo kare içinde açılan beyaz bayrak, direğin tepesinde amber nokta. |
 | Tema | Açık / koyu / sistem. Varsayılan sistem, kullanıcı sağ üstteki tema seçiciden değiştirir: tek ikon (o anki temanın ikonu) + açılır menü (Light / Dark / System, seçili olan ✓). Tercih kaydedilir. Ayarlarda ayrı bir tema bölümü yok. |
 | Navigasyon | Menüde 4 öğe: Applications (ana sayfa) · Learning · Documents · Settings. My profile avatar menüsünden açılır. Asistan ayrı bir sayfa değil, her sayfada yüzen bir paneldir. |
-| Başvuru akışı | Detayda iki sekme: Apply (başvurudan sonra Progress) ve Job & details. Sağda Next step, belgeler ve zaman çizelgesi paneli. |
+| Başvuru akışı | Detayda iki sekme: Apply (2 adım, D-150; başvurudan sonra Progress) ve Job & details. Sağda Next step, belgeler ve zaman çizelgesi paneli. |
 | Next step | Her başvurunun en fazla 1 sonraki adımı vardır. Durumdan otomatik türetilir, kullanıcı değiştirebilir (Bölüm 6.13). |
 | Belgeler | Her dil için bir master CV ve master mektup. Başvuruya özel düzenlemeler yeni versiyon oluşturur. "Applied" durumunda gönderilen versiyon kilitlenir. |
 | Learning | MVP'de sade: hedefler, kaynaklar, görevler, seri, hatırlatma. AI plan oluşturma V2. |
 | Bildirimler | Uygulama içi bildirim merkezi + günlük çalışma hatırlatması e-postası. Ton destekleyici, suçlayıcı değil. |
-| Monetization | MVP'de ödeme yok. Altyapı hazır: plan alanı, entitlement modülü, maliyet takibi, fake door testi (Bölüm 17) |
+| Monetization | MVP'de ödeme yok. Altyapı hazır: plan alanı, entitlement modülü. Maliyet takibi ve fake door testi V2 (D-150, Bölüm 17) |
 
 ---
 
@@ -327,7 +330,7 @@ Tüm tablolarda: `id` (int, PK), `created_at`, `updated_at` (UTC). Kullanıcıya
 | full_name | str | |
 | ui_locale | str | şimdilik hep "en" |
 | default_doc_language | enum: de/en/tr | Varsayılan `en`. Settings › Documents'ta değişir; New CV bu dille açılır (D-129). |
-| anthropic_api_key_encrypted | str, nullable | Fernet ile şifreli BYOK anahtarı |
+| anthropic_api_key_encrypted | str, nullable | Fernet ile şifreli BYOK anahtarı (V2, D-150) |
 | last_login_at | datetime, nullable | |
 | session_version | int | Varsayılan 0. Şifre değişince/sıfırlanınca, çıkışta ve e-posta değişince +1 (D-128, D-134). Oturum çerezindeki değerle eşleşmeyen oturum geçersizdir. |
 | privacy_accepted_at | datetime | Kayıtta gizlilik onayı |
@@ -336,14 +339,14 @@ Tüm tablolarda: `id` (int, PK), `created_at`, `updated_at` (UTC). Kullanıcıya
 | plan | enum: free/pro | Varsayılan `free`. Bkz. Bölüm 17. |
 | plan_expires_at | datetime, nullable | `pro` dönem paketi bitiş tarihi. Geçmişse kullanıcı otomatik olarak `free` sayılır. |
 
-### 5.1b WaitlistSignup (fake door testi)
+### 5.1b WaitlistSignup (fake door testi) · V2 (D-150)
 | Alan | Tip | Not |
 |---|---|---|
 | user_id | FK, unique | Kullanıcı başına bir kayıt |
 | source | str | Butonun bulunduğu yer, ör. `quota_banner`, `settings`, `templates` |
 | note | str, nullable | "What would make Pro worth it for you?" cevabı (opsiyonel) |
 
-### 5.1c UpgradePromptEvent (fake door ölçümü)
+### 5.1c UpgradePromptEvent (fake door ölçümü) · V2 (D-150)
 | Alan | Tip | Not |
 |---|---|---|
 | user_id | FK | |
@@ -442,7 +445,7 @@ Profilin **anlık görüntüsüdür** (snapshot). Bir ilana göre uyarlanan CV, 
 | interview_at | datetime, nullable | Interview modalından |
 | interview_type | enum video/phone/onsite, nullable | |
 | interview_with | str, nullable | |
-| posting_closes_at | date, nullable | "Apply by" için. M4b'de Details formundan elle, M5'ten itibaren AI ilandan da çıkarır |
+| posting_closes_at | date, nullable | "Apply by" için. M4b'de Details formundan elle; AI'nın ilandan çıkarması V2 (D-150) |
 | contact_name, contact_email | str, nullable | |
 | notes | text, nullable | |
 | cv_id | FK, nullable | Bu başvuruda kullanılan CV |
@@ -461,7 +464,7 @@ Profilin **anlık görüntüsüdür** (snapshot). Bir ilana göre uyarlanan CV, 
 
 Durum değişikliği her olduğunda otomatik bir event oluşturulur. Status `applied` olduğunda `applied_at` boşsa bugünün tarihi atanır.
 
-### 5.7 FitAnalysis
+### 5.7 FitAnalysis · V2 (D-150)
 | Alan | Tip |
 |---|---|
 | application_id | FK |
@@ -473,11 +476,11 @@ Durum değişikliği her olduğunda otomatik bir event oluşturulur. Status `app
 
 Aynı `application_id` + `profile_version` için önbellekteki sonuç döner. "Yeniden analiz et" butonu önbelleği atlar.
 
-### 5.8 ChatThread / ChatMessage
+### 5.8 ChatThread / ChatMessage · V2 (D-150)
 - **ChatThread:** title, last_message_at
 - **ChatMessage:** thread_id, role (user/assistant/tool), content (JSON — Anthropic mesaj formatındaki content blokları), tokens_in, tokens_out
 
-### 5.9 AIUsage
+### 5.9 AIUsage · V2 (D-150)
 | Alan | Tip |
 |---|---|
 | feature | enum extract_job/fit_analysis/cover_letter/tailor_cv/import_cv/assistant |
@@ -488,7 +491,7 @@ Aynı `application_id` + `profile_version` için önbellekteki sonuç döner. "Y
 | success | bool |
 | error_code | str, nullable |
 
-### 5.9b ReadinessCheck ("Ready to apply?" sonucu)
+### 5.9b ReadinessCheck ("Ready to apply?" sonucu) · V2 (D-150)
 | Alan | Tip | Not |
 |---|---|---|
 | application_id | FK | |
@@ -496,7 +499,7 @@ Aynı `application_id` + `profile_version` için önbellekteki sonuç döner. "Y
 | result | JSON | bkz. 9.11 |
 | open_count | int | Açık öneri sayısı (0 = hazır) |
 
-### 5.9c PendingChangeSet (asistanın önizlemeli değişiklikleri)
+### 5.9c PendingChangeSet (asistanın önizlemeli değişiklikleri) · V2 (D-150)
 Asistan toplu değişiklik önerdiğinde değişiklikler hemen uygulanmaz, burada bekler.
 | Alan | Tip | Not |
 |---|---|---|
@@ -543,10 +546,10 @@ Beş Learning tablosunun (NotificationPreference dahil) hepsinde `user_id` (FK, 
 
 ## 6. Ekranlar ve Kullanıcı Akışları
 
-Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **Learning**, **Documents**, **Settings**) ve altında AI kredisi kartı ("AI credits: 24/30 today", "How credits work" ve "Upgrade" linkleri, ya da "Using your own API key"). **Üst bar (sağ üst):** tema seçici (tek ikon + açılır menü: Light / Dark / System, seçili olan ✓), bildirim zili (okunmamış sayısı rozeti) ve avatar menüsü (My profile, Settings, Sign out). **Sağ alt köşe:** her sayfada asistan butonu (6.8). Responsive olmalı, mobilde menü üstte/akordeon olur.
+Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **Learning**, **Documents**, **Settings**) (altındaki AI kredisi kartı V2, D-150: "AI credits: 24/30 today", "How credits work" ve "Upgrade" linkleri, ya da "Using your own API key"). **Üst bar (sağ üst):** tema seçici (tek ikon + açılır menü: Light / Dark / System, seçili olan ✓), bildirim zili (okunmamış sayısı rozeti) ve avatar menüsü (My profile, Settings, Sign out). **Sağ alt köşe:** her sayfada asistan butonu (6.8; V2, D-150). Responsive olmalı, mobilde menü üstte/akordeon olur.
 
 ### 6.0 Arayüz kuralları (tüm ekranlar)
-1. **Kredi görünürlüğü:** AI kullanan her buton maliyetini gösterir ("Auto-fill with AI · 1 credit"). İşlem sonrası "1 credit used · 23 left today" gösterilir.
+1. **Kredi görünürlüğü** (V2, D-150): AI kullanan her buton maliyetini gösterir ("Auto-fill with AI · 1 credit"). İşlem sonrası "1 credit used · 23 left today" gösterilir.
 2. **Toast + Undo:** Geri alınabilen işlemler (durum değiştirme, arşivleme, snooze, ekleme, görev tamamlama) onay sormaz. Alt ortada 5 saniyelik bir toast gösterilir, içinde **Undo** bulunur. Onay modalı sadece geri alınamayan işlemlerde (hesap silme) kullanılır.
 3. **Başlık kalıbı:** İç sayfalar (başvuru detayı, editörler, My profile) üstte "← Üst sayfa" butonu ve başlıkla açılır. Başvuru detayında ayrıca şirket avatarı ve "‹ 1 of 10 ›" geçişi vardır. Editör bir başvurudan açıldıysa geri butonu o başvuruya döner.
 4. **Modallar ve paneller:** Kısa formlar modal, belge önizlemesi sağdan açılan panel (drawer) olarak açılır. Kullanıcı bulunduğu sayfadan kopmaz.
@@ -557,7 +560,7 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 **Bildirim paneli:** Zile tıklanınca açılır. Son 20 bildirim, okunmamışlar vurgulu, "Mark all as read", alta "Notification settings" linki (Settings'i doğrudan Notifications bölümünde açar). Bir bildirime tıklanınca okundu olur, panel kapanır ve ilgili sayfaya gidilir. Panel dışına tıklamak da paneli kapatır.
 
 ### 6.1 Kimlik doğrulama
-- **/register:** ad soyad, e-posta, şifre (min 10 karakter), gizlilik politikası onayı (zorunlu checkbox). Kayıttan sonra doğrulama e-postası gönderilir ve **"Check your inbox"** ekranı gösterilir ("Continue to setup", "Resend email"). Kullanıcı devam edebilir ama AI özellikleri doğrulama olmadan kilitlidir (sarı uyarı bandı + "Resend email" butonu).
+- **/register:** ad soyad, e-posta, şifre (min 10 karakter), gizlilik politikası onayı (zorunlu checkbox). Kayıttan sonra doğrulama e-postası gönderilir ve **"Check your inbox"** ekranı gösterilir ("Continue to setup", "Resend email"). Kullanıcı devam edebilir; e-posta bildirimleri ve hesap e-postaları doğrulamadan sonra gelir (sarı uyarı bandı + "Resend email" butonu; AI özelliklerinin kilidi V2, D-150).
 - **/login:** e-posta + şifre. 5 başarısız denemeden sonra 15 dakikalık kilit (IP + e-posta bazlı rate limit); ayrıca bir e-posta için bütün IP'lerden saatte 20 hatada o e-posta 1 saat kilitlenir (D-149). Hata mesajı genel olmalı: "Invalid email or password".
 - **/logout:** POST. Arayüzde "Sign out". `session_version` artar: bu tarayıcının, kopyalanmış bir çerezin ve diğer cihazların oturumları biter (D-128).
 - **/verify-email?token=...:** 48 saat geçerli. Link açılınca onay sayfası; doğrulama **Verify my email** butonuyla (POST, CSRF), e-posta programları ve link tarayıcıları doğrulamaz (D-146).
@@ -572,9 +575,10 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 - **Token'lar:** Reset token `password_hash`'ten türetilen bir parmak izi içerir, şifre değişince geçersiz olur (tek kullanımlık). Verify token idempotenttir: zaten doğrulanmış kullanıcı "Email already verified" görür. E-posta değişikliği token'ı (`/confirm-email`, 24 saat) kullanıcı, eski ve yeni adres ile `session_version` taşır: e-posta ya da oturum sürümü değişince geçersizdir (D-134). Geri alma token'ı (`/undo-email-change`, 7 gün) kullanıcı, hesap damgası ve eski adresi taşır, oturum sürümüne **bağlı değildir** (saldırgan Sign out ile geçersiz kılamasın); hesap eski adresi kullanınca geçersizdir (D-147). Token'lar imzalıdır, DB'de tutulmaz (D-027).
 - **Şifre sıfırlama sonrası:** Reset e-posta sahipliğini kanıtladığı için kullanıcı doğrulanmış sayılır (`is_verified=True`) ve o e-postanın login kilidi kayıtları silinir. Otomatik giriş yapılmaz: kullanıcı `/login`'e yönlendirilir ("Your password was changed. Sign in with your new password.").
 - **Kayıtta mevcut e-posta:** "An account with this email already exists." mesajı login ve forgot-password linkleriyle gösterilir (D-023). forgot-password numaralandırmaya kapalı kalır.
-- **Doğrulanmamış kullanıcı:** Kayıttan sonra otomatik giriş yapılır ve "Check your inbox" açılır. "Continue to setup" M9'a kadar `/` sayfasına gider. `base.html`'de sarı bant ve "Resend email" butonu gösterilir. `require_verified` dependency'si 403 döner, AI endpoint'leri bunu M7'den itibaren kullanır.
+- **Doğrulanmamış kullanıcı:** Kayıttan sonra otomatik giriş yapılır ve "Check your inbox" açılır. "Continue to setup" My profile'a (`/profile`) gider (sihirbaz V2, D-150). `base.html`'de sarı bant ve "Resend email" butonu gösterilir. `require_verified` dependency'si 403 döner; AI endpoint'leri onu V2'de kullanır (D-150).
 
-### 6.2 Onboarding (ilk giriş)
+### 6.2 Onboarding (ilk giriş) · V2 (D-150)
+MVP'de sihirbaz yok: "Check your inbox" → "Continue to setup" → My profile. Tasarım:
 3 adımlı sihirbaz (atlanabilir):
 1. "Import your existing CV" (madde madde kısa açıklama) → PDF yükle (mevcut CV veya LinkedIn "Save to PDF" profil çıktısı) → AI profili doldurur → özet ("We found: 3 experiences…"), isteğe bağlı "Review details". Bu adımdaki import **kredi harcamaz**. Alternatif: "No CV? Enter my details myself" → başlık ve metin değişir, 3 alanlı kısa form (ad, başlık, mevcut/son iş).
 2. Belge dili tercihi (DE/EN/TR).
@@ -598,14 +602,14 @@ Giriş sonrası açılan sayfa Applications'tır (ayrı bir Dashboard yok).
 
 ### 6.5 Documents (/documents) ve CV editörü
 - Menüde tek öğe: **Documents**. İki sekme: **CVs** ve **Cover letters**. Her sekmede önce **Masters** (dil başına), altında **Copies for applications** (şirket · versiyon, "based on", rozet: Draft / Sent · locked). Sağda "Profile strength" kartı (yüzde, eksikler, "Complete my profile").
-- Kopyalar normalde başvuru detayındaki Apply › Prepare documents adımında oluşur.
+- Kopyalar normalde başvuru detayındaki Apply › Prepare documents adımında oluşur (M9a).
 - Liste: başlık, dil, şablon, son güncelleme, bağlı başvuru.
 - **Yeni CV:** başlık, dil, şablon seç → profilden snapshot oluşturulur. Kullanıcının o dilde master CV'si yoksa ilk CV otomatik master olur.
 - Listede master CV'ler "Master" rozetiyle en üstte, başvuru kopyaları altında gruplanmış gösterilir.
 - **Editör başlığında:** "← {Başvuru adı}" (başvurudan açıldıysa) veya "← Documents", "All documents" linki, belge adı, durum rozeti (Master / Draft / Sent · locked) ve **versiyon seçici** (aynı başvurunun versiyonları + master). Üstte bağlama göre bilgi bandı: "Copy for Kranich Health, based on Master CV (EN). Your master CV stays unchanged." Kilitli versiyonda form salt okunur ve "Duplicate as new version" butonu vardır.
 - "Save as new version" butonu mevcut taslaktan yeni bir versiyon oluşturur.
 - **CV editörü (/cvs/{id}):** solda form (snapshot içeriğini düzenleme, bölümleri gizleme/gösterme, deneyim maddelerini seçme), sağda canlı HTML önizleme (HTMX ile her değişiklikte güncellenir, 500 ms debounce).
-- Butonlar: "Edit with assistant" (6.8), "Download PDF", "Duplicate", "Save as new version", "Refresh from profile" (onay ister, düzenlemeleri üzerine yazar; kilitli belgede yok), "Tailor to a job" (bkz. 9.6; master üzerinde çalışırsa sonuç yeni bir başvuru kopyası olarak kaydedilir), "Delete" (kilitli belgeler silinemez).
+- Butonlar: "Edit with assistant" (6.8; V2, D-150), "Download PDF", "Duplicate", "Save as new version", "Refresh from profile" (onay ister, düzenlemeleri üzerine yazar; kilitli belgede yok), "Tailor to a job" (V2, D-150; bkz. 9.6; master üzerinde çalışırsa sonuç yeni bir başvuru kopyası olarak kaydedilir), "Delete" (kilitli belgeler silinemez).
 - Dosya adı: `CV_{FullName}_{Company?}_{lang}.pdf`
 
 **Şablonlar:**
@@ -619,32 +623,33 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 
 ### 6.6 Cover letter editörü
 - Documents › Cover letters sekmesinden veya başvurudan açılır. Editör CV'ye benzer, başlık kalıbı aynıdır. Master mektup ve versiyonlar CV ile aynı mantıkta (rozetler, kilit, "Duplicate as new version").
-- **Yeni mektup:** bir başvuru seç (opsiyonel) → dil, ton, uzunluk, "Anything to emphasize?" serbest metin alanı → "Generate with AI" veya "Write myself".
+- **Yeni mektup:** bir başvuru seç (opsiyonel) → dil, ton, uzunluk, "Anything to emphasize?" serbest metin alanı → "Write myself" ("Generate with AI" V2, D-150; ton, uzunluk ve "Anything to emphasize?" alanı da AI ile birlikte V2).
 - Editör: alıcı bilgileri, konu, gövde (textarea), canlı önizleme, PDF indirme.
 - DACH formatı: gönderen bilgileri, alıcı adresi, şehir + tarih, Betreff (konu), Anrede, gövde, kapanış ("Mit freundlichen Grüßen"), isim. Dil EN veya TR ise o dilin konvansiyonlarına uygun kalıplar kullanılır.
 
 ### 6.7 Board, liste ve başvuru detayı
 - **Kanban görünümü (varsayılan):** sütunlar Saved | Applied | Interview | Offer | Rejected. Rejected sütunu varsayılan olarak daraltılmıştır ("Show"). Her sütun kendi içinde kaydırılır; çok kart varsa ilk 20 + "Show more".
-- Kart: şirket, pozisyon, konum, uyum skoru rozeti (≥75 yeşil, 50–74 sarı, <50 gri), kaynak, son güncelleme. Kartta durum menüsü yoktur.
+- Kart: şirket, pozisyon, konum, kaynak, son güncelleme (uyum skoru rozeti V2, D-150: ≥75 yeşil, 50–74 sarı, <50 gri). Kartta durum menüsü yoktur.
 - Durum **sürükle-bırak** ile değişir (SortableJS → HTMX `PATCH /applications/{id}/move`), toast + Undo. Saved → Applied geçişinde bağlı belgeler kilitlenir.
 - **Interview'a taşıma** (board, detay veya asistan) bir modal açar: tarih, saat, tür (video/telefon/yerinde), kiminle (opsiyonel). "Skip, I will add it later" mümkündür.
-- **Liste görünümü:** Company ve Fit sütunlarına göre sıralama, sayfa başına 25 satır.
-- **Arama** (şirket, pozisyon, şehir) ve **filtreler:** kaynak, çalışma şekli (Remote/Hybrid/Onsite), minimum skor. "Clear filters". "Show archived (n)" anahtarı arşivlenenleri soluk ve "Restore" linkiyle gösterir.
-- **"Add job"** modalı: eklentiyi öneren bilgi kutusu, link veya ilan metni, "Auto-fill with AI · 1 credit", alanlar, Status. Kayıt sonrası toast + Undo.
+- **Liste görünümü:** Company sütununa göre sıralama (Fit V2, D-150), sayfa başına 25 satır.
+- **Arama** (şirket, pozisyon, şehir) ve **filtreler:** kaynak, çalışma şekli (Remote/Hybrid/Onsite); minimum skor V2 (D-150). "Clear filters". "Show archived (n)" anahtarı arşivlenenleri soluk ve "Restore" linkiyle gösterir.
+- **"Add job"** modalı: eklentiyi öneren bilgi kutusu, link veya ilan metni, alanlar, Status ("Auto-fill with AI · 1 credit" V2, D-150). Kayıt sonrası toast + Undo.
 
 **Başvuru detay sayfası (/applications/{id}):**
 - **Başlık** (6.0/3): "← Applications", şirket avatarı, pozisyon, şirket · konum · çalışma şekli · kaynak, "‹ 1 of 10 ›", durum seçici (Saved/Applied/Interview/Offer/Rejected/Archived), "View posting ↗".
 - **Sekmeler:** **Apply** (başvurudan sonra adı **Progress**) ve **Job & details**.
-- **Apply sekmesi – 3 adım** (tamamlanan adım daralır, "Show" ile açılır; sonraki adım önceki bitmeden pasiftir):
+- **Apply sekmesi – MVP: 2 adım (M9a, D-150):** ① **Prepare documents:** bu ilan için master CV'den (ve varsa master mektuptan) taslak kopya oluştur ve başvuruya bağla; her biri için "Preview & edit". AI önerisi yok. ② **Final check:** kural tabanlı kontrol listesi (D-151, M9a Design fazında yazılır; ör. CV bağlı mı, mektup bağlı mı, iletişim bilgileri dolu mu), her eksik düzeltme sayfasına götürür; altında "Download PDFs" ve "I have applied · mark as applied" (aşağıdaki 3. adımla aynı davranış). Tamamlanan adım daralır, sonraki adım önceki bitmeden pasiftir.
+- **Apply sekmesi – V2 tasarımı: 3 adım** (D-150; MVP'de yukarıdaki 2 adım):
   1. **Should I apply?** – skor, karar, özet, eşleşenler, eksikler (severity). Önemi critical veya moderate olan her eksikte **"+ Add to learning plan"**: önceden doldurulmuş bir modal açar (hedef, hedef tarih, haftalık saat, isteğe bağlı kaynak, "yeni hedef" veya "mevcut hedefe ekle"). Kaydedince satır "Added as a goal · view" olur. Butonlar: "Not for me, archive" (toast + Undo) ve "Yes, prepare my documents →".
   2. **Prepare documents** – master CV ve mektubun ilana göre karşılaştırılması. Seçilebilir öneriler (checkbox): anahtar kelime ekleme, özeti yeniden yazma, madde sırası, dil kopyası (ör. "Also create a German version"). Mektup: "Write a cover letter from your master letter". **"Anything else to change?"** serbest metin alanı. "Also apply the keyword changes to my Master CV" (varsayılan kapalı). Buton toplam krediyi gösterir ("Create documents · 6 credits"). Sonuç: bu ilana özel **taslak** kopyalar (CV vN, mektup vN) ve her biri için "Preview & edit".
   3. **Final check** – 9.11'deki kontroller, uyarılarda tek tıklık düzeltme. Altında "Ready? Send it yourself, then come back" kutusu: **"Download PDFs"** ve **"I have applied · mark as applied"**. İşaretleyince durum Applied olur, belgeler kilitlenir, `ApplicationDocument` kayıtları oluşur (toast + Undo).
-- **Progress görünümü** (Applied ve sonrası): "Applied on {tarih}" kartı ve gönderilen kilitli belgeler (Preview, PDF); "What happens next" (follow-up tarihi, interview gelirse ne yapılacağı, ilgili Learning hedefi, "Draft a follow-up email" ve "I got an interview" butonları); daraltılmış "How you applied" geçmişi.
-- **Belge paneli (drawer):** "Preview & edit" sağdan açılan geniş bir panel açar: CV / Cover letter sekmeleri, belge adı ve durumu, bu ilan için değişen yerler vurgulu önizleme, "Edit with assistant", "Open full editor", "Download PDF". Kilitli belgede panel salt okunurdur.
-- **Job & details sekmesi:** yapılandırılmış ilan (rol özeti, gereksinimler, nice-to-have) + Details (iletişim kişisi, maaş metni, çalışma şekli, kaynak, notlar) + daraltılmış **"Original posting (saved copy)"** (eklentinin kaydettiği ham metin; ilan yayından kalksa da kalır).
+- **Progress görünümü** (Applied ve sonrası): "Applied on {tarih}" kartı ve gönderilen kilitli belgeler (Preview, PDF); "What happens next" (follow-up tarihi, interview gelirse ne yapılacağı, ilgili Learning hedefi ve "Draft a follow-up email" V2, D-150; "I got an interview" butonu); daraltılmış "How you applied" geçmişi.
+- **Belge paneli (drawer):** "Preview & edit" sağdan açılan geniş bir panel açar: CV / Cover letter sekmeleri, belge adı ve durumu, önizleme (bu ilan için değişen yerlerin vurgusu ve "Edit with assistant" V2, D-150), "Open full editor", "Download PDF". Kilitli belgede panel salt okunurdur.
+- **Job & details sekmesi:** Details (iletişim kişisi, maaş metni, çalışma şekli, kaynak, notlar) + daraltılmış **"Original posting (saved copy)"** (eklentinin kaydettiği ham metin; ilan yayından kalksa da kalır). Yapılandırılmış ilan (rol özeti, gereksinimler, nice-to-have) V2 (D-150).
 - **Sağ panel:** **Next step** kartı (6.13; metin, gerekçe, "Change"), **Documents** kartı (sent/draft rozetleriyle), **Timeline** (dikey zaman çizelgesi + not ekleme).
 
-### 6.8 Assistant (yüzen panel)
+### 6.8 Assistant (yüzen panel) · V2 (D-150)
 - Ayrı bir sayfa yoktur. Her sayfada sağ altta yuvarlak bir ✨ butonu bulunur. Tıklanınca sağ altta bir panel açılır (≈400 px, "Expand" ile ≈640 px). Panelde: başlıkta bağlam satırı ("Context: Kranich Health · Senior PM"), "History" (son sohbetler), sohbet, sayfaya göre öneri çipleri, mesaj alanı ve "1 AI credit per message · changes are previewed first · the assistant never deletes" notu.
 - Bulunduğu sayfanın bağlamını iletir (ör. `application_id`, `document_id`, Learning). Ayarlardan kapatılabilir.
 - Asistan bir araç kullandığında sohbette küçük bir kart görünür ("Status: Nordbau Software · Applied → Interview"). Tek kayıtlık değişiklikler hemen uygulanır ve kartta **Undo** bulunur.
@@ -653,18 +658,18 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 
 ### 6.9 Settings (/settings)
 - **Account (M13b, D-132):** ad; e-posta değiştirme (#56, D-134: yeni adres + mevcut şifre → yeni adrese onay linki, eski adrese bildirim; onaylanınca adres değişir ve doğrulanmış sayılır; eski adrese giden bildirimde 7 gün geçerli **undo** linki: onay sayfası + buton, hesap eski adrese döner, bütün oturumlar ve eklenti token'ları kapanır, şifre geçersiz olur ve eski adrese şifre sıfırlama linki gider; adres bu arada tekrar değişmiş olsa da çalışır; son 8 günde bir değişiklikle gelmiş bir adres link almaz (geri almayla dönen adres alır); geri alınınca değiştirilen adrese bildirim gider; formda "eski adres 7 gün geri alabilir" uyarısı, #60, D-147); şifre değiştirme (mevcut şifre login kilidine bağlı, bu oturum kalır, diğer cihazlar çıkar, doğrulanmış adrese bildirim e-postası).
-- **Documents (M13a):** "Default document language" (German / English / Turkish, varsayılan English); New CV modalı bu dille açılır, M8'de mektup da. Kendi formu, toast "Settings saved." (D-129).
-- **AI:** "How AI credits work" açıklaması, günlük kredi kullanımı ve özellik başına kredi tablosu, BYOK alanı ve asistan ayarları (sayfa bağlamını kullan, sohbet geçmişi saklama süresi, sohbet geçmişini sil):
+- **Documents (M13a):** "Default document language" (German / English / Turkish, varsayılan English); New CV modalı bu dille açılır, M8a'da mektup da. Kendi formu, toast "Settings saved." (D-129).
+- **AI** (V2, D-150): "How AI credits work" açıklaması, günlük kredi kullanımı ve özellik başına kredi tablosu, BYOK alanı ve asistan ayarları (sayfa bağlamını kullan, sohbet geçmişi saklama süresi, sohbet geçmişini sil):
   - "Add your Anthropic API key" → kaydederken ucuz bir test çağrısıyla doğrulanır → şifreli saklanır → ekranda sadece `sk-ant-...XXXX` (son 4 karakter) gösterilir → "Remove key".
-- **Notifications (M11b'de gelen tek bölüm; diğerleri kendi milestone'larında, D-107):** Learning bölümü (günlük çalışma hatırlatması aç/kapat, saat seçimi: 06:00–23:00 yarım saatlik liste, e-postayla da gönder, dinlenme günleri, saat dilimi, seri ve haftalık hedef: "Celebrate 7, 30 and 100-day streaks and mention your streak in reminders.") ve Job search bölümü (takip, mülakat, bekleyen ilan; AI sonucu M5'te). "Weekly email summary" satırı "Coming soon" etiketiyle görünür (V2). Tek form; dilim değişince sayfa yeniden yüklenir (D-114).
-- **Plan:** Free plan özellikleri ve "Pro · coming soon" kartı. "Upgrade to Pro" bekleme listesi modalını açar (bkz. 17.3).
+- **Notifications (M11b'de gelen tek bölüm; diğerleri kendi milestone'larında, D-107):** Learning bölümü (günlük çalışma hatırlatması aç/kapat, saat seçimi: 06:00–23:00 yarım saatlik liste, e-postayla da gönder, dinlenme günleri, saat dilimi, seri ve haftalık hedef: "Celebrate 7, 30 and 100-day streaks and mention your streak in reminders.") ve Job search bölümü (takip, mülakat, bekleyen ilan; AI sonucu V2, D-150). "Weekly email summary" satırı "Coming soon" etiketiyle görünür (V2). Tek form; dilim değişince sayfa yeniden yüklenir (D-114).
+- **Plan** (V2, D-150): Free plan özellikleri ve "Pro · coming soon" kartı. "Upgrade to Pro" bekleme listesi modalını açar (bkz. 17.3).
 - **Browser extension:** aktif token'lar listesi (ad, oluşturma, son kullanım, bitiş), her birinde "Revoke" (toast) ve kısa kurulum adımları ("Load unpacked"; ayrıntı `extension/README.md`'de) (D-140).
 - **Privacy (M13b):** "Export my data" (JSON indir, D-130), "Delete my account" (modal, şifre ile onay → tüm veriler ve yüklenen dosyalar kalıcı olarak silinir, Undo yok, D-131).
 
 ### 6.10 Learning (/learning)
 - **Üst özet kartları:** Streak (🔥 ikonlu, "12 days" + seçilen günlerden yazılan dinlenme günü notu ve "Change" linki: 7 gün kutulu küçük modal, en fazla 6 gün, D-090), This week (bu haftanın Pzt–Paz saati / aktif hedeflerin haftalık hedef toplamı, ilerleme çubuğu), Tasks done (x / y), Next reminder (bir sonraki hatırlatma: "Today, 19:00" / "Tomorrow, 19:00" / "Mon, 19:00" + "Change reminder"; kapalıysa "Off" + "Turn on"; aktif hedeflerde hiç açık görev yoksa "No tasks planned" + "Add task"; D-115, D-122).
-- **Plan kartı (sol, geniş):** sekmeler **Today / Next 7 days / All tasks / Catch-up (n)**. All tasks haftalara göre gruplanır (Overdue, This week, Next week, Later; boş grup gösterilmez). Her görev satırı: tamamlandı kutusu, başlık, hedef rozeti (renkli), tarih, süre, dersi açan ↗ ikonu (kaynak adı tekrar yazılmaz, hedeften gelir), "Reschedule" (tarih seçici, açık görevlerde), "Edit" (modal: açık görevde başlık, tarih, süre; tamamlanmışta başlık ve harcanan süre, D-116) ve "Delete" (toast + Undo, D-095). Tamamlanan görevler listenin altında daraltılmış **"Done (n)"** bölümüne iner (toast + Undo; All tasks'ta son 30 gün). Catch-up sekmesinde suçlamayan bir bilgi bandı ("These are overdue. No stress, you can reschedule them.") ve "✨ Ask the assistant to reschedule" linki (asistan panelini açar; M12'de gelir). Altta "Add task".
-- **Goals kartı (sağ):** her hedef için renk (sıraya göre sabit paletten), ad, yüzde, ilerleme çubuğu, **kaynak satırı** (ad, link, "Week 3 / 10"), özet (kaydedilen saat · hedef tarih), eksikten oluşturulduysa "From a fit gap: {company}" rozeti (M7), "+ Add task", "Edit" (başlık, hedef tarih, haftalık saat, durum Active / Paused / Done; D-118) ve "Delete" (onay modalı: "This also deletes its tasks", toast + Undo). Paused/Done hedefte rozet; haftalık hedefe sayılmaz (D-119). Ayrı bir "Where I study" kartı yoktur.
+- **Plan kartı (sol, geniş):** sekmeler **Today / Next 7 days / All tasks / Catch-up (n)**. All tasks haftalara göre gruplanır (Overdue, This week, Next week, Later; boş grup gösterilmez). Her görev satırı: tamamlandı kutusu, başlık, hedef rozeti (renkli), tarih, süre, dersi açan ↗ ikonu (kaynak adı tekrar yazılmaz, hedeften gelir), "Reschedule" (tarih seçici, açık görevlerde), "Edit" (modal: açık görevde başlık, tarih, süre; tamamlanmışta başlık ve harcanan süre, D-116) ve "Delete" (toast + Undo, D-095). Tamamlanan görevler listenin altında daraltılmış **"Done (n)"** bölümüne iner (toast + Undo; All tasks'ta son 30 gün). Catch-up sekmesinde suçlamayan bir bilgi bandı ("These are overdue. No stress, you can reschedule them.") ("✨ Ask the assistant to reschedule" linki asistanla birlikte V2, D-150). Altta "Add task".
+- **Goals kartı (sağ):** her hedef için renk (sıraya göre sabit paletten), ad, yüzde, ilerleme çubuğu, **kaynak satırı** (ad, link, "Week 3 / 10"), özet (kaydedilen saat · hedef tarih), eksikten oluşturulduysa "From a fit gap: {company}" rozeti (V2, D-150), "+ Add task", "Edit" (başlık, hedef tarih, haftalık saat, durum Active / Paused / Done; D-118) ve "Delete" (onay modalı: "This also deletes its tasks", toast + Undo). Paused/Done hedefte rozet; haftalık hedefe sayılmaz (D-119). Ayrı bir "Where I study" kartı yoktur.
 - **New goal modalı:** hedef, hedef tarih, haftalık saat, kaynak (ad, link, birim türü, toplam birim), "Create one task per week for me". **Add task modalı:** hedef seçimi (zorunlu), görev, tarih, süre.
 - Görev işaretlemek HTMX ile anında olur ve üst kartlardaki sayılar güncellenir.
 
@@ -675,7 +680,7 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 | follow_up | `applied` başvurunun next step'i "Follow up" ve günü geldi (başvurudan 10 gün sonra veya elle konan tarih; Needs attention ile aynı hesap, D-099). Her yeni follow-up adımı için bir kez. "Time to follow up" / "{Company} · no reply for {n} days" | Uygulama içi |
 | interview_tomorrow | Durumu `interview` ve `interview_at` yarın olan başvuru. "Interview tomorrow, {HH:MM}" (tüm gün: saatsiz) / "{Company} · {Role}" | Uygulama içi |
 | stale_saved | `saved` ilanın adımı "Waiting" ve günü geldi (kaydedildikten 7 gün sonra). "Saved {n} days ago" / "{Company} · apply or archive?" | Uygulama içi |
-| ai_result | Uzun süren AI işlemi bittiğinde (mektup, analiz) | Uygulama içi |
+| ai_result | V2 (D-150). Uzun süren AI işlemi bittiğinde (mektup, analiz) | Uygulama içi |
 | streak_milestone | 7, 30, 100 günlük seri (`streak_enabled`; son aktif gün bugün ya da dün; anahtar `streak:{n}:{son aktif gün}`, D-113). "{n}-day streak" / "You studied {n} days in a row. Nice work." | Uygulama içi |
 
 **İş arama bildirimleri (D-100):** follow_up ve stale_saved sadece adımın günü son 7 gün içindeyse üretilir; anahtar adımın gününü içerir, böylece temizlenen bildirim yeniden gelmez. Arşivlenmiş ve ertelenmiş başvurular atlanır (erteleme bitince pencere içindeyse gelir). Link başvurunun detay sayfasıdır. Tarihler kullanıcının saat diliminde (D-109).
@@ -702,7 +707,7 @@ Next step, bir başvuru için yapılacak **tek sonraki iş ve tarihidir**. Hatı
 2. Next step otomatik dolar. Kullanıcı "Change" ile türü (Apply by · Follow up · Interview · Send thank-you note · Reply to offer · Custom) ve tarihi değiştirebilir veya "Done" ile tamamlar. "Done" sonrası durum değişene kadar next step yoktur; tek istisna: "Send thank-you note" Done olunca 5 gün sonrası için "Follow up" gelir (D-073). Tarih ve saatler kullanıcının saat dilimindedir (D-071, D-109).
 3. Kullanıcı elle değiştirdiyse (`next_action_manual=true`), durum değişene kadar otomatik kurallar onun seçimini ezmez.
 4. Tarihi bugün veya geçmiş olan next step, başvuruyu **Needs attention**'a sokar. Interview için ayrıca bir gün önce bildirim gider (6.11).
-5. Asistan next step'i okuyabilir ve `set_next_action` ile değiştirebilir.
+5. (V2, D-150) Asistan next step'i okuyabilir ve `set_next_action` ile değiştirebilir.
 
 ---
 
@@ -748,14 +753,14 @@ Kullanıcı bir iş ilanı sayfasındayken eklenti ikonuna tıklar, ilan otomati
    3. Popup, `POST /api/ext/jobs/check` ile URL'nin daha önce kaydedilip kaydedilmediğini sorar. Kaydedildiyse "Already saved → Open in Unfurl" gösterir.
    4. Değilse alanlar doldurulur. **M6a (AI'sız, D-139, D-144):** `extract.js` sırasıyla schema.org `JobPosting` JSON-LD'yi (başlık, şirket, şehir, uzaktan, açıklama, maaş, `validThrough`), site okuyucularını ve `site_hints.js` selector'larını, en son sayfa başlığı/`og:` etiketlerini kullanır (sondaki ` | <site>` atılır). **M6b:** ek olarak "Auto-fill with AI" → `POST /api/ext/jobs/extract` → AI yapılandırılmış alanları döner; popup'ta yükleniyor göstergesi.
    5. Popup düzenlenebilir bir form gösterir: şirket, pozisyon, konum, çalışma şekli, maaş ve durum (varsayılan "saved").
-   6. "Save" → `POST /api/ext/jobs` → başarılı olursa "Saved ✓" + "Open in Unfurl" linki (M6b'de + "Analyze fit" butonu).
-   7. (M6b) "Analyze fit" → `POST /api/ext/jobs/{id}/fit` → skor ve karar popup'ta gösterilir.
+   6. "Save" → `POST /api/ext/jobs` → başarılı olursa "Saved ✓" + "Open in Unfurl" linki ("Analyze fit" butonu V2, D-150).
+   7. (M6b, V2, D-150) "Analyze fit" → `POST /api/ext/jobs/{id}/fit` → skor ve karar popup'ta gösterilir.
    - **JSON-LD güvenliği (D-139):** `JSON.parse` try/catch içinde, `@graph` ve diziler işlenir, en fazla 10 script ve 200.000 karakter; `description` HTML'i `DOMParser` ile metne çevrilir (asla `innerHTML`); popup alanları sadece `.value`/`textContent` ile doldurur. `extract.js` izole dünyada çalışır, `chrome.storage`'a dokunmaz, API'yi çağırmaz (sadece popup çağırır).
    - İlan zaten kayıtlıysa sadece "Open in Unfurl"; "Save anyway" yok (D-138).
-3. **Hata durumları:** token süresi doldu veya geçersiz (401) → giriş formuna dön. Kota bitti (429) → "Daily AI limit reached. Add your own API key in Settings or save without AI" + "Save without AI" butonu (alanları kullanıcı elle doldurur). Ağ hatası → tekrar dene butonu.
+3. **Hata durumları:** token süresi doldu veya geçersiz (401) → giriş formuna dön. (V2, D-150) Kota bitti (429) → "Daily AI limit reached. Add your own API key in Settings or save without AI" + "Save without AI" butonu (alanları kullanıcı elle doldurur). Ağ hatası → tekrar dene butonu.
 
 ### 7.5 Site ipuçları (`site_hints.js`)
-Selector'lar zamanla bozulabilir. Bu yüzden **sadece ipucudur**: M6a'da JSON-LD'den sonra ikinci kaynaktır, M6b'den itibaren asıl çıkarımı AI yapar. Selector bulunamazsa genel metin yöntemine düşülür ve hata verilmez. Desteklenen siteler: linkedin.com/jobs, stepstone.at/.de, karriere.at, indeed.com, xing.com/jobs. Diğer tüm siteler (şirket kariyer sayfaları dahil) genel yöntemle çalışır.
+Selector'lar zamanla bozulabilir. Bu yüzden **sadece ipucudur**: M6a'da JSON-LD'den sonra ikinci kaynaktır, M6b'den (V2, D-150) itibaren asıl çıkarımı AI yapar. Selector bulunamazsa genel metin yöntemine düşülür ve hata verilmez. Desteklenen siteler: linkedin.com/jobs, stepstone.at/.de, karriere.at, indeed.com, xing.com/jobs. Diğer tüm siteler (şirket kariyer sayfaları dahil) genel yöntemle çalışır.
 - **Site okuyucuları (D-144):** Selector listesiyle anlatılamayan siteler için `extract.js`'te küçük fonksiyonlar. LinkedIn (sınıf adları rastgele): şirket linkinin `aria-label`'ı, sayfa başlığı ve üst karttaki satırlar (konum, maaş, çalışma şekli); İngilizce ve Almanca arayüz. karriere.at arama paneli: adresteki `#id` ile ilanın kendi sayfasının JSON-LD'si (§7.2 istisnası).
 
 ### 7.6 Eklenti UI
@@ -770,17 +775,17 @@ Base path: `/api/ext`. Kimlik doğrulama **sadece** `Authorization: Bearer <toke
 - **CORS yok:** MV3'te popup'ın `host_permissions`'taki adrese istekleri CORS'a takılmaz; sunucu CORS header'ı göndermez. Ek savunma: `Origin` header'ı varsa sadece `EXTENSION_ORIGINS`'teki değerler kabul edilir (env, virgülle ayrılmış), diğerleri 403 `forbidden`.
 - **Gövde sınırı:** en fazla 256 KB, fazlası 413 `validation_error`.
 - **Limitler:** login 5/dk (IP), diğerleri 60/dk (token'a göre). Bearer'lı istekler kullanıcının saat diliminde çalışır.
-- M6a: login, logout, `me`, `jobs/check`, `jobs`. M6b: `jobs/extract`, `jobs/{id}/fit` (D-135).
+- M6a: login, logout, `me`, `jobs/check`, `jobs`. M6b (V2, D-150): `jobs/extract`, `jobs/{id}/fit` (D-135).
 
 | Method | Path | Açıklama |
 |---|---|---|
 | POST | `/auth/login` | `{email, password}` → `{token, expires_at, user: {full_name, email}}`. Login formuyla aynı kontroller (login kilidi; bilinen ve bilinmeyen e-posta için aynı hata; kilitliyken 429 `rate_limited`). Doğrulanmamış hesaplar da token alabilir. Rate limit: 5/dk. |
 | POST | `/auth/logout` | Sadece bu token'ı iptal eder. |
-| GET | `/me` | `{full_name, email, is_verified, credits_remaining, using_byok}`. M6b'ye kadar `credits_remaining` ve `using_byok` `null`. |
+| GET | `/me` | `{full_name, email, is_verified, credits_remaining, using_byok}`. MVP'de (D-150) `credits_remaining` ve `using_byok` `null`. |
 | POST | `/jobs/check` | `{url}` → `{exists: bool, application_id?, status?, app_url?}`. `canonical_url` eşleşmesi; arşivdekiler de sayılır; birden fazlaysa en yenisi. |
-| POST | `/jobs/extract` | `{url, title, site, job_text, selected_text?}` → `ExtractedJob` (bkz. 9.3). AI kredisi harcar. |
-| POST | `/jobs` | `{company, job_title, location?, remote_type?, salary_text?, posting_closes_at?, url, job_text, status}` (M6b'de ExtractedJob alanları da) → `{application_id, app_url}`. `source` URL'den türetilir; istemcinin gönderdiği `site` yok sayılır (D-141). |
-| POST | `/jobs/{id}/fit` | → `FitResult` (bkz. 9.4). AI kredisi harcar. |
+| POST | `/jobs/extract` | `{url, title, site, job_text, selected_text?}` → `ExtractedJob` (bkz. 9.3). AI kredisi harcar. V2 (D-150). |
+| POST | `/jobs` | `{company, job_title, location?, remote_type?, salary_text?, posting_closes_at?, url, job_text, status}` (ExtractedJob alanları M6b ile, V2, D-150) → `{application_id, app_url}`. `source` URL'den türetilir; istemcinin gönderdiği `site` yok sayılır (D-141). |
+| POST | `/jobs/{id}/fit` | → `FitResult` (bkz. 9.4). AI kredisi harcar. V2 (D-150). |
 
 Hata formatı (tüm API): `{"error": {"code": "quota_exceeded", "message": "..."}}`. Kodlar: `unauthorized`, `forbidden`, `email_not_verified`, `quota_exceeded`, `validation_error`, `not_found`, `ai_error`, `rate_limited`.
 
@@ -792,7 +797,9 @@ Hata formatı (tüm API): `{"error": {"code": "quota_exceeded", "message": "..."
 
 ---
 
-## 9. AI Özellikleri
+## 9. AI Özellikleri · V2 (D-150)
+
+Bu bölümün tamamı V2'dir: MVP'de AI yok (D-150). Tasarım, AI geri geldiğinde kullanılmak üzere aynen kalır.
 
 ### 9.1 Genel mimari
 - Tüm AI çağrıları `app/ai/client.py` içindeki **`AIClient`** arayüzünden geçer:
@@ -1032,7 +1039,7 @@ SMTP_USER=
 SMTP_PASSWORD=
 EMAIL_FROM="Unfurl <no-reply@example.com>"
 
-# AI
+# AI (V2, D-150: MVP'de kullanılmaz)
 ANTHROPIC_API_KEY=
 AI_MODEL_FAST=claude-haiku-5-5
 AI_MODEL_SMART=claude-sonnet-5-5
@@ -1104,7 +1111,7 @@ Her milestone sonunda: testler geçer, lint temiz, `docs/LEARNING_LOG.md` günce
   - Doğrulanmamış kullanıcı `require_verified` korumalı test endpoint'inden 403 alır.
   - Console backend'de e-posta terminale yazılır (Fatih elle dener).
 
-M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması (M4), BYOK'ta kredi düşmemesi testi (M7), gerçek yasal metinler (M13b), Google ile giriş (V2).
+M1 dışında: onboarding sihirbazı (V2, D-150), temanın `User.theme`'e bağlanması (M4), BYOK'ta kredi düşmemesi testi (V2, D-150), gerçek yasal metinler (M13b), Google ile giriş (V2).
 
 ### M2a — Profil bölümleri
 - Profile + alt tablolar (Experience, Education, Skill, LanguageSkill, Certification, Project) + migration
@@ -1162,7 +1169,7 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
   - Tema seçimi hesaba kaydediliyor ve başka bir tarayıcıda girişte aynı geliyor (test).
 
 ### M4b — Detay sayfası ve next step
-- Başvuru detay sayfası iskeleti (/applications/{id}, 6.7): başlık kalıbı (6.0/3: "← Applications", şirket avatarı, "‹ 1 of 10 ›"), durum seçici (Saved/Applied/Interview/Offer/Rejected/Archived), "View posting ↗", **Job & details** içeriği (Details + "Edit" formu + "Original posting (saved copy)"; yapılandırılmış ilan M5'te), sağ panel: **Next step** kartı ve **Timeline** (+ not ekleme). Apply / Progress sekmesi M7–M9'da içerikle gelir, M4b'de gösterilmez (D-060).
+- Başvuru detay sayfası iskeleti (/applications/{id}, 6.7): başlık kalıbı (6.0/3: "← Applications", şirket avatarı, "‹ 1 of 10 ›"), durum seçici (Saved/Applied/Interview/Offer/Rejected/Archived), "View posting ↗", **Job & details** içeriği (Details + "Edit" formu + "Original posting (saved copy)"; yapılandırılmış ilan V2, D-150), sağ panel: **Next step** kartı ve **Timeline** (+ not ekleme). Apply / Progress sekmesi M9a'da gelir, M4b'de gösterilmez (D-060, D-150).
 - `next_step_service` (6.13): otomatik kurallar, "Change" (tür + tarih), "Done", manual override.
 - **Interview modalı** (board, detay): tarih, saat, tür, kiminle; "Skip, I will add it later".
 - Ana sayfada **Needs attention** (6.3): en acil 3 + "Show all (n)", eylem linki, **Snooze** (3 gün, toast + Undo).
@@ -1185,7 +1192,7 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
   - Başvuruya bağlı CV'nin PDF adı şirketi içeriyor (test).
   - Silinen profil satırı ve CV, Undo ile aynı içerikle geri geliyor (test).
 
-### M5 — AI altyapısı + ilan çıkarımı
+### M5 — AI altyapısı + ilan çıkarımı · V2 (D-150)
 - `AIClient` arayüzü, `AnthropicClient`, `FakeAIClient`
 - Kredi sistemi (`quota_service`), `AIUsage`, BYOK (ayarlar sayfası, şifreleme, doğrulama çağrısı)
 - `extract_job` özelliği + prompt + Pydantic şeması
@@ -1199,7 +1206,7 @@ M1 dışında: onboarding sihirbazı (M9), temanın `User.theme`'e bağlanması 
 - **Kabul:** Kota aşımı 429 dönüyor. BYOK ile kredi düşmüyor. Testler FakeAIClient ile geçiyor. Eval doğruluğu ≥ %85 (company + job_title).
 
 ### M6 — Chrome eklentisi (D-135: M6a ve M6b)
-M6 ikiye bölündü. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve diğer AI milestone'ları → M13c → M13d.
+M6 ikiye bölündü. Sıra (D-150): M6a ✓ → M8a → M8b → M9a → M13c → M13d; M6b ve diğer AI milestone'ları V2.
 
 ### M6a — Chrome eklentisi: AI'sız kaydetme
 - ApiToken modeli (oturum sürümüne bağlı), `/api/ext` (login, logout, `me`, `jobs/check`, `jobs`), JSON hatalar, `Origin` kontrolü, gövde sınırı, URL normalizasyonu ve `Application.canonical_url`
@@ -1208,21 +1215,34 @@ M6 ikiye bölündü. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve
 - `extension/README.md` ("Load unpacked" kurulumu) ve `extension/TESTING.md` (elle test listesi)
 - **Kabul:** LinkedIn, StepStone, karriere.at ve bir şirket kariyer sayfasında ilan eklentiden board'a kaydediliyor. Aynı ilan ikinci kez "Already saved → Open in Unfurl" gösteriyor (en az 12 URL örneğiyle birim testi). Token iptal edilince (Settings ya da eklentiden çıkış) eklenti giriş ekranına dönüyor. Eklenti sadece tıklanınca ve sadece açık sekmede çalışıyor; çerez okumuyor ve göndermiyor.
 
-### M6b — Chrome eklentisi: AI ile doldurma ve uyum analizi (M5 ve M7'den sonra)
+### M6b — Chrome eklentisi: AI ile doldurma ve uyum analizi · V2 (D-150)
 - "Auto-fill with AI" (`/api/ext/jobs/extract`), "Analyze fit" (`/api/ext/jobs/{id}/fit`), kredi ve kota hataları (429 → "Save without AI"), `/me`'de krediler
 - **Kabul:** SPEC §7.4'teki akış AI ile uçtan uca çalışıyor; kota bitince AI'sız kaydetmeye düşülüyor.
 
-### M7 — Uyum analizi
+### M7 — Uyum analizi · V2 (D-150)
 - `fit_analysis` özelliği, önbellekleme (profile_version), Apply › **Should I apply?** adımı (archive, "prepare" geçişi), Kanban kartında skor rozeti (eklentideki "Analyze fit" M6b'de, D-135)
 - `evals/fit_analysis`
 - Should I apply? eksiklerinde "Add to learning plan" modalı (M10'dan taşındı, D-089)
 - **Kabul:** Sonuç kaydediliyor ve önbellekten dönüyor. Profil değişince "Profile changed – re-analyze?" uyarısı çıkıyor. Eval'de verdict'lerin en az 4/5'i beklenen aralıkta. Eksikten oluşturulan hedef başvuruya bağlı.
 
-### M8 — Motivasyon mektubu
-- CoverLetter modeli, Documents › Cover letters sekmesi, editör, AI ile oluşturma, PDF şablonu (DACH formatı)
-- **Kabul:** 3 dilde mektup oluşuyor ve PDF düzgün görünüyor. Mektup başvuruya bağlanıyor.
+### M8 — Motivasyon mektubu (D-150: M8a ve M8b, AI'sız)
+AI ile oluşturma V2. Mektup CV'lerle aynı master/kopya/kilit kurallarını kullanır.
 
-### M9 — Apply akışı: belge hazırlama + Final check + CV içe aktarma
+### M8a — Mektup: model ve editör
+- `CoverLetter` modeli (5.4), Documents › Cover letters sekmesi (bugün "Coming soon"), master/kopya/kilit kuralları CV ile aynı, editör (6.6, "Write myself") + HTML önizleme, varsayılan mektup dili (D-129), silmede toast + Undo (D-046), veri dışa aktarma ve hesap silme kapsamı (M13b)
+- **Kabul:** DE, EN ve TR'de mektup elle yazılıp önizleniyor. Master/kopya/kilit kuralları CV ile aynı (test). Başka kullanıcının mektubuna erişim 404 (test). Dışa aktarmada mektuplar var; hesap silinince gidiyor (test).
+
+### M8b — Mektup: PDF ve başvuru
+- DACH PDF şablonu (6.6, 3 dil), dosya adı `CoverLetter_{FullName}_{Company?}_{lang}.pdf`, başvuruya bağlama (`Application` üzerinden, CV gibi), detaydaki Documents kartında mektup, `applied`'a geçişte kilit ve `ApplicationDocument` kaydı, editörde "Duplicate" ve "← {Başvuru}"
+- **Kabul:** PDF üç dilde düzgün (pypdf ile ad soyad ve tarih okunuyor). Bağlı mektup `applied`'da kilitleniyor, Undo geri alıyor (test). Kilitli mektup düzenlenemiyor (test).
+
+### M9a — Apply akışı (AI'sız, D-150)
+- Apply sekmesi 2 adım (6.7): ① **Prepare documents:** master CV/mektuptan bu ilan için taslak kopya oluştur ve bağla ("Preview & edit"); ② **Final check:** kural tabanlı kontrol listesi (D-151), her eksik düzeltme sayfasına götürür, "Download PDFs", "I have applied · mark as applied"
+- **Belge paneli (drawer):** önizleme, "Open full editor", "Download PDF"; kilitli belgede salt okunur
+- **Progress görünümü** (Applied sonrası): "Applied on {tarih}", gönderilen kilitli belgeler, "What happens next" (follow-up tarihi, "I got an interview"), daraltılmış "How you applied"
+- **Kabul:** Kopya oluşturma master'a dokunmuyor (test). Kontrol listesi eksikleri gösteriyor, her birinin linki doğru sayfayı açıyor. "Mark as applied" sonrası Progress görünümü geliyor ve belgeler kilitleniyor; Undo geri alıyor (test). Başka kullanıcının başvurusunda Apply işlemleri 404 (test).
+
+### M9 — Apply akışı: belge hazırlama + Final check + CV içe aktarma · V2 (D-150; AI'sız kısmı M9a)
 - Apply › **Prepare documents**: `tailor_cv` ve mektup önerileri, seçilebilir öneriler, "Anything else to change?" alanı, başvuruya bağlı taslak kopyalar
 - **Belge paneli (drawer):** önizleme, "Open full editor", PDF indirme; editörde "← {Başvuru}" geri dönüşü
 - Apply › **Final check** (`readiness_check`, 9.11): tek tıklık düzeltmeler, "Download PDFs", "I have applied · mark as applied"
@@ -1232,7 +1252,7 @@ M6 ikiye bölündü. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve
 
 ### M10 — Learning
 - Learning tabloları (5.10) ve NotificationPreference (sadece `rest_days`, D-090), `learning_service` (seri, haftalık saat, görünümler), Learning sayfası (6.10: All tasks, Done bölümü, New goal ve Add task modalları, Reschedule, silme + Undo, dinlenme günleri modalı)
-- "Add to learning plan" modalı ve eksikten oluşturulan hedef M7'de (D-089)
+- "Add to learning plan" modalı ve eksikten oluşturulan hedef M7 ile V2'de (D-089, D-150)
 - **Kabul:** Görev işaretlenince saat ve sayaçlar güncelleniyor. Seri kuralı (dinlenme günleri dahil) birim testleriyle doğrulanmış.
 
 ### M11a — Bildirimler: temel ve iş arama hatırlatmaları
@@ -1245,13 +1265,13 @@ M6 ikiye bölündü. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve
 - Günlük çalışma hatırlatması (uygulama içi + e-posta), e-postadaki kapatma linki (giriş istemeyen sayfa + buton, D-098), `streak_milestone`
 - **Kabul:** Hatırlatma kullanıcının saat diliminde ve seçtiği saatte, dinlenme günlerinde gönderilmiyor. O gün görev tamamlandıysa gönderilmiyor. Aynı bildirim iki kez üretilmiyor. E-postadaki kapatma linki çalışıyor. Zamanlayıcı mantığı saat dondurularak test edilmiş.
 
-### M12a — AI Asistan: temel
+### M12a — AI Asistan: temel · V2 (D-150)
 - Yüzen asistan paneli (her sayfada, bağlam satırı, History, Expand), ChatThread/ChatMessage, tool döngüsü, tool kartları
 - Başvuru, Learning ve Final check araçları (9.8), tek kayıtlık değişikliklerde Undo
 - `PendingChangeSet` (learning_plan, application): önizleme kartı, Apply / Discard, Undo
 - **Kabul:** "Move Dalux to interview" komutu durumu değiştiriyor, event oluşturuyor, Undo ile geri alınabiliyor. "CS50P Week 4'ü gelecek haftaya kaydır" isteği önce önizleme kartı gösteriyor, Apply'dan önce veritabanı değişmiyor, Undo eski haline döndürüyor. Asistan başka kullanıcının verisine erişemiyor. Maksimum 6 tool çağrısı sınırı test edilmiş. İlan metnine gömülü "ignore previous instructions and ..." talimatı asistan tarafından uygulanmıyor (FakeAIClient ile değil, manuel test + not).
 
-### M12b — AI Asistan: belge düzenleme
+### M12b — AI Asistan: belge düzenleme · V2 (D-150)
 - `get_document`, `propose_document_changes`, `PendingChangeSet` (kind=document), önce/sonra önizleme kartı, "Apply to draft", Undo
 - Editörde ve belge panelinde "Edit with assistant" (asistanı belge bağlamıyla açar)
 - **Kabul:** Belge önerisi önizlemesiz uygulanmıyor. Sadece taslak kopyalar değişiyor; master ve kilitli belgeler hiçbir yoldan değişmiyor (test var). Undo önceki içeriği geri getiriyor. Öneriler profilde olmayan bilgi içermiyor (eval'de 5 örnek).
@@ -1260,7 +1280,7 @@ M6 ikiye bölündü. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve
 - 404 ve 500 sayfaları (tam sayfa ve htmx isteğinde toast), stack trace yok; 500 yanıtı da güvenlik header'larını alır (D-120)
 - Her listede boş durum (empty state), htmx isteklerinde yükleme göstergesi ve çift tıklamaya karşı butonun kilitlenmesi
 - Çıkışta oturum biter (`session_version` artar, D-105 notu)
-- Settings › Documents: varsayılan belge dili, yeni CV bu dille açılır (D-124). Settings › Plan bekleme listesi modalıyla birlikte M5'te (fake door).
+- Settings › Documents: varsayılan belge dili, yeni CV bu dille açılır (D-124). Settings › Plan bekleme listesi modalıyla birlikte V2'de (fake door, D-150).
 - **Kabul:** Bilinmeyen bir adres ve bir sunucu hatası uygulamanın kendi sayfasını header'larla gösteriyor; htmx isteğinde toast çıkıyor. Her listenin boş durumu var. Çıkıştan sonra eski oturum çerezi işe yaramıyor. Yeni bir CV varsayılan belge diliyle açılıyor.
 
 ### M13b — GDPR: yasal sayfalar, veri dışa aktarma, hesap silme, Settings › Account (D-123, D-124)
@@ -1270,7 +1290,7 @@ M6 ikiye bölündü. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve
 - Settings › Account: ad ve şifre değiştirme (şifre değişince diğer oturumlar kapanır). E-posta değiştirme ayrı bir PR.
 - **Kabul:** Dışa aktarma, hariç listesindekiler dışında kullanıcının her tablosunu içeriyor (test). Hesap silme Postgres'te bütün satırları ve fotoğraf dosyasını siliyor, oturumu kapatıyor ve onay e-postasını gönderiyor. Yasal sayfalarda gerçek metin var.
 
-### M13c — Deploy (D-123; AI milestone'larından ve M6b'den sonra)
+### M13c — Deploy (D-123; M9a'dan sonra, D-150)
 - Render'a deploy (Docker, Frankfurt, Postgres), production env, HSTS, proxy header'ları ve `APP_BASE_URL` kontrolü (#18), e-postada `List-Unsubscribe`, eklentide prod URL
 - Zamanlayıcı tek instance'ta; #17 belgelenmiş sınırlama olarak kalır. Deploy öncesi Postgres test çalıştırması (CI `postgres-tests`).
 - Yasal sayfalarda sağlayıcıların gerçek adları; SPEC §10.1 kontrol listesi madde madde işaretlenir.
@@ -1284,10 +1304,10 @@ M6 ikiye bölündü. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve
 
 ## 13. Test Stratejisi
 
-- **Birim testleri:** servisler (quota, crypto, URL normalizasyonu, needs-attention kuralları, document labels).
+- **Birim testleri:** servisler (URL normalizasyonu; V2'de quota ve crypto, needs-attention kuralları, document labels).
 - **Entegrasyon testleri:** `httpx` + FastAPI `TestClient`, test veritabanı olarak in-memory SQLite. Her testte temiz veritabanı.
 - **Yetki testleri:** her kaynak için "kullanıcı B, kullanıcı A'nın kaynağına erişemez" testi.
-- **AI testleri:** `FakeAIClient` ile. Şema doğrulama, kota düşümü, hata durumları (AI geçersiz JSON döndürürse → `ai_error`, kredi düşülmez).
+- **AI testleri** (V2, D-150): `FakeAIClient` ile. Şema doğrulama, kota düşümü, hata durumları (AI geçersiz JSON döndürürse → `ai_error`, kredi düşülmez).
 - **PDF testleri:** PDF oluşuyor mu, sayfa sayısı makul mü, metin içinde ad soyad var mı (pypdf ile okuyarak).
 - **Eklenti:** MVP'de otomatik test yok. `extension/TESTING.md` dosyasında manuel test listesi bulunur.
 - Hedef: servis katmanında ≥ %80 kapsam.
@@ -1304,7 +1324,7 @@ M6 ikiye bölündü. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve
 - **Bileşenler:** buton (primary/secondary/ghost/danger), input, select, textarea, kart, rozet, modal, toast bildirimi, boş durum, yükleniyor göstergesi (skeleton). Hepsi `templates/components/` altında Jinja macro olarak tanımlanır.
 - **Erişilebilirlik:** form etiketleri, `:focus-visible` odak halkaları tüm etkileşimli öğelerde (checkbox ve radio dahil; fareyle tıklamada görünmez), yeterli kontrast, klavye ile kullanılabilir modal ve drawer.
 - **Koyu tema input'ları:** `--input` değişkeni (açık temada beyaz, koyu temada `#1E2638`), zemin ve kartlardan açık ton.
-- AI içerik üreten her yerde küçük bir "✨ AI-generated – please review" notu bulunur.
+- (V2, D-150) AI içerik üreten her yerde küçük bir "✨ AI-generated – please review" notu bulunur.
 
 ---
 
@@ -1313,6 +1333,7 @@ M6 ikiye bölündü. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve
 V2 kapsamının tamamı Bölüm 1.6'daki tablodadır. Özet:
 
 **Version 2**
+- **AI (D-150):** M5 (AI altyapısı, ilan çıkarımı, krediler, BYOK, maliyet raporu, fake door), M7 (uyum analizi), M6b (eklentide AI), M8'in AI taslağı, M9'un AI kısımları (Should I apply?, AI önerileri, readiness_check, CV içe aktarma) ve onboarding sihirbazı, yapılandırılmış ilan, M12a/M12b (asistan). Tasarım Bölüm 9 ve ilgili "V2 (D-150)" işaretli yerlerde.
 - İş keşfi: Adzuna/Jooble ilan önerileri ve otomatik skor, takip edilen şirketler (Greenhouse, Lever, Personio, Workable), LinkedIn iş alarmı e-postalarını içe aktarma
 - Learning: AI ile öğrenme planı, ilerleme grafikleri, Notion içe aktarma, Google Calendar senkronizasyonu, biten sertifikaların profile/CV'ye otomatik eklenmesi
 - Bildirimler: haftalık e-posta özeti, takip hatırlatmaları e-postayla, tarayıcı push bildirimleri (PWA)
@@ -1347,8 +1368,8 @@ Bu projeyi Claude Code ile geliştirirken öğrenmeyi hızlandıracak öneriler:
 ### 17.1 Strateji
 - **MVP'de ödeme alınmaz.** Önce kullanım ve değer kanıtlanır, sonra fiyatlandırma yapılır.
 - **Hedef model: freemium + dönem paketi.** İş arama dönemsel bir ihtiyaç (genellikle 2-4 ay), bu yüzden aylık abonelik yerine tek ödemeli bir "Job Search Pass" (ör. 3 ay) birincil seçenektir. Aylık abonelik ileride ikinci seçenek olarak test edilebilir.
-- **Ücretsiz plan cömert kalır:** başvuru takibi, profil, CV ve mektup editörü, eklenti ve günlük sınırlı AI. Kendi API anahtarını (BYOK) kullananlar AI'ı limitsiz kullanır.
-- **Pro planın değeri** (taslak, kullanıcı verisine göre değişecek): daha yüksek günlük AI kredisi, premium CV şablonları, Faz 2'deki otomatik ilan önerileri ve mülakat hazırlığı.
+- **Ücretsiz plan cömert kalır:** başvuru takibi, profil, CV ve mektup editörü, eklenti (V2'de günlük sınırlı AI, D-150). Kendi API anahtarını (BYOK) kullananlar AI'ı limitsiz kullanır.
+- **Pro planın değeri** (V2, D-150; taslak, kullanıcı verisine göre değişecek): daha yüksek günlük AI kredisi, premium CV şablonları, Faz 2'deki otomatik ilan önerileri ve mülakat hazırlığı.
 - **Fiyat** henüz belirlenmez. Kararı 17.4'teki metrikler belirler.
 
 ### 17.2 Plan ve yetki (entitlement) altyapısı
@@ -1381,9 +1402,9 @@ Jinja template'lerinde de aynı fonksiyonlar kullanılabilir (`can(user, "premiu
 **Kurallar:**
 - Plan değişikliği sadece bir servis fonksiyonu üzerinden yapılır: `billing_service.set_plan(user, plan, expires_at, reason)`. MVP'de bu fonksiyon sadece bir CLI komutuyla çağrılır (test kullanıcılarına manuel `pro` vermek için): `uv run python -m app.billing.grant --email x@y.com --plan pro --days 90`.
 - Her plan değişikliği loglanır (ileride `PlanChange` tablosuna dönüşebilir).
-- Testler: süresi dolmuş `pro`, `free` limitleri, `can()` davranışı, BYOK kullanıcısında kredi düşmemesi.
+- Testler: süresi dolmuş `pro`, `free` limitleri, `can()` davranışı (BYOK kullanıcısında kredi düşmemesi V2, D-150).
 
-### 17.3 Fake door testi (ödeme isteğini ölçmek)
+### 17.3 Fake door testi (ödeme isteğini ölçmek) · V2 (D-150)
 - `BILLING_ENABLED=false` iken "Upgrade to Pro" butonları şuralarda görünür:
   1. Günlük AI kredisi bittiğinde çıkan uyarı bandında (`source=quota_banner`)
   2. Settings → AI bölümünde (`source=settings`)
@@ -1393,7 +1414,7 @@ Jinja template'lerinde de aynı fonksiyonlar kullanılabilir (`can(user, "premiu
 - Huni ölçümü için butonun gösterilmesi, tıklanması ve listeye katılım `UpgradePromptEvent` tablosuna yazılır (`shown` → `clicked` → `joined`).
 - Kullanıcıya yanıltıcı bir şey söylenmez: fiyat gösterilmez, ödeme formu taklit edilmez, modal açıkça "coming soon" der.
 
-### 17.4 Fiyatlandırma kararı için toplanacak metrikler
+### 17.4 Fiyatlandırma kararı için toplanacak metrikler · V2 (D-150)
 `AIUsage`, `Application`, `WaitlistSignup` ve `UpgradePromptEvent` tablolarından hesaplanır, `app/billing/report.py` ile raporlanır:
 | Metrik | Neden önemli |
 |---|---|

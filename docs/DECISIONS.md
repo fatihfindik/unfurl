@@ -478,6 +478,7 @@ Kaynak: Fatih, 2026-11-17 (sohbet: "ai ile olan adımı atlayıp devam etsen?").
 - **Karar:** M4c'den sonra AI'ya bağlı milestone'lar (M5, M7, M8, M9, M12a, M12b) gerçek API anahtarı, maliyet ve prompt kararları gerektirdiği için Fatih dönene kadar atlanır; AI'sız olanlar (M10 Learning, M11 Bildirimler, M13'ün deploy dışı parçaları) önce yapılır. M6 (eklenti) Chrome'da elle kurulup denenmesi gerektiği için Fatih'le yapılır. CLAUDE.md'deki "sırayla" kuralına bu bir istisnadır.
 - **Gerekçe:** Fatih yokken ilerlenebilecek işler bunlar; AI özellikleri gerçek çağrı ve kalite değerlendirmesi olmadan "bitti" sayılamaz.
 - **Alternatifler:** Sırayı korumak ve M5'i `FakeAIClient` ile yazıp PR'ı açık bırakmak.
+- **Güncelleme: D-150** (2026-11-20): AI milestone'ları V2'ye ertelendi; M8 ve M9'un AI'sız kısımları M8a, M8b, M9a olarak MVP'de.
 
 ### D-089 · M10'da olmayanlar
 Kaynak: M10 Design fazı, plan-reviewer; Fatih onayladı (2026-11-17).
@@ -656,12 +657,14 @@ Kaynak: M13 bölme önerisi (`docs/plans/M13-split.md`, PR #50), plan-reviewer; 
 - **Cevaplar:** Dışa aktarma bugün var olan verileri alır, yeni tablolar otomatik bir testle yakalanır. Hesap silmede Undo yok (şifre onayı ve açık uyarı yeterli). Yasal metinlerin taslağını Claude yazar, Fatih bir uzmana inceletir (özellikle Impressum ve gizlilik metni).
 - **Neden:** Tek milestone WORKFLOW'daki 1–2 haftalık sınırı aşıyordu; deploy AI milestone'larına bağlı (mektup indirme, D-088), cilalama ve GDPR değil.
 - **Alternatifler:** Tek M13; GDPR ve cilalamayı birleştirmek.
+- **Güncelleme: D-150** (2026-11-20): sıra M13a → M13b → M6a → M8a → M8b → M9a → M13c → M13d; AI milestone'ları V2.
 
 ### D-124 · Settings bölümlerinin sahipleri
 Kaynak: M13 bölme önerisi, soru 4 ve 7; Fatih önerileri onayladı (soru 7 için öneriyi **Claude karar verdi**, 2026-11-18).
 - **Karar:** Settings › Account (ad, şifre) M13b'de; e-posta değiştirme ayrı bir PR (doğrulama akışını değiştirir, D-027). Settings › Documents (varsayılan belge dili) M13a'da. Settings › Plan (Free plan kartı, "Pro · coming soon") M5'te, çünkü "Upgrade to Pro" bekleme listesi modalı ve `WaitlistSignup` zaten M5'in fake door kapsamında. Settings › AI M5'te (BYOK ve krediler) ve M12a'da (asistan ayarları), Browser extension M6'da, Privacy M13b'de.
 - **Neden:** SPEC §6.9'daki bölümlerin §12'de sahibi yoktu; her bölüm, verisini getiren milestone'a gider; verisi zaten var olan küçük bölüm (Documents) cilalamaya.
 - **Alternatifler:** Bütün Settings'i M13b'de toplamak (M13b'yi büyütür).
+- **Güncelleme: D-150** (2026-11-20): Settings › Plan ve Settings › AI M5 ile birlikte V2'ye ertelendi.
 
 ### D-125 · Hata sayfaları
 Kaynak: M13a Design fazı (`docs/plans/M13a.md`), plan-reviewer; Fatih planı onayladı (2026-11-18). D-120'deki 500 sınırlamasını kapatır.
@@ -724,6 +727,7 @@ Kaynak: `docs/plans/M6a.md`, plan-reviewer; Fatih onayladı (2026-11-18).
 - **Karar:** M6a: token'lar ve Settings › Browser extension, JSON API (giriş, çıkış, `me`, `jobs/check`, `jobs`), URL normalizasyonu, eklentinin kendisi; alanlar AI olmadan doldurulur (D-139), kullanıcı düzeltip kaydeder. M6b (M5 ve M7'den sonra): "Auto-fill with AI" (`/jobs/extract`), "Analyze fit" (`/jobs/{id}/fit`), kredi ve kota hataları, `/me`'de krediler. Sıra: M6a → (API anahtarı gelince) M5 → M7 → M6b ve diğer AI milestone'ları → M13c → M13d. D-123'teki sıra bununla değişir.
 - **Neden:** API anahtarı henüz yok (D-088); eklentinin AI'sız kısmı ("Save without AI" yolu) anahtar beklemeden kullanılabilir.
 - **Alternatifler:** M6'yı AI milestone'larından sonraya bırakmak (D-123'teki sıra); tek M6'da AI'yı sahte istemciyle yapmak.
+- **Güncelleme: D-150** (2026-11-20): M6b V2'ye ertelendi; `/me`'deki `credits_remaining` ve `using_byok` MVP'de `null` kalır.
 
 ### D-136 · ApiToken ve eklenti girişi
 Kaynak: M6a Design fazı, plan-reviewer; Fatih onayladı (2026-11-18). SPEC §5.12, §8.
@@ -813,3 +817,9 @@ Kaynak: #57 (M13b security review L4), `docs/plans/I57.md`, plan-reviewer. Fatih
 - **Kabul edilen riskler:** e-postayı bilen biri sahibi 1 saat girişten alıkoyabilir (sıfırlama + 15 dk muafiyet çıkış yolu; eklentinin muafiyeti yok); bellek sınırı ~10.000 farklı adresle eski kayıtları düşürebilir (çift deposunda da aynı; kilitli kayıtlar için güncellemeye bakınız).
 - **Alternatifler:** sadece Settings; hiçbir şey yapmamak; bekletme; CAPTCHA; sıfırlamada otomatik giriş.
 - **Güncelleme (security-reviewer M1, L1, L3, L4; Fatih onayladı 2026-11-20):** Settings şifre kontrolleri için `user.id` başına üçüncü sayaç (bütün IP'lerden saatte 20 hata → 1 saat; mesaj "Too many wrong passwords. Try again later."): çalınmış oturumla IP değiştirerek tahmin edilemez, dışarıdaki biri dolduramaz. Sıfırlama ve hesap silme temizler. Depolar `threading.Lock` ile korunur; depo dolunca en eski 100 kayıt içinden önce kilitsiz (ya da kilidi bitmiş) olan düşer, hepsi kilitliyse en eskisi; muaf tarayıcının hataları da e-posta sayacına yazılır. **Kabul edilen risk (L2):** kontrol ile sayma arasında argon2 olduğu için aynı anda gelen istekler sınırı thread havuzu kadar aşabilir.
+
+### D-150 · AI'sız MVP
+Kaynak: Fatih (2026-11-20): Anthropic API için şimdilik ödeme yapmak istemiyor (claude.ai Pro aboneliği API'yi kapsamıyor); "A'yı tercih ediyorum". `docs/plans/MVP-no-AI.md`, plan-reviewer. SPEC v2.1.30.
+- **Karar:** MVP AI'sız tamamlanır. V2'ye ertelenen: M5 (AI altyapısı, ilan çıkarımı, krediler, BYOK, maliyet raporu), fake door + Settings › Plan + Settings › AI + "Pro" (krediye dayandığı için; Claude karar verdi), M6b, M7, M12a, M12b, M8'in AI taslağı, M9'un AI kısımları (Should I apply?, `tailor_cv`, `readiness_check`, `import_cv`), onboarding sihirbazı (Fatih: V2; "Continue to setup" `/profile`'a gider), Job & details'teki yapılandırılmış ilan (Fatih: V2), `ai_result` bildirimi. SPEC'teki AI tasarımı silinmez, "V2 (D-150)" diye işaretlenir; işaretli şeyler MVP'de uygulanmaz (§0/8). Yeni sıra: M8a (mektup modeli ve editörü) → M8b (mektup PDF'i ve başvuru) → M9a (Apply sekmesi AI'sız 2 adım: Prepare documents → Final check; Fatih) → M13c → M13d. M8 ikiye bölündü (Fatih). Arayüzdeki AI vaatleri (doğrulama metinleri, giriş sayfası maddeleri, profil ipuçları, yasal sayfalar) kaldırıldı; e-posta doğrulaması bildirim ve hesap e-postalarını açar. Branch `mvp-without-ai` (kapsam işi, milestone değil).
+- **Kabul edilen riskler:** ürünün ana farkı (AI) MVP'de yok, README'de "AI V2'de" diye anlatılır; Final check'in kural tabanlı hali (D-151, M9a) AI'lı tasarımdan zayıf; deploy (M13c) de maliyet doğurabilir, orada ayrıca karar verilir.
+- **Alternatifler:** B: sadece BYOK ile AI, `FakeAIClient` ile geliştirme (prompt'lar gerçek modelle hiç denenmez, eval doğrulanamaz); C: API anahtarı gelene kadar beklemek.
