@@ -70,7 +70,7 @@ FormText = Annotated[str, Form()]
 # What check_password_with_lockout's answers mean on the page (D-131, D-132).
 PASSWORD_CHECK_ERRORS = {
     "wrong": "That's not your current password.",
-    "locked": "Too many wrong passwords. Try again in 15 minutes.",
+    "locked": "Too many wrong passwords. Try again later.",
 }
 
 

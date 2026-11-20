@@ -181,10 +181,12 @@ def check_password_with_lockout(request: Request, user: User, password: str) -> 
     right password is refused. A too long password counts as wrong without running
     argon2 (it is slow on purpose)."""
     ip = client_ip(request)
-    if login_lockout.is_locked(ip, user.email):
+    # No email lock: it would let anyone who knows the address block a signed-in owner
+    # here. The user lock instead stops a stolen session guessing from many IPs (D-149).
+    if login_lockout.is_locked(ip, user.email, per_email=False, user_id=user.id):
         return "locked"
     if len(password) > PASSWORD_MAX_LENGTH or not verify_password(password, user.password_hash):
-        login_lockout.record_failure(ip, user.email)
+        login_lockout.record_failure(ip, user.email, per_email=False, user_id=user.id)
         return "wrong"
     login_lockout.clear(ip, user.email)
     return "ok"

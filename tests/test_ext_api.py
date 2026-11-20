@@ -78,7 +78,10 @@ def test_sign_in_is_locked_after_five_failures(client, user):
 
     assert response.status_code == 429
     assert response.json() == {
-        "error": {"code": "rate_limited", "message": "Too many attempts. Try again in 15 minutes."}
+        "error": {
+            "code": "rate_limited",
+            "message": "Too many attempts. Try again later, or reset your password.",
+        }
     }
 
 

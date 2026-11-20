@@ -136,6 +136,7 @@ Kaynak: claude.ai Plan fazı (`docs/plans/M1-handoff.md`), Fatih onayı.
 - **Gerekçe:** Tek instance (APScheduler da bunu varsayıyor), ek altyapı gerekmiyor.
 - **Maliyet:** Restart sayaçları sıfırlar. Birden fazla instance'a geçilirse DB veya Redis'e taşınmalı.
 - **Alternatifler:** DB tablosu (kalıcı ama her login'de yazma), Redis (yeni servis).
+- **Güncelleme: D-149** (#57): e-posta başına ikinci sayaç (aynı bellek deposu mantığı).
 
 ### D-021 · Oturum geçersiz kılma: `User.session_version`
 - **Karar:** İmzalı oturum çerezi `session_version` taşır, `current_user` bunu DB ile karşılaştırır. Şifre değişince/sıfırlanınca değer +1 olur.
@@ -805,3 +806,10 @@ Kaynak: #64 (M6a security review E4), `docs/plans/I64.md`, plan-reviewer. **Clau
 - **Karar:** `token_service.purge_dead(session, now)` tek bir SQLAlchemy `DELETE` ile bütün kullanıcıların ölü token'larını siler (`revoked`, `expires_at <= now`, ya da `session_version` kullanıcınınkinden farklı; `_is_active`'in tam tersi), commit eder ve sayıyı döner. Kural `_dead(now, current_version)`'da, `issue()` ile paylaşılır. Zamanlayıcıda ayrı bir `purge_api_tokens` görevi, her gece 03:10 (bildirim temizliğinden 10 dk sonra); hata loglanır, ertesi gece tekrar dener.
 - **Kabul edilen yarış:** `check()` okuduktan sonra token tam o anda ölür ve silinirse `last_used_at` güncellemesi 500 verebilir (`issue()`'da da vardı).
 - **Alternatifler:** bildirim temizliğinin içine (bir hata ikisini durdururdu); iptal edilenleri bir süre saklamak; hiçbir şey yapmamak.
+
+### D-149 · E-posta başına ikinci login sınırı (#57)
+Kaynak: #57 (M13b security review L4), `docs/plans/I57.md`, plan-reviewer. Fatih onayladı (2026-11-20): bütün IP'lerden saatte 20 hata → e-posta 1 saat kilitli; sıfırlama kilidi açar ve sıfırlayan tarayıcı 15 dk muaf; Settings şifre kontrolleri sadece IP + e-posta kilidi. SPEC §6.1.
+- **Karar:** `LoginLockout`'ta ayrı e-posta deposu (1 saat pencere, 1 saat kilit, bellek sınırı `MAX_TRACKED_KEYS`). `is_locked`/`record_failure` `per_email` parametresi alır: web ve eklenti girişi `True`, Settings `False`. `clear` sadece çifti, `clear_email` ikisini de temizler. Sıfırlamadan sonra tarayıcı oturumunda `lockout_exempt` (e-posta + 15 dk): o tarayıcının web girişi e-posta kilidine bakmaz. Mesaj: "Too many attempts. Try again later, or reset your password."
+- **Kabul edilen riskler:** e-postayı bilen biri sahibi 1 saat girişten alıkoyabilir (sıfırlama + 15 dk muafiyet çıkış yolu; eklentinin muafiyeti yok); bellek sınırı ~10.000 farklı adresle eski kayıtları düşürebilir (çift deposunda da aynı; kilitli kayıtlar için güncellemeye bakınız).
+- **Alternatifler:** sadece Settings; hiçbir şey yapmamak; bekletme; CAPTCHA; sıfırlamada otomatik giriş.
+- **Güncelleme (security-reviewer M1, L1, L3, L4; Fatih onayladı 2026-11-20):** Settings şifre kontrolleri için `user.id` başına üçüncü sayaç (bütün IP'lerden saatte 20 hata → 1 saat; mesaj "Too many wrong passwords. Try again later."): çalınmış oturumla IP değiştirerek tahmin edilemez, dışarıdaki biri dolduramaz. Sıfırlama ve hesap silme temizler. Depolar `threading.Lock` ile korunur; depo dolunca en eski 100 kayıt içinden önce kilitsiz (ya da kilidi bitmiş) olan düşer, hepsi kilitliyse en eskisi; muaf tarayıcının hataları da e-posta sayacına yazılır. **Kabul edilen risk (L2):** kontrol ile sayma arasında argon2 olduğu için aynı anda gelen istekler sınırı thread havuzu kadar aşabilir.

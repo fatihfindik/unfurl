@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.28 — 2026-11-20
+> **Durum:** MVP planı, v2.1.29 — 2026-11-20
+> v2.1.29: #57: login kilidine e-posta başına ikinci sınır (bütün IP'lerden saatte 20 hata → 1 saat); şifreyi sıfırlayan tarayıcı 15 dk muaf; Settings şifre kontrolleri e-posta kilidine bakmaz, kendi kullanıcı sayacı var (saatte 20 hata → 1 saat) (D-149).
 > v2.1.28: #64 (E4): ölü eklenti token'ları (iptal, süresi dolmuş, eski oturum sürümü) her gece 03:10'da silinir (D-148).
 > v2.1.27: #60: e-posta değişikliğinden sonra eski adrese 7 gün geçerli "undo" linki; geri alma eski adresi geri getirir, bütün oturumları kapatır, şifreyi geçersiz kılar ve eski adrese şifre sıfırlama linki gönderir (D-147).
 > v2.1.26: #66: e-posta doğrulama linki açılınca onay sayfası; doğrulama butonla (POST, CSRF), e-posta tarayıcıları doğrulamaz (D-146).
@@ -557,7 +558,7 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 
 ### 6.1 Kimlik doğrulama
 - **/register:** ad soyad, e-posta, şifre (min 10 karakter), gizlilik politikası onayı (zorunlu checkbox). Kayıttan sonra doğrulama e-postası gönderilir ve **"Check your inbox"** ekranı gösterilir ("Continue to setup", "Resend email"). Kullanıcı devam edebilir ama AI özellikleri doğrulama olmadan kilitlidir (sarı uyarı bandı + "Resend email" butonu).
-- **/login:** e-posta + şifre. 5 başarısız denemeden sonra 15 dakikalık kilit (IP + e-posta bazlı rate limit). Hata mesajı genel olmalı: "Invalid email or password".
+- **/login:** e-posta + şifre. 5 başarısız denemeden sonra 15 dakikalık kilit (IP + e-posta bazlı rate limit); ayrıca bir e-posta için bütün IP'lerden saatte 20 hatada o e-posta 1 saat kilitlenir (D-149). Hata mesajı genel olmalı: "Invalid email or password".
 - **/logout:** POST. Arayüzde "Sign out". `session_version` artar: bu tarayıcının, kopyalanmış bir çerezin ve diğer cihazların oturumları biter (D-128).
 - **/verify-email?token=...:** 48 saat geçerli. Link açılınca onay sayfası; doğrulama **Verify my email** butonuyla (POST, CSRF), e-posta programları ve link tarayıcıları doğrulamaz (D-146).
 - **/forgot-password** ve **/reset-password?token=...:** 1 saat geçerli. Kayıtlı olmayan e-posta için de aynı mesaj gösterilir ("If an account exists, we sent an email").
@@ -566,7 +567,7 @@ Genel düzen: Sol tarafta sabit kenar menüsü (**Applications** (ana sayfa), **
 - **CSRF ayrıntısı:** Token oturum başına üretilir. Formlarda gizli `csrf_token` alanı, HTMX'te `base.html`'deki `hx-headers` ile `X-CSRF-Token` gönderilir. Tüm POST/PUT/PATCH/DELETE istekleri kontrol edilir, hatada 403 döner. `/api/ext/*` hariçtir (token ile doğrulanır, M6).
 - **Yönlendirme güvenliği:** `next=` ve `back_url` yalnızca `/` ile başlayan göreli yolları kabul eder. `//`, `/\`, şema (`https:`, `javascript:`) veya host içeren değerler `/`'e düşer. Tüm yönlendirmeler tek bir `safe_redirect_path()` yardımcısından geçer.
 - **Giriş gerektiren sayfalar:** Oturumsuz GET isteği `303 → /login?next=<path>` alır. HTMX isteklerinde 303 yerine `HX-Redirect` header'ı döner.
-- **Login kilidi:** Aynı IP + e-posta çifti için 15 dakika içinde 5 başarısız denemede 15 dakikalık kilit uygulanır ("Too many attempts. Try again in 15 minutes."). Kilit 5. hatadan itibaren sabit 15 dakika sürer; eski hatalar pencereden çıksa da erken açılmaz. Sayaç bellekte tutulur (D-020). Ayrıca slowapi IP başına genel sınır koyar: login 10/dk, register 5/saat, forgot-password 5/saat. forgot-password ve resend-verification aynı e-posta için 3/saat. verify-email 30/dk (GET), 10/dk (POST). undo-email-change 30/dk (GET), 10/dk (POST).
+- **Login kilidi:** Aynı IP + e-posta çifti için 15 dakika içinde 5 başarısız denemede 15 dakikalık kilit uygulanır. İkinci sınır (D-149): bir e-posta için bütün IP'lerden 1 saatte 20 hata → o e-posta 1 saat kilitli; şifre sıfırlama kilidi kaldırır ve sıfırlayan tarayıcı 15 dakika e-posta kilidine takılmaz. Settings'teki şifre kontrolleri e-posta kilidine bakmaz (dışarıdaki biri giriş yapmış sahibi engelleyemesin); onun yerine kullanıcı başına sayaç: bütün IP'lerden 1 saatte 20 hata → o kullanıcının Settings şifre kontrolleri 1 saat kilitli ("Too many wrong passwords. Try again later."). Şifre sıfırlama ve hesap silme bu sayacı da temizler. Mesaj: "Too many attempts. Try again later, or reset your password." Kilit 5. hatadan itibaren sabit 15 dakika sürer; eski hatalar pencereden çıksa da erken açılmaz. Sayaç bellekte tutulur (D-020). Ayrıca slowapi IP başına genel sınır koyar: login 10/dk, register 5/saat, forgot-password 5/saat. forgot-password ve resend-verification aynı e-posta için 3/saat. verify-email 30/dk (GET), 10/dk (POST). undo-email-change 30/dk (GET), 10/dk (POST).
 - **Oturum geçersiz kılma:** Oturum çerezi `user_id` ve `session_version` taşır. `current_user` ikisini DB ile karşılaştırır. Şifre sıfırlanınca veya değişince, çıkışta ve e-posta değişince açık oturumların hepsi düşer (değişikliği yapan tarayıcı hariç; D-021, D-128, D-134). E-posta değişikliği geri alınınca bu tarayıcı dahil hepsi düşer (D-147).
 - **Token'lar:** Reset token `password_hash`'ten türetilen bir parmak izi içerir, şifre değişince geçersiz olur (tek kullanımlık). Verify token idempotenttir: zaten doğrulanmış kullanıcı "Email already verified" görür. E-posta değişikliği token'ı (`/confirm-email`, 24 saat) kullanıcı, eski ve yeni adres ile `session_version` taşır: e-posta ya da oturum sürümü değişince geçersizdir (D-134). Geri alma token'ı (`/undo-email-change`, 7 gün) kullanıcı, hesap damgası ve eski adresi taşır, oturum sürümüne **bağlı değildir** (saldırgan Sign out ile geçersiz kılamasın); hesap eski adresi kullanınca geçersizdir (D-147). Token'lar imzalıdır, DB'de tutulmaz (D-027).
 - **Şifre sıfırlama sonrası:** Reset e-posta sahipliğini kanıtladığı için kullanıcı doğrulanmış sayılır (`is_verified=True`) ve o e-postanın login kilidi kayıtları silinir. Otomatik giriş yapılmaz: kullanıcı `/login`'e yönlendirilir ("Your password was changed. Sign in with your new password.").
@@ -1099,7 +1100,7 @@ Her milestone sonunda: testler geçer, lint temiz, `docs/LEARNING_LOG.md` günce
 - **Kabul:**
   - Kayıt doğrulama e-postası gönderir (outbox testi). Link doğrular, ikinci tıklama "already verified" gösterir. Süresi dolmuş token reddedilir (freezegun).
   - forgot-password kayıtlı ve kayıtsız e-posta için aynı mesajı verir. Reset çalışır. Aynı token ikinci kez reddedilir. Reset sonrası eski oturum düşer.
-  - 5 başarısız login sonrası 6. deneme kilitlenir, 15 dk sonra açılır (freezegun). Başka bir e-posta etkilenmez.
+  - 5 başarısız login sonrası 6. deneme kilitlenir, 15 dk sonra açılır (freezegun). Başka bir e-posta etkilenmez. (#57, D-149: e-posta başına ikinci sınır, bkz. §6.1.)
   - Doğrulanmamış kullanıcı `require_verified` korumalı test endpoint'inden 403 alır.
   - Console backend'de e-posta terminale yazılır (Fatih elle dener).
 
