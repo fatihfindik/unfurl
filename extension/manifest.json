@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Save job postings to Unfurl with one click.",
   "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["http://localhost:8000/*"],
+  "host_permissions": ["http://localhost:8000/*", "http://127.0.0.1:8100/*"],
   "action": { "default_popup": "popup.html", "default_icon": "icons/icon-32.png" },
   "icons": { "16": "icons/icon-16.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAteBEgdbTlXtwDoO2bwN03VonuIQ7+gBj7BNUIxKtW20CYiaooL5qu69ZfiTX9A3sH64Nr296q5bKavNjwX9sR/oKcC399KcB9j66/5xvzIwc70dFVOR+uIXGx0ti76or9VHqu1OD+VAKpVWuh35hzMlx0Me6Ze7Ky7dh+AEfi241lsBr4Dv1zWzhoEih3tpL5J02c6zj7JnHeJzJ6bkY+x0XruX8+cfKYwUERTovLpZZhXgoW+MmyQOl96VaM7jU2E+HuqyVhmbhAghJa/u31uxtTSKlxBSXKolzVE69duk+/WmDlizxN/K1gZSrUivPgsoQxTmC8zXErMOpdqi6FQIDAQAB"
