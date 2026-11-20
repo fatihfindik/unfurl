@@ -389,6 +389,7 @@ PUBLIC_PAGES = {
     "/terms",
     "/imprint",
     "/verify-email",
+    "/undo-email-change",
     "/forgot-password",
     "/reset-password",
     "/reminders/off",  # the study reminder email's link works without a login (D-112)

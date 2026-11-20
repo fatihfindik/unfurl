@@ -146,7 +146,7 @@ def test_a_reset_link_goes_to_the_old_address_and_works(client, session, engine,
 
     undo(TestClient(app), token_of(link))
 
-    [reset] = outbox
+    [reset] = [email for email in outbox if "reset-password" in email.body]
     assert reset.to == USER_EMAIL
     path = re.search(r"/reset-password\?token=\S+", reset.body).group(0)
     owner = TestClient(app)
@@ -188,6 +188,57 @@ def test_a_second_change_does_not_escape_the_link(client, session, engine, user,
 
     assert undo(TestClient(app), token_of(link)).status_code == 200
     assert saved(engine, user).email == USER_EMAIL
+
+
+def test_a_change_back_is_told_to_the_replaced_address(client, session, user, outbox):
+    link = take_over(client, session, user, outbox)
+    outbox.clear()
+
+    undo(TestClient(app), token_of(link))
+
+    [notice] = [email for email in outbox if email.to == NEW]
+    assert notice.subject == "Your Unfurl email was changed back"
+    assert "reset-password" not in notice.body
+
+
+def test_the_taker_gets_no_link_to_take_the_account_back(client, session, engine, user, outbox):
+    # Security review #60, H1: A to B to C would send a link for B (the taker's own,
+    # brand-new address) to B. With it, they could take the account back after the
+    # owner's undo. An address set less than 7 days ago gets no undo link.
+    link = take_over(client, session, user, outbox)
+    outbox.clear()
+    ask(client, new_email=THIRD, password=USER_PASSWORD)
+    confirm(client, token_of(link_in_for(outbox, THIRD)))
+
+    [notice_to_b] = [email for email in outbox if email.to == NEW and "changed" in email.subject]
+    assert "/undo-email-change" not in notice_to_b.body
+    assert "contact us" in notice_to_b.body
+
+    assert undo(TestClient(app), token_of(link)).status_code == 200
+    assert saved(engine, user).email == USER_EMAIL
+
+
+def test_an_address_in_use_for_7_days_gets_a_link_again(client, session, engine, user, outbox):
+    with freeze_time(utcnow()) as frozen:
+        take_over(client, session, user, outbox)
+        frozen.tick(dt.timedelta(days=7, seconds=1))
+        outbox.clear()
+        log_in(client, email=NEW)
+        ask(client, new_email=THIRD, password=USER_PASSWORD)
+        confirm(client, token_of(link_in_for(outbox, THIRD)))
+
+    [notice_to_b] = [email for email in outbox if email.to == NEW and "changed" in email.subject]
+    assert "/undo-email-change" in notice_to_b.body
+
+
+def test_an_undone_address_gets_no_link_for_7_days(client, session, engine, user, outbox):
+    link = take_over(client, session, user, outbox)
+    undo(TestClient(app), token_of(link))
+    assert saved(engine, user).email_changed_at is not None
+
+
+def test_the_settings_form_warns_about_the_undo(auth_client):
+    assert "for 7 days it can undo the change" in auth_client.get("/settings").text
 
 
 def test_a_pending_change_link_dies_with_the_undo(client, session, engine, user, outbox):
@@ -309,7 +360,7 @@ def test_losing_the_race_for_the_old_address_is_rolled_back(
 ):
     link = take_over(client, session, user, outbox)
     create_user(session, email=USER_EMAIL, password="squatter pass 1", full_name="S")
-    monkeypatch.setattr(auth_service, "email_in_use", lambda *args: False)
+    monkeypatch.setattr(auth_service, "email_used_by_another", lambda *args: False)
 
     response = undo(TestClient(app), token_of(link))
 

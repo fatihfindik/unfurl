@@ -42,6 +42,7 @@ from app.services.auth_service import (
     make_verify_token,
     mark_verified,
     masked_address,
+    old_address_can_undo,
     password_error,
     remember_timezone,
     require_user,
@@ -520,6 +521,7 @@ def confirm_email(
         return invalid_email_link(request)
     user, new_email = found
     old_email, was_verified = user.email, user.is_verified
+    old_can_undo = old_address_can_undo(user.email_changed_at, utcnow())
     # Is this browser signed in as this user? Then it stays signed in (D-134).
     same_user = (
         request.session.get(SESSION_USER_ID) == user.id
@@ -549,8 +551,13 @@ def confirm_email(
             to=old_email,
             full_name=user.full_name,
             new_email=masked_address(new_email),
-            # "This wasn't me" (#60, D-147): only to an address the owner proved.
-            undo_path="/undo-email-change?token=" + make_undo_email_token(user, old_email),
+            # "This wasn't me" (#60, D-147): only to an address the owner proved, and
+            # not to one set by a change less than 7 days ago (security review H1).
+            undo_path=(
+                "/undo-email-change?token=" + make_undo_email_token(user, old_email)
+                if old_can_undo
+                else ""
+            ),
         )
         background_tasks.add_task(email_service.send_email, notice)
     if same_user:
@@ -631,11 +638,24 @@ def undo_email_change_submit(
     if found is None:
         return invalid_undo_link(request)
     user, old_email = found
+    replaced = user.email
     result = undo_email_change(session, user, old_email)
     if result == "taken":
         return old_email_taken_page(request, old_email)
     if result != "ok":
-        return invalid_undo_link(request)
+        # The address changed between the check and the update. The link may still
+        # be valid: say so instead of "no longer valid" (security review L2).
+        return templates.TemplateResponse(
+            request,
+            "auth/message.html",
+            {
+                "heading": "Something changed",
+                "text": "The account changed while you were undoing. Open the link from "
+                "the email again.",
+            },
+            status_code=409,
+            headers=TOKEN_PAGE_HEADERS,
+        )
 
     # The owner proved the address: old login failures for it don't count any more.
     login_lockout.clear_email(old_email)
@@ -649,6 +669,12 @@ def undo_email_change_submit(
         path="/reset-password?token=" + make_reset_token(user),  # from the new hash
     )
     background_tasks.add_task(email_service.send_email, reset_email)
+    # The replaced address hears about it too: if a former employer's mail server
+    # undid a real change, the owner can contact us (security review M1).
+    changed_back = email_service.render_email(
+        "email_changed_back", to=replaced, full_name=user.full_name
+    )
+    background_tasks.add_task(email_service.send_email, changed_back)
     request.session.clear()  # signed out here too, like everywhere else
     return templates.TemplateResponse(
         request,

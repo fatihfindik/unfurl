@@ -4,6 +4,7 @@ email verification and password reset tokens.
 SPEC §6.1, D-021, D-027. CSRF and redirect checks live in app/security.py.
 """
 
+import datetime as dt
 import hashlib
 import secrets
 from typing import Annotated
@@ -450,6 +451,7 @@ def change_email(session: Session, user: User, new_email: str) -> str:
                 email=new_email,
                 is_verified=True,
                 session_version=User.session_version + 1,
+                email_changed_at=utcnow(),
                 updated_at=utcnow(),
             )
             .execution_options(synchronize_session=False)
@@ -466,6 +468,17 @@ def change_email(session: Session, user: User, new_email: str) -> str:
 
 UNDO_EMAIL_TOKEN_SALT = "email-change-undo"
 UNDO_EMAIL_TOKEN_MAX_AGE = 7 * 24 * 60 * 60  # 7 days
+
+
+def old_address_can_undo(changed_at: dt.datetime | None, now: dt.datetime) -> bool:
+    """Does the address being replaced get an undo link? Yes for the sign-up address
+    and for one in use for at least the undo window; no for an address set by a change
+    (or an undo) less than 7 days ago. Otherwise whoever took the account could change
+    it twice (A→B→C) and get a link for B, their own address, and use it to take the
+    account back after the owner's undo (security review #60, H1)."""
+    if changed_at is None:
+        return True
+    return as_utc(now) - as_utc(changed_at) >= dt.timedelta(seconds=UNDO_EMAIL_TOKEN_MAX_AGE)
 
 
 def make_undo_email_token(user: User, old_email: str) -> str:
@@ -497,6 +510,13 @@ def undo_email_from_token(session: Session, token: str) -> tuple[User, str] | No
     return user, old_email
 
 
+def email_used_by_another(session: Session, email: str, user: User) -> bool:
+    """Another account only: after a double click the first one already put the
+    address back on this account, which isn't "taken" (test-writer #60)."""
+    query = select(User.id).where(User.email == email, User.id != user.id)
+    return session.exec(query).first() is not None
+
+
 def undo_email_change(session: Session, user: User, old_email: str) -> str:
     """Put `old_email` back (D-147): verified, every session and extension token out
     (session_version + 1), and a random password nobody knows, because whoever changed
@@ -505,7 +525,7 @@ def undo_email_change(session: Session, user: User, old_email: str) -> str:
     the address read here. Returns "ok", "taken" (another account uses `old_email`) or
     "stale" (something changed in the meantime)."""
     current = user.email
-    if email_in_use(session, old_email):
+    if email_used_by_another(session, old_email, user):
         return "taken"
     try:
         result = session.exec(
@@ -516,6 +536,7 @@ def undo_email_change(session: Session, user: User, old_email: str) -> str:
                 is_verified=True,
                 password_hash=hash_password(secrets.token_urlsafe(32)),
                 session_version=User.session_version + 1,
+                email_changed_at=utcnow(),
                 updated_at=utcnow(),
             )
             .execution_options(synchronize_session=False)
