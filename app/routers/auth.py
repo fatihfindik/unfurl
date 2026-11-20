@@ -170,7 +170,9 @@ def login(
 
     user = authenticate(session, email, password)
     if user is None:
-        login_lockout.record_failure(ip, email, per_email=per_email)
+        # Counted on the email even from an exempt browser: the exemption only skips
+        # the check, so the counter stays complete (D-149).
+        login_lockout.record_failure(ip, email)
         # One message for every failure: it never tells whether the email has an account.
         return templates.TemplateResponse(
             request,
@@ -474,7 +476,7 @@ def reset_password_submit(
     # All sessions of this user end, this browser's too; they sign in with the new password.
     if not reset_password(session, user, password):
         return invalid_reset_link(request)  # the same link was used a moment earlier (#16)
-    login_lockout.clear_email(user.email)
+    login_lockout.clear_email(user.email, user.id)
     end_session(request)
     # Whoever locked the email can lock it again within seconds; this browser gets
     # past that lock for a while, so the owner can sign in (D-149).

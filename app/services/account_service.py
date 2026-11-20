@@ -32,6 +32,7 @@ def delete_account(session: Session, user: User) -> DeletedAccount | None:
     another request deleted the account a moment earlier (a double click): then
     there is nothing left to do, and no second confirmation email."""
     gone = DeletedAccount(email=user.email, full_name=user.full_name, verified=user.is_verified)
+    user_id = user.id  # read now: the object is expired after the commit
     photo_path = session.exec(select(Profile.photo_path).where(Profile.user_id == user.id)).first()
 
     result = session.exec(delete(User).where(User.id == user.id))
@@ -45,5 +46,5 @@ def delete_account(session: Session, user: User) -> DeletedAccount | None:
     except OSError:
         # The data is gone already; a file left behind is logged, not shown.
         logger.exception("Could not delete a photo file of a deleted account")
-    login_lockout.clear_email(gone.email)
+    login_lockout.clear_email(gone.email, user_id)
     return gone

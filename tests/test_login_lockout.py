@@ -222,12 +222,14 @@ def test_a_successful_login_keeps_the_email_counter_a_reset_clears_it():
     assert not lockout.is_locked("192.0.2.1", USER_EMAIL)
 
 
-def test_reset_empties_both_stores():
+def test_reset_empties_every_store():
     lockout = LoginLockout()
     fail_from_many_ips(lockout)
     lockout.reset()
     assert not lockout.is_locked(IP, USER_EMAIL)
-    assert not lockout._entries and not lockout._by_email
+    lockout.record_failure(IP, USER_EMAIL, user_id=1)
+    lockout.reset()
+    assert not lockout._entries and not lockout._by_email and not lockout._by_user
 
 
 def test_the_email_store_keeps_at_most_max_tracked_keys():
@@ -239,11 +241,109 @@ def test_the_email_store_keeps_at_most_max_tracked_keys():
     assert "user0@example.com" not in lockout._by_email
 
 
+def test_a_full_store_drops_unlocked_entries_before_locked_ones():
+    lockout = LoginLockout()
+    fail_from_many_ips(lockout)  # locks USER_EMAIL first, so it is the oldest entry
+    for i in range(MAX_TRACKED_KEYS + 5):
+        lockout.record_failure(f"10.0.{i // 250}.{i % 250}", f"user{i}@example.com")
+
+    assert len(lockout._by_email) == MAX_TRACKED_KEYS
+    assert lockout.is_locked("192.0.2.1", USER_EMAIL)
+
+
 def test_values_no_account_can_have_are_not_counted():
     lockout = LoginLockout()
     for ip in OTHER_IPS[:20]:
         lockout.record_failure(ip, "")
     assert not lockout._by_email
+
+
+# --- The Settings user lock (security review M1) -------------------------------------------
+
+
+def fail_settings_from_many_ips(lockout, user_id=1, times=20):
+    for i in range(times):
+        lockout.record_failure(OTHER_IPS[i // 4], USER_EMAIL, per_email=False, user_id=user_id)
+
+
+def test_twenty_settings_failures_from_many_ips_lock_that_users_settings_checks():
+    lockout = LoginLockout()
+    fail_settings_from_many_ips(lockout, times=19)
+    assert not lockout.is_locked("192.0.2.1", USER_EMAIL, per_email=False, user_id=1)
+
+    fail_settings_from_many_ips(lockout, times=1)  # the 20th
+
+    assert lockout.is_locked("192.0.2.1", USER_EMAIL, per_email=False, user_id=1)
+    assert not lockout.is_locked("192.0.2.1", USER_EMAIL, per_email=False, user_id=2)
+    # The sign-in doesn't see it: it is not an email lock.
+    assert not lockout.is_locked("192.0.2.1", USER_EMAIL)
+
+
+def test_failed_logins_do_not_fill_the_settings_user_counter():
+    lockout = LoginLockout()
+    fail_from_many_ips(lockout)
+    assert not lockout._by_user
+    assert not lockout.is_locked("192.0.2.1", USER_EMAIL, per_email=False, user_id=1)
+
+
+def test_the_settings_user_lock_lasts_an_hour():
+    lockout = LoginLockout()
+    with freeze_time(utcnow()) as frozen:
+        fail_settings_from_many_ips(lockout)
+        frozen.tick(timedelta(minutes=59, seconds=59))
+        assert lockout.is_locked("192.0.2.1", USER_EMAIL, per_email=False, user_id=1)
+        frozen.tick(timedelta(seconds=2))
+        assert not lockout.is_locked("192.0.2.1", USER_EMAIL, per_email=False, user_id=1)
+
+
+def test_clear_email_with_the_user_id_clears_the_settings_user_lock():
+    lockout = LoginLockout()
+    fail_settings_from_many_ips(lockout)
+    lockout.clear_email(USER_EMAIL)  # without the id the user lock stays
+    assert lockout.is_locked("192.0.2.1", USER_EMAIL, per_email=False, user_id=1)
+
+    lockout.clear_email(USER_EMAIL, 1)
+    assert not lockout.is_locked("192.0.2.1", USER_EMAIL, per_email=False, user_id=1)
+
+
+def settings_check(engine, user, password, ip=IP):
+    with Session(engine) as check:
+        signed_in = check.get(User, user.id)
+        request = Request({"type": "http", "client": (ip, 1234), "headers": []})
+        return auth_service.check_password_with_lockout(request, signed_in, password)
+
+
+def test_a_stolen_session_cannot_guess_from_many_ips(auth_client, engine, user):
+    for i in range(20):
+        assert settings_check(engine, user, "wrong password!", ip=OTHER_IPS[i // 4]) == "wrong"
+
+    # Even the right password from a fresh IP is refused now.
+    assert settings_check(engine, user, USER_PASSWORD, ip="192.0.2.1") == "locked"
+    # The owner can still sign in: login doesn't look at the user lock.
+    assert log_in(TestClient(app)).status_code == 303
+
+
+def test_the_settings_page_shows_the_lock_message(auth_client, user):
+    fail_settings_from_many_ips(login_lockout, user_id=user.id)
+
+    response = auth_client.post(
+        "/settings/account/password",
+        data={
+            "current_password": USER_PASSWORD,
+            "new_password": NEW_PASSWORD,
+            "repeat_password": NEW_PASSWORD,
+            "csrf_token": csrf_token(auth_client),
+        },
+    )
+
+    assert "Too many wrong passwords. Try again later." in response.text
+
+
+def test_a_password_reset_clears_the_settings_user_lock(client, engine, user):
+    fail_settings_from_many_ips(login_lockout, user_id=user.id)
+    assert reset(client, make_reset_token(user)).status_code == 303
+
+    assert settings_check(engine, user, NEW_PASSWORD) == "ok"
 
 
 # --- The email lock through the routes ------------------------------------------------------
@@ -295,7 +395,7 @@ def test_after_a_reset_this_browser_gets_past_the_email_lock_for_15_minutes(clie
         response = log_in(client, password=NEW_PASSWORD)
         assert response.status_code == 303
 
-        # The exemption ends with the sign-in, and after 15 minutes anyway.
+        # Any other browser is still locked after 15 minutes.
         frozen.tick(timedelta(minutes=16))
         assert log_in(TestClient(app), password=NEW_PASSWORD).status_code == 429
 
@@ -317,3 +417,11 @@ def test_the_exemption_ends_after_15_minutes(client, user):
         lock_email()
 
         assert log_in(client, password=NEW_PASSWORD).status_code == 429
+
+
+def test_failures_from_the_exempt_browser_still_count_on_the_email(client, user):
+    reset(client, make_reset_token(user))
+    fail(client, times=4)  # the exemption skips the check, not the counting
+    fail_from_many_ips(login_lockout, times=16)
+
+    assert log_in(TestClient(app), password=NEW_PASSWORD).status_code == 429

@@ -10,6 +10,7 @@
 import logging
 import re
 import secrets
+import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -150,6 +151,8 @@ def _tokens_match(sent: str, expected: str) -> bool:
 # Kept in memory: a restart clears them and they only work with one app process
 # (D-020). Each store keeps at most MAX_TRACKED_KEYS entries, so someone who tries
 # thousands of different emails can't fill the server's memory.
+# Sync routes run in parallel threads, so every store is changed under a lock
+# (threading.Lock: only one thread at a time inside a `with self._lock:` block).
 
 MAX_TRACKED_KEYS = 10_000
 
@@ -207,6 +210,16 @@ def _is_locked(entries: OrderedDict, key, now: datetime, window: timedelta) -> b
     return entry.locked_until is not None
 
 
+def _drop_oldest_unlocked(entries: OrderedDict) -> None:
+    """Like _drop_oldest, but a locked entry goes only when every entry is locked:
+    failures on thousands of other emails must not push a lock out (#57, D-149)."""
+    while len(entries) > MAX_TRACKED_KEYS:
+        victim = next((key for key, e in entries.items() if e.locked_until is None), None)
+        if victim is None:
+            victim = next(iter(entries))
+        del entries[victim]
+
+
 def _count_failure(
     entries: OrderedDict, key, now: datetime, window: timedelta, limit: int, lock: timedelta
 ) -> None:
@@ -219,18 +232,21 @@ def _count_failure(
         entry.locked_until = now + lock
         entry.failures = []
     entries.move_to_end(key)
-    _drop_oldest(entries)
+    _drop_oldest_unlocked(entries)
 
 
 class LoginLockout:
-    """Two counters for failed logins (SPEC §6.1):
+    """Three counters for wrong passwords (SPEC §6.1):
 
     - per IP + email: 5 within 15 minutes lock that pair for 15 minutes (D-020);
     - per email, from every IP: 20 within an hour lock that email for an hour, so
       someone with many IP addresses can't guess faster (#57, D-149). A password reset
-      unlocks it (clear_email). Settings checks use only the first (per_email=False):
-      a signed-in owner can't be blocked by someone who only knows the address.
-    Both locks count from the failure that reached the limit.
+      unlocks it (clear_email). Settings checks skip it (per_email=False): a signed-in
+      owner can't be blocked by someone who only knows the address;
+    - per user, Settings checks only: 20 within an hour lock that user's Settings
+      checks for an hour, so a stolen session can't guess from many IPs either. Only
+      someone signed in to the account can fill it.
+    Every lock counts from the failure that reached the limit.
     """
 
     MAX_FAILURES = 5
@@ -243,52 +259,76 @@ class LoginLockout:
     EMAIL_LOCK_TIME = timedelta(hours=1)
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._entries: OrderedDict[tuple[str, str], _LockoutEntry] = OrderedDict()
         self._by_email: OrderedDict[str, _LockoutEntry] = OrderedDict()
+        self._by_user: OrderedDict[int, _LockoutEntry] = OrderedDict()
 
-    def is_locked(self, ip: str, email: str, *, per_email: bool = True) -> bool:
+    def is_locked(
+        self, ip: str, email: str, *, per_email: bool = True, user_id: int | None = None
+    ) -> bool:
+        """per_email=False skips the email lock; user_id adds the Settings user lock."""
         now = utcnow()
         email_key = _email_key(email)
-        if _is_locked(self._entries, (ip, email_key), now, self.WINDOW):
-            return True
-        if per_email and email_key is not None:
-            return _is_locked(self._by_email, email_key, now, self.EMAIL_WINDOW)
-        return False
+        with self._lock:
+            if _is_locked(self._entries, (ip, email_key), now, self.WINDOW):
+                return True
+            if user_id is not None and _is_locked(self._by_user, user_id, now, self.EMAIL_WINDOW):
+                return True
+            if per_email and email_key is not None:
+                return _is_locked(self._by_email, email_key, now, self.EMAIL_WINDOW)
+            return False
 
-    def record_failure(self, ip: str, email: str, *, per_email: bool = True) -> None:
+    def record_failure(
+        self, ip: str, email: str, *, per_email: bool = True, user_id: int | None = None
+    ) -> None:
         email_key = _email_key(email)
         if email_key is None:
             return
         now = utcnow()
-        _count_failure(
-            self._entries, (ip, email_key), now, self.WINDOW, self.MAX_FAILURES, self.LOCK_TIME
-        )
-        if per_email:
+        with self._lock:
             _count_failure(
-                self._by_email,
-                email_key,
-                now,
-                self.EMAIL_WINDOW,
-                self.EMAIL_MAX_FAILURES,
-                self.EMAIL_LOCK_TIME,
+                self._entries, (ip, email_key), now, self.WINDOW, self.MAX_FAILURES, self.LOCK_TIME
             )
+            # The email and user counters share the same limit and times.
+            stores = []
+            if per_email:
+                stores.append((self._by_email, email_key))
+            if user_id is not None:
+                stores.append((self._by_user, user_id))
+            for entries, key in stores:
+                _count_failure(
+                    entries,
+                    key,
+                    now,
+                    self.EMAIL_WINDOW,
+                    self.EMAIL_MAX_FAILURES,
+                    self.EMAIL_LOCK_TIME,
+                )
 
     def clear(self, ip: str, email: str) -> None:
         """After a successful login: only this pair. The email counter stays, so the
         owner signing in doesn't reset the count of someone guessing elsewhere."""
-        self._entries.pop((ip, _email_key(email)), None)
+        with self._lock:
+            self._entries.pop((ip, _email_key(email)), None)
 
-    def clear_email(self, email: str) -> None:
+    def clear_email(self, email: str, user_id: int | None = None) -> None:
         """After a password reset (or an undone email change, a deleted account): the
-        owner proved who they are, so every lock on this email goes, on any IP."""
+        owner proved who they are, so every lock on this email goes, on any IP, and
+        the user's Settings lock too when user_id is given."""
         email_key = _email_key(email)
-        for key in [key for key in self._entries if key[1] == email_key]:
-            del self._entries[key]
-        self._by_email.pop(email_key, None)
+        with self._lock:
+            for key in [key for key in self._entries if key[1] == email_key]:
+                del self._entries[key]
+            self._by_email.pop(email_key, None)
+            if user_id is not None:
+                self._by_user.pop(user_id, None)
 
     def reset(self) -> None:
-        self._entries.clear()
-        self._by_email.clear()
+        with self._lock:
+            self._entries.clear()
+            self._by_email.clear()
+            self._by_user.clear()
 
 
 class EmailLimiter:
@@ -298,6 +338,7 @@ class EmailLimiter:
     WINDOW = timedelta(hours=1)
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._sent: OrderedDict[str, list[datetime]] = OrderedDict()
 
     def _recent(self, email_key: str, now: datetime) -> list[datetime]:
@@ -309,22 +350,24 @@ class EmailLimiter:
         if email_key is None:
             return False
         now = utcnow()
-        while self._sent:
-            key = next(iter(self._sent))  # the oldest
-            if self._recent(key, now):
-                break
-            del self._sent[key]
+        with self._lock:
+            while self._sent:
+                key = next(iter(self._sent))  # the oldest
+                if self._recent(key, now):
+                    break
+                del self._sent[key]
 
-        sent = self._recent(email_key, now)
-        if len(sent) >= self.MAX_EMAILS:
-            return False
-        self._sent[email_key] = [*sent, now]
-        self._sent.move_to_end(email_key)
-        _drop_oldest(self._sent)
-        return True
+            sent = self._recent(email_key, now)
+            if len(sent) >= self.MAX_EMAILS:
+                return False
+            self._sent[email_key] = [*sent, now]
+            self._sent.move_to_end(email_key)
+            _drop_oldest(self._sent)
+            return True
 
     def reset(self) -> None:
-        self._sent.clear()
+        with self._lock:
+            self._sent.clear()
 
 
 login_lockout = LoginLockout()
