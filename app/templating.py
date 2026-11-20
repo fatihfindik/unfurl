@@ -10,7 +10,7 @@ from fastapi import Request, Response
 from fastapi.templating import Jinja2Templates
 
 from app.models.base import as_utc, utcnow
-from app.security import get_csrf_token, safe_redirect_path
+from app.security import get_csrf_token, is_head_request, safe_redirect_path
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
@@ -70,7 +70,12 @@ def set_flash(request: Request, message: str, undo_url: str = "", undo_token: st
 
 def take_flash(request: Request) -> dict | None:
     """The waiting toast, once, on a full page load (never on an htmx piece)."""
-    if request.method != "GET" or is_htmx(request) or "session" not in request.scope:
+    if (
+        request.method != "GET"
+        or is_head_request(request)  # HEAD shows no page, so the toast waits (D-142)
+        or is_htmx(request)
+        or "session" not in request.scope
+    ):
         return None
     flash = request.session.pop(FLASH_KEY, None)
     return flash if isinstance(flash, dict) else None

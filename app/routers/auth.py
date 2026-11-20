@@ -15,7 +15,14 @@ from app.models import User
 from app.models.base import utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
 from app.routers.reminders import TOKEN_PAGE_HEADERS
-from app.security import client_ip, email_limiter, limiter, login_lockout, safe_redirect_path
+from app.security import (
+    client_ip,
+    email_limiter,
+    is_head_request,
+    limiter,
+    login_lockout,
+    safe_redirect_path,
+)
 from app.services import email_service
 from app.services.auth_service import (
     FULL_NAME_MAX_LENGTH,
@@ -296,6 +303,9 @@ def verify_email(request: Request, session: DbSession, user: CurrentUser, token:
 
     if account.is_verified:
         heading = "Email already verified"
+    elif is_head_request(request):
+        # A link checker asking with HEAD doesn't verify; only opening the link does (D-142).
+        heading = "Email verified"
     else:
         mark_verified(session, account)
         heading = "Email verified"

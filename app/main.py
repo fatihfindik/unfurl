@@ -31,6 +31,7 @@ from app.routers import (
 from app.routers import settings as settings_routes  # `settings` is the app config below
 from app.security import (
     CONTENT_SECURITY_POLICY,  # noqa: F401 (tests read it from here)
+    HEAD_SCOPE_KEY,
     SECURITY_HEADERS,
     hide_tokens_in_access_log,
     limiter,
@@ -108,6 +109,45 @@ class SecurityHeaders:
             await send(message)
 
         await self.app(scope, receive, send_with_headers)
+
+
+class HeadAsGet:
+    """Answer HEAD like GET, without the body (#5, D-142).
+
+    HEAD asks "what would GET answer?": the same status and headers, no body.
+    Uptime monitors and link checkers use it. FastAPI's GET routes don't accept
+    HEAD (405), so this layer hands the request on as a GET and drops the body.
+    /static/ is left alone: StaticFiles answers HEAD itself.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if (
+            scope["type"] != "http"
+            or scope["method"] != "HEAD"
+            or scope["path"].startswith("/static/")
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        # A copy, not a change in place: the server keeps seeing HEAD in its own
+        # scope and drops the body itself for answers that go around this layer
+        # (Starlette's 500 page is sent from outside all our middleware).
+        # The mark lets a GET route skip a change it would make (is_head_request).
+        get_scope = {**scope, "method": "GET", HEAD_SCOPE_KEY: True}
+
+        async def send_without_body(message):
+            if message["type"] == "http.response.pathsend":  # a file the server would send
+                message = {"type": "http.response.body", "body": b"", "more_body": False}
+            elif message["type"] == "http.response.body":
+                if message.get("more_body", False):
+                    return  # a streamed answer: skip the parts in between
+                message = {"type": "http.response.body", "body": b"", "more_body": False}
+            await send(message)
+
+        await self.app(get_scope, receive, send_without_body)
 
 
 class UserTimezone:
@@ -260,8 +300,11 @@ def create_app(settings: Settings) -> FastAPI:
     # Origin check and body limit for the extension API, before any route (D-137).
     app.add_middleware(ExtensionApiGuard, settings=settings)
 
-    # Added last, so it is the outermost: every answer gets the headers, errors too.
+    # Added late, so it wraps the rest: every answer gets the headers, errors too.
     app.add_middleware(SecurityHeaders)
+
+    # Outside even that: every layer and route sees a HEAD request as GET (D-142).
+    app.add_middleware(HeadAsGet)
 
     # Our own error pages instead of JSON; 500 too, with the security headers (D-125).
     add_error_handlers(app)
