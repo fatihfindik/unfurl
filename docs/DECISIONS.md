@@ -438,6 +438,7 @@ Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (202
 - **Karar:** `CVDocument.application_id` (FK, nullable, `ON DELETE SET NULL`) ve `Application.cv_id` (FK, nullable, `ON DELETE SET NULL`). Bir başvurunun **bir** CV'si olur; bir kopya en fazla **bir** başvuruya aittir. Master hiçbir zaman bağlanmaz (sadece kopyalar gönderilir, SPEC §5.3). Detay sayfasında **Documents** kartı:
 - **Güncelleme (plan-reviewer):** `CVDocument.application_id` = **soy**: bu başvuru için yapılmış kopyalar (birden çok versiyon olabilir). `Application.cv_id` = **şu anki** CV (bir tane). Bağlı bir kopyadan "Save as new version" / "Duplicate as new version" yeni taslağa `application_id`'yi aktarır; kilitli bağlı CV'den "Duplicate as new version" yeni taslağı şu anki `cv_id` yapar (gönderilmiş versiyon `ApplicationDocument`'ta kalır). "Duplicate" (başka başvuru için) `application_id` aktarmaz. `application.cv_id` üzerinde unique index. "{Company} · CV" başlığında şirket adı 200 karaktere sığacak şekilde kesilir.
 - **Güncelleme (plan-reviewer):** Kopya oluşturmanın Undo'su kopyayı sadece hâlâ taslak, hiç düzenlenmemiş (`never_edited`) ve hâlâ bağlıysa siler; yoksa sadece bağı kaldırır. Bağlama/ayırma `document_linked` event'i yazar, böylece "add job"un Undo'su araya giren bir bağlamayı ezmez (`creation_fingerprint`'e `cv_id` de eklenir).
+- **Güncelleme: D-157** (2026-11-21): mektup aynı kalıpla bağlanır (`CoverLetter.application_id`, `Application.cover_letter_id`).
 
 ### D-081 · Versiyon numarası master başına kalır
 Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
@@ -448,11 +449,13 @@ Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (202
 - **Karar:** Bir başvuru **Saved'den** Applied, Interview veya Offer'a geçince (board, seçici, mülakat kaydı) bağlı taslak CV kilitlenir ve `ApplicationDocument(application_id, doc_type="cv", document_id, content_snapshot=cv.content, sent_at=now)` oluşur; timeline'a `document_linked` event'i ("CV v3 locked: this is what you sent"). Zaten gönderilmiş (Applied/Interview/Offer) bir başvuruya CV bağlamak da hemen kilitler. Undo kilidi açar ve `ApplicationDocument`'ı siler (token: `locked_cv_ids`, `sent_ids`; Undo sadece CV hâlâ o başvuruya bağlıysa ve başka bir belge kaydı eklenmediyse çalışır). Kilit `document_service.lock` ile (kurallar tek yerde).
 - **Güncelleme (plan-reviewer):** Başvuru Applied, Interview veya Offer'a **her geçişte** (nereden olursa olsun) bağlı CV **taslaksa** kilitlenir. Zaten gönderilmiş başvuruya bağlanan CV taslak kalır; "Lock as sent" butonu aynı kilitlemeyi elle yapar. Durum değişikliği, kilit, `ApplicationDocument` ve event **tek transaction**: `document_service.lock(..., commit=False)`.
 - **Güncelleme (plan-reviewer):** Token `locked_cv_ids` + her birinin `locked_at`'i ve `sent_ids` taşır. Undo sadece hâlâ kilitli ve `locked_at`'i token'dakiyle aynı olan CV'lerin kilidini açar; `ApplicationDocument`'ları `user_id` + `application_id` + satır sayısı kontrolüyle siler. Kilit açma fonksiyonu sadece `document_service`'tedir ve sadece bu Undo'dan çağrılır. **CLAUDE.md'deki "kilitli versiyon asla düzenlenmez" kuralına bu tek istisna:** içerik değişmez, yanlışlıkla yapılan gönderim 60 sn içinde geri alınır. CLAUDE.md'yi Claude değiştirmez; Fatih'e not olarak bırakılır.
+- **Güncelleme: D-159** (2026-11-21): bağlı mektup da aynı geçişte, aynı transaction'da kilitlenir; Undo istisnası mektup için de geçerli. Fatih kuralı CLAUDE.md'ye istisnayla yazdırdı (2026-11-21).
 
 ### D-083 · `ApplicationDocument` tablosu
 Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
 - **Karar:** SPEC §5.4b alanları + `user_id` (her sorgu `user_id` ile filtrelenir), `document_id` `ON DELETE SET NULL` (kilitli belge silinemez ama savunma). `content_snapshot` JSON. Kapak mektubu M8'de aynı tabloyu kullanır (`doc_type`).
 - **Güncelleme (plan-reviewer):** `ApplicationDocument.application_id` `ON DELETE CASCADE`. **D-085:** Kilitli CV'nin PDF adında şirketin bugünkü adı kullanılır (kabul).
+- **Güncelleme: D-159** (2026-11-21): mektup için yeni `cover_letter_id` kolonu (FK → coverletter, `SET NULL`); `document_id` CV'ye bağlı kalır.
 
 ### D-084 · Editör ve Documents sayfası
 Kaynak: M4c Design fazı, plan-reviewer; Fatih'in yerine Claude karar verdi (2026-11-17, D-087).
@@ -844,6 +847,7 @@ Kaynak: `docs/plans/M8a.md`, plan-reviewer; **Claude karar verdi**, Fatih planı
 - **Alternatifler:** Ay adlarıyla tarih (yeni sözlük, DE/TR için ek iş); tarihi elle girilen alan yapmak (unutulur, eski tarihli mektup gider).
 
 - **Güncelleme: D-155** (2026-11-21): deploy da MVP'den çıktı (para ödenmeden); MVP kişisel local ortamla tamamlanır.
+- **Güncelleme: D-160** (2026-11-21): kilitli mektubun tarihi gönderim anında sabitlenir.
 
 ### D-155 · Deploy yok, kişisel local ortam
 Kaynak: Fatih (2026-11-21): domain ve hosting için şimdilik ödeme yapmak istemiyor, uygulamayı önce kendi bilgisayarında gerçek başvurularla kullanmak istiyor. Issue #84, `docs/plans/P1-personal-instance.md`, plan-reviewer. SPEC v2.1.32.
@@ -856,3 +860,35 @@ Kaynak: Fatih (2026-11-21): domain ve hosting için şimdilik ödeme yapmak iste
 Kaynak: `docs/plans/P1-personal-instance.md`, plan-reviewer; Fatih önerileri onayladı (2026-11-21).
 - **Karar:** Kişisel ortam `APP_ENV=development`, `DEBUG=false`, `EMAIL_BACKEND=console`: production modu SMTP ister (`config.py`), kod değişmez. Sonuçları: `/docs` açık (sadece loopback), çerez `Secure` değil ve `__Host-` önekli değil; SPEC §10.1'deki "Secure çerez" kuralı kişisel ortamda karşılanmaz, sadece loopback üzerinden http olduğu için kabul edilir. Production'ın anahtar kontrolleri yerine compose zorunlu değişkenleri. E-posta linkleri `docker compose … logs app`'te. Eklenti: `host_permissions` tam olarak `http://localhost:8000/*` ve `http://127.0.0.1:8100/*`; `config.js` varsayılanı kişisel ortam; eklentiyi geliştirirken `config.js` tek satır 8000 yapılır ve yeniden giriş gerekir (tek token saklanır; TESTING.md uyarır).
 - **Alternatifler:** production + Mailpit (yeni imaj; e-postalar tarayıcıda); yeni `APP_ENV=personal` modu (config ve test işi); eklenti varsayılanı dev kalır (her `git pull`'da yerel değişiklik çakışır).
+
+## M8b — Mektup: PDF ve başvuru (2026-11-21)
+
+Kaynak: `docs/plans/M8b.md`, plan-reviewer (1 Blocker, 7 Should, 6 Nit; hepsi plana işlendi); Fatih planı ve üç sorunun önerilen cevaplarını onayladı (2026-11-21). SPEC v2.1.34.
+
+### D-157 · Mektubu başvuruya bağlama
+- **Karar:** D-080'in aynısı. `CoverLetter.application_id` (FK → application, `SET NULL`) = soy; `Application.cover_letter_id` (FK → coverletter, `SET NULL`, unique, `use_alter`) = şu anki mektup. Master bağlanmaz. Detay sayfasındaki Documents kartında CV'nin altında Cover letter bölümü: dil başına "Copy my master letter ({DİL})" (başlık "{Company} · Cover letter", 200 karaktere kesilir), "Use an existing copy", "Open", "PDF", taslakta "Remove", gönderilmiş başvuruda "Lock as sent". Hepsi toast + Undo (token'da `created_letter`, `linked_letter`; `NOTE_FIELDS`, `_from_text`, `creation_fingerprint` ve `undo_change`'in sahiplik kontrolü `cover_letter_id`'yi bilir). Route'lar CV'ninkiyle aynı kurallarda (arşivli başvuru 409, `letter=` ile master 422, 60/dk).
+- **Alternatifler:** CV ve mektup için tek "documents" ilişki tablosu (M4c kodunu ve testlerini baştan açar).
+
+### D-158 · Başvuru için kopyada ön doldurma
+- **Karar:** Master'dan bir başvuru için kopya oluşurken **boş** alanlar ilandan dolar: `recipient_company` ← şirket, `recipient_name` ← iletişim kişisi, `subject` ← dile göre kalıp (DE "Bewerbung als {job_title}", EN "Application for {job_title}", TR "{job_title} pozisyonu için başvuru"; `job_title` konu 200 karaktere sığacak şekilde kesilir). Dolu alanlara dokunulmaz. Değerler kopya kaydedilmeden önce verilir, böylece kopya `never_edited` kalır ve Undo onu silebilir.
+- **Alternatifler:** Hiç ön doldurmamak (her başvuruda aynı üç alanı elle yazmak); dolu alanların üzerine yazmak (master'daki bilinçli metni ezer).
+
+### D-159 · Gönderilince mektubu da kilitle
+- **Karar:** D-082'nin aynısı: Applied, Interview veya Offer'a her geçişte (board, durum seçici, mülakat modalı, arşivden dönüş dahil) bağlı taslak CV ve bağlı taslak mektup tek transaction'da kilitlenir (`lock_sent_documents`). `ApplicationDocument.cover_letter_id` yeni kolon; her satırda `doc_type`'a göre `document_id` ya da `cover_letter_id` dolu (kod kuralı, CHECK değil: `SET NULL` ikisini de boşaltabilir). Snapshot: mektubun bütün alanları + `"date"` (gönderim anındaki tarih satırı). Undo token'ında `locked_letters`; kilit açma sadece `cover_letter_service.unlock_after_undo`'da. "Lock as sent" her belge için ayrı.
+- **Alternatifler:** `document_id`'yi FK'siz genel kimlik yapmak (sahipsiz satır riski); `document_id`'yi `cv_id` olarak yeniden adlandırmak (M4c kodu ve testleri değişir).
+
+### D-160 · Mektup tarihi gönderimde sabitlenir
+- **Karar:** Taslakta tarih satırı bugün (kullanıcının saat diliminde). Kilitli mektupta tarih `ApplicationDocument.content_snapshot["date"]`'ten, yoksa `locked_at`'ten (kullanıcının saat diliminde). Yeni kolon yok.
+- **Alternatifler:** Mektupta `letter_date` kolonu (aynı bilgi iki yerde).
+
+### D-161 · Mektup PDF'i
+- **Karar:** Önizlemedeki `pdf/cover_letter.html` aynen kullanılır, WeasyPrint için `pdf/_letter_page.html` sarmalayıcısıyla (sadece `static/` okunur, D-059). `GET /cover-letters/{id}/pdf`: giriş, `user_id`, 20/dk, kilitlide de. Dosya adı `CoverLetter_{Ad}_{Şirket?}_{lang}.pdf`: ad `sender_name`'den, şirket bağlı başvurudan, yoksa `recipient_company`'den (Fatih); D-057/D-085'teki ASCII + `filename*` kuralları. `pdf_filename` ve `content_disposition` genelleşir, CV davranışı aynı kalır.
+- **Alternatifler:** Şirketi sadece başvurudan almak (başvurusuz mektupta şirket adı kaybolur).
+
+### D-162 · Editörde başvuru, Duplicate ve Copy text
+- **Karar:** D-084'ün aynısı: başvuru `letter.application_id`'den, `?application=` sadece onunla aynıysa: "← {Company}", "All documents", bant "Copy for {Company}, based on {Master}. Your master letter stays unchanged.", versiyon seçicide aynı başvurunun versiyonları + master. Bağlı kopyadan "Save as new version" `application_id`'yi taşır ve **başvuru gönderilmemişse** başvurunun şu anki mektubu olur (M4c E1). "Duplicate": bağsız yeni taslak "… (copy)". "Copy text": selamlama + gövde + kapanış + gönderen adı düz metin olarak panoya (Fatih), `app.js`'te Alpine bileşeni, inline script yok.
+- **Alternatifler:** Copy text'te bütün mektup (adresler ve tarih başvuru formlarının mesaj kutusunda fazlalık).
+
+### D-163 · Documents sayfasında gruplama ve silmede bağ
+- **Karar:** D-084 ve D-086'nın aynısı: Cover letters sekmesinde kopyalar başvuruya göre gruplanır, bağsızlar "Not linked to an application". Bağlı taslak mektup silinince başvurunun `cover_letter_id`'si boşalır; Undo `restore_cv`'nin üç koşuluyla yeniden bağlar (başvuru sahibinin, `cover_letter_id` boş, durum `saved`); başvuru yoksa `application_id` temizlenir.
+- **Alternatifler:** Silmede bağı hiç geri kurmamak (Undo yarım kalır).
