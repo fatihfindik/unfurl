@@ -27,7 +27,7 @@ Her milestone (SPEC Bölüm 12) küçük bir SDLC döngüsüdür. Bir milestone 
 | 3 | **Build** | Küçük adımlarla kod. Her adım çalışır durumda kalır ve ayrı commit olur. Her commit'ten önce diff gösterilir ve Fatih'in onayı beklenir. | Claude Code | Feature branch'te commit'ler |
 | 4 | **Test** | Otomatik testler + lint, ardından kabul kriterlerinin elle testi | Claude Code + Fatih | Yeşil CI, işaretlenmiş kabul kriterleri |
 | 5 | **Review** | Fatih kodu okur, `security-reviewer` çalışır, anlaşılmayan yerler sorulur ve açıklanır | GitHub PR + Claude Code | Onaylanmış ve merge edilmiş PR |
-| 6 | **Release** | `main`'e merge ve etiket. M13'ten sonra canlıya deploy. | GitHub (sonra Render) | Etiket: `v0.{n}-m{n}` (ör. `v0.3-m3`) |
+| 6 | **Release** | `main`'e merge ve etiket. Canlıya deploy şimdilik yok; MVP kişisel local ortamda çalışır (D-155). | GitHub (sonra Render) | Etiket: `v0.{n}-m{n}` (ör. `v0.3-m3`) |
 | 7 | **Retro** | Ne öğrendim, ne zorladı, süreçte veya SPEC'te ne değişmeli? Tartışma claude.ai'de, dosya değişiklikleri terminalde. | `docs/LEARNING_LOG.md` + claude.ai projesi | 3-5 madde. Gerekirse SPEC/WORKFLOW güncellemesi. |
 
 **claude.ai kopyası:** Repo tek doğruluk kaynağıdır; claude.ai projesindeki SPEC.md ve WORKFLOW.md onun aynasıdır. Bu iki dosyayı değiştiren bir commit yapıldığı anda Fatih claude.ai'deki eski kopyayı siler ve yenisini yükler (merge'ü beklemez).

@@ -2,8 +2,9 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.31 — 2026-11-21
-> v2.1.31: M8a Design kararları: `CoverLetter` düz kolonlar (gönderen, alıcı, şehir, konu, selamlama, gövde, kapanış; tone/length/ai_generated V2, application_id M8b), CV ile ortak soy kuralları (`lineage.py`), dile göre selamlama/kapanış ve tarih (`full_date`, bugün, kullanıcının saat diliminde), "Refresh from profile" sadece gönderen alanları ve onayla (D-152…D-154).
+> **Durum:** MVP planı, v2.1.33 — 2026-11-21
+> v2.1.33: M8a Design kararları: `CoverLetter` düz kolonlar (gönderen, alıcı, şehir, konu, selamlama, gövde, kapanış; tone/length/ai_generated V2, application_id M8b), CV ile ortak soy kuralları (`lineage.py`), dile göre selamlama/kapanış ve tarih (`full_date`, bugün, kullanıcının saat diliminde), "Refresh from profile" sadece gönderen alanları ve onayla (D-152…D-154).
+> v2.1.32: **Deploy yok, kişisel local ortam (D-155, D-156):** M13c MVP'den çıktı ("Sonra"); MVP kişisel ortamla tamamlanır: `docker-compose.personal.yml`, ayrı Postgres ve volume'lar, `http://127.0.0.1:8100`, development modu + `DEBUG=false` + console e-posta, yedek ve geri yükleme script'leri. Eklenti iki adrese izin verir (dev `localhost:8000`, kişisel `127.0.0.1:8100`). M13d README'si canlı URL'siz. Sıra: M8a → M8b → M9a → M13d.
 > v2.1.30: **AI'sız MVP (D-150):** AI özellikleri (M5, M6b, M7, M12a, M12b; M8/M9'un AI kısımları; onboarding sihirbazı; yapılandırılmış ilan; krediler, BYOK, Pro/fake door) V2'ye ertelendi. AI tasarımı silinmedi, "V2 (D-150)" diye işaretli. Yeni sıra: M8a → M8b → M9a → M13c → M13d. Apply sekmesi AI'sız 2 adım (Prepare documents → Final check).
 > v2.1.29: #57: login kilidine e-posta başına ikinci sınır (bütün IP'lerden saatte 20 hata → 1 saat); şifreyi sıfırlayan tarayıcı 15 dk muaf; Settings şifre kontrolleri e-posta kilidine bakmaz, kendi kullanıcı sayacı var (saatte 20 hata → 1 saat) (D-149).
 > v2.1.28: #64 (E4): ölü eklenti token'ları (iptal, süresi dolmuş, eski oturum sürümü) her gece 03:10'da silinir (D-148).
@@ -84,7 +85,7 @@
 
 ### 1.4 Proje hedefleri
 1. **Öğrenme:** Python, FastAPI, veritabanı, kimlik doğrulama, Claude API (tool use, structured output, agent döngüsü), Chrome eklentisi.
-2. **Portföy:** GitHub'da temiz, belgelenmiş, canlıda çalışan bir proje.
+2. **Portföy:** GitHub'da temiz, belgelenmiş, kendi bilgisayarında kolayca çalışan bir proje (canlı deploy sonra, D-155).
 3. **Potansiyel ürün:** İleride freemium modele geçebilecek bir temel.
 
 ### 1.5 MVP kapsamı DIŞINDA olanlar (Non-goals)
@@ -185,7 +186,7 @@
 | Lint/format | **ruff** | |
 | Konteyner | **Docker** + **docker-compose** (app + postgres) | WeasyPrint sistem bağımlılıkları için Docker şart |
 | CI | **GitHub Actions** | lint + test |
-| Deploy | **Render** (Frankfurt bölgesi), Docker ile | Alternatif: Railway / Fly.io |
+| Deploy | MVP'de yok (D-155): kişisel local ortam, Docker ile (`docker-compose.personal.yml`). Sonra: **Render** (Frankfurt bölgesi) | Alternatif: Railway / Fly.io |
 | Eklenti | Vanilla JavaScript, Chrome Manifest V3 | Build aracı yok, sade JS |
 
 ---
@@ -741,7 +742,7 @@ Kullanıcı bir iş ilanı sayfasındayken eklenti ikonuna tıklar, ilan otomati
   "version": "0.1.0",
   "description": "Save job postings to Unfurl with one click.",
   "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["<APP_BASE_URL>/*"],
+  "host_permissions": ["http://localhost:8000/*", "http://127.0.0.1:8100/*"],  // dev ve kişisel ortam (D-156); config.js hangisine bağlanacağını söyler
   "action": { "default_popup": "popup.html", "default_icon": "icons/icon-32.png" },
   "icons": { "16": "icons/icon-16.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
   "key": "<public key: keeps the extension ID stable in development>"
@@ -1016,7 +1017,7 @@ Versiyon numarası `AIUsage` kaydına ve `FitAnalysis.model` yanına (`model@pro
 - [ ] Production'da `DEBUG=false`, hata sayfaları stack trace göstermez. 404, 422 ve 500 uygulamanın kendi sayfalarıdır ve güvenlik header'larını alır (500 dahil); htmx isteğinde boş gövde + toast (D-125).
 
 ### 10.2 GDPR
-- **Hosting:** AB bölgesi (Render Frankfurt). Veritabanı da AB'de.
+- **Hosting:** MVP'de hosting yok; veri kullanıcının kendi bilgisayarında (D-155). Deploy edilince: AB bölgesi (Render Frankfurt), veritabanı da AB'de.
 - **Alt işleyenler** gizlilik sayfasında listelenir: hosting sağlayıcı, e-posta sağlayıcı, Anthropic (AI işleme).
 - **Kayıt sırasında** gizlilik politikası onayı alınır, onay tarihi `User` tablosunda saklanır (`privacy_accepted_at`).
 - **Veri dışa aktarma:** `/settings` → "Export my data" → kullanıcının tüm verileri tek bir JSON dosyası olarak iner (profil, CV'ler, mektuplar, başvurular, eventler, fit analizleri, sohbetler). Şifre hash'i, oturum sürümü, token'lar, şifreli API anahtarı ve Undo kopyaları hariç; fotoğraf base64. Akış olarak yazılır; FK yoluyla kullanıcıya bağlı her tablo ya dışa aktarılır ya da gerekçeli hariç listesindedir (test, D-130).
@@ -1028,6 +1029,8 @@ Versiyon numarası `AIUsage` kaydına ve `FitAnalysis.model` yanına (`model@pro
 ---
 
 ## 11. Ortam Değişkenleri (`.env.example`)
+
+Kişisel local ortam (D-155, D-156) aynı değişkenleri `.env.personal`'dan okur (örnek: `.env.personal.example`): `APP_ENV=development`, `DEBUG=false`, `APP_BASE_URL=http://127.0.0.1:8100`, `EMAIL_BACKEND=console`; `SECRET_KEY`, `ENCRYPTION_KEY` ve `POSTGRES_*` compose dosyasında zorunludur (development modunda uygulama onları kontrol etmez).
 
 ```bash
 # App
@@ -1060,7 +1063,7 @@ AI_GLOBAL_DAILY_CREDITS=3000
 BILLING_ENABLED=false            # true olana kadar Upgrade butonları bekleme listesine yönlendirir
 
 # Extension
-EXTENSION_ORIGINS=chrome-extension://REPLACE_WITH_EXTENSION_ID   # Geliştirmede manifest'teki `key` sayesinde sabit; Web Store kimliği M13c'de eklenir (D-137)
+EXTENSION_ORIGINS=chrome-extension://REPLACE_WITH_EXTENSION_ID   # Geliştirmede manifest'teki `key` sayesinde sabit; Web Store kimliği deploy ile eklenir (D-137, D-155)
 
 # Scheduler / reminders
 SCHEDULER_ENABLED=true           # Testlerde ve birden fazla instance'ta false
@@ -1216,7 +1219,7 @@ M1 dışında: onboarding sihirbazı (V2, D-150), temanın `User.theme`'e bağla
 - **Kabul:** Kota aşımı 429 dönüyor. BYOK ile kredi düşmüyor. Testler FakeAIClient ile geçiyor. Eval doğruluğu ≥ %85 (company + job_title).
 
 ### M6 — Chrome eklentisi (D-135: M6a ve M6b)
-M6 ikiye bölündü. Sıra (D-150): M6a ✓ → M8a → M8b → M9a → M13c → M13d; M6b ve diğer AI milestone'ları V2.
+M6 ikiye bölündü. Sıra (D-150, D-155): M6a ✓ → M8a → M8b → M9a → M13d; M6b ve diğer AI milestone'ları V2; M13c sonra.
 
 ### M6a — Chrome eklentisi: AI'sız kaydetme
 - ApiToken modeli (oturum sürümüne bağlı), `/api/ext` (login, logout, `me`, `jobs/check`, `jobs`), JSON hatalar, `Origin` kontrolü, gövde sınırı, URL normalizasyonu ve `Application.canonical_url`
@@ -1300,7 +1303,8 @@ AI ile oluşturma V2. Mektup CV'lerle aynı master/kopya/kilit kurallarını kul
 - Settings › Account: ad ve şifre değiştirme (şifre değişince diğer oturumlar kapanır). E-posta değiştirme ayrı bir PR.
 - **Kabul:** Dışa aktarma, hariç listesindekiler dışında kullanıcının her tablosunu içeriyor (test). Hesap silme Postgres'te bütün satırları ve fotoğraf dosyasını siliyor, oturumu kapatıyor ve onay e-postasını gönderiyor. Yasal sayfalarda gerçek metin var.
 
-### M13c — Deploy (D-123; M9a'dan sonra, D-150)
+### M13c — Deploy (D-123) · Sonra (D-155)
+MVP'de deploy yok; kişisel local ortam kullanılır (§11, D-155, D-156). Aşağıdakiler deploy edilince yapılır.
 - Render'a deploy (Docker, Frankfurt, Postgres), production env, HSTS, proxy header'ları ve `APP_BASE_URL` kontrolü (#18), e-postada `List-Unsubscribe`, eklentide prod URL
 - Zamanlayıcı tek instance'ta; #17 belgelenmiş sınırlama olarak kalır. Deploy öncesi Postgres test çalıştırması (CI `postgres-tests`).
 - Yasal sayfalarda sağlayıcıların gerçek adları; SPEC §10.1 kontrol listesi madde madde işaretlenir.
@@ -1308,7 +1312,7 @@ AI ile oluşturma V2. Mektup CV'lerle aynı master/kopya/kilit kurallarını kul
 
 ### M13d — Portföy README'si (D-123)
 - Ekran görüntüleri, mimari şema, "What I learned" bölümü
-- **Kabul:** README'de canlı URL, şema ve ekran görüntüleri var.
+- **Kabul:** README'de "kendi bilgisayarında çalıştır" adımları (dev ve kişisel ortam), mimari şema ve ekran görüntüleri var; canlı URL deploy ile (D-155).
 
 ---
 

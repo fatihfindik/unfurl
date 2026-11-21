@@ -100,14 +100,14 @@ Saklanan / dışa aktarılan / silinen verileri sayan metinlere "cover letters" 
 - **Güncellenecek eski testler:** "Coming soon" bekleyenler (`test_m3a_gaps.py:40-60`, `test_empty_states.py:43`, `test_documents_pages.py:67`).
 
 ## 8. Adımlar (her biri ayrı commit, önce Fatih'e sorulur)
-0. `docs: plan M8a` + `docs: SPEC and D-152…D-154 for M8a`: SPEC v2.1.31 (başlık satırı); §4 dosya adları; §5.4 tablo (yeni kolonlar; tone/length/ai_generated "V2 (D-150)"; application_id M8b); §5.3/D-086 trash türü; §6.5 Cover letters sekmesi; §6.6 editör alanları ("bir başvuru seç" M8b'ye, Generate V2); §12 M8a/M8b (Duplicate ve "All documents" M8b'de kalır).
+0. `docs: plan M8a` + `docs: SPEC and D-152…D-154 for M8a`: SPEC v2.1.33 (başlık satırı); §4 dosya adları; §5.4 tablo (yeni kolonlar; tone/length/ai_generated "V2 (D-150)"; application_id M8b); §5.3/D-086 trash türü; §6.5 Cover letters sekmesi; §6.6 editör alanları ("bir başvuru seç" M8b'ye, Generate V2); §12 M8a/M8b (Duplicate ve "All documents" M8b'de kalır).
 1. `refactor: shared lineage helpers for documents` (D-153; davranış değişmez; tam test + ruff).
 2. `feat: cover letter model` (model, migration 0018, migration testi, export bölümü).
 3. `feat: cover letter rules` (servis, şema, etiketler + testler).
 4. `feat: cover letters on the Documents page` (sekme, modal, `POST /cover-letters`, silme + Undo, eski "Coming soon" testleri).
 5. `feat: cover letter editor and preview` (editör, önizleme, kaydet, versiyon, refresh, master onayı).
 6. `docs: cover letters in the privacy and deletion texts` (+ testler).
-7. Review ve kapanış: test-writer, security-reviewer, bulgular; `uv run pytest` (normal ve `TZ=UTC`), `ruff check`, `ruff format --check`; yeşil CI; **elle test listesi** PR'da (Fatih ya da Claude Chrome'da); `LEARNING_LOG` (3–5 madde); CLAUDE.md'de M8a ✓; PR "Closes #80"; Fatih claude.ai SPEC kopyasını v2.1.31 ile yeniler; merge sonrası etiket `v0.8a-m8a`.
+7. Review ve kapanış: test-writer, security-reviewer, bulgular; `uv run pytest` (normal ve `TZ=UTC`), `ruff check`, `ruff format --check`; yeşil CI; **elle test listesi** PR'da (Fatih ya da Claude Chrome'da); `LEARNING_LOG` (3–5 madde); CLAUDE.md'de M8a ✓; PR "Closes #80"; Fatih claude.ai SPEC kopyasını v2.1.33 ile yeniler; merge sonrası etiket `v0.8a-m8a`.
 
 ## Riskler
 - Lineage refaktörü çalışan CV koduna dokunuyor → ayrı commit, önce tam test; davranış değişirse geri alınır ve D-153 "kopyala" seçeneğine döner.

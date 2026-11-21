@@ -2,7 +2,7 @@
 
 **Grow while you apply.** A free web app + Chrome extension for job seekers: build ATS-friendly CVs and cover letters (DE / EN / TR), save job postings with one click, see how well you fit, check your documents before you apply, and turn skill gaps into a learning plan you actually keep, with an AI assistant powered by Claude.
 
-> Status: specification v2.1.22 and clickable prototype done; M0 (project skeleton), M1a (sign in, sessions, plans), M1b (email verification, password reset, login lockout), M2a (profile sections), M2b (profile order, photo, strength), M3a (CV documents: masters, versions, locks, editor with live preview), M3b (CV PDF: 3 templates × DE/EN/TR), M4a (applications board: add job, drag and drop, list, search and filters, archive, undo, theme saved with the account), M4b (application detail page: status picker, interview, next step, notes, details, Needs attention), M4c (CVs in applications: link, lock the one sent, undo for deletes) M10 (Learning: goals, tasks, streak with rest days, weekly hours) M11a (notifications: bell, panel, follow-up / interview / waiting job reminders on a schedule) M11b (Settings › Notifications, each user's time zone, daily study reminder in the app and by email, streak milestones) M13a (error pages, loading spinner and double-click guard, empty states, sign out on every device, Settings › Documents) and M13b (GDPR: export my data, delete my account, Settings › Account, drafted legal pages) done. AI milestones (M5, M7–M9, M12) wait for an API key; M10/M11 come first (D-088).
+> Status: specification v2.1.22 and clickable prototype done; M0 (project skeleton), M1a (sign in, sessions, plans), M1b (email verification, password reset, login lockout), M2a (profile sections), M2b (profile order, photo, strength), M3a (CV documents: masters, versions, locks, editor with live preview), M3b (CV PDF: 3 templates × DE/EN/TR), M4a (applications board: add job, drag and drop, list, search and filters, archive, undo, theme saved with the account), M4b (application detail page: status picker, interview, next step, notes, details, Needs attention), M4c (CVs in applications: link, lock the one sent, undo for deletes) M10 (Learning: goals, tasks, streak with rest days, weekly hours) M11a (notifications: bell, panel, follow-up / interview / waiting job reminders on a schedule) M11b (Settings › Notifications, each user's time zone, daily study reminder in the app and by email, streak milestones) M13a (error pages, loading spinner and double-click guard, empty states, sign out on every device, Settings › Documents) and M13b (GDPR: export my data, delete my account, Settings › Account, drafted legal pages) done. The MVP ships without AI (D-150) and runs as a personal local instance instead of a deploy (D-155); next: cover letters (M8a, M8b) and the Apply tab without AI (M9a).
 
 - Specification: [`docs/SPEC.md`](docs/SPEC.md)
 - Prototype (design reference): [`docs/prototype/`](docs/prototype/)
@@ -44,6 +44,33 @@ Migrations run automatically when the app container starts. The database is kept
 
 > **Run only one app server at a time.** The container copies the code when the image is built, so it does not see later changes; run `docker compose up --build` again after editing. If `fastapi dev` and the container both run, they share port 8000: `fastapi dev` answers on `127.0.0.1` (IPv4), the container on `::1` (IPv6), and the browser's `localhost` usually reaches the container with the old code. Stop one of them first (`docker compose stop app`, or Ctrl+C in the `fastapi dev` terminal).
 
+## Personal local use
+
+Use Unfurl for your own, real job applications on your computer, separate from development (D-155, D-156). It has its own Postgres database, its own photo volume and its own address: **http://127.0.0.1:8100** (127.0.0.1, not localhost, so the development server on `localhost:8000` keeps its own sign-in). Nothing is hosted and nothing costs money. Docker Desktop must be running.
+
+**First start**
+```bash
+cp .env.personal.example .env.personal   # then fill in SECRET_KEY, ENCRYPTION_KEY and POSTGRES_PASSWORD (commands are in the file)
+scripts/start_personal.sh                # checks the keys, builds and starts
+```
+Open http://127.0.0.1:8100 and create your account. Always pass `--env-file .env.personal`: without it, Docker Compose reads the development `.env`. The instance starts again by itself when Docker starts (`restart: unless-stopped`).
+
+| Task | Command |
+|---|---|
+| Stop / start | `docker compose -f docker-compose.personal.yml --env-file .env.personal stop` / `scripts/start_personal.sh` |
+| Email links (verify, password reset) | `docker compose -f docker-compose.personal.yml --env-file .env.personal logs app` |
+| Back up (database + photos) | `scripts/backup_personal.sh` |
+| Restore a backup | `scripts/restore_personal.sh ~/Backups/unfurl/unfurl-YYYYMMDD-HHMMSS.dump` |
+| Update to new code | `scripts/backup_personal.sh`, then `git pull` and `scripts/start_personal.sh` |
+
+- **Emails are not sent**, only written to the logs (`EMAIL_BACKEND=console`). Turn off the reminder email in Settings › Notifications; the in-app reminder still comes.
+- **Backups** go to `~/Backups/unfurl/` (readable only by you); the newest 14 are kept. Back up before every update (migrations change your real data) and about once a week. To run it every week by itself, add a launchd job or a `crontab -e` line such as `0 9 * * 1 cd ~/Projects/unfurl && scripts/backup_personal.sh`. Settings › Privacy › **Export my data** gives a second, readable copy (JSON). Turn on FileVault: the backups are not encrypted.
+- **Restore** checks the whole file, asks you to type `yes`, makes a backup of the current data first, then replaces everything in one transaction (if loading fails, the current data stays). An older backup is brought up to the current version when the app starts. Backup and restore never run at the same time.
+- **Keep `.env.personal` safe** (e.g. in a password manager): backups don't include it.
+- **Never run `down -v`** on this instance: `-v` deletes its volumes (`unfurl-personal_db`, `unfurl-personal_uploads`), that is all your data.
+- **Chrome extension**: it talks to this instance by default (`extension/config.js`); its `EXTENSION_ORIGINS` is already in `.env.personal.example`. To try the extension against the development server, see `extension/TESTING.md`.
+- The settings are in development mode with `DEBUG=false` (production needs a mail server, D-156); the instance is reachable only from this computer.
+
 ## Development
 
 | Task | Command |
@@ -72,4 +99,4 @@ CI (GitHub Actions) runs lint and tests on every push; on pull requests to `main
 - **Your data** (D-130, D-131): Settings › Privacy streams everything as one JSON file (`tests/test_export.py` fails when a new table is neither exported nor excluded with a reason) and deletes the account after the password; the password checks there and in Settings › Account share the sign-in lockout.
 - **Legal pages** (D-133): drafted texts with a "Draft" band until `LEGAL_REVIEWED=true`. The Impressum's name, address and email come from `LEGAL_OPERATOR_NAME`, `LEGAL_ADDRESS`, `LEGAL_EMAIL` in `.env`; never put them in the repository.
 - **Chrome extension** (D-135…D-141): install it from `extension/` as described in `extension/README.md` ("Load unpacked"); `EXTENSION_ORIGINS` in `.env` must name its id. It talks to `/api/ext` with a Bearer token only (no cookies, no CORS); requests from other origins get 403 and bodies over 256 KB get 413. Tokens last 90 days and end with Sign out, a password or email change, or Revoke in Settings › Browser extension. "Already saved" compares `Application.canonical_url` (`app/services/url_service.py`). Manual test list: `extension/TESTING.md`.
-- **Behind a proxy** (deploy, M13c) the app sees the proxy's IP address unless uvicorn runs with `--proxy-headers` and `--forwarded-allow-ips`; otherwise all users share one IP limit.
+- **Behind a proxy** (deploy, M13c, later: D-155) the app sees the proxy's IP address unless uvicorn runs with `--proxy-headers` and `--forwarded-allow-ips`; otherwise all users share one IP limit.

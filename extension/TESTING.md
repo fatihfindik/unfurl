@@ -1,7 +1,10 @@
 # Manual test: the extension (M6a)
 
 There are no automated tests for the extension (SPEC §13); `tests/test_extension_manifest.py`
-only checks its permissions. Test in Chrome on `http://localhost:8000`.
+only checks its permissions. Test in Chrome on `http://localhost:8000`: first set
+`APP_BASE_URL` in `config.js` to `http://localhost:8000` (its default is your personal
+instance, D-156), reload the extension and sign in again. Set it back when you are done,
+or test jobs end up in your real data.
 
 **Before you start**
 - Your normal Unfurl account; the extension installed as in `README.md` (step 2: `.env`).
