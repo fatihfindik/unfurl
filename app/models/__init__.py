@@ -20,6 +20,7 @@ from app.models.application import (  # noqa: E402
     ApplicationDocument,
     ApplicationEvent,
 )
+from app.models.cover_letter import CoverLetter  # noqa: E402
 from app.models.cv import CVDocument  # noqa: E402
 from app.models.learning import (  # noqa: E402
     LearningGoal,
@@ -46,6 +47,7 @@ __all__ = [
     "Application",
     "ApplicationDocument",
     "ApplicationEvent",
+    "CoverLetter",
     "CVDocument",
     "DeletedItem",
     "Certification",

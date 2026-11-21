@@ -21,7 +21,7 @@ class DeletedItem(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
-    kind: str = Field(max_length=30)  # "cv" or a profile section key
+    kind: str = Field(max_length=30)  # "cv", "cover_letter" (D-152) or a profile section key
     payload: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
 
     created_at: dt.datetime = created_at_field()  # when it was deleted
