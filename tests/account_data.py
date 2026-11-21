@@ -73,11 +73,21 @@ def fill_account(session: Session, user: User, photo_path: str | None = None) ->
     rows |= {"master": master, "job": job, "copy": copy}
     letter = add(CoverLetter(user_id=user.id, title="Master letter", language="de", is_master=True))
     rows["letter"] = letter
+    # A sent letter: linked both ways and locked, like CVs (D-157, D-159).
     rows["letter_copy"] = add(
         CoverLetter(
-            user_id=user.id, title="For Acme", language="de", parent_id=letter.id, version=1
+            user_id=user.id,
+            title="For Acme",
+            language="de",
+            parent_id=letter.id,
+            version=1,
+            application_id=job.id,
+            status="locked",
+            locked_at=dt.datetime(2026, 11, 18, 9, tzinfo=dt.UTC),
         )
     )
+    job.cover_letter_id = rows["letter_copy"].id
+    add(job)
     rows["event"] = add(ApplicationEvent(application_id=job.id, type="note", message="Called Mira"))
     rows["sent"] = add(
         ApplicationDocument(
@@ -86,6 +96,15 @@ def fill_account(session: Session, user: User, photo_path: str | None = None) ->
             doc_type="cv",
             document_id=copy.id,
             content_snapshot={"title": "For Acme"},
+        )
+    )
+    rows["sent_letter"] = add(
+        ApplicationDocument(
+            user_id=user.id,
+            application_id=job.id,
+            doc_type="cover_letter",
+            cover_letter_id=rows["letter_copy"].id,
+            content_snapshot={"title": "For Acme", "date": "18.11.2026"},
         )
     )
 

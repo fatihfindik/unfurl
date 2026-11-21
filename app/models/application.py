@@ -116,6 +116,21 @@ class Application(SQLModel, table=True):
             unique=True,
         ),
     )
+    # The cover letter used for this application now (D-157): the same rules as cv_id.
+    cover_letter_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer,
+            ForeignKey(
+                "coverletter.id",
+                ondelete="SET NULL",
+                use_alter=True,
+                name="fk_application_cover_letter_id_coverletter",
+            ),
+            nullable=True,
+            unique=True,
+        ),
+    )
     # Hidden from Needs attention until then (D-074).
     snoozed_until: dt.datetime | None = Field(
         default=None, sa_column=datetime_column(nullable=True)
@@ -163,8 +178,13 @@ class ApplicationDocument(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
     application_id: int = Field(foreign_key="application.id", ondelete="CASCADE", index=True)
     doc_type: str = Field(max_length=20)  # one of DOC_TYPES
+    # The locked document: a CV in document_id, a cover letter in cover_letter_id
+    # (D-159), the one that fits doc_type. Both become empty if it is ever deleted.
     document_id: int | None = Field(
         default=None, foreign_key="cvdocument.id", ondelete="SET NULL", index=True
+    )
+    cover_letter_id: int | None = Field(
+        default=None, foreign_key="coverletter.id", ondelete="SET NULL", index=True
     )
     content_snapshot: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     sent_at: dt.datetime = Field(default_factory=utcnow, sa_column=datetime_column(nullable=False))
