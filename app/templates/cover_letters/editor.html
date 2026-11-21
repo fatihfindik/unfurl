@@ -10,7 +10,7 @@
 
 {#- Cover letter editor (SPEC §6.6, D-152, docs/prototype/CoverLetters.dc.html): form
     on the left, live preview on the right. Masters open read-only (D-048), locked
-    letters stay read-only. PDF, "Duplicate" and the link to an application come in M8b. -#}
+    letters stay read-only. "Download PDF" (D-161) saves the form first (app.js). -#}
 {% block content %}
   {%- set button = "inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted" %}
   {{ page_header(letter.title, back_url="/documents?tab=letters", back_label="Documents", wide=True) }}
@@ -46,6 +46,7 @@
         </ul>
       </details>
       {%- set icon_button_class = "inline-flex size-9 items-center justify-center rounded-lg border border-border-strong bg-surface text-text hover:bg-muted" %}
+      <a href="/cover-letters/{{ letter.id }}/pdf" data-tooltip="Download PDF" data-letter-download class="{{ icon_button_class }} no-underline">{{ icon("download") }}<span class="sr-only">Download PDF</span></a>
       {%- if not letter.is_locked %}
         <button hx-disabled-elt="this" type="button" data-tooltip="Save as new version" class="{{ icon_button_class }}"
                 hx-post="/cover-letters/{{ letter.id }}/versions" hx-target="#letter-action-message">{{ icon("new-version") }}<span class="sr-only">Save as new version</span></button>

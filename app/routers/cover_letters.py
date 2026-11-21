@@ -7,17 +7,18 @@ template. The list is on the Documents page (app/routers/cvs.py, ?tab=letters).
 """
 
 import json
+import logging
 import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from pydantic import ValidationError
-from sqlmodel import Session
+from sqlmodel import Session, select
 from starlette.datastructures import FormData
 
 from app.db import get_session
-from app.models import CoverLetter, User
+from app.models import Application, CoverLetter, User
 from app.models.cv import CV_LANGUAGES
 
 # go_to and action_message are the same for CVs and letters.
@@ -27,11 +28,12 @@ from app.schemas.cv import LANGUAGE_NAMES
 from app.schemas.profile import form_errors
 from app.security import limiter
 from app.services import cover_letter_service as letters
-from app.services import undo_service
+from app.services import pdf_service, undo_service
 from app.services.auth_service import require_user
 from app.templating import set_flash, templates
 
 router = APIRouter(dependencies=[Depends(require_user)])
+logger = logging.getLogger("unfurl.cover_letters")
 
 DbSession = Annotated[Session, Depends(get_session)]
 RequiredUser = Annotated[User, Depends(require_user)]
@@ -226,3 +228,47 @@ def letter_delete(request: Request, session: DbSession, user: RequiredUser, lett
         undo_service.make_delete_token(user, copy_id),
     )
     return go_to(request, "/documents?tab=letters")
+
+
+# --- PDF (D-161) --------------------------------------------------------------------
+
+
+def linked_application(session: Session, user: User, letter: CoverLetter):
+    """The user's application this letter was made for, or None."""
+    if letter.application_id is None:
+        return None
+    return session.exec(
+        select(Application).where(
+            Application.id == letter.application_id, Application.user_id == user.id
+        )
+    ).first()
+
+
+@router.get("/cover-letters/{letter_id}/pdf")
+@limiter.limit("20/minute")  # making a PDF takes CPU time
+def letter_pdf(request: Request, session: DbSession, user: RequiredUser, letter_id: str):
+    """Download the letter as PDF. Locked copies too: that is the letter that was sent,
+    with the date it was sent (D-160)."""
+    letter = letters.get_owned_letter(session, user, letter_id)
+    try:
+        pdf = pdf_service.render_letter_pdf(preview_context(session, letter))
+    except pdf_service.PDFError as exc:
+        # Only the kind of error goes to the log, never the letter's text.
+        logger.warning("Cover letter PDF failed (letter %s): %s", letter.id, exc)
+        context = {
+            "editor_url": f"/cover-letters/{letter.id}",
+            "title": letter.title,
+            "what": "cover letter",
+        }
+        return templates.TemplateResponse(request, "cvs/pdf_error.html", context, status_code=503)
+    company = getattr(linked_application(session, user, letter), "company", None)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": pdf_service.attachment(
+                *pdf_service.letter_filename(letter, company)
+            ),
+            "Cache-Control": "private, no-store",
+        },
+    )

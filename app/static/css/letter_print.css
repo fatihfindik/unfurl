@@ -1,0 +1,43 @@
+/* Print rules for the cover letter PDF (D-161). Loaded only by pdf/_letter_page.html,
+   which WeasyPrint renders; the editor preview never uses this file.
+
+   - A4 page with DIN 5008-like margins on the page itself (25 mm left for filing,
+     20 mm right), so the paper "card" style of the preview is switched off.
+   - The fonts: the same self-hosted Inter files and the same two-family trick as
+     cv_print.css (the latin-ext half as "Inter Ext", for ğ ş İ ä ö ü). */
+
+@font-face {
+  font-family: "Inter";
+  font-weight: 100 900;
+  src: url("../fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
+}
+@font-face {
+  font-family: "Inter Ext";
+  font-weight: 100 900;
+  src: url("../fonts/inter-latin-ext-wght-normal.woff2") format("woff2-variations");
+}
+
+@page {
+  size: A4;
+  margin: 20mm 20mm 20mm 25mm;
+}
+
+.letter-paper {
+  max-width: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+  font-family: "Inter", "Inter Ext", sans-serif;
+  font-size: 10.5pt;
+}
+
+/* A paragraph is not split over two pages when it can be avoided. */
+.letter-paper .letter-body p {
+  orphans: 3;
+  widows: 3;
+}
+.letter-paper .letter-closing,
+.letter-paper .letter-signature {
+  break-before: avoid;
+}

@@ -407,7 +407,7 @@ def cv_pdf(request: Request, session: DbSession, user: RequiredUser, cv_id: str)
     except pdf_service.PDFError as exc:
         # Only the kind of error goes to the log, never the CV's content.
         logger.warning("CV PDF failed (cv %s): %s", cv.id, exc)
-        context = {"cv": cv}
+        context = {"editor_url": f"/cvs/{cv.id}", "title": cv.title, "what": "CV"}
         return templates.TemplateResponse(request, "cvs/pdf_error.html", context, status_code=503)
     return Response(
         content=pdf,

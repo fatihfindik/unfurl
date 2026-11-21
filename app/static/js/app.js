@@ -339,19 +339,22 @@ document.addEventListener("htmx:responseError", (event) => {
   });
 });
 
-// "Download PDF" in the CV editor (D-057). Autosave waits 500 ms after the last key,
-// so a click right after typing would download the PDF without that text. The click
-// saves the form at once (the same request autosave sends), then downloads.
-// Without a form (a locked CV or a closed master can't change) it just downloads.
+// "Download PDF" in the CV and cover letter editors (D-057, D-161). Autosave waits
+// 500 ms after the last key, so a click right after typing would download the PDF
+// without that text. The click saves the form at once (the same request autosave
+// sends), then downloads. Without a form that can change (a locked document or a
+// closed master) it just downloads.
 document.addEventListener("click", (event) => {
-  const link = event.target.closest("[data-cv-download]");
-  const form = document.getElementById("cv-form");
-  if (!link || !form || form.querySelector("fieldset:disabled")) return;
+  const link = event.target.closest("[data-cv-download], [data-letter-download]");
+  if (!link) return;
+  const kind = link.hasAttribute("data-letter-download") ? "letter" : "cv";
+  const form = document.getElementById(`${kind}-form`);
+  if (!form || form.querySelector("fieldset:disabled")) return;
   event.preventDefault();
   htmx
     .ajax("POST", form.getAttribute("hx-post"), {
       source: form,
-      target: "#cv-preview",
+      target: `#${kind}-preview`,
       swap: "innerHTML",
     })
     .finally(() => {
