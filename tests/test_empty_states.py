@@ -40,7 +40,11 @@ CASES = {
     "list filters": ("/?view=list&q=nothing-matches", a_job, "No jobs match these filters."),
     "documents": ("/documents", None, "No CVs yet. Create your first master CV"),
     "copies": ("/documents", a_master, "No copies yet."),
-    "cover letters": ("/documents?tab=letters", None, "Coming soon."),
+    "cover letters": (
+        "/documents?tab=letters",
+        None,
+        "No cover letters yet. Create your first master letter",
+    ),
     "profile experience": ("/profile", None, "No experience yet."),
     "profile education": ("/profile", None, "No education yet."),
     "profile certifications": ("/profile", None, "No certifications yet."),

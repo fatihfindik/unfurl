@@ -19,6 +19,7 @@ from app.errors import add_error_handlers, api_error, error_response, wants_json
 from app.routers import (
     applications,
     auth,
+    cover_letters,
     cvs,
     ext_api,
     learning,
@@ -332,6 +333,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(reminders.router)
     app.include_router(profile.router)
     app.include_router(cvs.router)
+    app.include_router(cover_letters.router)
     app.include_router(legal.router)
     app.include_router(ext_api.router)
     return app

@@ -12,6 +12,7 @@ from app.models import (
     ApplicationDocument,
     ApplicationEvent,
     Certification,
+    CoverLetter,
     CVDocument,
     DeletedItem,
     Education,
@@ -70,6 +71,13 @@ def fill_account(session: Session, user: User, photo_path: str | None = None) ->
     job.cv_id = copy.id
     add(job)
     rows |= {"master": master, "job": job, "copy": copy}
+    letter = add(CoverLetter(user_id=user.id, title="Master letter", language="de", is_master=True))
+    rows["letter"] = letter
+    rows["letter_copy"] = add(
+        CoverLetter(
+            user_id=user.id, title="For Acme", language="de", parent_id=letter.id, version=1
+        )
+    )
     rows["event"] = add(ApplicationEvent(application_id=job.id, type="note", message="Called Mira"))
     rows["sent"] = add(
         ApplicationDocument(

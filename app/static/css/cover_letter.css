@@ -1,0 +1,79 @@
+/* A cover letter on A4 paper (SPEC §6.6, D-044, D-154). Plain CSS, not Tailwind: the
+   PDF (M8b) will use the same file, so preview and PDF look the same.
+
+   Everything is under .letter-paper, so it never changes the rest of the app. The
+   paper stays white in the dark theme too (SPEC §6.0). Tailwind's reset removes
+   margins, so they are set here on purpose. */
+
+.letter-paper {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 794px; /* A4 width at 96 dpi */
+  min-height: 1123px; /* A4 height at 96 dpi */
+  margin: 0 auto;
+  padding: 64px 72px;
+  background: #ffffff;
+  color: #1f2328;
+  color-scheme: light;
+  font-family: "Inter", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12), 0 8px 24px rgba(16, 24, 40, 0.08);
+}
+
+.letter-paper p {
+  margin: 0;
+}
+
+/* The user's own line breaks (addresses, body paragraphs) stay as typed. */
+.letter-paper .letter-lines {
+  white-space: pre-line;
+}
+
+.letter-paper .letter-sender {
+  margin-left: auto;
+  max-width: 50%;
+  text-align: right;
+  color: #4b5563;
+}
+
+.letter-paper .letter-sender-name {
+  color: #1f2328;
+  font-weight: 600;
+}
+
+.letter-paper .letter-recipient {
+  margin-top: 40px;
+  min-height: 72px;
+}
+
+.letter-paper .letter-date {
+  margin-top: 32px;
+  text-align: right;
+}
+
+.letter-paper .letter-subject {
+  margin-top: 32px;
+  font-weight: 700;
+}
+
+.letter-paper .letter-salutation {
+  margin-top: 24px;
+}
+
+.letter-paper .letter-body {
+  margin-top: 12px;
+}
+
+.letter-paper .letter-body p + p {
+  margin-top: 12px;
+}
+
+.letter-paper .letter-closing {
+  margin-top: 24px;
+}
+
+.letter-paper .letter-signature {
+  margin-top: 40px;
+}

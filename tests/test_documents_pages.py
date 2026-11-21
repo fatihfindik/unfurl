@@ -61,11 +61,12 @@ def test_only_my_own_cvs_are_listed(auth_client, session, user):
     assert "Their secret CV" not in auth_client.get("/documents").text
 
 
-def test_cover_letters_tab_is_coming_soon(auth_client):
+def test_cover_letters_tab_offers_a_new_letter(auth_client):
     page = auth_client.get("/documents?tab=letters").text
 
-    assert "Coming soon." in page
+    assert "Coming soon." not in page
     assert 'aria-current="page"' in page.split("Cover letters</a>")[0].rsplit("<a", 1)[1]
+    assert 'data-dialog-open="new-letter"' in page
     assert 'data-dialog-open="new-cv"' not in page
 
 

@@ -26,6 +26,7 @@ from app.schemas.profile import form_errors
 from app.security import limiter
 from app.services import (
     application_service,
+    cover_letter_service,
     document_service,
     pdf_service,
     profile_service,
@@ -81,6 +82,7 @@ def new_cv_context(user: User, values=None, errors=None) -> dict:
 def documents_page(request: Request, session: DbSession, user: RequiredUser, tab: str = "cvs"):
     profile = profile_service.get_or_create_profile(session, user)
     cvs = document_service.list_cvs(session, user)
+    letters = cover_letter_service.list_letters(session, user)
     context = {
         "tab": "letters" if tab == "letters" else "cvs",
         "masters": [cv for cv in cvs if cv.is_master],
@@ -90,6 +92,11 @@ def documents_page(request: Request, session: DbSession, user: RequiredUser, tab
         "language_names": LANGUAGE_NAMES,
         "template_names": TEMPLATE_NAMES,
         "strength": profile_service.profile_strength(session, profile),
+        # The Cover letters tab (M8a): the same masters and copies as CVs. Letters are
+        # not linked to applications until M8b, so their copies are one group.
+        "letter_masters": [letter for letter in letters if letter.is_master],
+        "letter_copies": [letter for letter in letters if not letter.is_master],
+        "letters_by_id": {letter.id: letter for letter in letters},
     } | new_cv_context(user)
     return templates.TemplateResponse(request, "cvs/documents.html", context)
 
