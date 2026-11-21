@@ -563,3 +563,31 @@
   look like the same one.
 - A fix that changes a product rule (here SPEC §7.2) is approved before it is coded,
   and the SPEC changes in the same PR.
+
+## M8a — Cover letters: model and editor, no AI (2026-11-21, log written by Claude)
+
+**Concepts**
+- A refactor that only moves code (the CV rules into `lineage.py`) is its own commit,
+  proved by the old tests passing unchanged. The second document type then reuses the
+  rules instead of copying them, so CVs and letters can't drift apart.
+- Rules live in the service, not only in the template: a locked letter or a master
+  without "Edit master" is refused there (409), whatever the request looks like.
+- User text is shown escaped (`{{ }}`, never `|safe`); line breaks are kept with CSS
+  `white-space: pre-line` instead of turning `\n` into `<br>` by hand.
+- "Today" depends on where the user is: at 23:30 UTC it is already the next day in
+  Vienna, so the date line uses the user's time zone (tested with a frozen clock).
+- Autosave with htmx: `hx-trigger="input delay:500ms"` waits until typing pauses, and
+  `hx-sync="this:replace"` cancels an older save that is still running.
+
+**What was hard**
+- Undo for letters has the same edge cases as CVs (master gone, newer master, version
+  number taken, the 100-letter limit); they only showed up when listed one by one.
+
+**What I will do differently**
+- Read the browser console during the visual check: it showed an htmx warning on
+  every page (`hx-disabled-elt` inherited by elements without a submit button).
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.33 (cover letter fields, shared lineage rules, date and salutation
+  by language, "Refresh from profile"). D-152…D-154.
+- WORKFLOW: no.
