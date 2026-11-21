@@ -1,4 +1,4 @@
-"""Words printed on CVs, in the CV's language (SPEC §6.5, D-055).
+"""Words printed on CVs and cover letters, in the document's language (SPEC §6.5, D-055, D-154).
 
 The app's own screens stay English; only the documents a user sends to employers
 come in German, English or Turkish. Every language has the same keys (a test checks
@@ -20,6 +20,9 @@ LABELS: dict[str, dict[str, str]] = {
         "native": "Native",
         "date_of_birth": "Date of birth",
         "nationality": "Nationality",
+        # Cover letters (D-154): the defaults of a new master letter.
+        "letter_salutation": "Dear Hiring Team,",
+        "letter_closing": "Kind regards,",
     },
     "de": {
         "summary": "Profil",
@@ -33,6 +36,9 @@ LABELS: dict[str, dict[str, str]] = {
         "native": "Muttersprache",
         "date_of_birth": "Geburtsdatum",
         "nationality": "Staatsangehörigkeit",
+        # Cover letters (D-154): the defaults of a new master letter.
+        "letter_salutation": "Sehr geehrte Damen und Herren,",
+        "letter_closing": "Mit freundlichen Grüßen",
     },
     "tr": {
         "summary": "Özet",
@@ -46,6 +52,9 @@ LABELS: dict[str, dict[str, str]] = {
         "native": "Ana dil",
         "date_of_birth": "Doğum tarihi",
         "nationality": "Uyruk",
+        # Cover letters (D-154): the defaults of a new master letter.
+        "letter_salutation": "Sayın Yetkili,",
+        "letter_closing": "Saygılarımla,",
     },
 }
 
