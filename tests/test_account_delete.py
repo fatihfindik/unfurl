@@ -113,6 +113,7 @@ def test_a_verified_user_gets_a_confirmation(auth_client, session, user, outbox)
     assert email.to == USER_EMAIL
     assert "deleted" in email.subject.lower()
     assert "Jana Novak" in email.body
+    assert "cover letters" in email.body
 
 
 def test_an_unverified_address_gets_nothing(auth_client, user, outbox):
@@ -232,6 +233,7 @@ def test_the_settings_page_has_the_modal(auth_client):
     assert 'data-dialog-open="delete-account"' in page
     assert 'hx-post="/settings/delete-account"' in page
     assert "There is no Undo." in page
+    assert "CVs, cover letters, applications" in page
 
 
 # --- The scheduler at the same moment (D-131) -------------------------------------------------

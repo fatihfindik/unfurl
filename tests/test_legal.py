@@ -120,6 +120,7 @@ def test_the_privacy_policy_covers_the_gdpr_points(client, operator):
     assert "Datenschutzbehörde" in page
     assert "Export my data" in page and "Delete my account" in page
     assert "aged 16 or older" in page
+    assert "your CVs and cover letters and their versions" in page
 
 
 def test_the_terms_keep_consumer_protections(client):
@@ -129,3 +130,4 @@ def test_the_terms_keep_consumer_protections(client):
     assert "Austrian law applies" in page
     assert "the country you live in" in page
     assert "16 or older" in page
+    assert "CVs and cover letters" in page

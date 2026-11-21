@@ -1,0 +1,19 @@
+{#- Messages for the letter form. Autosave doesn't redraw the form (the user is still
+    typing in it), so problems are listed here; with oob=True it comes along with the
+    preview (htmx out-of-band swap). A field with a problem keeps its last saved value;
+    the other changes are saved. -#}
+{%- set field_names = {"title": "Title", "sender_name": "Your name", "sender_email": "Your email",
+                       "sender_phone": "Your phone", "sender_address": "Your address",
+                       "recipient_company": "Company", "recipient_name": "Contact person",
+                       "recipient_address": "Company address", "place": "City",
+                       "subject": "Subject", "salutation": "Salutation", "body": "Letter text",
+                       "closing": "Closing"} -%}
+<div id="letter-form-errors" role="alert" {% if oob %}hx-swap-oob="true"{% endif %}
+     class="{{ 'flex flex-col gap-1 rounded-[10px] border border-red-text/40 bg-red-bg px-3 py-2.5 text-sm text-red-text' if errors else 'hidden' }}">
+  {%- for field, message in errors.items() %}
+    <p class="m-0"><span class="font-semibold">{{ field_names.get(field, "This change") }} was not saved:</span> {{ message }}</p>
+  {%- endfor %}
+  {%- if errors and not nothing_saved %}
+    <p class="m-0 text-xs">Your other changes are saved.</p>
+  {%- endif %}
+</div>

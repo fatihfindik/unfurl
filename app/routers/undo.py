@@ -16,6 +16,7 @@ from app.models import User
 from app.routers.profile import SECTIONS
 from app.security import limiter
 from app.services import (
+    cover_letter_service,
     document_service,
     learning_service,
     profile_service,
@@ -55,6 +56,8 @@ def undo_delete(request: Request, session: DbSession, user: RequiredUser, data: 
                 raise trash_service.CannotRestore
             if kind == "cv":
                 document_service.restore_cv(session, user, payload)
+            elif kind == "cover_letter":  # D-152
+                cover_letter_service.restore_letter(session, user, payload)
             elif kind in SECTIONS:
                 profile_service.restore_item(session, user, SECTIONS[kind].model, payload)
             elif kind == "learning_task":  # D-095

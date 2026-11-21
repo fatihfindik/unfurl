@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.32 — 2026-11-21
+> **Durum:** MVP planı, v2.1.33 — 2026-11-21
+> v2.1.33: M8a Design kararları: `CoverLetter` düz kolonlar (gönderen, alıcı, şehir, konu, selamlama, gövde, kapanış; tone/length/ai_generated V2, application_id M8b), CV ile ortak soy kuralları (`lineage.py`), dile göre selamlama/kapanış ve tarih (`full_date`, bugün, kullanıcının saat diliminde), "Refresh from profile" sadece gönderen alanları ve onayla (D-152…D-154).
 > v2.1.32: **Deploy yok, kişisel local ortam (D-155, D-156):** M13c MVP'den çıktı ("Sonra"); MVP kişisel ortamla tamamlanır: `docker-compose.personal.yml`, ayrı Postgres ve volume'lar, `http://127.0.0.1:8100`, development modu + `DEBUG=false` + console e-posta, yedek ve geri yükleme script'leri. Eklenti iki adrese izin verir (dev `localhost:8000`, kişisel `127.0.0.1:8100`). M13d README'si canlı URL'siz. Sıra: M8a → M8b → M9a → M13d.
 > v2.1.30: **AI'sız MVP (D-150):** AI özellikleri (M5, M6b, M7, M12a, M12b; M8/M9'un AI kısımları; onboarding sihirbazı; yapılandırılmış ilan; krediler, BYOK, Pro/fake door) V2'ye ertelendi. AI tasarımı silinmedi, "V2 (D-150)" diye işaretli. Yeni sıra: M8a → M8b → M9a → M13c → M13d. Apply sekmesi AI'sız 2 adım (Prepare documents → Final check).
 > v2.1.29: #57: login kilidine e-posta başına ikinci sınır (bütün IP'lerden saatte 20 hata → 1 saat); şifreyi sıfırlayan tarayıcı 15 dk muaf; Settings şifre kontrolleri e-posta kilidine bakmaz, kendi kullanıcı sayacı var (saatte 20 hata → 1 saat) (D-149).
@@ -242,7 +243,9 @@ unfurl/
 │   │   ├── pdf_service.py
 │   │   ├── quota_service.py
 │   │   ├── crypto_service.py
-│   │   ├── document_service.py   # master/versiyon oluşturma, kilitleme
+│   │   ├── lineage.py            # CV ve mektubun ortak master/kopya/versiyon kuralları (D-153)
+│   │   ├── document_service.py   # CV: master/versiyon oluşturma, kilitleme
+│   │   ├── cover_letter_service.py  # mektup kuralları (D-152)
 │   │   ├── learning_service.py   # seri, haftalık saat, görev taşıma
 │   │   ├── next_step_service.py   # Next step kuralları (6.13)
 │   │   ├── notification_service.py
@@ -289,7 +292,7 @@ unfurl/
 │   │   ├── js/                # htmx, alpine, sortable (vendored)
 │   │   └── img/
 │   └── i18n/
-│       └── document_labels.py # CV/mektup başlıkları DE/EN/TR
+│       └── document_labels.py # CV/mektup başlıkları, mektup selamlama/kapanışı DE/EN/TR (D-154)
 ├── extension/
 │   ├── manifest.json
 │   ├── popup.html
@@ -397,18 +400,25 @@ Profilin **anlık görüntüsüdür** (snapshot). Bir ilana göre uyarlanan CV, 
 | locked_at | datetime, nullable | |
 
 ### 5.4 CoverLetter
-| Alan | Tip |
-|---|---|
-| title | str |
-| language | enum de/en/tr |
-| tone | enum formal/friendly |
-| length | enum short/standard |
-| recipient_company, recipient_name, recipient_address | str, nullable |
-| subject | str |
-| body | text |
-| application_id | FK, nullable |
-| ai_generated | bool |
-| is_master, parent_id, version, status, locked_at | CVDocument ile aynı mantık |
+Düz kolonlar, JSON yok (D-152). Master/kopya/versiyon/kilit kuralları CV ile aynı (5.3, `lineage.py`, D-153).
+| Alan | Tip | Not |
+|---|---|---|
+| title | str | |
+| language | enum de/en/tr | |
+| sender_name, sender_email, sender_phone | str, nullable | Profilden kopya; "Refresh from profile" yeniler (onayla, D-154) |
+| sender_address | str (500), nullable | Çok satır: profilden şehir, isteyen sokak adresini ekler |
+| recipient_company, recipient_name | str, nullable | |
+| recipient_address | str (500), nullable | Çok satır |
+| place | str, nullable | Tarih satırındaki şehir ("Wien, 21.11.2026") |
+| subject | str | |
+| salutation, closing | str | Dile göre varsayılan (D-154) |
+| body | text | En fazla 10.000 karakter; yeni master'da boş, placeholder ipucuyla |
+| source_profile_version | int | |
+| is_master, parent_id, version, status, locked_at | | CVDocument ile aynı mantık |
+| application_id | FK, nullable | M8b |
+| tone, length, ai_generated | | V2 (D-150): AI taslağıyla gelir |
+
+Tarih satırı kaydedilmez: M8a'da her zaman bugün (kullanıcının saat diliminde, `full_date`: DE/TR `21.11.2026`, EN `21 November 2026`); M8b'de kilitlenince sabitlenir.
 
 ### 5.4b ApplicationDocument (gönderilen versiyon)
 "Ben bu şirkete tam olarak ne göndermiştim?" sorusunun cevabı.
@@ -624,8 +634,8 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 
 ### 6.6 Cover letter editörü
 - Documents › Cover letters sekmesinden veya başvurudan açılır. Editör CV'ye benzer, başlık kalıbı aynıdır. Master mektup ve versiyonlar CV ile aynı mantıkta (rozetler, kilit, "Duplicate as new version").
-- **Yeni mektup:** bir başvuru seç (opsiyonel) → dil, ton, uzunluk, "Anything to emphasize?" serbest metin alanı → "Write myself" ("Generate with AI" V2, D-150; ton, uzunluk ve "Anything to emphasize?" alanı da AI ile birlikte V2).
-- Editör: alıcı bilgileri, konu, gövde (textarea), canlı önizleme, PDF indirme.
+- **Yeni mektup** (M8a): başlık ve dil (varsayılan `default_doc_language`). O dilde master yoksa master, varsa master'dan kopya olur. Başvuru seçmek M8b'de; ton, uzunluk, "Anything to emphasize?" ve "Generate with AI" V2 (D-150).
+- Editör (M8a, D-152): solda form (belge adı; gönderen: ad, e-posta, telefon, adres + "Refresh from profile" onayla; alıcı: şirket, kişi, adres; şehir; konu; selamlama; gövde; kapanış), sağda canlı önizleme (beyaz kâğıt; gövde paragrafları, `|safe` yok). PDF indirme ve "Copy text" M8b'de.
 - DACH formatı: gönderen bilgileri, alıcı adresi, şehir + tarih, Betreff (konu), Anrede, gövde, kapanış ("Mit freundlichen Grüßen"), isim. Dil EN veya TR ise o dilin konvansiyonlarına uygun kalıplar kullanılır.
 
 ### 6.7 Board, liste ve başvuru detayı
@@ -1027,7 +1037,7 @@ Kişisel local ortam (D-155, D-156) aynı değişkenleri `.env.personal`'dan oku
 APP_ENV=development              # Zorunlu: development | production (yoksa uygulama başlamaz)
 APP_BASE_URL=http://localhost:8000
 SECRET_KEY=change-me             # Session ve itsdangerous için (min 32 karakter)
-ENCRYPTION_KEY=                  # Fernet anahtarı: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+ENCRYPTION_KEY=                  # Fernet anahtarı: python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())" (Fernet anahtarı biçimi; `cryptography` paketi BYOK ile, V2)
 DEBUG=true                       # Production'da false olmalı (değilse uygulama başlamaz)
 
 # Database
@@ -1231,7 +1241,7 @@ M6 ikiye bölündü. Sıra (D-150, D-155): M6a ✓ → M8a → M8b → M9a → M
 ### M8 — Motivasyon mektubu (D-150: M8a ve M8b, AI'sız)
 AI ile oluşturma V2. Mektup CV'lerle aynı master/kopya/kilit kurallarını kullanır.
 
-### M8a — Mektup: model ve editör
+### M8a — Mektup: model ve editör (plan: `docs/plans/M8a.md`, D-152…D-154)
 - `CoverLetter` modeli (5.4), Documents › Cover letters sekmesi (bugün "Coming soon"), master/kopya/kilit kuralları CV ile aynı, editör (6.6, "Write myself") + HTML önizleme, varsayılan mektup dili (D-129), silmede toast + Undo (D-046), veri dışa aktarma ve hesap silme kapsamı (M13b)
 - **Kabul:** DE, EN ve TR'de mektup elle yazılıp önizleniyor. Master/kopya/kilit kuralları CV ile aynı (test). Başka kullanıcının mektubuna erişim 404 (test). Dışa aktarmada mektuplar var; hesap silinince gidiyor (test).
 

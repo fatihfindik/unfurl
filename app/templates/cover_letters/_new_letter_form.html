@@ -1,0 +1,14 @@
+{#- The "New cover letter" form inside the modal (cvs/documents.html, letters tab).
+    htmx sends it; errors come back as this form, a new letter opens the editor
+    (HX-Redirect). Context: values, errors, language_choices. -#}
+{%- from "components/forms.html" import text_field, select_field, primary_button -%}
+<form id="new-letter-form" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/cover-letters" hx-target="this" hx-swap="outerHTML">
+  {%- if errors.form %}
+    <p role="alert" class="m-0 rounded-[10px] bg-red-bg px-3 py-2.5 text-sm font-medium text-red-text">{{ errors.form }}</p>
+  {%- endif %}
+  <p class="m-0 text-sm text-text-3">The first letter in a language is your master. Later letters in that language start as copies of it.</p>
+  {{ text_field("title", "Title", value=values.title or "", error=errors.title, maxlength=200, id_prefix="new-letter", placeholder="e.g. Master cover letter (DE)") }}
+  {{ select_field("language", "Letter language", language_choices, value=values.language, error=errors.language, id_prefix="new-letter") }}
+  <div class="flex justify-end">{{ primary_button("Create cover letter", size="sm") }}</div>
+</form>

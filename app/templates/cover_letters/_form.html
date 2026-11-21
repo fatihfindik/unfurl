@@ -1,0 +1,46 @@
+{#- The letter editor form (SPEC §6.6, D-152). Every change is saved 500 ms after the
+    user stops typing; the answer is the new preview (_preview.html). hx-sync: a newer
+    save replaces one still on its way, so the last change wins.
+    Read-only (disabled fieldset) for a locked letter and a master that wasn't unlocked. -#}
+{%- from "components/forms.html" import text_field, textarea_field -%}
+<form id="letter-form" class="m-0 flex flex-col gap-4" novalidate
+      hx-post="/cover-letters/{{ letter.id }}" hx-trigger="input delay:500ms" hx-sync="this:replace" hx-disabled-elt="unset"
+      hx-target="#letter-preview" hx-swap="innerHTML">
+  {%- if master_unlocked %}<input type="hidden" name="edit_master" value="confirmed">{% endif %}
+  {%- if not editable %}
+    <p class="m-0 flex items-center gap-2 rounded-[10px] bg-muted px-3 py-2 text-sm font-medium text-text-2">
+      <span aria-hidden="true">🔒</span>
+      {%- if letter.is_locked %} Read only. This letter was sent, so it can't change.
+      {%- else %} Read only. Use "Edit master" above to change your master letter.{% endif %}
+    </p>
+  {%- endif %}
+  {% with oob=False %}{% include "cover_letters/_errors.html" %}{% endwith %}
+  <fieldset class="m-0 flex flex-col gap-4 border-0 p-0" {% if not editable %}disabled{% endif %}>
+    <legend class="sr-only">Cover letter</legend>
+    {{ text_field("title", "Title", value=letter.title, maxlength=200, id_prefix="letter") }}
+
+    <fieldset class="m-0 flex flex-col gap-3 border-0 p-0">
+      <legend class="mb-1 text-[13px] font-semibold text-text-2">You</legend>
+      {{ text_field("sender_name", "Your name", value=letter.sender_name or "", required=False, maxlength=200, id_prefix="letter") }}
+      <div class="grid gap-3 sm:grid-cols-2">
+        {{ text_field("sender_email", "Your email", type="email", value=letter.sender_email or "", required=False, maxlength=320, id_prefix="letter") }}
+        {{ text_field("sender_phone", "Your phone", value=letter.sender_phone or "", required=False, maxlength=200, id_prefix="letter") }}
+      </div>
+      {{ textarea_field("sender_address", "Your address", value=letter.sender_address or "", maxlength=500, rows=2, id_prefix="letter", hint="Your city comes from your profile. Add your street if you like.") }}
+    </fieldset>
+
+    <fieldset class="m-0 flex flex-col gap-3 border-0 p-0">
+      <legend class="mb-1 text-[13px] font-semibold text-text-2">To</legend>
+      {{ text_field("recipient_company", "Company", value=letter.recipient_company or "", required=False, maxlength=200, id_prefix="letter") }}
+      {{ text_field("recipient_name", "Contact person", value=letter.recipient_name or "", required=False, maxlength=200, id_prefix="letter") }}
+      {{ textarea_field("recipient_address", "Company address", value=letter.recipient_address or "", maxlength=500, rows=2, id_prefix="letter") }}
+    </fieldset>
+
+    {{ text_field("place", "City for the date line", value=letter.place or "", required=False, maxlength=200, id_prefix="letter", hint="The date is today's date.") }}
+    {{ text_field("subject", "Subject", value=letter.subject, required=False, maxlength=200, id_prefix="letter", placeholder="e.g. Application as Product Manager") }}
+    {{ text_field("salutation", "Salutation", value=letter.salutation, required=False, maxlength=200, id_prefix="letter") }}
+    {{ textarea_field("body", "Letter text", value=letter.body, maxlength=10000, rows=14, id_prefix="letter", hint="Why this job, what you bring, and why this company. Leave an empty line between paragraphs.") }}
+    {{ text_field("closing", "Closing", value=letter.closing, required=False, maxlength=200, id_prefix="letter") }}
+  </fieldset>
+  <p class="m-0 text-xs text-text-3">Changes here only affect this letter.</p>
+</form>

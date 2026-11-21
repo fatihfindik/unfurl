@@ -1,0 +1,34 @@
+{#- A cover letter on A4 paper (SPEC §6.6, D-152, D-154), in the DACH order: sender
+    (top right), recipient, "{place}, {date}", subject, salutation, body, closing,
+    name. The editor's live preview uses it now; the PDF (M8b) will use the same file
+    and static/css/cover_letter.css (D-044). Every value is the user's own text, so it
+    is escaped (no |safe); line breaks are kept by CSS (white-space: pre-line).
+    Context: letter, letter_date, paragraphs. -#}
+<article class="letter-paper" lang="{{ letter.language }}">
+  <div class="letter-sender">
+    {%- if letter.sender_name %}<p class="letter-sender-name">{{ letter.sender_name }}</p>{% endif %}
+    {%- if letter.sender_address %}<p class="letter-lines">{{ letter.sender_address }}</p>{% endif %}
+    {%- if letter.sender_phone %}<p>{{ letter.sender_phone }}</p>{% endif %}
+    {%- if letter.sender_email %}<p>{{ letter.sender_email }}</p>{% endif %}
+  </div>
+
+  <div class="letter-recipient">
+    {%- if letter.recipient_company %}<p>{{ letter.recipient_company }}</p>{% endif %}
+    {%- if letter.recipient_name %}<p>{{ letter.recipient_name }}</p>{% endif %}
+    {%- if letter.recipient_address %}<p class="letter-lines">{{ letter.recipient_address }}</p>{% endif %}
+  </div>
+
+  <p class="letter-date">{% if letter.place %}{{ letter.place }}, {% endif %}{{ letter_date }}</p>
+
+  {%- if letter.subject %}<p class="letter-subject">{{ letter.subject }}</p>{% endif %}
+  {%- if letter.salutation %}<p class="letter-salutation">{{ letter.salutation }}</p>{% endif %}
+
+  <div class="letter-body">
+    {%- for paragraph in paragraphs %}
+      <p class="letter-lines">{{ paragraph }}</p>
+    {%- endfor %}
+  </div>
+
+  {%- if letter.closing %}<p class="letter-closing">{{ letter.closing }}</p>{% endif %}
+  {%- if letter.sender_name %}<p class="letter-signature">{{ letter.sender_name }}</p>{% endif %}
+</article>

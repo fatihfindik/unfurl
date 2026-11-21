@@ -5,7 +5,7 @@
 {%- from "components/forms.html" import text_field -%}
 <form id="delete-account-form" class="m-0 flex flex-col gap-4" novalidate
       hx-post="/settings/delete-account" hx-target="this" hx-swap="outerHTML">
-  <p class="m-0 text-sm text-text-2">This deletes your profile, CVs, applications, learning plan, notifications and photo for good. There is no Undo. Download your data first if you want to keep a copy.</p>
+  <p class="m-0 text-sm text-text-2">This deletes your profile, CVs, cover letters, applications, learning plan, notifications and photo for good. There is no Undo. Download your data first if you want to keep a copy.</p>
   {{ text_field("password", "Your password", type="password", error=delete_error, autocomplete="current-password", id_prefix="delete") }}
   <div class="flex justify-end gap-2">
     <button type="submit" class="inline-flex h-10 items-center rounded-lg bg-[#D92D20] px-4 text-sm font-semibold text-white hover:bg-[#B42318]">Delete my account</button>
