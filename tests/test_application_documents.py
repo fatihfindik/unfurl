@@ -283,7 +283,7 @@ def test_the_documents_card(auth_client, session, user, master, job):
 
     move(auth_client, job, "applied")
     html = auth_client.get(f"/applications/{job.id}").text
-    assert "Sent · locked" in html and "Sent on " in html and ">Remove<" not in html
+    assert "Sent · locked" in html and "CV sent on " in html and ">Remove<" not in html
 
 
 def test_logged_out_and_without_csrf_nothing_is_linked(

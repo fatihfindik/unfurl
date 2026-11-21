@@ -17,7 +17,6 @@ from sqlmodel import Session
 from starlette.datastructures import FormData
 
 from app.db import get_session
-from app.i18n.document_labels import full_date
 from app.models import CoverLetter, User
 from app.models.cv import CV_LANGUAGES
 
@@ -27,8 +26,8 @@ from app.schemas.cover_letter import LETTER_FIELDS, CoverLetterForm, NewCoverLet
 from app.schemas.cv import LANGUAGE_NAMES
 from app.schemas.profile import form_errors
 from app.security import limiter
-from app.services import clock, undo_service
 from app.services import cover_letter_service as letters
+from app.services import undo_service
 from app.services.auth_service import require_user
 from app.templating import set_flash, templates
 
@@ -65,18 +64,25 @@ def paragraphs(text: str) -> list[str]:
     return [part.strip("\n") for part in re.split(r"\n\s*\n", text) if part.strip()]
 
 
-def preview_context(letter: CoverLetter) -> dict:
-    """What pdf/cover_letter.html needs (the preview now, the PDF in M8b)."""
-    # The date line is today where the user is (D-154); it is fixed when sent (M8b).
+def preview_context(session: Session, letter: CoverLetter) -> dict:
+    """What pdf/cover_letter.html needs (the preview and the PDF)."""
     return {
         "letter": letter,
-        "letter_date": full_date(clock.today(), letter.language),
+        # Today while a draft, the day it was sent once locked (D-154, D-160).
+        "letter_date": letters.letter_date(session, letter),
         "paragraphs": paragraphs(letter.body),
     }
 
 
-def editor_context(letter: CoverLetter, *, master_unlocked: bool, errors=None, master=None) -> dict:
-    return preview_context(letter) | {
+def editor_context(
+    session: Session,
+    letter: CoverLetter,
+    *,
+    master_unlocked: bool,
+    errors=None,
+    master=None,
+) -> dict:
+    return preview_context(session, letter) | {
         "master": master,  # for the band "Copy based on …"
         "errors": errors or {},
         "language_names": LANGUAGE_NAMES,
@@ -122,7 +128,7 @@ def letter_editor(
     master = None
     if letter.parent_id is not None:
         master = letters.get_owned_letter(session, user, letter.parent_id)
-    context = editor_context(letter, master_unlocked=unlocked, master=master)
+    context = editor_context(session, letter, master_unlocked=unlocked, master=master)
     context["versions"] = letters.versions_in_lineage(session, user, letter)
     return templates.TemplateResponse(request, "cover_letters/editor.html", context)
 
@@ -149,7 +155,7 @@ def letter_save(
             form = CoverLetterForm.model_validate(values)
         except ValidationError:
             # Still wrong with the saved values: not a request from our page.
-            context = editor_context(letter, master_unlocked=unlocked, errors=errors)
+            context = editor_context(session, letter, master_unlocked=unlocked, errors=errors)
             context["nothing_saved"] = True
             return templates.TemplateResponse(request, "cover_letters/_preview.html", context)
     try:
@@ -157,7 +163,7 @@ def letter_save(
     except (letters.DocumentLocked, letters.MasterNotUnlocked):
         # The page shows these read-only, so only an old tab or a hand-made request.
         raise HTTPException(status_code=409) from None
-    context = editor_context(letter, master_unlocked=unlocked, errors=errors)
+    context = editor_context(session, letter, master_unlocked=unlocked, errors=errors)
     return templates.TemplateResponse(request, "cover_letters/_preview.html", context)
 
 

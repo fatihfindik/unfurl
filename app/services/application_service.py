@@ -22,7 +22,7 @@ from app.models import (
 )
 from app.models.application import BOARD_STATUSES, INTERVIEW_TYPES, NEXT_ACTION_TYPES
 from app.models.base import as_utc, utcnow
-from app.services import clock, document_service, profile_service
+from app.services import clock, cover_letter_service, document_service, profile_service
 from app.services import next_step_service as next_step_text
 from app.services.url_service import canonical_url, detect_source
 
@@ -301,7 +301,7 @@ def move(
         )
         clear_next_step(application)  # a new status starts with its automatic next step
         if status in SENT_STATUSES:
-            lock_sent_cv(session, user, application)  # D-082, same transaction
+            lock_sent_documents(session, user, application)  # D-082, D-159: one transaction
     _place(session, user, application, status, index)
     session.add(application)
     session.commit()
@@ -435,15 +435,24 @@ def changes(before: dict, after: dict) -> dict:
 
 def made_since(session: Session, user: User, application: Application, before: dict) -> dict:
     """What an action added after the note `before` was taken: its events, the "sent"
-    records and the CVs it locked (for the Undo token, D-079/D-082)."""
+    records and the CVs and letters it locked (for the Undo token, D-079/D-082/D-159)."""
     events = [e.id for e in events_of(session, application) if e.id > before.get("_newest", 0)]
     sent = [d for d in sent_documents(session, user, application) if d.id > before.get("_sent", 0)]
-    locked = []
+    locked, locked_letters = [], []
     for record in sent:
-        cv = session.get(CVDocument, record.document_id) if record.document_id else None
-        if cv is not None and cv.locked_at is not None:
-            locked.append([cv.id, as_utc(cv.locked_at).isoformat()])
-    return {"events": events, "sent": [d.id for d in sent], "locked": locked}
+        if record.doc_type == "cover_letter":
+            found, model, into = record.cover_letter_id, CoverLetter, locked_letters
+        else:
+            found, model, into = record.document_id, CVDocument, locked
+        document = session.get(model, found) if found else None
+        if document is not None and document.locked_at is not None:
+            into.append([document.id, as_utc(document.locked_at).isoformat()])
+    return {
+        "events": events,
+        "sent": [d.id for d in sent],
+        "locked": locked,
+        "locked_letters": locked_letters,
+    }
 
 
 def newest_event_id(session: Session, application: Application) -> int | None:
@@ -536,19 +545,22 @@ def _token_ids(value) -> list[int]:
 
 
 def _undo_documents(session: Session, user: User, application: Application, extra: dict) -> None:
-    """The document side of an Undo (D-080, D-082): delete the "sent" records the action
-    made, unlock the CVs it locked (only the same lock), and delete a copy it created
-    if that copy is still untouched. Raises NothingToUndo if a record is gone."""
+    """The document side of an Undo (D-080, D-082, D-157, D-159): delete the "sent"
+    records the action made, unlock the CVs and letters it locked (only the same lock),
+    and delete a copy it created if that copy is still untouched. Raises NothingToUndo
+    if a record is gone."""
     try:
         # A key that is there must hold a list: never undo half an action.
         sent = _token_ids(extra["sent"]) if "sent" in extra else []
         locked = extra["locked"] if "locked" in extra else []
-        if not isinstance(locked, list):
-            raise NothingToUndo
-        for pair in locked:
-            if not (isinstance(pair, list) and len(pair) == 2):
+        locked_letters = extra["locked_letters"] if "locked_letters" in extra else []
+        for pairs in (locked, locked_letters):
+            if not isinstance(pairs, list):
                 raise NothingToUndo
-            _token_id(pair[0])
+            for pair in pairs:
+                if not (isinstance(pair, list) and len(pair) == 2):
+                    raise NothingToUndo
+                _token_id(pair[0])
         for kind in ("cv", "letter"):
             if extra.get(f"created_{kind}") is not None:
                 _token_id(extra[f"created_{kind}"])
@@ -577,6 +589,14 @@ def _undo_documents(session: Session, user: User, application: Application, extr
         cv = session.get(CVDocument, pair[0])
         if cv is not None and cv.user_id == user.id and cv.application_id == application.id:
             document_service.unlock_after_undo(session, cv, pair[1])
+    for pair in locked_letters:
+        letter = session.get(CoverLetter, pair[0])
+        if (
+            letter is not None
+            and letter.user_id == user.id
+            and letter.application_id == application.id
+        ):
+            cover_letter_service.unlock_after_undo(session, letter, pair[1])
     _undo_link(session, user, application, extra, "cv", CVDocument, "cv_id")
     _undo_link(session, user, application, extra, "letter", CoverLetter, "cover_letter_id")
 
@@ -759,6 +779,42 @@ def lock_sent_cv(
     return sent
 
 
+def lock_sent_letter(
+    session: Session, user: User, application: Application
+) -> ApplicationDocument | None:
+    """The same for the cover letter (D-159): lock it if it is still a draft and keep
+    every field and its date line. Not committed."""
+    if application.cover_letter_id is None:
+        return None
+    letter = session.get(CoverLetter, application.cover_letter_id)
+    if letter is None or letter.user_id != user.id or letter.is_locked:
+        return None
+    cover_letter_service.lock(session, letter, commit=False)
+    sent = ApplicationDocument(
+        user_id=user.id,
+        application_id=application.id,
+        doc_type="cover_letter",
+        cover_letter_id=letter.id,
+        content_snapshot=cover_letter_service.snapshot(letter),
+        sent_at=letter.locked_at,
+    )
+    session.add(sent)
+    _add_event(
+        session,
+        application,
+        "document_linked",
+        message=f"{letter.title} locked: this is what you sent",
+    )
+    return sent
+
+
+def lock_sent_documents(session: Session, user: User, application: Application) -> None:
+    """A job was sent: lock its CV and its cover letter, the ones still drafts
+    (D-082, D-159). Not committed: part of the status change."""
+    lock_sent_cv(session, user, application)
+    lock_sent_letter(session, user, application)
+
+
 def link_cv(
     session: Session, user: User, application: Application, cv: CVDocument
 ) -> ApplicationEvent:
@@ -848,6 +904,17 @@ def send_cv(session: Session, user: User, application: Application) -> Applicati
     if application.status not in SENT_STATUSES or application.archived:
         raise CannotLink
     if lock_sent_cv(session, user, application) is None:
+        raise CannotLink
+    session.commit()
+    session.refresh(application)
+    return newest_event(session, application)
+
+
+def send_letter(session: Session, user: User, application: Application) -> ApplicationEvent:
+    """ "Lock as sent" for the cover letter (D-159): linked after the job was sent."""
+    if application.status not in SENT_STATUSES or application.archived:
+        raise CannotLink
+    if lock_sent_letter(session, user, application) is None:
         raise CannotLink
     session.commit()
     session.refresh(application)

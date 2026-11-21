@@ -8,6 +8,7 @@ import pytest
 from freezegun import freeze_time
 from sqlmodel import select
 
+from app.i18n.document_labels import full_date
 from app.models import CoverLetter, User
 from app.schemas.cover_letter import LETTER_FIELDS, CoverLetterForm
 from app.services import cover_letter_service as letters
@@ -169,21 +170,20 @@ def test_user_text_is_escaped_in_the_preview(auth_client, copy):
     assert "&lt;b&gt;Hi&lt;/b&gt;" in response.text
 
 
-@pytest.mark.parametrize(
-    ("language", "date"), [("de", "22.11.2026"), ("en", "22 November 2026"), ("tr", "22.11.2026")]
-)
-def test_the_date_line_is_today_where_the_user_is(
-    auth_client, session, user, profile, language, date
-):
-    # 23:30 UTC on 21 November is already 22 November in Vienna.
+@pytest.mark.parametrize("language", ["de", "en", "tr"])
+def test_the_date_line_is_today_where_the_user_is(auth_client, session, user, profile, language):
+    # 23:30 UTC is already the next day in Vienna. The moment is tomorrow, not a fixed
+    # date: a frozen time before the login makes the session cookie invalid (M8b).
     user.timezone = "Europe/Vienna"
     session.add(user)
     session.commit()
     letter = letters.create_letter(session, user, "L", language)
+    late = (dt.datetime.now(dt.UTC) + dt.timedelta(days=1)).replace(hour=23, minute=30)
 
-    with freeze_time(dt.datetime(2026, 11, 21, 23, 30, tzinfo=dt.UTC)):
+    with freeze_time(late):
         page = auth_client.get(f"/cover-letters/{letter.id}").text
 
+    date = full_date(late.date() + dt.timedelta(days=1), language)
     assert f'<p class="letter-date">Vienna, {date}</p>' in page
 
 

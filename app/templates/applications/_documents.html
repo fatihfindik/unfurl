@@ -2,7 +2,7 @@
     used for this application, how to pick them, and what was sent. Every action answers with a toast and Undo,
     and the page reloads its parts (application-changed).
     Context: application, current_cv, masters, linkable, current_letter, letter_masters,
-    linkable_letters, sent_documents, can_send, language_labels. -#}
+    linkable_letters, sent_documents, can_send, can_send_letter, language_labels. -#}
 <section id="documents" aria-labelledby="documents-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
   <h2 id="documents-title" class="m-0 text-sm font-bold">Documents</h2>
   <h3 class="m-0 text-[13px] font-bold text-text-2">CV</h3>
@@ -73,6 +73,13 @@
           <button hx-disabled-elt="this" type="button" hx-delete="/applications/{{ application.id }}/cover-letter" hx-swap="none" class="text-text-3 hover:text-text hover:underline">Remove</button>
         {%- endif %}
       </div>
+      {%- if can_send_letter %}
+        <p class="m-0 text-xs text-text-3">This job is sent already. Lock the letter once it matches what you sent.</p>
+        <button hx-disabled-elt="this" type="button" hx-post="/applications/{{ application.id }}/cover-letter/send" hx-swap="none"
+                class="self-start text-[13px] font-semibold text-link hover:underline">Lock as sent</button>
+      {%- elif not current_letter.is_locked %}
+        <p class="m-0 text-xs text-text-3">It is locked when you mark the job as applied, and its date stays the day you sent it.</p>
+      {%- endif %}
     </div>
   {%- elif not application.archived %}
     <p class="m-0 text-xs text-text-3">Start from a master letter: empty fields get the company, the contact and a subject from this job.</p>
@@ -101,7 +108,7 @@
   {%- if sent_documents %}
     <ul class="m-0 flex list-none flex-col gap-1 p-0 text-xs text-text-3">
       {%- for doc in sent_documents %}
-        <li>Sent on {{ doc.sent_at | local_day }}</li>
+        <li>{{ "Cover letter" if doc.doc_type == "cover_letter" else "CV" }} sent on {{ doc.sent_at | local_day }}</li>
       {%- endfor %}
     </ul>
   {%- endif %}

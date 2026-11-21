@@ -216,7 +216,8 @@ def undo_events(
     holds what changed, from the note taken before the action."""
     after = application_service.note(session, user, application)
     made = application_service.made_since(session, user, application, before)
-    extra = {key: made[key] for key in ("sent", "locked") if made[key]} | (created or {})
+    extra = {key: made[key] for key in ("sent", "locked", "locked_letters") if made[key]}
+    extra |= created or {}
     token = undo_service.make_change_token(
         user,
         application.id,
@@ -873,13 +874,19 @@ def documents_context(session: Session, user: User, application) -> dict:
         ],
         "sent_documents": application_service.sent_documents(session, user, application),
         "language_labels": LANGUAGE_LABELS,
-        "can_send": (
-            cv is not None
-            and not cv.is_locked
-            and application.status in application_service.SENT_STATUSES
-            and not application.archived
-        ),
+        "can_send": can_send(application, cv),
+        "can_send_letter": can_send(application, letter),
     }
+
+
+def can_send(application, document) -> bool:
+    """ "Lock as sent" is offered for a draft linked after the job was sent (D-082)."""
+    return (
+        document is not None
+        and not document.is_locked
+        and application.status in application_service.SENT_STATUSES
+        and not application.archived
+    )
 
 
 def copy_title(application, kind: str = "CV") -> str:
@@ -1032,5 +1039,30 @@ def application_cv_send(
         status_code=204,
         headers=undo_events(
             session, user, application, [event], before, "CV locked: this is what you sent."
+        ),
+    )
+
+
+@router.post("/applications/{application_id}/cover-letter/send")
+@limiter.limit("60/minute")
+def application_letter_send(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """ "Lock as sent" for the cover letter (D-159): linked after the job was sent."""
+    application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.note(session, user, application)
+    try:
+        event = application_service.send_letter(session, user, application)
+    except application_service.CannotLink:
+        raise HTTPException(status_code=409) from None
+    return Response(
+        status_code=204,
+        headers=undo_events(
+            session,
+            user,
+            application,
+            [event],
+            before,
+            "Cover letter locked: this is what you sent.",
         ),
     )

@@ -9,12 +9,12 @@ version, a master only after "Edit master").
 from fastapi import HTTPException
 from sqlmodel import Session, or_, select
 
-from app.i18n.document_labels import labels
-from app.models import CoverLetter, User
-from app.models.base import utcnow
+from app.i18n.document_labels import full_date, labels
+from app.models import ApplicationDocument, CoverLetter, User
+from app.models.base import as_utc, utcnow
 from app.models.profile import SHORT_TEXT
 from app.schemas.cover_letter import LETTER_FIELDS, CoverLetterForm
-from app.services import lineage, profile_service
+from app.services import clock, lineage, profile_service
 
 # The errors, shared with CVs (routes catch cover_letter_service.DocumentLocked …).
 from app.services.lineage import (  # noqa: F401  (re-exported)
@@ -270,8 +270,9 @@ def restore_letter(session: Session, user: User, payload: dict) -> CoverLetter:
 
 
 def lock(session: Session, letter: CoverLetter, *, commit: bool = True) -> CoverLetter:
-    """Lock a copy for good: it was sent with an application (M8b). Masters are
-    never locked: only copies are sent (SPEC §5.3)."""
+    """Lock a copy for good: it was sent with an application (D-159). Masters are
+    never locked: only copies are sent (SPEC §5.3). commit=False: part of a bigger
+    change (status + locks + sent copies in one transaction)."""
     if letter.is_master:
         raise ValueError("A master letter is never locked; lock the copy that was sent.")
     if not letter.is_locked:
@@ -282,3 +283,48 @@ def lock(session: Session, letter: CoverLetter, *, commit: bool = True) -> Cover
             session.commit()
             session.refresh(letter)
     return letter
+
+
+def unlock_after_undo(session: Session, letter: CoverLetter, locked_at) -> bool:
+    """The only way back from "locked" (D-082, D-159): Undo of the action that locked
+    it, within its minute. The text never changes; only the status goes back to draft,
+    and only if the lock is the one that action made (same locked_at)."""
+    if not letter.is_locked or letter.locked_at is None:
+        return False
+    if as_utc(letter.locked_at).isoformat() != locked_at:
+        return False
+    letter.status = "draft"
+    letter.locked_at = None
+    session.add(letter)
+    return True
+
+
+# --- The date line (D-154, D-160) ------------------------------------------------------
+
+
+def letter_date(session: Session, letter: CoverLetter) -> str:
+    """The date line: today where the user is while the letter is a draft; once sent,
+    the date it was sent. That is read from the copy kept when it was sent (exactly
+    the text that went out), else from locked_at in the user's time zone."""
+    if not letter.is_locked:
+        return full_date(clock.today(), letter.language)
+    sent = session.exec(
+        select(ApplicationDocument)
+        .where(
+            ApplicationDocument.user_id == letter.user_id,
+            ApplicationDocument.cover_letter_id == letter.id,
+        )
+        .order_by(ApplicationDocument.id.desc())
+    ).first()
+    if sent is not None and isinstance(sent.content_snapshot.get("date"), str):
+        return sent.content_snapshot["date"]
+    day = clock.local(letter.locked_at).date() if letter.locked_at else clock.today()
+    return full_date(day, letter.language)
+
+
+def snapshot(letter: CoverLetter) -> dict:
+    """What was sent (SPEC §5.4b): every field of the letter and its date line. Called
+    right after locking, so the date is the day it was sent."""
+    fields = {name: getattr(letter, name) for name in LETTER_FIELDS}
+    day = clock.local(letter.locked_at).date() if letter.locked_at else clock.today()
+    return fields | {"language": letter.language, "date": full_date(day, letter.language)}
