@@ -23,6 +23,8 @@ LABELS: dict[str, dict[str, str]] = {
         # Cover letters (D-154): the defaults of a new master letter.
         "letter_salutation": "Dear Hiring Team,",
         "letter_closing": "Kind regards,",
+        # Pre-filled in a copy made for a job (D-158).
+        "letter_subject": "Application for {job_title}",
     },
     "de": {
         "summary": "Profil",
@@ -39,6 +41,8 @@ LABELS: dict[str, dict[str, str]] = {
         # Cover letters (D-154): the defaults of a new master letter.
         "letter_salutation": "Sehr geehrte Damen und Herren,",
         "letter_closing": "Mit freundlichen Grüßen",
+        # Pre-filled in a copy made for a job (D-158).
+        "letter_subject": "Bewerbung als {job_title}",
     },
     "tr": {
         "summary": "Özet",
@@ -55,6 +59,8 @@ LABELS: dict[str, dict[str, str]] = {
         # Cover letters (D-154): the defaults of a new master letter.
         "letter_salutation": "Sayın Yetkili,",
         "letter_closing": "Saygılarımla,",
+        # Pre-filled in a copy made for a job (D-158).
+        "letter_subject": "{job_title} pozisyonu için başvuru",
     },
 }
 

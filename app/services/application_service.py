@@ -12,7 +12,14 @@ from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, delete, func, select
 
-from app.models import Application, ApplicationDocument, ApplicationEvent, CVDocument, User
+from app.models import (
+    Application,
+    ApplicationDocument,
+    ApplicationEvent,
+    CoverLetter,
+    CVDocument,
+    User,
+)
 from app.models.application import BOARD_STATUSES, INTERVIEW_TYPES, NEXT_ACTION_TYPES
 from app.models.base import as_utc, utcnow
 from app.services import clock, document_service, profile_service
@@ -339,6 +346,7 @@ NOTE_FIELDS = (
     "interview_with",
     "snoozed_until",
     "cv_id",
+    "cover_letter_id",
 )
 _DATETIME_FIELDS = ("last_activity_at", "next_action_at", "interview_at", "snoozed_until")
 _BOOL_FIELDS = ("archived", "next_action_manual")
@@ -372,7 +380,7 @@ def _from_text(field: str, value):
         return dt.date.fromisoformat(value) if isinstance(value, str) else _bad(field)
     if field in _BOOL_FIELDS:
         return value if isinstance(value, bool) else _bad(field)
-    if field == "cv_id":
+    if field in ("cv_id", "cover_letter_id"):
         return value if type(value) is int and 0 < value <= MAX_ID else _bad(field)
     if field == "next_action_type":  # only known kinds: the page looks up their label
         return value if value in NEXT_ACTION_TYPES else _bad(field)
@@ -489,11 +497,13 @@ def undo_change(
             session.rollback()  # another Undo was faster
             raise NothingToUndo
 
-    if restored.get("cv_id") is not None:
-        cv = session.get(CVDocument, restored["cv_id"])
-        if cv is None or cv.user_id != user.id:
-            session.rollback()
-            raise NothingToUndo
+    # A document that comes back must still be the user's (D-080, D-157).
+    for field, model in (("cv_id", CVDocument), ("cover_letter_id", CoverLetter)):
+        if restored.get(field) is not None:
+            document = session.get(model, restored[field])
+            if document is None or document.user_id != user.id:
+                session.rollback()
+                raise NothingToUndo
     _undo_documents(session, user, application, extra or {})
 
     status = restored.pop("status", application.status)
@@ -539,16 +549,16 @@ def _undo_documents(session: Session, user: User, application: Application, extr
             if not (isinstance(pair, list) and len(pair) == 2):
                 raise NothingToUndo
             _token_id(pair[0])
-        for key in ("created_cv",):
-            if extra.get(key) is not None:
-                _token_id(extra[key])
-        linked_extra = extra.get("linked_cv")
-        if linked_extra is not None:
-            if not (isinstance(linked_extra, list) and len(linked_extra) == 2):
-                raise NothingToUndo
-            _token_id(linked_extra[0])
-            if linked_extra[1] is not None:
-                _token_id(linked_extra[1])
+        for kind in ("cv", "letter"):
+            if extra.get(f"created_{kind}") is not None:
+                _token_id(extra[f"created_{kind}"])
+            linked_extra = extra.get(f"linked_{kind}")
+            if linked_extra is not None:
+                if not (isinstance(linked_extra, list) and len(linked_extra) == 2):
+                    raise NothingToUndo
+                _token_id(linked_extra[0])
+                if linked_extra[1] is not None:
+                    _token_id(linked_extra[1])
     except NothingToUndo:
         session.rollback()
         raise
@@ -567,29 +577,49 @@ def _undo_documents(session: Session, user: User, application: Application, extr
         cv = session.get(CVDocument, pair[0])
         if cv is not None and cv.user_id == user.id and cv.application_id == application.id:
             document_service.unlock_after_undo(session, cv, pair[1])
-    linked = extra.get("linked_cv")  # [cv id, its application_id before the link]
+    _undo_link(session, user, application, extra, "cv", CVDocument, "cv_id")
+    _undo_link(session, user, application, extra, "letter", CoverLetter, "cover_letter_id")
+
+
+def _undo_link(
+    session: Session,
+    user: User,
+    application: Application,
+    extra: dict,
+    kind: str,
+    model,
+    current_field: str,
+) -> None:
+    """Take back linking a CV or a letter (D-080, D-157): a copy linked from elsewhere
+    goes back to its old application; a copy the action created is deleted if it is
+    still untouched. `extra` was checked by _undo_documents."""
+    linked = extra.get(f"linked_{kind}")  # [document id, its application_id before]
     if isinstance(linked, list) and len(linked) == 2 and type(linked[0]) is int:
-        cv = session.get(CVDocument, linked[0])
+        document = session.get(model, linked[0])
         previous = linked[1] if type(linked[1]) is int else None
-        if cv is not None and cv.user_id == user.id and cv.application_id == application.id:
-            if previous is None or session.get(Application, previous) is not None:
-                cv.application_id = previous
-                session.add(cv)
-    created = extra.get("created_cv")
-    if type(created) is int:
-        cv = session.get(CVDocument, created)
         if (
-            cv is not None
-            and cv.user_id == user.id
-            and cv.application_id == application.id
-            and not cv.is_locked
-            and document_service.never_edited(cv)
+            document is not None
+            and document.user_id == user.id
+            and document.application_id == application.id
         ):
-            if application.cv_id == cv.id:
-                application.cv_id = None
+            if previous is None or session.get(Application, previous) is not None:
+                document.application_id = previous
+                session.add(document)
+    created = extra.get(f"created_{kind}")
+    if type(created) is int:
+        document = session.get(model, created)
+        if (
+            document is not None
+            and document.user_id == user.id
+            and document.application_id == application.id
+            and not document.is_locked
+            and document_service.never_edited(document)
+        ):
+            if getattr(application, current_field) == document.id:
+                setattr(application, current_field, None)
                 session.add(application)
                 session.flush()
-            session.delete(cv)
+            session.delete(document)
 
 
 # --- Undo (D-064, M4a tokens; still used for "add") -------------------------------------
@@ -618,7 +648,8 @@ def before_note(session: Session, user: User, application: Application) -> dict:
 def creation_fingerprint(application: Application) -> str:
     """What "add" left behind, for its Undo: if details or a snooze changed since (they
     write no event), Undo of "add" must not delete them (security review M4b, 3)."""
-    values = [getattr(application, f) for f in (*DETAIL_FIELDS, "snoozed_until", "cv_id")]
+    fields = (*DETAIL_FIELDS, "snoozed_until", "cv_id", "cover_letter_id")
+    values = [getattr(application, f) for f in fields]
     return fingerprint("|".join(str(_to_text(value)) for value in values))
 
 
@@ -762,6 +793,51 @@ def unlink_cv(session: Session, user: User, application: Application) -> Applica
     application.cv_id = None
     session.add(application)
     event = _add_event(session, application, "document_linked", message=f"CV removed: {cv.title}")
+    session.commit()
+    session.refresh(application)
+    return event
+
+
+def link_letter(
+    session: Session, user: User, application: Application, letter: CoverLetter
+) -> ApplicationEvent:
+    """Use `letter` for `application` (D-157): the same rules as link_cv."""
+    if letter.user_id != user.id or letter.is_master or letter.is_locked:
+        raise CannotLink
+    if letter.application_id not in (None, application.id):
+        raise CannotLink
+    letter.application_id = application.id
+    application.cover_letter_id = letter.id
+    session.add(letter)
+    session.add(application)
+    event = _add_event(
+        session, application, "document_linked", message=f"Cover letter: {letter.title}"
+    )
+    try:
+        session.commit()
+    except IntegrityError:  # another application took this letter at the same moment
+        session.rollback()
+        raise CannotLink from None
+    session.refresh(application)
+    return event
+
+
+def unlink_letter(session: Session, user: User, application: Application) -> ApplicationEvent:
+    """Stop using the current letter (only a draft: a sent letter stays, D-159)."""
+    if application.archived:
+        raise CannotLink
+    letter = (
+        session.get(CoverLetter, application.cover_letter_id)
+        if application.cover_letter_id
+        else None
+    )
+    if letter is None or letter.user_id != user.id or letter.is_locked:
+        raise CannotLink
+    application.cover_letter_id = None
+    session.add(application)
+    event = _add_event(
+        session, application, "document_linked", message=f"Cover letter removed: {letter.title}"
+    )
     session.commit()
     session.refresh(application)
     return event

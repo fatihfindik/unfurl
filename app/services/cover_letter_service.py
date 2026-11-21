@@ -7,11 +7,12 @@ version, a master only after "Edit master").
 """
 
 from fastapi import HTTPException
-from sqlmodel import Session, select
+from sqlmodel import Session, or_, select
 
 from app.i18n.document_labels import labels
 from app.models import CoverLetter, User
 from app.models.base import utcnow
+from app.models.profile import SHORT_TEXT
 from app.schemas.cover_letter import LETTER_FIELDS, CoverLetterForm
 from app.services import lineage, profile_service
 
@@ -146,6 +147,59 @@ def save_as_new_version(session: Session, user: User, source: CoverLetter) -> Co
     lineage.check_new_version_allowed(source)
     _check_room(session, user)
     return lineage.save_copy(session, CoverLetter, _copy_of(source))
+
+
+# --- Applications (D-157, D-158) ---------------------------------------------------
+
+
+def subject_for(application, language: str) -> str:
+    """ "Bewerbung als {job title}" in the letter's language, cut to fit 200 characters
+    (a job title can be 200 characters long itself, plan-reviewer M8b #1)."""
+    pattern = labels(language)["letter_subject"]
+    room = SHORT_TEXT - len(pattern.replace("{job_title}", ""))
+    return pattern.replace("{job_title}", application.job_title[:room])
+
+
+def copy_for_application(
+    session: Session, user: User, master: CoverLetter, application, title: str
+) -> CoverLetter:
+    """A new copy of `master` made for `application`; the caller links it (D-157).
+    Fields the master left empty are filled from the job (D-158): company, contact
+    person and subject. They are set before the copy is saved, so it still counts
+    as never edited and the Undo of "Copy my master letter" can delete it."""
+    if not master.is_master or master.user_id != user.id:
+        raise ValueError("Copies are made from the user's own master.")
+    _check_room(session, user)
+    copy = _copy_of(master)
+    copy.title = title[:SHORT_TEXT]
+    copy.application_id = application.id
+    if not copy.recipient_company:
+        copy.recipient_company = application.company
+    if not copy.recipient_name and application.contact_name:
+        copy.recipient_name = application.contact_name
+    if not copy.subject:
+        copy.subject = subject_for(application, copy.language)
+    return lineage.save_copy(session, CoverLetter, copy)
+
+
+def copies_for_linking(session: Session, user: User, application) -> list[CoverLetter]:
+    """Drafts that may be used for `application`: the user's copies (never a master,
+    never a sent one) that belong to no other application."""
+    return list(
+        session.exec(
+            select(CoverLetter)
+            .where(
+                CoverLetter.user_id == user.id,
+                CoverLetter.is_master.is_(False),
+                CoverLetter.status == "draft",
+                or_(
+                    CoverLetter.application_id.is_(None),
+                    CoverLetter.application_id == application.id,
+                ),
+            )
+            .order_by(CoverLetter.language, CoverLetter.parent_id, CoverLetter.version)
+        )
+    )
 
 
 # --- Changing -----------------------------------------------------------------------
