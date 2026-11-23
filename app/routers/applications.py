@@ -510,6 +510,15 @@ def application_detail(
     context["first_tab"] = first_tab(application)
     # Any other value (or none) shows the first tab.
     context["tab"] = "details" if tab == "details" else context["first_tab"]
+    if context["tab"] == "progress":
+        # "How you applied" (D-167): the steps from the timeline, oldest first.
+        source_name = SOURCE_NAMES.get(application.source, "Other")
+        context["history"] = [
+            {"text": timeline_text(event, source_name), "when": when_text(event.created_at)}
+            for event in application_service.history_of(
+                application_service.events_of(session, application)
+            )
+        ]
     if context["tab"] == "apply":
         # Apply › Final check (D-151): read-only checks of the documents shown above.
         checks = final_check_service.run(

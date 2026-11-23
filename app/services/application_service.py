@@ -1278,6 +1278,18 @@ def events_of(session: Session, application: Application) -> list[ApplicationEve
     )
 
 
+def history_of(events: list[ApplicationEvent]) -> list[ApplicationEvent]:
+    """Progress › "How you applied" (D-167): from the timeline, the steps that led to
+    sending: when it was saved, the documents linked and locked, and the move to
+    Applied. Nothing new is stored; oldest first."""
+    return [
+        event
+        for event in events
+        if event.type in ("created", "document_linked")
+        or (event.type == "status_changed" and event.to_status == "applied")
+    ]
+
+
 # --- A new time zone (D-108) ----------------------------------------------------------
 
 

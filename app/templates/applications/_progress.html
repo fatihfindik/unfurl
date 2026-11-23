@@ -1,10 +1,60 @@
-{#- The Progress tab (SPEC §6.7, D-167): what was sent and what happens next.
-    Context: application and the documents context (see detail_context). -#}
-<section id="progress" aria-labelledby="progress-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
-  <h2 id="progress-title" class="m-0 text-base font-bold">Progress</h2>
-  {%- if application.applied_at %}
-    <p class="m-0 text-sm text-text-2">Applied on {{ application.applied_at.strftime("%a, %-d %b %Y") }}.</p>
-  {%- else %}
-    <p class="m-0 text-sm text-text-2">You did not apply to this job.</p>
+{#- The Progress tab (SPEC §6.7, D-167): when it was sent, the documents, what
+    happens next and, folded, how you applied. Shown once the job is sent or answered.
+    Context: application, the documents context, step / step_title (next step),
+    history (timeline lines). -#}
+{% from "applications/_document_block.html" import document_block with context %}
+<div id="progress" class="flex flex-col gap-4">
+  <section aria-labelledby="progress-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+    {%- if application.applied_at %}
+      <h2 id="progress-title" class="m-0 text-base font-bold">Applied on {{ application.applied_at.strftime("%a, %-d %b %Y") }}</h2>
+    {%- else %}
+      {#- E.g. Saved → Rejected: there is no day it was sent (D-167). -#}
+      <h2 id="progress-title" class="m-0 text-base font-bold">{{ status_title }}</h2>
+      <p class="m-0 text-sm text-text-2">You did not apply to this job.</p>
+    {%- endif %}
+    <h3 class="m-0 text-[13px] font-bold text-text-2">CV</h3>
+    {{ document_block("progress", "cv", current_cv, masters, linkable, can_send, preview=True) }}
+    <h3 class="m-0 mt-1 text-[13px] font-bold text-text-2">Cover letter</h3>
+    {{ document_block("progress", "letter", current_letter, letter_masters, linkable_letters, can_send_letter, preview=True) }}
+  </section>
+
+  <section aria-labelledby="next-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+    <h2 id="next-title" class="m-0 text-base font-bold">What happens next</h2>
+    <ul class="m-0 flex flex-col gap-1.5 pl-5 text-sm text-text-2">
+      {%- if application.status == "applied" %}
+        <li>Most companies reply within 1–3 weeks.{% if step %} Your next step: <strong class="text-text">{{ step_title }}</strong>.{% endif %}</li>
+        <li>Got an interview invite? Mark it here and add the date.</li>
+      {%- elif application.status == "interview" %}
+        <li>{% if step %}<strong class="text-text">{{ step_title }}</strong>.{% else %}Add the interview date so we can remind you.{% endif %}</li>
+        <li>After the interview, a short thank-you note helps.</li>
+      {%- elif application.status == "offer" %}
+        <li>You have an offer.{% if step %} <strong class="text-text">{{ step_title }}</strong>.{% endif %}</li>
+      {%- else %}
+        <li>This one didn't work out. Your documents stay here, so you can reuse them.</li>
+      {%- endif %}
+    </ul>
+    {%- if application.status == "applied" and not application.archived %}
+      {#- The status picker's request: the interview modal opens next (D-076). -#}
+      <button type="button" hx-post="/applications/{{ application.id }}/status" hx-vals='{"status": "interview"}'
+              hx-swap="none" hx-disabled-elt="this"
+              class="inline-flex h-10 items-center justify-center self-start rounded-lg border border-border-strong bg-surface px-4 text-sm font-semibold text-text hover:bg-muted">I got an interview</button>
+    {%- endif %}
+  </section>
+
+  {%- if history %}
+    <details class="group rounded-xl border border-border bg-surface p-5">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
+        <strong class="text-[15px]">How you applied</strong>
+        <span class="text-[13px] font-semibold text-link"><span class="group-open:hidden">Show</span><span class="hidden group-open:inline">Hide</span></span>
+      </summary>
+      <ol class="m-0 mt-3.5 flex list-none flex-col gap-2 p-0">
+        {%- for line in history %}
+          <li class="flex flex-wrap justify-between gap-x-4 gap-y-0.5 text-[13px]">
+            <span class="break-words text-text">✓ {{ line.text }}</span>
+            <span class="text-text-3">{{ line.when }}</span>
+          </li>
+        {%- endfor %}
+      </ol>
+    </details>
   {%- endif %}
-</section>
+</div>
