@@ -413,13 +413,14 @@ document.addEventListener("click", (event) => {
 // The modal opens at once with a "Loading…" skeleton (D-126); the content then goes
 // into "#<dialog id>-body". If loading fails (e.g. the goal was deleted in another
 // tab), the skeleton is still there: the modal closes and the server's toast says
-// why. The URLs are written by our templates; only /learning/ and /applications/
-// pages are loaded (the document drawer, D-166).
+// why. The URLs are written by our templates; only the ones in LOADABLE_URL load.
+// Learning's forms, and on an application only the document drawer (D-166).
+const LOADABLE_URL = /^\/(learning\/|applications\/\d+\/drawer\?doc=(cv|cover_letter)$)/;
 function openLoadedDialog(dialogId, url) {
   const dialog = document.getElementById(dialogId);
   const body = document.getElementById(`${dialogId}-body`);
   const skeleton = document.getElementById("dialog-skeleton");
-  if (!(dialog instanceof HTMLDialogElement) || !body || !/^\/(learning|applications)\//.test(String(url))) {
+  if (!(dialog instanceof HTMLDialogElement) || !body || !LOADABLE_URL.test(String(url))) {
     return;
   }
   if (skeleton) body.replaceChildren(skeleton.content.cloneNode(true));
