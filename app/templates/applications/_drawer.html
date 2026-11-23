@@ -1,0 +1,49 @@
+{#- The document drawer's content (SPEC §6.7, D-166): a read-only preview of the CV or
+    the cover letter used for this job. Editing happens in the full editor; a locked
+    document is what was sent. Loaded into #document-drawer-body (app.js
+    openLoadedDialog); the tabs load the other document into the same drawer.
+    Context: application, doc ("cv" / "cover_letter"), document, editor, has_cv,
+    has_letter, and the preview context (pdf_service.cv_context or
+    cover_letter_service.preview_context). -#}
+<div class="flex flex-col gap-4">
+  {%- if has_cv and has_letter %}
+    <nav aria-label="Documents of this job" class="flex gap-1 self-start rounded-lg bg-muted p-1 text-sm font-semibold">
+      {%- for key, label in [("cv", "CV"), ("cover_letter", "Cover letter")] %}
+        <button type="button" data-dialog-load="document-drawer" data-dialog-url="/applications/{{ application.id }}/drawer?doc={{ key }}"
+                {%- if doc == key %} aria-current="true"{% endif %}
+                class="rounded-md px-3 py-1.5 {{ 'bg-surface text-text shadow-sm' if doc == key else 'text-text-2 hover:text-text' }}">{{ label }}</button>
+      {%- endfor %}
+    </nav>
+  {%- endif %}
+
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex min-w-0 flex-col gap-0.5">
+      <strong class="break-words text-[15px]">{{ document.title }} · v{{ document.version }}</strong>
+      {%- if document.is_locked %}
+        <span class="text-xs font-bold text-green-text">Sent · locked</span>
+      {%- else %}
+        <span class="text-xs font-bold text-text-3">Draft</span>
+      {%- endif %}
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="{{ editor }}{{ document.id }}?application={{ application.id }}"
+         class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-medium text-text-2 no-underline hover:bg-muted">Open full editor</a>
+      <a href="{{ editor }}{{ document.id }}/pdf"
+         class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-medium text-text-2 no-underline hover:bg-muted">Download PDF</a>
+    </div>
+  </div>
+  {%- if document.is_locked %}
+    <p class="m-0 text-xs text-text-3">This is what you sent. It can't be changed any more.</p>
+  {%- else %}
+    <p class="m-0 text-xs text-text-3">A preview. Change it in the full editor.</p>
+  {%- endif %}
+
+  {#- The same preview as the editor and the PDF; read-only here. -#}
+  <div class="overflow-x-auto rounded-xl bg-muted p-3">
+    {%- if doc == "cv" %}
+      {% include cv_template %}
+    {%- else %}
+      {% include "pdf/cover_letter.html" %}
+    {%- endif %}
+  </div>
+</div>

@@ -5,8 +5,11 @@
     Import it "with context": it reads application and language_labels.
 
       document_block("card", "cv", current_cv, masters, linkable, can_send)
+
+    `preview`: "Preview & edit" opens the document drawer (D-166) instead of the
+    "Open" link to the editor (Apply › Prepare documents).
 -#}
-{% macro document_block(prefix, kind, doc, masters, linkable, can_send) %}
+{% macro document_block(prefix, kind, doc, masters, linkable, can_send, preview=False) %}
   {%- if kind == "cv" %}
     {%- set route, field, editor, noun = "cv", "cv", "/cvs/", "CV" %}
     {%- set start_hint = "Which CV do you send? Start from a master; your master stays unchanged." %}
@@ -29,7 +32,13 @@
         {%- endif %}
       </div>
       <div class="flex flex-wrap gap-3 text-[13px] font-semibold">
-        <a href="{{ editor }}{{ doc.id }}?application={{ application.id }}" class="text-link no-underline hover:underline">Open</a>
+        {%- if preview %}
+          <button type="button" data-dialog-load="document-drawer"
+                  data-dialog-url="/applications/{{ application.id }}/drawer?doc={{ 'cv' if kind == 'cv' else 'cover_letter' }}"
+                  class="text-link hover:underline">Preview &amp; edit</button>
+        {%- else %}
+          <a href="{{ editor }}{{ doc.id }}?application={{ application.id }}" class="text-link no-underline hover:underline">Open</a>
+        {%- endif %}
         <a href="{{ editor }}{{ doc.id }}/pdf" class="text-link no-underline hover:underline">PDF</a>
         {%- if not doc.is_locked and not application.archived %}
           <button hx-disabled-elt="this" type="button" hx-delete="/applications/{{ application.id }}/{{ route }}" hx-swap="none" class="text-text-3 hover:text-text hover:underline">Remove</button>

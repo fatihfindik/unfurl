@@ -1,6 +1,17 @@
 {% extends "base.html" %}
 
+{% from "components/drawer.html" import drawer %}
+
 {% block title %}{{ application.job_title }} · {{ application.company }}{% endblock %}
+
+{#- The document drawer shows the same preview as the editors (D-166): their styles. -#}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ static_url('css/cv_base.css') }}">
+  <link rel="stylesheet" href="{{ static_url('css/cv_classic.css') }}">
+  <link rel="stylesheet" href="{{ static_url('css/cv_modern.css') }}">
+  <link rel="stylesheet" href="{{ static_url('css/cv_compact.css') }}">
+  <link rel="stylesheet" href="{{ static_url('css/cover_letter.css') }}">
+{% endblock %}
 
 {#- One application (SPEC §6.7, docs/prototype/ApplicationDetail.dc.html; M4b, M9a).
     Two tabs (D-164): Apply (a saved job) or Progress (sent or answered), and
@@ -104,4 +115,9 @@
   </div>
   </div>
   {% include "applications/_interview_modal.html" %}
+  {#- Outside #application-page, so a reload of the page doesn't close it. Filled when
+      it opens (app.js openLoadedDialog, D-166). -#}
+  {% call drawer("document-drawer", "Documents", "max-w-[760px]") %}
+    <div id="document-drawer-body"></div>
+  {% endcall %}
 {% endblock %}

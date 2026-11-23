@@ -34,9 +34,9 @@
     </summary>
     <div class="mt-4 flex flex-col gap-3">
       <h3 class="m-0 text-[13px] font-bold text-text-2">CV</h3>
-      {{ document_block("prepare", "cv", current_cv, masters, linkable, can_send) }}
+      {{ document_block("prepare", "cv", current_cv, masters, linkable, can_send, preview=True) }}
       <h3 class="m-0 mt-1 text-[13px] font-bold text-text-2">Cover letter <span class="font-normal text-text-3">· optional</span></h3>
-      {{ document_block("prepare", "letter", current_letter, letter_masters, linkable_letters, can_send_letter) }}
+      {{ document_block("prepare", "letter", current_letter, letter_masters, linkable_letters, can_send_letter, preview=True) }}
     </div>
   </details>
 

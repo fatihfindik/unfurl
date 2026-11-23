@@ -8,7 +8,6 @@ template. The list is on the Documents page (app/routers/cvs.py, ?tab=letters).
 
 import json
 import logging
-import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -60,22 +59,6 @@ def new_letter_context(user: User, values=None, errors=None) -> dict:
     }
 
 
-def paragraphs(text: str) -> list[str]:
-    """The body as paragraphs: split at blank lines. Single line breaks stay inside
-    a paragraph (shown with white-space: pre-line, never as HTML)."""
-    return [part.strip("\n") for part in re.split(r"\n\s*\n", text) if part.strip()]
-
-
-def preview_context(session: Session, letter: CoverLetter) -> dict:
-    """What pdf/cover_letter.html needs (the preview and the PDF)."""
-    return {
-        "letter": letter,
-        # Today while a draft, the day it was sent once locked (D-154, D-160).
-        "letter_date": letters.letter_date(session, letter),
-        "paragraphs": paragraphs(letter.body),
-    }
-
-
 def with_plain_text(context: dict) -> dict:
     """The preview plus the text for "Copy text" (D-162), from the same paragraphs."""
     letter = context["letter"]
@@ -90,7 +73,7 @@ def editor_context(
     errors=None,
     master=None,
 ) -> dict:
-    return with_plain_text(preview_context(session, letter)) | {
+    return with_plain_text(letters.preview_context(session, letter)) | {
         "master": master,  # for the band "Copy based on …"
         "errors": errors or {},
         "language_names": LANGUAGE_NAMES,
@@ -289,7 +272,7 @@ def letter_pdf(request: Request, session: DbSession, user: RequiredUser, letter_
     with the date it was sent (D-160)."""
     letter = letters.get_owned_letter(session, user, letter_id)
     try:
-        pdf = pdf_service.render_letter_pdf(preview_context(session, letter))
+        pdf = pdf_service.render_letter_pdf(letters.preview_context(session, letter))
     except pdf_service.PDFError as exc:
         # Only the kind of error goes to the log, never the letter's text.
         logger.warning("Cover letter PDF failed (letter %s): %s", letter.id, exc)

@@ -6,6 +6,8 @@ Routes change letters only through these functions (CLAUDE.md: never edit a lock
 version, a master only after "Edit master").
 """
 
+import re
+
 from fastapi import HTTPException
 from sqlmodel import Session, or_, select
 
@@ -374,3 +376,20 @@ def snapshot(letter: CoverLetter) -> dict:
     fields = {name: getattr(letter, name) for name in LETTER_FIELDS}
     day = clock.local(letter.locked_at).date() if letter.locked_at else clock.today()
     return fields | {"language": letter.language, "date": full_date(day, letter.language)}
+
+
+def paragraphs(text: str) -> list[str]:
+    """The body as paragraphs: split at blank lines. Single line breaks stay inside
+    a paragraph (shown with white-space: pre-line, never as HTML)."""
+    return [part.strip("\n") for part in re.split(r"\n\s*\n", text) if part.strip()]
+
+
+def preview_context(session: Session, letter: CoverLetter) -> dict:
+    """What pdf/cover_letter.html needs: the editor's preview, the PDF and the
+    application page's document drawer (D-166)."""
+    return {
+        "letter": letter,
+        # Today while a draft, the day it was sent once locked (D-154, D-160).
+        "letter_date": letter_date(session, letter),
+        "paragraphs": paragraphs(letter.body),
+    }

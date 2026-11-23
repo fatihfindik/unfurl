@@ -34,6 +34,7 @@ from app.services import (
     document_service,
     final_check_service,
     next_step_service,
+    pdf_service,
     undo_service,
 )
 from app.services.auth_service import require_user
@@ -517,6 +518,49 @@ def application_detail(
         context["checks"] = checks
         context["checks_passed"], context["checks_total"] = final_check_service.summary(checks)
     return templates.TemplateResponse(request, "applications/detail.html", context)
+
+
+# --- Document drawer (D-166) ---------------------------------------------------------------
+
+DRAWER_DOCS = ("cv", "cover_letter")
+
+
+@router.get("/applications/{application_id}/drawer", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def application_drawer(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    doc: str = "",
+):
+    """The document drawer's content: a read-only preview of the CV or the cover
+    letter used for this job, the same as in the editor and the PDF (D-166). Editing
+    happens in the full editor. No such document for this job: 404 (the drawer
+    closes, app.js openLoadedDialog)."""
+    if doc not in DRAWER_DOCS:
+        raise HTTPException(status_code=422)
+    application = application_service.get_owned_application(session, user, application_id)
+    # documents_context only returns the user's own documents.
+    documents = documents_context(session, user, application)
+    cv, letter = documents["current_cv"], documents["current_letter"]
+    context = {
+        "application": application,
+        "doc": doc,
+        "has_cv": bool(cv),
+        "has_letter": bool(letter),
+    }
+    if doc == "cv":
+        if cv is None:
+            raise HTTPException(status_code=404)
+        context |= {"document": cv, "editor": "/cvs/"} | pdf_service.cv_context(cv)
+    else:
+        if letter is None:
+            raise HTTPException(status_code=404)
+        context |= {"document": letter, "editor": "/cover-letters/"} | (
+            cover_letter_service.preview_context(session, letter)
+        )
+    return templates.TemplateResponse(request, "applications/_drawer.html", context)
 
 
 PICKER_STATUSES = (*BOARD_STATUSES, "archived")
