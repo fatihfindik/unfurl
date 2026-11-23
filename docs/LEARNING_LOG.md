@@ -652,3 +652,30 @@
 - SPEC: yes, v2.1.35 (tabs, Apply flow, rule-based Final check, drawer, Progress).
   D-151, D-164…D-167.
 - WORKFLOW: no.
+
+## T1 — Four small fixes: #85, #88, #89, #90 (2026-11-23, log written by Claude)
+
+**Concepts**
+- DNS rebinding: a page points its own domain at 127.0.0.1, so the browser treats our
+  local app as "same origin". Checking the Host header (Starlette
+  `TrustedHostMiddleware`) stops it; the order of middlewares decides whether the 400
+  still gets the security headers.
+- Starlette parses a form once and caches it. The first parse decides the limit, so a
+  route's smaller limit has to count the fields again afterwards.
+- A confirmation that lives in the URL can be skipped by any link. A value kept in the
+  session and given out only by a CSRF-protected POST can't be guessed from outside.
+- `secrets.compare_digest` refuses `str` with non-ASCII characters: compare bytes.
+- Inherited htmx attributes apply to every request below them; putting a rule where it
+  is needed keeps the console clean.
+
+**What was hard**
+- The first #88 idea (read the raw body in the CSRF check) would have broken every
+  normal form: FastAPI reads `Form()` bodies before dependencies run. The
+  plan-reviewer caught it before any code was written.
+
+**What I will do differently**
+- When a value goes into a URL, also ask: does it end up in logs and browser history?
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.36 (§10.1: Host check, form field limit). D-168…D-171.
+- WORKFLOW: no.
