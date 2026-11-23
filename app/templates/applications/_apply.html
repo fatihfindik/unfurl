@@ -50,7 +50,7 @@
     {%- if not prepared %}
       <p class="m-0 text-sm text-text-3">Prepare your CV first.</p>
     {%- else %}
-      <p class="m-0 text-sm text-text-2">Check your documents before you send them.</p>
+      {% include "applications/_final_check.html" %}
     {%- endif %}
   </section>
 </div>

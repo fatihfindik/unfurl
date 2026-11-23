@@ -32,6 +32,7 @@ from app.services import (
     clock,
     cover_letter_service,
     document_service,
+    final_check_service,
     next_step_service,
     undo_service,
 )
@@ -508,6 +509,13 @@ def application_detail(
     context["first_tab"] = first_tab(application)
     # Any other value (or none) shows the first tab.
     context["tab"] = "details" if tab == "details" else context["first_tab"]
+    if context["tab"] == "apply":
+        # Apply › Final check (D-151): read-only checks of the documents shown above.
+        checks = final_check_service.run(
+            application, context["current_cv"], context["current_letter"], clock.today()
+        )
+        context["checks"] = checks
+        context["checks_passed"], context["checks_total"] = final_check_service.summary(checks)
     return templates.TemplateResponse(request, "applications/detail.html", context)
 
 
