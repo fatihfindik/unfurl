@@ -1,3 +1,4 @@
 {#- Answer to an autosave: the new preview, plus the error list next to the form. -#}
 {% include "pdf/cover_letter.html" %}
+{% include "cover_letters/_plain_text.html" %}
 {% with oob=True %}{% include "cover_letters/_errors.html" %}{% endwith %}

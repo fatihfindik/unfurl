@@ -137,6 +137,8 @@ def _copy_of(source: CoverLetter) -> CoverLetter:
             language=source.language,
             source_profile_version=source.source_profile_version,
             parent_id=source.id if source.is_master else source.parent_id,
+            # A new version stays with the application it was made for (D-157).
+            application_id=source.application_id,
         )
     )
 
@@ -147,6 +149,26 @@ def save_as_new_version(session: Session, user: User, source: CoverLetter) -> Co
     lineage.check_new_version_allowed(source)
     _check_room(session, user)
     return lineage.save_copy(session, CoverLetter, _copy_of(source))
+
+
+def duplicate(session: Session, user: User, source: CoverLetter) -> CoverLetter:
+    """ "Duplicate": the same text as a separate copy "… (copy)", for another
+    application, so it belongs to none (D-050, D-162)."""
+    _check_room(session, user)
+    copy = _copy_of(source)
+    # "… (copy)" once, not "… (copy) (copy)"; shortened if needed to fit 200 characters.
+    if not source.title.endswith(" (copy)"):
+        copy.title = f"{source.title[: SHORT_TEXT - len(' (copy)')]} (copy)"
+    copy.application_id = None
+    return lineage.save_copy(session, CoverLetter, copy)
+
+
+def plain_text(letter: CoverLetter, paragraphs: list[str]) -> str:
+    """ "Copy text" (D-162): what goes into an application form's message box, as plain
+    text: salutation, the paragraphs, closing and the name. No addresses, no date."""
+    parts = [letter.salutation, *paragraphs]
+    ending = "\n".join(line for line in (letter.closing, letter.sender_name) if line)
+    return "\n\n".join(part for part in (*parts, ending) if part)
 
 
 # --- Applications (D-157, D-158) ---------------------------------------------------

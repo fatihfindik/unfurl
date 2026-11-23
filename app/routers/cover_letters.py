@@ -27,8 +27,8 @@ from app.schemas.cover_letter import LETTER_FIELDS, CoverLetterForm, NewCoverLet
 from app.schemas.cv import LANGUAGE_NAMES
 from app.schemas.profile import form_errors
 from app.security import limiter
+from app.services import application_service, pdf_service, undo_service
 from app.services import cover_letter_service as letters
-from app.services import pdf_service, undo_service
 from app.services.auth_service import require_user
 from app.templating import set_flash, templates
 
@@ -76,6 +76,12 @@ def preview_context(session: Session, letter: CoverLetter) -> dict:
     }
 
 
+def with_plain_text(context: dict) -> dict:
+    """The preview plus the text for "Copy text" (D-162), from the same paragraphs."""
+    letter = context["letter"]
+    return context | {"plain_text": letters.plain_text(letter, context["paragraphs"])}
+
+
 def editor_context(
     session: Session,
     letter: CoverLetter,
@@ -84,7 +90,7 @@ def editor_context(
     errors=None,
     master=None,
 ) -> dict:
-    return preview_context(session, letter) | {
+    return with_plain_text(preview_context(session, letter)) | {
         "master": master,  # for the band "Copy based on …"
         "errors": errors or {},
         "language_names": LANGUAGE_NAMES,
@@ -131,7 +137,16 @@ def letter_editor(
     if letter.parent_id is not None:
         master = letters.get_owned_letter(session, user, letter.parent_id)
     context = editor_context(session, letter, master_unlocked=unlocked, master=master)
-    context["versions"] = letters.versions_in_lineage(session, user, letter)
+    # The application this copy was made for (D-162, like CVs in D-084): from the
+    # letter itself, never from the address, so a link can't put another job's name
+    # on this page.
+    context["application"] = linked_application(session, user, letter)
+    # The version picker: the master and the copies of the same application (or, for
+    # copies of no application, every copy under the master).
+    versions = letters.versions_in_lineage(session, user, letter)
+    if not letter.is_master:
+        versions = [v for v in versions if v.is_master or v.application_id == letter.application_id]
+    context["versions"] = versions
     return templates.TemplateResponse(request, "cover_letters/editor.html", context)
 
 
@@ -186,6 +201,29 @@ def letter_new_version(request: Request, session: DbSession, user: RequiredUser,
             "Nothing changed since this version. Make a change first, "
             "then save it as a new version.",
         )
+    # A new draft of the letter an application uses becomes the one it uses (D-157).
+    # Not for a job that was sent: then the sent letter stays, and a new draft can't
+    # be locked later as if it had been sent (security review M4c, E1).
+    application = linked_application(session, user, letter)
+    if (
+        application is not None
+        and application.cover_letter_id == letter.id
+        and application.status not in application_service.SENT_STATUSES
+    ):
+        application.cover_letter_id = new.id
+        session.add(application)
+        session.commit()
+    return go_to(request, f"/cover-letters/{new.id}")
+
+
+@router.post("/cover-letters/{letter_id}/duplicate", response_class=HTMLResponse)
+def letter_duplicate(request: Request, session: DbSession, user: RequiredUser, letter_id: str):
+    """ "Duplicate" (D-162): a copy for another application, linked to none."""
+    letter = letters.get_owned_letter(session, user, letter_id)
+    try:
+        new = letters.duplicate(session, user, letter)
+    except letters.TooManyDocuments:
+        return action_message(request, TOO_MANY_LETTERS)
     return go_to(request, f"/cover-letters/{new.id}")
 
 

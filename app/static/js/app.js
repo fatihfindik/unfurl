@@ -99,6 +99,21 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 
+  // "Copy text" in the cover letter editor (D-162): puts the hidden plain text next to
+  // the preview (data-source) on the clipboard, then says so in a toast.
+  Alpine.data("copyText", () => ({
+    async copy() {
+      const source = document.getElementById(this.$el.dataset.source);
+      if (!source) return;
+      try {
+        await navigator.clipboard.writeText(source.value);
+        Alpine.store("toast").show("Copied.");
+      } catch {
+        Alpine.store("toast").show("Couldn't copy. Select the text in the preview instead.");
+      }
+    },
+  }));
+
   // On mobile the main menu links are hidden behind a "Menu" button.
   Alpine.data("mobileNav", () => ({
     open: false,

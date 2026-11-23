@@ -1,0 +1,4 @@
+{#- The text "Copy text" puts on the clipboard (D-162): salutation, paragraphs, closing
+    and name. Hidden; it sits next to the preview, so every autosave brings the new
+    text. Escaped like everything the user typed. Context: plain_text. -#}
+<textarea id="letter-plain-text" class="hidden" readonly aria-hidden="true" tabindex="-1">{{ plain_text }}</textarea>
