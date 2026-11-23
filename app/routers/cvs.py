@@ -92,10 +92,13 @@ def documents_page(request: Request, session: DbSession, user: RequiredUser, tab
         "language_names": LANGUAGE_NAMES,
         "template_names": TEMPLATE_NAMES,
         "strength": profile_service.profile_strength(session, profile),
-        # The Cover letters tab (M8a): the same masters and copies as CVs. Letters are
-        # not linked to applications until M8b, so their copies are one group.
+        # The Cover letters tab: the same masters and copies as CVs, copies grouped by
+        # the application they were made for (D-163).
         "letter_masters": [letter for letter in letters if letter.is_master],
         "letter_copies": [letter for letter in letters if not letter.is_master],
+        "letter_groups": copy_groups(
+            session, user, [letter for letter in letters if not letter.is_master]
+        ),
         "letters_by_id": {letter.id: letter for letter in letters},
     } | new_cv_context(user)
     return templates.TemplateResponse(request, "cvs/documents.html", context)
@@ -201,10 +204,11 @@ def cv_editor(
     return templates.TemplateResponse(request, "cvs/editor.html", context)
 
 
-def copy_groups(session: Session, user: User, copies: list[CVDocument]) -> list[tuple]:
-    """Copies grouped by the application they were made for (D-084): [(application,
-    [copies])], the latest active applications first, then (None, copies of none)."""
-    ids = {cv.application_id for cv in copies if cv.application_id is not None}
+def copy_groups(session: Session, user: User, copies: list) -> list[tuple]:
+    """Copies (CVs or cover letters) grouped by the application they were made for
+    (D-084, D-163): [(application, [copies])], the latest active applications first,
+    then (None, copies of none)."""
+    ids = {copy.application_id for copy in copies if copy.application_id is not None}
     applications = (
         {
             app.id: app
@@ -220,8 +224,8 @@ def copy_groups(session: Session, user: User, copies: list[CVDocument]) -> list[
     linked = sorted(
         applications.values(), key=lambda app: as_utc(app.last_activity_at), reverse=True
     )
-    groups = [(app, [cv for cv in copies if cv.application_id == app.id]) for app in linked]
-    unlinked = [cv for cv in copies if cv.application_id not in applications]
+    groups = [(app, [c for c in copies if c.application_id == app.id]) for app in linked]
+    unlinked = [c for c in copies if c.application_id not in applications]
     return groups + ([(None, unlinked)] if unlinked else [])
 
 

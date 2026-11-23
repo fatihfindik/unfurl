@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, or_, select
 
 from app.i18n.document_labels import full_date, labels
-from app.models import ApplicationDocument, CoverLetter, User
+from app.models import Application, ApplicationDocument, CoverLetter, User
 from app.models.base import as_utc, utcnow
 from app.models.profile import SHORT_TEXT
 from app.schemas.cover_letter import LETTER_FIELDS, CoverLetterForm
@@ -265,7 +265,14 @@ def delete_letter(session: Session, letter: CoverLetter, user: User) -> int:
     from app.services import trash_service
 
     lineage.ensure_deletable(session, CoverLetter, letter)
-    copy = trash_service.remember(session, user, "cover_letter", trash_service.payload_of(letter))
+    payload = trash_service.payload_of(letter)
+    used_by = session.exec(
+        select(Application.id).where(
+            Application.cover_letter_id == letter.id, Application.user_id == user.id
+        )
+    ).first()
+    payload["_used_by"] = used_by  # to give the application its letter back on Undo (D-163)
+    copy = trash_service.remember(session, user, "cover_letter", payload)
     session.delete(letter)
     session.commit()
     return copy.id
@@ -274,7 +281,8 @@ def delete_letter(session: Session, letter: CoverLetter, user: User) -> int:
 def restore_letter(session: Session, user: User, payload: dict) -> CoverLetter:
     """Undo of a delete: the letter comes back as a new row, if it still fits (a
     master only while its language has no master again, a copy only while its
-    master exists; D-086, D-153)."""
+    master exists; D-086, D-153). A linked letter goes back to its application under
+    the same three conditions as a CV (D-163)."""
     from app.services import trash_service
 
     if payload.get("user_id") != user.id:
@@ -282,12 +290,28 @@ def restore_letter(session: Session, user: User, payload: dict) -> CoverLetter:
     letter = trash_service.row_from(CoverLetter, payload)
     if not lineage.fits_for_restore(session, CoverLetter, user, letter):
         raise trash_service.CannotRestore
+    if letter.application_id is not None:
+        owner = session.get(Application, letter.application_id)
+        if owner is None or owner.user_id != user.id:
+            letter.application_id = None
     try:
         _check_room(session, user)
     except TooManyDocuments:
         raise trash_service.CannotRestore from None
     session.add(letter)
     session.flush()
+    used_by = payload.get("_used_by")
+    if type(used_by) is int:
+        application = session.get(Application, used_by)
+        # Only into an empty place, and not into a job that was sent meanwhile.
+        if (
+            application is not None
+            and application.user_id == user.id
+            and application.cover_letter_id is None
+            and application.status == "saved"
+        ):
+            application.cover_letter_id = letter.id
+            session.add(application)
     return letter
 
 
