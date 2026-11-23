@@ -1,0 +1,10 @@
+{#- The Progress tab (SPEC §6.7, D-167): what was sent and what happens next.
+    Context: application and the documents context (see detail_context). -#}
+<section id="progress" aria-labelledby="progress-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+  <h2 id="progress-title" class="m-0 text-base font-bold">Progress</h2>
+  {%- if application.applied_at %}
+    <p class="m-0 text-sm text-text-2">Applied on {{ application.applied_at.strftime("%a, %-d %b %Y") }}.</p>
+  {%- else %}
+    <p class="m-0 text-sm text-text-2">You did not apply to this job.</p>
+  {%- endif %}
+</section>

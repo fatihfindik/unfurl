@@ -36,7 +36,7 @@ def fresh(session, job) -> Application:
 def test_the_card_has_edit_and_the_form_is_filled(auth_client, session, user):
     job = add(session, user, location="Wien", remote_type="hybrid")
 
-    page = auth_client.get(f"/applications/{job.id}").text
+    page = auth_client.get(f"/applications/{job.id}?tab=details").text
     form = auth_client.get(f"/applications/{job.id}/details/edit").text
 
     assert f'hx-get="/applications/{job.id}/details/edit"' in page

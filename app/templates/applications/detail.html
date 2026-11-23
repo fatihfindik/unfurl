@@ -2,18 +2,19 @@
 
 {% block title %}{{ application.job_title }} · {{ application.company }}{% endblock %}
 
-{#- One application (SPEC §6.7, docs/prototype/ApplicationDetail.dc.html; M4b).
-    No Apply / Progress tab until M7–M9 (D-060): the page shows "Job & details"
-    straight away.
-    Context: see detail_context in app/routers/applications.py. -#}
+{#- One application (SPEC §6.7, docs/prototype/ApplicationDetail.dc.html; M4b, M9a).
+    Two tabs (D-164): Apply (a saved job) or Progress (sent or answered), and
+    Job & details. The tab is in the address (?tab=details), so a reload keeps it.
+    Context: see detail_context and application_detail in app/routers/applications.py. -#}
 {% block content %}
   {#- After a change (status, Undo, …) the server sends "application-changed"; the page
       then asks for itself again and keeps only this part (hx-select), so the header,
       the next step and the timeline always show what is stored (D-076). hx-disinherit:
       the buttons inside must not take over hx-select (they swap their own parts).
       -#}
+  {%- set page_url = "/applications/" ~ application.id ~ ("?tab=details" if tab == "details" else "") %}
   <div id="application-page" class="flex flex-1 flex-col"
-       hx-get="/applications/{{ application.id }}" hx-trigger="application-changed from:body"
+       hx-get="{{ page_url }}" hx-trigger="application-changed from:body"
        hx-select="#application-page" hx-swap="outerHTML" hx-disinherit="*">
   <header class="flex flex-col gap-3.5 border-b border-border bg-surface px-4 pt-4 pb-[18px] md:px-8">
     <div class="flex items-center justify-between gap-3">
@@ -61,10 +62,23 @@
         {%- endif %}
       </div>
     </div>
+    {#- Plain links, no JS (D-164): the first tab is Apply or Progress by status. -#}
+    <nav aria-label="Application sections" class="flex gap-1 self-start rounded-lg bg-muted p-1 text-sm font-semibold">
+      {%- for key, label in [(first_tab, "Apply" if first_tab == "apply" else "Progress"), ("details", "Job & details")] %}
+        <a href="/applications/{{ application.id }}{{ '?tab=details' if key == 'details' else '' }}"
+           {%- if tab == key %} aria-current="page"{% endif %}
+           class="rounded-md px-3 py-1.5 no-underline {{ 'bg-surface text-text shadow-sm' if tab == key else 'text-text-2 hover:text-text' }}">{{ label }}</a>
+      {%- endfor %}
+    </nav>
   </header>
 
   <div class="flex w-full flex-wrap items-start gap-6 px-4 pt-5 pb-8 md:px-8">
     <div class="flex min-w-0 flex-[3_1_620px] flex-col gap-4">
+      {%- if tab == "apply" %}
+        {% include "applications/_apply.html" %}
+      {%- elif tab == "progress" %}
+        {% include "applications/_progress.html" %}
+      {%- else %}
       {% include "applications/_details.html" %}
       {%- if application.description_raw %}
         <details class="group rounded-xl border border-border bg-surface p-5">
@@ -78,6 +92,7 @@
           {#- Plain text, line breaks kept (whitespace-pre-line); never HTML. -#}
           <div class="mt-3.5 max-h-[420px] overflow-y-auto whitespace-pre-line break-words rounded-lg bg-surface-2 p-3 text-[13px] leading-relaxed text-text-2">{{ application.description_raw }}</div>
         </details>
+      {%- endif %}
       {%- endif %}
     </div>
 

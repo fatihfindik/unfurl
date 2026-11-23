@@ -486,15 +486,29 @@ def detail_context(session: Session, user: User, application) -> dict:
     )
 
 
+def first_tab(application) -> str:
+    """The first tab (D-164): Apply while the job is only saved, Progress once it
+    was sent or answered. An archived job keeps the status it had, so it opens the
+    same tab as before it was archived."""
+    return "apply" if application.status == "saved" else "progress"
+
+
 @router.get("/applications/{application_id}", response_class=HTMLResponse)
 def application_detail(
-    request: Request, session: DbSession, user: RequiredUser, application_id: str
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    tab: str = "",
 ):
-    """One application: header, details, saved posting, next step and timeline."""
+    """One application: header, the Apply / Progress tab or Job & details (D-164),
+    and on the right the next step, the documents and the timeline."""
     application = application_service.get_owned_application(session, user, application_id)
-    return templates.TemplateResponse(
-        request, "applications/detail.html", detail_context(session, user, application)
-    )
+    context = detail_context(session, user, application)
+    context["first_tab"] = first_tab(application)
+    # Any other value (or none) shows the first tab.
+    context["tab"] = "details" if tab == "details" else context["first_tab"]
+    return templates.TemplateResponse(request, "applications/detail.html", context)
 
 
 PICKER_STATUSES = (*BOARD_STATUSES, "archived")
