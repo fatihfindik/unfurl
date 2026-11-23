@@ -413,12 +413,14 @@ document.addEventListener("click", (event) => {
 // The modal opens at once with a "Loading…" skeleton (D-126); the content then goes
 // into "#<dialog id>-body". If loading fails (e.g. the goal was deleted in another
 // tab), the skeleton is still there: the modal closes and the server's toast says
-// why. The URLs are written by our templates; only /learning/ pages are loaded.
+// why. The URLs are written by our templates; only the ones in LOADABLE_URL load.
+// Learning's forms, and on an application only the document drawer (D-166).
+const LOADABLE_URL = /^\/(learning\/|applications\/\d+\/drawer\?doc=(cv|cover_letter)$)/;
 function openLoadedDialog(dialogId, url) {
   const dialog = document.getElementById(dialogId);
   const body = document.getElementById(`${dialogId}-body`);
   const skeleton = document.getElementById("dialog-skeleton");
-  if (!(dialog instanceof HTMLDialogElement) || !body || !String(url).startsWith("/learning/")) {
+  if (!(dialog instanceof HTMLDialogElement) || !body || !LOADABLE_URL.test(String(url))) {
     return;
   }
   if (skeleton) body.replaceChildren(skeleton.content.cloneNode(true));
@@ -485,3 +487,16 @@ document.addEventListener("DOMContentLoaded", () => {
     field.value = zone;
   });
 });
+
+// A link to a folded part (<details>, e.g. Apply › Prepare documents: "#prepare")
+// opens it, so the user sees what the link points at (D-151 fix links). Works when the
+// link is on the same page and when the page opens with that #part in the address.
+function openLinkedDetails(hash) {
+  const target = hash && document.getElementById(decodeURIComponent(hash.slice(1)));
+  if (target instanceof HTMLDetailsElement) target.open = true;
+}
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("a[href*='#']");
+  if (link && link.pathname === window.location.pathname) openLinkedDetails(link.hash);
+});
+document.addEventListener("DOMContentLoaded", () => openLinkedDetails(window.location.hash));

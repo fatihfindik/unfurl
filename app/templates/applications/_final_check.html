@@ -1,0 +1,51 @@
+{#- Apply › Final check (SPEC §6.7, D-151, D-165): the checklist, the PDFs and
+    "I have applied". Nothing here blocks: the checks only say what may be missing.
+    "Mark as applied" is the status picker's request (POST …/status), so locking,
+    the sent copies and Undo work exactly as there (D-159).
+    Context: application, checks, checks_passed, checks_total, current_cv, current_letter. -#}
+<p class="m-0 text-sm text-text-2">{{ checks_passed }} of {{ checks_total }} passed</p>
+<ul class="m-0 flex list-none flex-col gap-2 p-0">
+  {%- for check in checks %}
+    <li class="flex items-start gap-3 rounded-lg bg-surface-2 px-3 py-2.5" data-check="{{ check.id }}" data-status="{{ check.status }}">
+      {%- if check.status == "ok" %}
+        <span aria-hidden="true" class="flex-none text-sm font-bold text-green-text">✓</span><span class="sr-only">Passed:</span>
+      {%- elif check.status == "missing" %}
+        <span aria-hidden="true" class="flex-none text-sm font-bold text-red-text">✕</span><span class="sr-only">Missing:</span>
+      {%- else %}
+        <span aria-hidden="true" class="flex-none text-sm font-bold text-amber-text">!</span><span class="sr-only">Check this:</span>
+      {%- endif %}
+      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span class="break-words text-[13px] font-semibold text-text">{{ check.title }}</span>
+        {%- if check.detail %}
+          <span class="break-words text-xs text-text-3">{{ check.detail }}</span>
+        {%- endif %}
+      </div>
+      {%- if check.fix_url %}
+        <a href="{{ check.fix_url }}" class="flex-none text-[13px] font-semibold text-link no-underline hover:underline">{{ check.fix_label }}</a>
+      {%- endif %}
+    </li>
+  {%- endfor %}
+</ul>
+
+{%- if not application.archived %}
+  <div class="flex flex-col gap-3 rounded-lg border border-border px-4 py-3.5">
+    <strong class="text-sm">Ready? Send it yourself, then come back</strong>
+    <ol class="m-0 list-decimal space-y-1 pl-5 text-[13px] text-text-2">
+      <li>Download your documents.</li>
+      <li>Apply on the company's site or by email.</li>
+      <li>Mark it as applied here. We lock the versions you sent and remind you to follow up.</li>
+    </ol>
+    {#- Two files (D-165): portals usually ask for each one on its own. -#}
+    <div class="flex flex-wrap gap-2">
+      <a href="/cvs/{{ current_cv.id }}/pdf"
+         class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-medium text-text-2 no-underline hover:bg-muted">CV (PDF)</a>
+      {%- if current_letter %}
+        <a href="/cover-letters/{{ current_letter.id }}/pdf"
+           class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-medium text-text-2 no-underline hover:bg-muted">Cover letter (PDF)</a>
+      {%- endif %}
+    </div>
+    <button type="button" hx-post="/applications/{{ application.id }}/status" hx-vals='{"status": "applied"}'
+            hx-swap="none" hx-disabled-elt="this"
+            class="inline-flex h-10 items-center justify-center self-start rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]">I have applied · mark as applied</button>
+  </div>
+{%- endif %}

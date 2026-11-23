@@ -1268,14 +1268,31 @@ def neighbours(
 
 
 def events_of(session: Session, application: Application) -> list[ApplicationEvent]:
-    """The timeline of an application the caller already owns, oldest first."""
+    """The timeline of an application the caller already owns, oldest first. The join
+    checks the owner again (every query on user data filters by user_id)."""
     return list(
         session.exec(
             select(ApplicationEvent)
-            .where(ApplicationEvent.application_id == application.id)
+            .join(Application, col(Application.id) == ApplicationEvent.application_id)
+            .where(
+                ApplicationEvent.application_id == application.id,
+                Application.user_id == application.user_id,
+            )
             .order_by(col(ApplicationEvent.id))
         )
     )
+
+
+def history_of(events: list[ApplicationEvent]) -> list[ApplicationEvent]:
+    """Progress › "How you applied" (D-167): from the timeline, the steps that led to
+    sending: when it was saved, the documents linked and locked, and the move to
+    Applied. Nothing new is stored; oldest first."""
+    return [
+        event
+        for event in events
+        if event.type in ("created", "document_linked")
+        or (event.type == "status_changed" and event.to_status == "applied")
+    ]
 
 
 # --- A new time zone (D-108) ----------------------------------------------------------

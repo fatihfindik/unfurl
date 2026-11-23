@@ -3,10 +3,12 @@
 
       <button type="button" data-dialog-open="cv-preview">Preview</button>
       {% call drawer("cv-preview", "CV preview") %} ... {% endcall %}
+    `width`: a Tailwind max-width class written out in full (Tailwind only builds
+    classes it finds in the templates), e.g. "max-w-[760px]" for an A4 preview.
 -#}
-{% macro drawer(id, title) %}
+{% macro drawer(id, title, width="max-w-[520px]") %}
   <dialog id="{{ id }}" aria-labelledby="{{ id }}-title"
-          class="fixed inset-y-0 right-0 left-auto m-0 h-full max-h-none w-full max-w-[520px] border-l border-border bg-surface p-0 text-text shadow-[0_16px_40px_rgba(16,24,40,0.22)] backdrop:bg-black/40">
+          class="fixed inset-y-0 right-0 left-auto m-0 h-full max-h-none w-full {{ width }} border-l border-border bg-surface p-0 text-text shadow-[0_16px_40px_rgba(16,24,40,0.22)] backdrop:bg-black/40">
     <div class="flex h-full flex-col">
       <div class="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
         <h2 id="{{ id }}-title" class="m-0 text-lg font-bold">{{ title }}</h2>

@@ -17,10 +17,15 @@ def add(session, user, company="Kranich Health GmbH", **fields) -> Application:
     return apps.create(session, user, company=company, **fields)
 
 
-def page(client, job) -> str:
-    response = client.get(f"/applications/{job.id}")
+def page(client, job, tab: str = "") -> str:
+    response = client.get(f"/applications/{job.id}" + (f"?tab={tab}" if tab else ""))
     assert response.status_code == 200
     return response.text
+
+
+def details_page(client, job) -> str:
+    """The Job & details tab (D-164): the details card and the saved posting."""
+    return page(client, job, "details")
 
 
 def save(session, job, **fields) -> Application:
@@ -94,17 +99,68 @@ def test_an_archived_job_counts_among_the_archived(auth_client, session, user):
     assert '<option value="archived" selected>Archived</option>' in html  # the status picker
 
 
-def test_no_tabs_until_m7(auth_client, session, user):
-    html = page(auth_client, add(session, user))
-
-    assert 'role="tab"' not in html and ">Apply<" not in html and ">Progress<" not in html
+# --- Tabs (D-164) ----------------------------------------------------------------------------
 
 
-# --- Details and the saved posting ----------------------------------------------------------
+def tab_links(html: str) -> str:
+    return re.search(r'<nav aria-label="Application sections".*?</nav>', html, re.S).group(0)
+
+
+def test_a_saved_job_opens_on_apply(auth_client, session, user):
+    job = add(session, user)
+    html = page(auth_client, job)
+
+    tabs = tab_links(html)
+    assert ">Apply</a>" in tabs and ">Job &amp; details</a>" in tabs and "Progress" not in tabs
+    assert re.search(r'aria-current="page"\s+class="[^"]*">Apply<', tabs)
+    assert 'id="apply"' in html and 'id="application-details"' not in html
+
+
+@pytest.mark.parametrize("status", ["applied", "interview", "offer", "rejected"])
+def test_a_sent_or_answered_job_opens_on_progress(auth_client, session, user, status):
+    job = save(session, add(session, user), status=status)
+    html = page(auth_client, job)
+
+    assert ">Progress</a>" in tab_links(html) and ">Apply</a>" not in tab_links(html)
+    assert 'id="progress"' in html and 'id="apply"' not in html
+
+
+def test_details_are_on_their_own_tab(auth_client, session, user):
+    job = add(session, user)
+    html = details_page(auth_client, job)
+
+    assert re.search(r'aria-current="page"\s+class="[^"]*">Job &amp; details<', tab_links(html))
+    assert 'id="application-details"' in html and 'id="apply"' not in html
+
+
+@pytest.mark.parametrize("tab", ["apply", "progress", "nonsense", "<script>"])
+def test_an_unknown_tab_shows_the_first_one(auth_client, session, user, tab):
+    html = page(auth_client, add(session, user), tab)
+
+    assert 'id="apply"' in html and "<script>" not in tab_links(html)
+
+
+def test_the_page_reloads_the_tab_it_shows(auth_client, session, user):
+    job = add(session, user)
+
+    assert f'hx-get="/applications/{job.id}?tab=details"' in details_page(auth_client, job)
+    assert f'hx-get="/applications/{job.id}" hx-trigger' in page(auth_client, job)
+
+
+def test_an_archived_job_opens_on_the_tab_of_its_status(auth_client, session, user):
+    job = save(session, add(session, user), status="applied", archived=True)
+
+    assert 'id="progress"' in page(auth_client, job)
+
+
+def test_progress_says_when_the_job_was_not_applied_to(auth_client, session, user):
+    job = save(session, add(session, user), status="rejected")
+
+    assert "You did not apply to this job." in page(auth_client, job)
 
 
 def test_details_show_dashes_when_empty(auth_client, session, user):
-    html = page(auth_client, add(session, user))
+    html = details_page(auth_client, add(session, user))
 
     details = re.search(r'<section id="application-details".*?</section>', html, re.S).group(0)
     # Contact, email, salary, work mode, closing date and notes are empty; the source is known.
@@ -123,7 +179,7 @@ def test_details_show_what_is_known(auth_client, session, user):
         notes="Referral via Lukas.\nCall before Friday.",
     )
 
-    html = page(auth_client, job)
+    html = details_page(auth_client, job)
 
     for text in [
         "Mira Hofer",
@@ -140,7 +196,7 @@ def test_the_saved_posting_is_plain_text_and_folded(auth_client, session, user):
     text = "Deine Aufgaben:\n<script>alert(1)</script>\nWir bieten: ab € 72.000"
     job = add(session, user, description_raw=text)
 
-    html = page(auth_client, job)
+    html = details_page(auth_client, job)
 
     assert "<details" in html and "Original posting (saved copy)" in html
     assert "<script>alert(1)</script>" not in html

@@ -32,7 +32,9 @@ from app.services import (
     clock,
     cover_letter_service,
     document_service,
+    final_check_service,
     next_step_service,
+    pdf_service,
     undo_service,
 )
 from app.services.auth_service import require_user
@@ -486,15 +488,88 @@ def detail_context(session: Session, user: User, application) -> dict:
     )
 
 
+def first_tab(application) -> str:
+    """The first tab (D-164): Apply while the job is only saved, Progress once it
+    was sent or answered. An archived job keeps the status it had, so it opens the
+    same tab as before it was archived."""
+    return "apply" if application.status == "saved" else "progress"
+
+
 @router.get("/applications/{application_id}", response_class=HTMLResponse)
 def application_detail(
-    request: Request, session: DbSession, user: RequiredUser, application_id: str
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    tab: str = "",
 ):
-    """One application: header, details, saved posting, next step and timeline."""
+    """One application: header, the Apply / Progress tab or Job & details (D-164),
+    and on the right the next step, the documents and the timeline."""
     application = application_service.get_owned_application(session, user, application_id)
-    return templates.TemplateResponse(
-        request, "applications/detail.html", detail_context(session, user, application)
-    )
+    context = detail_context(session, user, application)
+    context["first_tab"] = first_tab(application)
+    # Any other value (or none) shows the first tab.
+    context["tab"] = "details" if tab == "details" else context["first_tab"]
+    if context["tab"] == "progress":
+        # "How you applied" (D-167): the steps from the timeline, oldest first.
+        source_name = SOURCE_NAMES.get(application.source, "Other")
+        context["history"] = [
+            {"text": timeline_text(event, source_name), "when": when_text(event.created_at)}
+            for event in application_service.history_of(
+                application_service.events_of(session, application)
+            )
+        ]
+    if context["tab"] == "apply":
+        # Apply › Final check (D-151): read-only checks of the documents shown above.
+        checks = final_check_service.run(
+            application, context["current_cv"], context["current_letter"], clock.today()
+        )
+        context["checks"] = checks
+        context["checks_passed"], context["checks_total"] = final_check_service.summary(checks)
+    return templates.TemplateResponse(request, "applications/detail.html", context)
+
+
+# --- Document drawer (D-166) ---------------------------------------------------------------
+
+DRAWER_DOCS = ("cv", "cover_letter")
+
+
+@router.get("/applications/{application_id}/drawer", response_class=HTMLResponse)
+@limiter.limit("60/minute")
+def application_drawer(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    doc: str = "",
+):
+    """The document drawer's content: a read-only preview of the CV or the cover
+    letter used for this job, the same as in the editor and the PDF (D-166). Editing
+    happens in the full editor. No such document for this job: 404 (the drawer
+    closes, app.js openLoadedDialog)."""
+    if doc not in DRAWER_DOCS:
+        raise HTTPException(status_code=422)
+    application = application_service.get_owned_application(session, user, application_id)
+    # documents_context only returns the user's own documents.
+    documents = documents_context(session, user, application)
+    cv, letter = documents["current_cv"], documents["current_letter"]
+    context = {
+        "application": application,
+        "doc": doc,
+        "has_cv": bool(cv),
+        "has_letter": bool(letter),
+    }
+    if doc == "cv":
+        if cv is None:
+            raise HTTPException(status_code=404)
+        context |= {"document": cv, "editor": "/cvs/"} | pdf_service.cv_context(cv)
+    else:
+        if letter is None:
+            raise HTTPException(status_code=404)
+        context |= {"document": letter, "editor": "/cover-letters/"} | (
+            cover_letter_service.preview_context(session, letter)
+        )
+    return templates.TemplateResponse(request, "applications/_drawer.html", context)
 
 
 PICKER_STATUSES = (*BOARD_STATUSES, "archived")

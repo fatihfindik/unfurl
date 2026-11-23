@@ -1,0 +1,79 @@
+{#- One document of an application (CV or cover letter; D-080, D-157, D-165): the
+    current copy with its actions, or how to pick one. Used by the Documents card and
+    by Apply › Prepare documents, so both always offer the same things. `prefix` keeps
+    the ids unique when both are on the page.
+    Import it "with context": it reads application and language_labels.
+
+      document_block("card", "cv", current_cv, masters, linkable, can_send)
+
+    `preview`: "Preview & edit" opens the document drawer (D-166) instead of the
+    "Open" link to the editor (Apply › Prepare documents).
+-#}
+{% macro document_block(prefix, kind, doc, masters, linkable, can_send, preview=False) %}
+  {%- if kind == "cv" %}
+    {%- set route, field, editor, noun = "cv", "cv", "/cvs/", "CV" %}
+    {%- set start_hint = "Which CV do you send? Start from a master; your master stays unchanged." %}
+    {%- set lock_hint = "It is locked when you mark the job as applied, so you can always see what you sent." %}
+    {%- set documents_url = "/documents" %}
+  {%- else %}
+    {%- set route, field, editor, noun = "cover-letter", "letter", "/cover-letters/", "cover letter" %}
+    {%- set start_hint = "Start from a master letter: empty fields get the company, the contact and a subject from this job." %}
+    {%- set lock_hint = "It is locked when you mark the job as applied, and its date stays the day you sent it." %}
+    {%- set documents_url = "/documents?tab=letters" %}
+  {%- endif %}
+  {%- if doc %}
+    <div class="flex flex-col gap-2 rounded-lg bg-surface-2 px-3 py-2.5">
+      <div class="flex items-center justify-between gap-2">
+        <span class="min-w-0 break-words text-[13px] font-semibold text-text">{{ doc.title }} · v{{ doc.version }}</span>
+        {%- if doc.is_locked %}
+          <span class="flex-none text-[11px] font-bold text-green-text">Sent · locked</span>
+        {%- else %}
+          <span class="flex-none text-[11px] font-bold text-text-3">Draft</span>
+        {%- endif %}
+      </div>
+      <div class="flex flex-wrap gap-3 text-[13px] font-semibold">
+        {%- if preview %}
+          <button type="button" data-dialog-load="document-drawer"
+                  data-dialog-url="/applications/{{ application.id }}/drawer?doc={{ 'cv' if kind == 'cv' else 'cover_letter' }}"
+                  class="text-link hover:underline">Preview &amp; edit</button>
+        {%- else %}
+          <a href="{{ editor }}{{ doc.id }}?application={{ application.id }}" class="text-link no-underline hover:underline">Open</a>
+        {%- endif %}
+        <a href="{{ editor }}{{ doc.id }}/pdf" class="text-link no-underline hover:underline">PDF</a>
+        {%- if not doc.is_locked and not application.archived %}
+          <button hx-disabled-elt="this" type="button" hx-delete="/applications/{{ application.id }}/{{ route }}" hx-swap="none" class="text-text-3 hover:text-text hover:underline">Remove</button>
+        {%- endif %}
+      </div>
+      {%- if can_send %}
+        <p class="m-0 text-xs text-text-3">This job is sent already. Lock the {{ field if kind != 'cv' else 'CV' }} once it matches what you sent.</p>
+        <button hx-disabled-elt="this" type="button" hx-post="/applications/{{ application.id }}/{{ route }}/send" hx-swap="none"
+                class="self-start text-[13px] font-semibold text-link hover:underline">Lock as sent</button>
+      {%- elif not doc.is_locked %}
+        <p class="m-0 text-xs text-text-3">{{ lock_hint }}</p>
+      {%- endif %}
+    </div>
+  {%- elif not application.archived %}
+    <p class="m-0 text-xs text-text-3">{{ start_hint }}</p>
+    {%- for master in masters %}
+      <form class="m-0" hx-post="/applications/{{ application.id }}/{{ route }}" hx-swap="none">
+        <input type="hidden" name="master" value="{{ master.id }}">
+        <button type="submit" class="text-[13px] font-semibold text-link hover:underline">Copy my master {{ "CV" if kind == "cv" else "letter" }} ({{ language_labels.get(master.language, master.language | upper) }})</button>
+      </form>
+    {%- else %}
+      <p class="m-0 text-xs text-text-3">No master {{ "CV" if kind == "cv" else "letter" }} yet. <a href="{{ documents_url }}" class="text-link">Create one in Documents</a>.</p>
+    {%- endfor %}
+    {%- if linkable %}
+      <form class="m-0 flex gap-2" hx-post="/applications/{{ application.id }}/{{ route }}" hx-swap="none">
+        <label for="{{ prefix }}-link-{{ field }}" class="sr-only">Use an existing {{ "copy" if kind == "cv" else "cover letter" }}</label>
+        <select id="{{ prefix }}-link-{{ field }}" name="{{ field }}" class="h-9 min-w-0 flex-1 text-sm">
+          {%- for option in linkable %}
+            <option value="{{ option.id }}">{{ option.title }} · v{{ option.version }}</option>
+          {%- endfor %}
+        </select>
+        <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-medium text-text-2 hover:bg-muted">Use</button>
+      </form>
+    {%- endif %}
+  {%- else %}
+    <p class="m-0 text-xs text-text-3">No {{ noun }} for this job.</p>
+  {%- endif %}
+{%- endmacro %}
