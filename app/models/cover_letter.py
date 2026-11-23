@@ -2,7 +2,7 @@
 
 Each user has at most one master letter per language; copies point to it with
 `parent_id` and are numbered (`version` 1, 2, …; the master is 0). A locked copy
-(sent with an application, M8b) never changes again. The rules are shared with CVs
+(sent with an application) never changes again. The rules are shared with CVs
 in app/services/lineage.py (D-153); the letter's own rules are in
 app/services/cover_letter_service.py.
 
@@ -65,6 +65,13 @@ class CoverLetter(SQLModel, table=True):
     closing: str = Field(default="", max_length=SHORT_TEXT)
 
     source_profile_version: int = Field(default=0)  # Profile.version when the sender was copied
+
+    # The application this copy was made for (D-157, like CVs in D-080): all versions
+    # for one application share it; Application.cover_letter_id says which one is used
+    # now. Masters have none.
+    application_id: int | None = Field(
+        default=None, foreign_key="application.id", ondelete="SET NULL", index=True
+    )
 
     is_master: bool = Field(default=False)
     # SET NULL is only a safety net: a master with copies can't be deleted (D-047).

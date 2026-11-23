@@ -99,6 +99,21 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 
+  // "Copy text" in the cover letter editor (D-162): puts the hidden plain text next to
+  // the preview (data-source) on the clipboard, then says so in a toast.
+  Alpine.data("copyText", () => ({
+    async copy() {
+      const source = document.getElementById(this.$el.dataset.source);
+      if (!source) return;
+      try {
+        await navigator.clipboard.writeText(source.value);
+        Alpine.store("toast").show("Copied.");
+      } catch {
+        Alpine.store("toast").show("Couldn't copy. Select the text in the preview instead.");
+      }
+    },
+  }));
+
   // On mobile the main menu links are hidden behind a "Menu" button.
   Alpine.data("mobileNav", () => ({
     open: false,
@@ -339,19 +354,22 @@ document.addEventListener("htmx:responseError", (event) => {
   });
 });
 
-// "Download PDF" in the CV editor (D-057). Autosave waits 500 ms after the last key,
-// so a click right after typing would download the PDF without that text. The click
-// saves the form at once (the same request autosave sends), then downloads.
-// Without a form (a locked CV or a closed master can't change) it just downloads.
+// "Download PDF" in the CV and cover letter editors (D-057, D-161). Autosave waits
+// 500 ms after the last key, so a click right after typing would download the PDF
+// without that text. The click saves the form at once (the same request autosave
+// sends), then downloads. Without a form that can change (a locked document or a
+// closed master) it just downloads.
 document.addEventListener("click", (event) => {
-  const link = event.target.closest("[data-cv-download]");
-  const form = document.getElementById("cv-form");
-  if (!link || !form || form.querySelector("fieldset:disabled")) return;
+  const link = event.target.closest("[data-cv-download], [data-letter-download]");
+  if (!link) return;
+  const kind = link.hasAttribute("data-letter-download") ? "letter" : "cv";
+  const form = document.getElementById(`${kind}-form`);
+  if (!form || form.querySelector("fieldset:disabled")) return;
   event.preventDefault();
   htmx
     .ajax("POST", form.getAttribute("hx-post"), {
       source: form,
-      target: "#cv-preview",
+      target: `#${kind}-preview`,
       swap: "innerHTML",
     })
     .finally(() => {

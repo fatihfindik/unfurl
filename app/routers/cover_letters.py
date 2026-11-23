@@ -7,18 +7,18 @@ template. The list is on the Documents page (app/routers/cvs.py, ?tab=letters).
 """
 
 import json
+import logging
 import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from pydantic import ValidationError
-from sqlmodel import Session
+from sqlmodel import Session, select
 from starlette.datastructures import FormData
 
 from app.db import get_session
-from app.i18n.document_labels import full_date
-from app.models import CoverLetter, User
+from app.models import Application, CoverLetter, User
 from app.models.cv import CV_LANGUAGES
 
 # go_to and action_message are the same for CVs and letters.
@@ -27,12 +27,13 @@ from app.schemas.cover_letter import LETTER_FIELDS, CoverLetterForm, NewCoverLet
 from app.schemas.cv import LANGUAGE_NAMES
 from app.schemas.profile import form_errors
 from app.security import limiter
-from app.services import clock, undo_service
+from app.services import application_service, pdf_service, undo_service
 from app.services import cover_letter_service as letters
 from app.services.auth_service import require_user
 from app.templating import set_flash, templates
 
 router = APIRouter(dependencies=[Depends(require_user)])
+logger = logging.getLogger("unfurl.cover_letters")
 
 DbSession = Annotated[Session, Depends(get_session)]
 RequiredUser = Annotated[User, Depends(require_user)]
@@ -65,18 +66,31 @@ def paragraphs(text: str) -> list[str]:
     return [part.strip("\n") for part in re.split(r"\n\s*\n", text) if part.strip()]
 
 
-def preview_context(letter: CoverLetter) -> dict:
-    """What pdf/cover_letter.html needs (the preview now, the PDF in M8b)."""
-    # The date line is today where the user is (D-154); it is fixed when sent (M8b).
+def preview_context(session: Session, letter: CoverLetter) -> dict:
+    """What pdf/cover_letter.html needs (the preview and the PDF)."""
     return {
         "letter": letter,
-        "letter_date": full_date(clock.today(), letter.language),
+        # Today while a draft, the day it was sent once locked (D-154, D-160).
+        "letter_date": letters.letter_date(session, letter),
         "paragraphs": paragraphs(letter.body),
     }
 
 
-def editor_context(letter: CoverLetter, *, master_unlocked: bool, errors=None, master=None) -> dict:
-    return preview_context(letter) | {
+def with_plain_text(context: dict) -> dict:
+    """The preview plus the text for "Copy text" (D-162), from the same paragraphs."""
+    letter = context["letter"]
+    return context | {"plain_text": letters.plain_text(letter, context["paragraphs"])}
+
+
+def editor_context(
+    session: Session,
+    letter: CoverLetter,
+    *,
+    master_unlocked: bool,
+    errors=None,
+    master=None,
+) -> dict:
+    return with_plain_text(preview_context(session, letter)) | {
         "master": master,  # for the band "Copy based on …"
         "errors": errors or {},
         "language_names": LANGUAGE_NAMES,
@@ -122,8 +136,17 @@ def letter_editor(
     master = None
     if letter.parent_id is not None:
         master = letters.get_owned_letter(session, user, letter.parent_id)
-    context = editor_context(letter, master_unlocked=unlocked, master=master)
-    context["versions"] = letters.versions_in_lineage(session, user, letter)
+    context = editor_context(session, letter, master_unlocked=unlocked, master=master)
+    # The application this copy was made for (D-162, like CVs in D-084): from the
+    # letter itself, never from the address, so a link can't put another job's name
+    # on this page.
+    context["application"] = linked_application(session, user, letter)
+    # The version picker: the master and the copies of the same application (or, for
+    # copies of no application, every copy under the master).
+    versions = letters.versions_in_lineage(session, user, letter)
+    if not letter.is_master:
+        versions = [v for v in versions if v.is_master or v.application_id == letter.application_id]
+    context["versions"] = versions
     return templates.TemplateResponse(request, "cover_letters/editor.html", context)
 
 
@@ -149,7 +172,7 @@ def letter_save(
             form = CoverLetterForm.model_validate(values)
         except ValidationError:
             # Still wrong with the saved values: not a request from our page.
-            context = editor_context(letter, master_unlocked=unlocked, errors=errors)
+            context = editor_context(session, letter, master_unlocked=unlocked, errors=errors)
             context["nothing_saved"] = True
             return templates.TemplateResponse(request, "cover_letters/_preview.html", context)
     try:
@@ -157,7 +180,7 @@ def letter_save(
     except (letters.DocumentLocked, letters.MasterNotUnlocked):
         # The page shows these read-only, so only an old tab or a hand-made request.
         raise HTTPException(status_code=409) from None
-    context = editor_context(letter, master_unlocked=unlocked, errors=errors)
+    context = editor_context(session, letter, master_unlocked=unlocked, errors=errors)
     return templates.TemplateResponse(request, "cover_letters/_preview.html", context)
 
 
@@ -178,6 +201,29 @@ def letter_new_version(request: Request, session: DbSession, user: RequiredUser,
             "Nothing changed since this version. Make a change first, "
             "then save it as a new version.",
         )
+    # A new draft of the letter an application uses becomes the one it uses (D-157).
+    # Not for a job that was sent: then the sent letter stays, and a new draft can't
+    # be locked later as if it had been sent (security review M4c, E1).
+    application = linked_application(session, user, letter)
+    if (
+        application is not None
+        and application.cover_letter_id == letter.id
+        and application.status not in application_service.SENT_STATUSES
+    ):
+        application.cover_letter_id = new.id
+        session.add(application)
+        session.commit()
+    return go_to(request, f"/cover-letters/{new.id}")
+
+
+@router.post("/cover-letters/{letter_id}/duplicate", response_class=HTMLResponse)
+def letter_duplicate(request: Request, session: DbSession, user: RequiredUser, letter_id: str):
+    """ "Duplicate" (D-162): a copy for another application, linked to none."""
+    letter = letters.get_owned_letter(session, user, letter_id)
+    try:
+        new = letters.duplicate(session, user, letter)
+    except letters.TooManyDocuments:
+        return action_message(request, TOO_MANY_LETTERS)
     return go_to(request, f"/cover-letters/{new.id}")
 
 
@@ -220,3 +266,47 @@ def letter_delete(request: Request, session: DbSession, user: RequiredUser, lett
         undo_service.make_delete_token(user, copy_id),
     )
     return go_to(request, "/documents?tab=letters")
+
+
+# --- PDF (D-161) --------------------------------------------------------------------
+
+
+def linked_application(session: Session, user: User, letter: CoverLetter):
+    """The user's application this letter was made for, or None."""
+    if letter.application_id is None:
+        return None
+    return session.exec(
+        select(Application).where(
+            Application.id == letter.application_id, Application.user_id == user.id
+        )
+    ).first()
+
+
+@router.get("/cover-letters/{letter_id}/pdf")
+@limiter.limit("20/minute")  # making a PDF takes CPU time
+def letter_pdf(request: Request, session: DbSession, user: RequiredUser, letter_id: str):
+    """Download the letter as PDF. Locked copies too: that is the letter that was sent,
+    with the date it was sent (D-160)."""
+    letter = letters.get_owned_letter(session, user, letter_id)
+    try:
+        pdf = pdf_service.render_letter_pdf(preview_context(session, letter))
+    except pdf_service.PDFError as exc:
+        # Only the kind of error goes to the log, never the letter's text.
+        logger.warning("Cover letter PDF failed (letter %s): %s", letter.id, exc)
+        context = {
+            "editor_url": f"/cover-letters/{letter.id}",
+            "title": letter.title,
+            "what": "cover letter",
+        }
+        return templates.TemplateResponse(request, "cvs/pdf_error.html", context, status_code=503)
+    company = getattr(linked_application(session, user, letter), "company", None)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": pdf_service.attachment(
+                *pdf_service.letter_filename(letter, company)
+            ),
+            "Cache-Control": "private, no-store",
+        },
+    )

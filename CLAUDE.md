@@ -19,7 +19,7 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - At the end of each milestone, add 3–5 bullet points of concepts learned to `docs/LEARNING_LOG.md`.
 - Tests never call the real Anthropic API. Use `FakeAIClient`.
 - Every database query on user data must filter by `user_id`.
-- Documents: never edit a locked version; never edit a master in place unless the user explicitly unlocks it in the editor ("Edit master", D-048). Other changes create a new draft version.
+- Documents: never edit a locked version (the only exception: the Undo of the status change that locked it may unlock it again, content unchanged; D-082, D-159); never edit a master in place unless the user explicitly unlocks it in the editor ("Edit master", D-048). Other changes create a new draft version.
 - The assistant never deletes data; changes to more than 2 records go through a PendingChangeSet preview.
 - Plan checks go through `app/billing/entitlements.py` (`can()`, `limit()`), never `user.plan == "pro"`.
 - Any work that changes a rule in the SPEC ships in the same PR as the SPEC update and closes the related issue.
@@ -50,7 +50,7 @@ The MVP ships without AI (D-150): items marked V2 are not built now. Order: M8a 
 - [ ] M6b Chrome extension: AI auto-fill and fit analysis · V2 (D-150)
 - [ ] M7 Fit analysis (Apply › Should I apply?) · V2 (D-150)
 - [x] M8a Cover letter: model and editor (no AI)
-- [ ] M8b Cover letter: PDF and applications
+- [x] M8b Cover letter: PDF and applications
 - [ ] M9a Apply flow without AI: prepare documents, final check, drawer, Progress
 - [x] M10 Learning
 - [x] M11a Notifications: bell, panel, scheduler, job search reminders

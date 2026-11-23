@@ -3,11 +3,12 @@
 
 {% block title %}PDF not created{% endblock %}
 
-{#- Shown when WeasyPrint couldn't make the PDF (D-057). The details stay in the log. -#}
+{#- Shown when WeasyPrint couldn't make the PDF (D-057, D-161). The details stay in
+    the log. Context: editor_url, title, what ("CV" or "cover letter"). -#}
 {% block content %}
-  {{ page_header("We couldn't create the PDF", back_url="/cvs/" ~ cv.id, back_label=cv.title) }}
+  {{ page_header("We couldn't create the PDF", back_url=editor_url, back_label=title) }}
   <div class="flex w-full {{ page_width() }} flex-col gap-3 px-4 pt-5 pb-8 md:px-8">
-    <p class="m-0 text-sm text-text-2">Something went wrong while making the PDF. Please try again in a moment. Your CV is saved.</p>
-    <a href="/cvs/{{ cv.id }}" class="self-start text-sm font-semibold text-link no-underline hover:underline">Back to the editor</a>
+    <p class="m-0 text-sm text-text-2">Something went wrong while making the PDF. Please try again in a moment. Your {{ what }} is saved.</p>
+    <a href="{{ editor_url }}" class="self-start text-sm font-semibold text-link no-underline hover:underline">Back to the editor</a>
   </div>
 {% endblock %}

@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.33 — 2026-11-21
+> **Durum:** MVP planı, v2.1.34 — 2026-11-21
+> v2.1.34: M8b Design kararları: mektup başvuruya CV gibi bağlanır (`CoverLetter.application_id`, `Application.cover_letter_id`), başvuru için kopyada boş alanlar ilandan dolar, gönderimde CV ile birlikte kilitlenir (`ApplicationDocument.cover_letter_id`, snapshot'ta tarih), tarih gönderimde sabitlenir, PDF adında şirket yoksa alıcı şirket, editörde "← {Başvuru}", Duplicate ve Copy text, Documents sayfasında başvuruya göre gruplama (D-157…D-163).
 > v2.1.33: M8a Design kararları: `CoverLetter` düz kolonlar (gönderen, alıcı, şehir, konu, selamlama, gövde, kapanış; tone/length/ai_generated V2, application_id M8b), CV ile ortak soy kuralları (`lineage.py`), dile göre selamlama/kapanış ve tarih (`full_date`, bugün, kullanıcının saat diliminde), "Refresh from profile" sadece gönderen alanları ve onayla (D-152…D-154).
 > v2.1.32: **Deploy yok, kişisel local ortam (D-155, D-156):** M13c MVP'den çıktı ("Sonra"); MVP kişisel ortamla tamamlanır: `docker-compose.personal.yml`, ayrı Postgres ve volume'lar, `http://127.0.0.1:8100`, development modu + `DEBUG=false` + console e-posta, yedek ve geri yükleme script'leri. Eklenti iki adrese izin verir (dev `localhost:8000`, kişisel `127.0.0.1:8100`). M13d README'si canlı URL'siz. Sıra: M8a → M8b → M9a → M13d.
 > v2.1.30: **AI'sız MVP (D-150):** AI özellikleri (M5, M6b, M7, M12a, M12b; M8/M9'un AI kısımları; onboarding sihirbazı; yapılandırılmış ilan; krediler, BYOK, Pro/fake door) V2'ye ertelendi. AI tasarımı silinmedi, "V2 (D-150)" diye işaretli. Yeni sıra: M8a → M8b → M9a → M13c → M13d. Apply sekmesi AI'sız 2 adım (Prepare documents → Final check).
@@ -415,10 +416,10 @@ Düz kolonlar, JSON yok (D-152). Master/kopya/versiyon/kilit kuralları CV ile a
 | body | text | En fazla 10.000 karakter; yeni master'da boş, placeholder ipucuyla |
 | source_profile_version | int | |
 | is_master, parent_id, version, status, locked_at | | CVDocument ile aynı mantık |
-| application_id | FK, nullable | M8b |
+| application_id | FK, nullable | Soy: bu başvuru için yapılmış kopyalar; şu anki mektup `Application.cover_letter_id` (D-157) |
 | tone, length, ai_generated | | V2 (D-150): AI taslağıyla gelir |
 
-Tarih satırı kaydedilmez: M8a'da her zaman bugün (kullanıcının saat diliminde, `full_date`: DE/TR `21.11.2026`, EN `21 November 2026`); M8b'de kilitlenince sabitlenir.
+Tarih satırı kaydedilmez: taslakta her zaman bugün (kullanıcının saat diliminde, `full_date`: DE/TR `21.11.2026`, EN `21 November 2026`); kilitli mektupta gönderim tarihi (`ApplicationDocument.content_snapshot["date"]`, yoksa `locked_at`; D-160).
 
 ### 5.4b ApplicationDocument (gönderilen versiyon)
 "Ben bu şirkete tam olarak ne göndermiştim?" sorusunun cevabı.
@@ -427,7 +428,8 @@ Tarih satırı kaydedilmez: M8a'da her zaman bugün (kullanıcının saat dilimi
 | application_id | FK (cascade) | |
 | user_id | FK | Her sorgu bununla filtrelenir (D-083) |
 | doc_type | enum cv/cover_letter | |
-| document_id | FK | Kilitlenen belge |
+| document_id | FK, nullable | Kilitlenen CV (`doc_type=cv`) |
+| cover_letter_id | FK, nullable | Kilitlenen mektup (`doc_type=cover_letter`, D-159); her satırda türüne göre biri dolu |
 | content_snapshot | JSON | Gönderim anındaki içeriğin tam kopyası (belge sonradan silinse bile kalır) |
 | sent_at | datetime | |
 
@@ -460,7 +462,7 @@ Tarih satırı kaydedilmez: M8a'da her zaman bugün (kullanıcının saat dilimi
 | contact_name, contact_email | str, nullable | |
 | notes | text, nullable | |
 | cv_id | FK, nullable | Bu başvuruda kullanılan CV |
-| cover_letter_id | FK, nullable | |
+| cover_letter_id | FK, nullable, unique | Bu başvuruda kullanılan mektup (D-157) |
 | snoozed_until | datetime, nullable | Needs attention'da "Snooze": bu tarihe kadar gizli; durum veya next step değişince temizlenir (D-074) |
 | archived | bool | Arşivlenen ilan board'da görünmez, "Show archived" ile görünür ve geri alınabilir. Silinmez. |
 | last_activity_at | datetime | Kartta ve listede "Updated": ekleme, durum değişikliği, arşiv ve restore'da değişir (sıra değişince değişmez; D-061) |
@@ -635,7 +637,8 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 ### 6.6 Cover letter editörü
 - Documents › Cover letters sekmesinden veya başvurudan açılır. Editör CV'ye benzer, başlık kalıbı aynıdır. Master mektup ve versiyonlar CV ile aynı mantıkta (rozetler, kilit, "Duplicate as new version").
 - **Yeni mektup** (M8a): başlık ve dil (varsayılan `default_doc_language`). O dilde master yoksa master, varsa master'dan kopya olur. Başvuru seçmek M8b'de; ton, uzunluk, "Anything to emphasize?" ve "Generate with AI" V2 (D-150).
-- Editör (M8a, D-152): solda form (belge adı; gönderen: ad, e-posta, telefon, adres + "Refresh from profile" onayla; alıcı: şirket, kişi, adres; şehir; konu; selamlama; gövde; kapanış), sağda canlı önizleme (beyaz kâğıt; gövde paragrafları, `|safe` yok). PDF indirme ve "Copy text" M8b'de.
+- Editör (M8a, D-152): solda form (belge adı; gönderen: ad, e-posta, telefon, adres + "Refresh from profile" onayla; alıcı: şirket, kişi, adres; şehir; konu; selamlama; gövde; kapanış), sağda canlı önizleme (beyaz kâğıt; gövde paragrafları, `|safe` yok). 
+- **M8b (D-157…D-163):** "Download PDF" (`CoverLetter_{Ad}_{Şirket?}_{lang}.pdf`; şirket bağlı başvurudan, yoksa alıcı şirketten); "Copy text" (selamlama, gövde, kapanış ve ad düz metin olarak panoya); "Duplicate" (başvuruya bağlı olmayan yeni taslak); başvurudan açılınca "← {Company}", "All documents" ve "Copy for {Company}, based on {Master}" bandı. Başvuru için master'dan kopya oluşunca boş alanlar ilandan dolar: alıcı şirket, iletişim kişisi, konu (DE "Bewerbung als {Pozisyon}", EN "Application for {Pozisyon}", TR "{Pozisyon} pozisyonu için başvuru").
 - DACH formatı: gönderen bilgileri, alıcı adresi, şehir + tarih, Betreff (konu), Anrede, gövde, kapanış ("Mit freundlichen Grüßen"), isim. Dil EN veya TR ise o dilin konvansiyonlarına uygun kalıplar kullanılır.
 
 ### 6.7 Board, liste ve başvuru detayı
@@ -658,7 +661,7 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 - **Progress görünümü** (Applied ve sonrası): "Applied on {tarih}" kartı ve gönderilen kilitli belgeler (Preview, PDF); "What happens next" (follow-up tarihi, interview gelirse ne yapılacağı, ilgili Learning hedefi ve "Draft a follow-up email" V2, D-150; "I got an interview" butonu); daraltılmış "How you applied" geçmişi.
 - **Belge paneli (drawer):** "Preview & edit" sağdan açılan geniş bir panel açar: CV / Cover letter sekmeleri, belge adı ve durumu, önizleme (bu ilan için değişen yerlerin vurgusu ve "Edit with assistant" V2, D-150), "Open full editor", "Download PDF". Kilitli belgede panel salt okunurdur.
 - **Job & details sekmesi:** Details (iletişim kişisi, maaş metni, çalışma şekli, kaynak, notlar) + daraltılmış **"Original posting (saved copy)"** (eklentinin kaydettiği ham metin; ilan yayından kalksa da kalır). Yapılandırılmış ilan (rol özeti, gereksinimler, nice-to-have) V2 (D-150).
-- **Sağ panel:** **Next step** kartı (6.13; metin, gerekçe, "Change"), **Documents** kartı (sent/draft rozetleriyle), **Timeline** (dikey zaman çizelgesi + not ekleme).
+- **Sağ panel:** **Next step** kartı (6.13; metin, gerekçe, "Change"), **Documents** kartı (CV ve mektup, sent/draft rozetleriyle; mektup bölümü CV'ninkiyle aynı: master'dan kopya, mevcut kopyayı kullan, kaldır, "Lock as sent", PDF; D-157), **Timeline** (dikey zaman çizelgesi + not ekleme).
 
 ### 6.8 Assistant (yüzen panel) · V2 (D-150)
 - Ayrı bir sayfa yoktur. Her sayfada sağ altta yuvarlak bir ✨ butonu bulunur. Tıklanınca sağ altta bir panel açılır (≈400 px, "Expand" ile ≈640 px). Panelde: başlıkta bağlam satırı ("Context: Kranich Health · Senior PM"), "History" (son sohbetler), sohbet, sayfaya göre öneri çipleri, mesaj alanı ve "1 AI credit per message · changes are previewed first · the assistant never deletes" notu.
@@ -1246,7 +1249,7 @@ AI ile oluşturma V2. Mektup CV'lerle aynı master/kopya/kilit kurallarını kul
 - **Kabul:** DE, EN ve TR'de mektup elle yazılıp önizleniyor. Master/kopya/kilit kuralları CV ile aynı (test). Başka kullanıcının mektubuna erişim 404 (test). Dışa aktarmada mektuplar var; hesap silinince gidiyor (test).
 
 ### M8b — Mektup: PDF ve başvuru
-- DACH PDF şablonu (6.6, 3 dil), dosya adı `CoverLetter_{FullName}_{Company?}_{lang}.pdf`, başvuruya bağlama (`Application` üzerinden, CV gibi), detaydaki Documents kartında mektup, `applied`'a geçişte kilit ve `ApplicationDocument` kaydı, editörde "Duplicate" ve "← {Başvuru}"
+- DACH PDF şablonu (6.6, 3 dil), dosya adı `CoverLetter_{FullName}_{Company?}_{lang}.pdf`, başvuruya bağlama (`Application` üzerinden, CV gibi), detaydaki Documents kartında mektup, `applied`'a geçişte kilit ve `ApplicationDocument` kaydı, editörde "Duplicate", "Copy text" ve "← {Başvuru}", Documents sayfasında başvuruya göre gruplama (plan: `docs/plans/M8b.md`, D-157…D-163)
 - **Kabul:** PDF üç dilde düzgün (pypdf ile ad soyad ve tarih okunuyor). Bağlı mektup `applied`'da kilitleniyor, Undo geri alıyor (test). Kilitli mektup düzenlenemiyor (test).
 
 ### M9a — Apply akışı (AI'sız, D-150)

@@ -95,6 +95,12 @@ def test_the_file_has_every_section(auth_client, session, user):
         rows["letter_copy"].id,
     }
     assert data["application_events"][0]["message"] == "Called Mira"
+    # The links between letters and applications are in it too (D-157, D-159).
+    assert data["applications"][0]["cover_letter_id"] == rows["letter_copy"].id
+    copy = next(x for x in data["cover_letters"] if x["id"] == rows["letter_copy"].id)
+    assert copy["application_id"] == rows["job"].id
+    sent = next(d for d in data["application_documents"] if d["doc_type"] == "cover_letter")
+    assert sent["cover_letter_id"] == rows["letter_copy"].id
     assert data["application_documents"][0]["content_snapshot"] == {"title": "For Acme"}
     assert data["study_log"][0]["minutes"] == 30
     assert data["notification_preferences"]["rest_days"] == ["sat", "sun"]

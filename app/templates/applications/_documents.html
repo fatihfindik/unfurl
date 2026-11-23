@@ -1,10 +1,11 @@
-{#- The Documents card (SPEC §6.7, D-080, D-082): the CV used for this application,
-    how to pick one, and what was sent. Every action answers with a toast and Undo,
+{#- The Documents card (SPEC §6.7, D-080, D-082, D-157): the CV and the cover letter
+    used for this application, how to pick them, and what was sent. Every action answers with a toast and Undo,
     and the page reloads its parts (application-changed).
-    Context: application, current_cv, masters, linkable, sent_documents, can_send,
-    language_labels. -#}
+    Context: application, current_cv, masters, linkable, current_letter, letter_masters,
+    linkable_letters, sent_documents, can_send, can_send_letter, language_labels. -#}
 <section id="documents" aria-labelledby="documents-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
   <h2 id="documents-title" class="m-0 text-sm font-bold">Documents</h2>
+  <h3 class="m-0 text-[13px] font-bold text-text-2">CV</h3>
   {%- if current_cv %}
     <div class="flex flex-col gap-2 rounded-lg bg-surface-2 px-3 py-2.5">
       <div class="flex items-center justify-between gap-2">
@@ -54,10 +55,61 @@
   {%- else %}
     <p class="m-0 text-xs text-text-3">No CV for this job.</p>
   {%- endif %}
+  {#- The cover letter: the same choices as the CV (D-157). -#}
+  <h3 class="m-0 mt-1 text-[13px] font-bold text-text-2">Cover letter</h3>
+  {%- if current_letter %}
+    <div class="flex flex-col gap-2 rounded-lg bg-surface-2 px-3 py-2.5">
+      <div class="flex items-center justify-between gap-2">
+        <span class="min-w-0 break-words text-[13px] font-semibold text-text">{{ current_letter.title }} · v{{ current_letter.version }}</span>
+        {%- if current_letter.is_locked %}
+          <span class="flex-none text-[11px] font-bold text-green-text">Sent · locked</span>
+        {%- else %}
+          <span class="flex-none text-[11px] font-bold text-text-3">Draft</span>
+        {%- endif %}
+      </div>
+      <div class="flex flex-wrap gap-3 text-[13px] font-semibold">
+        <a href="/cover-letters/{{ current_letter.id }}?application={{ application.id }}" class="text-link no-underline hover:underline">Open</a>
+        <a href="/cover-letters/{{ current_letter.id }}/pdf" class="text-link no-underline hover:underline">PDF</a>
+        {%- if not current_letter.is_locked and not application.archived %}
+          <button hx-disabled-elt="this" type="button" hx-delete="/applications/{{ application.id }}/cover-letter" hx-swap="none" class="text-text-3 hover:text-text hover:underline">Remove</button>
+        {%- endif %}
+      </div>
+      {%- if can_send_letter %}
+        <p class="m-0 text-xs text-text-3">This job is sent already. Lock the letter once it matches what you sent.</p>
+        <button hx-disabled-elt="this" type="button" hx-post="/applications/{{ application.id }}/cover-letter/send" hx-swap="none"
+                class="self-start text-[13px] font-semibold text-link hover:underline">Lock as sent</button>
+      {%- elif not current_letter.is_locked %}
+        <p class="m-0 text-xs text-text-3">It is locked when you mark the job as applied, and its date stays the day you sent it.</p>
+      {%- endif %}
+    </div>
+  {%- elif not application.archived %}
+    <p class="m-0 text-xs text-text-3">Start from a master letter: empty fields get the company, the contact and a subject from this job.</p>
+    {%- for master in letter_masters %}
+      <form class="m-0" hx-post="/applications/{{ application.id }}/cover-letter" hx-swap="none">
+        <input type="hidden" name="master" value="{{ master.id }}">
+        <button type="submit" class="text-[13px] font-semibold text-link hover:underline">Copy my master letter ({{ language_labels.get(master.language, master.language | upper) }})</button>
+      </form>
+    {%- else %}
+      <p class="m-0 text-xs text-text-3">No master letter yet. <a href="/documents?tab=letters" class="text-link">Create one in Documents</a>.</p>
+    {%- endfor %}
+    {%- if linkable_letters %}
+      <form class="m-0 flex gap-2" hx-post="/applications/{{ application.id }}/cover-letter" hx-swap="none">
+        <label for="link-letter" class="sr-only">Use an existing cover letter</label>
+        <select id="link-letter" name="letter" class="h-9 min-w-0 flex-1 text-sm">
+          {%- for doc in linkable_letters %}
+            <option value="{{ doc.id }}">{{ doc.title }} · v{{ doc.version }}</option>
+          {%- endfor %}
+        </select>
+        <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-medium text-text-2 hover:bg-muted">Use</button>
+      </form>
+    {%- endif %}
+  {%- else %}
+    <p class="m-0 text-xs text-text-3">No cover letter for this job.</p>
+  {%- endif %}
   {%- if sent_documents %}
     <ul class="m-0 flex list-none flex-col gap-1 p-0 text-xs text-text-3">
       {%- for doc in sent_documents %}
-        <li>Sent on {{ doc.sent_at | local_day }}</li>
+        <li>{{ "Cover letter" if doc.doc_type == "cover_letter" else "CV" }} sent on {{ doc.sent_at | local_day }}</li>
       {%- endfor %}
     </ul>
   {%- endif %}

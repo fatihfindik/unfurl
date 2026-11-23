@@ -1,0 +1,16 @@
+{#- A whole HTML page around the cover letter, only for the PDF (D-161, like
+    _pdf_page.html for CVs). WeasyPrint reads the stylesheets from static/ (base_url
+    in pdf_service); nothing else can be loaded (D-059).
+    Context: cover_letters.preview_context (letter, letter_date, paragraphs). -#}
+<!doctype html>
+<html lang="{{ letter.language }}">
+<head>
+  <meta charset="utf-8">
+  <title>{{ letter.sender_name or letter.title }}</title>
+  <link rel="stylesheet" href="css/cover_letter.css">
+  <link rel="stylesheet" href="css/letter_print.css">
+</head>
+<body>
+  {% include "pdf/cover_letter.html" %}
+</body>
+</html>

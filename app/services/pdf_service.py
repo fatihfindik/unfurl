@@ -1,4 +1,5 @@
-"""CV as PDF with WeasyPrint (SPEC §6.5, plan M3b, D-051, D-054, D-059).
+"""CVs and cover letters as PDF with WeasyPrint (SPEC §6.5, §6.6, plan M3b, D-051,
+D-054, D-059, D-161).
 
 The PDF is made from the same HTML as the editor's live preview (pdf/cv_*.html),
 inside a small page (pdf/_pdf_page.html) that adds the print stylesheet: A4 page,
@@ -118,12 +119,24 @@ def render_cv_html(cv: CVDocument, *, for_pdf: bool) -> str:
 
 def render_cv_pdf(cv: CVDocument) -> bytes:
     """The CV as PDF bytes. Raises PDFError if WeasyPrint fails."""
+    return _write_pdf(lambda: render_cv_html(cv, for_pdf=True))
+
+
+def render_letter_pdf(context: dict) -> bytes:
+    """The cover letter as PDF bytes (D-161), from the editor's preview context
+    (letter, letter_date, paragraphs). Raises PDFError if WeasyPrint fails."""
+    return _write_pdf(lambda: templates.get_template("pdf/_letter_page.html").render(**context))
+
+
+def _write_pdf(page) -> bytes:
+    """Render `page()` (the HTML) with WeasyPrint. Any failure, also in making the HTML,
+    is a PDFError with only the kind of error (never the document's text)."""
     _help_macos_find_pango()
     try:
         import weasyprint
 
         html = weasyprint.HTML(
-            string=render_cv_html(cv, for_pdf=True),
+            string=page(),
             base_url=STATIC_DIR.as_uri() + "/",
             url_fetcher=_fetcher_class()(),
         )
@@ -166,20 +179,37 @@ def pdf_filename(cv: CVDocument, company: str | None = None) -> tuple[str, str]:
     "CV_Fatih_Findik_Kranich_Health_en.pdf". The same cleaning applies to it.
     """
     name = CVContent.model_validate(cv.content).personal.full_name or ""
-    language = cv.language if cv.language.isalpha() else "cv"
+    return file_names("CV", name, company, cv.language)
+
+
+def letter_filename(letter, company: str | None = None) -> tuple[str, str]:
+    """The same for a cover letter (D-161): "CoverLetter_Fatih_Findik_Acme_de.pdf",
+    with the name on the letter and the company of its application, or else the
+    company the letter is addressed to."""
+    firm = company or letter.recipient_company
+    return file_names("CoverLetter", letter.sender_name or "", firm, letter.language)
+
+
+def file_names(prefix: str, person: str, company: str | None, language: str) -> tuple[str, str]:
+    """(plain ASCII name, name with the real letters); empty parts are left out."""
+    language = language if language.isalpha() else "doc"
 
     def file(person: str, firm: str) -> str:
-        parts = [part for part in ("CV", person, firm, language) if part]
+        parts = [part for part in (prefix, person, firm, language) if part]
         return "_".join(parts) + ".pdf"
 
     firm = company or ""
     return (
-        file(_ascii_part(name, MAX_NAME), _ascii_part(firm, MAX_COMPANY)),
-        file(_real_part(name, MAX_NAME), _real_part(firm, MAX_COMPANY)),
+        file(_ascii_part(person, MAX_NAME), _ascii_part(firm, MAX_COMPANY)),
+        file(_real_part(person, MAX_NAME), _real_part(firm, MAX_COMPANY)),
     )
 
 
 def content_disposition(cv: CVDocument, company: str | None = None) -> str:
-    """The Content-Disposition header for downloading the PDF (RFC 6266)."""
-    ascii_name, real_name = pdf_filename(cv, company)
+    """The Content-Disposition header for downloading the CV's PDF (RFC 6266)."""
+    return attachment(*pdf_filename(cv, company))
+
+
+def attachment(ascii_name: str, real_name: str) -> str:
+    """Content-Disposition for a download, for old and new browsers (RFC 6266)."""
     return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(real_name, safe='')}"

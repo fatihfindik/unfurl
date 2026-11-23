@@ -283,7 +283,7 @@ def test_the_documents_card(auth_client, session, user, master, job):
 
     move(auth_client, job, "applied")
     html = auth_client.get(f"/applications/{job.id}").text
-    assert "Sent · locked" in html and "Sent on " in html and ">Remove<" not in html
+    assert "Sent · locked" in html and "CV sent on " in html and ">Remove<" not in html
 
 
 def test_logged_out_and_without_csrf_nothing_is_linked(
@@ -296,3 +296,21 @@ def test_logged_out_and_without_csrf_nothing_is_linked(
     auth_client.post("/logout", data={"csrf_token": csrf_token(auth_client)})
     assert use_master(client, job, master).headers["HX-Redirect"].startswith("/login")
     assert fresh(session, job).cv_id is None
+
+
+# --- A sent CV stays (security review M8b) ------------------------------------------------------
+
+
+def test_a_sent_cv_cannot_be_replaced_by_another_copy(auth_client, session, user, master, job):
+    use_master(auth_client, job, master)
+    linked_id = fresh(session, job).cv_id
+    move(auth_client, job, "applied")
+    assert session.get(CVDocument, linked_id).is_locked
+    spare = docs.create_cv(session, user, "Spare copy", "en", "classic")
+    count = len(docs.list_cvs(session, user))
+
+    assert use_cv(auth_client, job, spare).status_code == 409
+    assert use_master(auth_client, job, master).status_code == 409
+
+    assert fresh(session, job).cv_id == linked_id
+    assert len(docs.list_cvs(session, user)) == count  # no copy left over

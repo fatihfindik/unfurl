@@ -591,3 +591,35 @@
 - SPEC: yes, v2.1.33 (cover letter fields, shared lineage rules, date and salutation
   by language, "Refresh from profile"). D-152…D-154.
 - WORKFLOW: no.
+
+## M8b — Cover letter: PDF and applications (2026-11-23, log written by Claude)
+
+**Concepts**
+- Two tables that point at each other (`application.cover_letter_id` ↔
+  `coverletter.application_id`) need a named foreign key created after both tables
+  (`use_alter=True`), and `ON DELETE SET NULL` on both sides, so deleting either row
+  never fails.
+- A shared helper for the second document type: `copy_groups` and `has_sent` take a
+  CV or a letter, so the rule is written once and both types behave the same.
+- Undo stores what it needs on the server (`_used_by` in the trash row) and checks
+  everything again when it runs: the application is still the user's, its place is
+  still empty, and it was not sent meanwhile.
+- `Content-Disposition` with a user-chosen file name: an ASCII fallback with only safe
+  characters plus a percent-encoded UTF-8 name (`filename*`), so quotes, `;` or line
+  breaks can't break the header.
+- A frozen date: a sent letter shows the day it was locked (in the user's time
+  zone), a draft shows today.
+
+**What was hard**
+- A rule the page enforces is not a rule yet: the page hid the picker for a sent
+  letter, but a hand-made request could still replace it. The test-writer and the
+  security review both found it; the check now lives in the service and the router.
+
+**What I will do differently**
+- For every "the button is hidden when…" ask: what does the endpoint do if someone
+  sends the request anyway? Write that test with the feature.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.34 (cover letters on applications, lock on send, PDF, Duplicate,
+  Copy text, grouping). D-157…D-163.
+- WORKFLOW: no.

@@ -14,7 +14,7 @@ from sqlmodel import Session
 from starlette.datastructures import FormData
 
 from app.db import get_session
-from app.models import CVDocument, User
+from app.models import CoverLetter, CVDocument, User
 from app.models.application import BOARD_STATUSES, MAX_DESCRIPTION
 from app.schemas.application import (
     ADD_JOB_STATUSES,
@@ -30,6 +30,7 @@ from app.security import limiter
 from app.services import (
     application_service,
     clock,
+    cover_letter_service,
     document_service,
     next_step_service,
     undo_service,
@@ -215,7 +216,8 @@ def undo_events(
     holds what changed, from the note taken before the action."""
     after = application_service.note(session, user, application)
     made = application_service.made_since(session, user, application, before)
-    extra = {key: made[key] for key in ("sent", "locked") if made[key]} | (created or {})
+    extra = {key: made[key] for key in ("sent", "locked", "locked_letters") if made[key]}
+    extra |= created or {}
     token = undo_service.make_change_token(
         user,
         application.id,
@@ -844,6 +846,13 @@ def documents_context(session: Session, user: User, application) -> dict:
     if cv is not None and cv.user_id != user.id:
         cv = None  # never show someone else's document
     cvs = document_service.list_cvs(session, user)
+    letter = (
+        session.get(CoverLetter, application.cover_letter_id)
+        if application.cover_letter_id
+        else None
+    )
+    if letter is not None and letter.user_id != user.id:
+        letter = None
     return {
         "application": application,
         "current_cv": cv,
@@ -853,20 +862,36 @@ def documents_context(session: Session, user: User, application) -> dict:
             for doc in document_service.copies_for_linking(session, user, application)
             if cv is None or doc.id != cv.id
         ],
+        # The cover letter part works the same way (D-157).
+        "current_letter": letter,
+        "letter_masters": [
+            doc for doc in cover_letter_service.list_letters(session, user) if doc.is_master
+        ],
+        "linkable_letters": [
+            doc
+            for doc in cover_letter_service.copies_for_linking(session, user, application)
+            if letter is None or doc.id != letter.id
+        ],
         "sent_documents": application_service.sent_documents(session, user, application),
         "language_labels": LANGUAGE_LABELS,
-        "can_send": (
-            cv is not None
-            and not cv.is_locked
-            and application.status in application_service.SENT_STATUSES
-            and not application.archived
-        ),
+        "can_send": can_send(application, cv),
+        "can_send_letter": can_send(application, letter),
     }
 
 
-def copy_title(application) -> str:
+def can_send(application, document) -> bool:
+    """ "Lock as sent" is offered for a draft linked after the job was sent (D-082)."""
+    return (
+        document is not None
+        and not document.is_locked
+        and application.status in application_service.SENT_STATUSES
+        and not application.archived
+    )
+
+
+def copy_title(application, kind: str = "CV") -> str:
     """ "Kranich Health · CV", the company cut to fit the 200-character title."""
-    suffix = " · CV"
+    suffix = f" · {kind}"
     return f"{application.company[: 200 - len(suffix)]}{suffix}"
 
 
@@ -882,7 +907,8 @@ def application_cv(
     """Use a CV for this application (D-080): `master` = make a new copy of that
     master, `cv` = an existing draft copy. Toast with Undo."""
     application = application_service.get_owned_application(session, user, application_id)
-    if application.archived:
+    # A sent CV stays (D-082); checked before a copy is made, so none is left over.
+    if application.archived or application_service.has_sent(session, user, application, CVDocument):
         raise HTTPException(status_code=409)
     before = application_service.note(session, user, application)
     created = None
@@ -933,6 +959,74 @@ def application_cv_unlink(
     )
 
 
+@router.post("/applications/{application_id}/cover-letter")
+@limiter.limit("60/minute")
+def application_letter(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """Use a cover letter for this application (D-157), like application_cv: `master` =
+    a new copy of that master, with the job's details in its empty fields (D-158),
+    `letter` = an existing draft copy. Toast with Undo."""
+    application = application_service.get_owned_application(session, user, application_id)
+    # A sent letter stays (D-159); checked before a copy is made, so none is left over.
+    if application.archived or application_service.has_sent(
+        session, user, application, CoverLetter
+    ):
+        raise HTTPException(status_code=409)
+    before = application_service.note(session, user, application)
+    if data.get("master"):
+        master = cover_letter_service.get_owned_letter(session, user, data.get("master"))
+        if not master.is_master:
+            raise HTTPException(status_code=422)
+        try:
+            letter = cover_letter_service.copy_for_application(
+                session, user, master, application, copy_title(application, "Cover letter")
+            )
+        except cover_letter_service.TooManyDocuments:
+            return Response(
+                status_code=204,
+                headers=page_events(toast="You have reached the limit of cover letters."),
+            )
+        created = {"created_letter": letter.id}
+    else:
+        letter = cover_letter_service.get_owned_letter(session, user, data.get("letter"))
+        if letter.is_master:
+            raise HTTPException(status_code=422)
+        # Undo gives the copy back its old application (like CVs, security review M4c E2).
+        created = {"linked_letter": [letter.id, letter.application_id]}
+    try:
+        event = application_service.link_letter(session, user, application, letter)
+    except application_service.CannotLink:
+        raise HTTPException(status_code=409) from None
+    toast = f"{letter.title} is used for {application.company}."
+    return Response(
+        status_code=204,
+        headers=undo_events(session, user, application, [event], before, toast, created),
+    )
+
+
+@router.delete("/applications/{application_id}/cover-letter")
+@limiter.limit("60/minute")
+def application_letter_unlink(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """Stop using the current cover letter (drafts only; a sent one stays, D-159)."""
+    application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.note(session, user, application)
+    try:
+        event = application_service.unlink_letter(session, user, application)
+    except application_service.CannotLink:
+        raise HTTPException(status_code=409) from None
+    return Response(
+        status_code=204,
+        headers=undo_events(session, user, application, [event], before, "Cover letter removed."),
+    )
+
+
 @router.post("/applications/{application_id}/cv/send")
 @limiter.limit("60/minute")
 def application_cv_send(
@@ -949,5 +1043,30 @@ def application_cv_send(
         status_code=204,
         headers=undo_events(
             session, user, application, [event], before, "CV locked: this is what you sent."
+        ),
+    )
+
+
+@router.post("/applications/{application_id}/cover-letter/send")
+@limiter.limit("60/minute")
+def application_letter_send(
+    request: Request, session: DbSession, user: RequiredUser, application_id: str
+):
+    """ "Lock as sent" for the cover letter (D-159): linked after the job was sent."""
+    application = application_service.get_owned_application(session, user, application_id)
+    before = application_service.note(session, user, application)
+    try:
+        event = application_service.send_letter(session, user, application)
+    except application_service.CannotLink:
+        raise HTTPException(status_code=409) from None
+    return Response(
+        status_code=204,
+        headers=undo_events(
+            session,
+            user,
+            application,
+            [event],
+            before,
+            "Cover letter locked: this is what you sent.",
         ),
     )

@@ -10,10 +10,15 @@
 
 {#- Cover letter editor (SPEC §6.6, D-152, docs/prototype/CoverLetters.dc.html): form
     on the left, live preview on the right. Masters open read-only (D-048), locked
-    letters stay read-only. PDF, "Duplicate" and the link to an application come in M8b. -#}
+    letters stay read-only. "Download PDF" (D-161) saves the form first (app.js). -#}
 {% block content %}
   {%- set button = "inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted" %}
-  {{ page_header(letter.title, back_url="/documents?tab=letters", back_label="Documents", wide=True) }}
+  {#- Back to the application the letter was made for, or to Documents (D-162). -#}
+  {%- if application %}
+    {{ page_header(letter.title, back_url="/applications/" ~ application.id, back_label=application.company, wide=True) }}
+  {%- else %}
+    {{ page_header(letter.title, back_url="/documents?tab=letters", back_label="Documents", wide=True) }}
+  {%- endif %}
   <div class="flex w-full {{ page_width(wide=True) }} flex-col gap-4 px-4 pt-5 pb-8 md:px-8">
     <div class="flex flex-wrap items-center gap-2 text-sm">
       {%- if letter.is_master %}
@@ -24,6 +29,9 @@
         <span class="rounded-full bg-blue-bg px-2 py-0.5 text-xs font-semibold text-blue-text">Draft · v{{ letter.version }}</span>
       {%- endif %}
       <span class="text-text-3">Cover letter · {{ language_names.get(letter.language, letter.language) }}</span>
+      {%- if application %}
+        <a href="/documents?tab=letters" class="font-semibold text-link no-underline hover:underline">All documents</a>
+      {%- endif %}
     </div>
 
     {#- Version picker and actions, as in the CV editor. Edits are saved on their own,
@@ -46,10 +54,18 @@
         </ul>
       </details>
       {%- set icon_button_class = "inline-flex size-9 items-center justify-center rounded-lg border border-border-strong bg-surface text-text hover:bg-muted" %}
+      <a href="/cover-letters/{{ letter.id }}/pdf" data-tooltip="Download PDF" data-letter-download class="{{ icon_button_class }} no-underline">{{ icon("download") }}<span class="sr-only">Download PDF</span></a>
       {%- if not letter.is_locked %}
         <button hx-disabled-elt="this" type="button" data-tooltip="Save as new version" class="{{ icon_button_class }}"
                 hx-post="/cover-letters/{{ letter.id }}/versions" hx-target="#letter-action-message">{{ icon("new-version") }}<span class="sr-only">Save as new version</span></button>
       {%- endif %}
+      {%- if not letter.is_master %}
+        {#- A copy for another application, linked to none (D-050, D-162). -#}
+        <button hx-disabled-elt="this" type="button" data-tooltip="Duplicate" class="{{ icon_button_class }}"
+                hx-post="/cover-letters/{{ letter.id }}/duplicate" hx-target="#letter-action-message">{{ icon("duplicate") }}<span class="sr-only">Duplicate for another application</span></button>
+      {%- endif %}
+      {#- Salutation, body, closing and name as plain text, for an application form (D-162). -#}
+      <button type="button" x-data="copyText" x-on:click="copy" data-source="letter-plain-text" class="{{ button }}">Copy text</button>
       {%- if editable %}
         <button type="button" data-tooltip="Refresh from profile" class="{{ icon_button_class }}"
                 data-dialog-open="refresh-letter">{{ icon("refresh") }}<span class="sr-only">Refresh your details from your profile</span></button>
@@ -76,7 +92,7 @@
         <button hx-disabled-elt="this" type="button" hx-post="/cover-letters/{{ letter.id }}/versions" hx-target="#letter-action-message"
                 class="inline-flex h-9 items-center rounded-lg bg-[#4F46E5] px-3 font-semibold text-white hover:bg-[#4338CA]">Duplicate as new version</button>
       {%- else %}
-        <p class="m-0">Copy{% if master %} based on {{ master.title }}{% endif %}. Your master letter stays unchanged.</p>
+        <p class="m-0">{% if application %}Copy for {{ application.company }}{% if master %}, based on {{ master.title }}{% endif %}{% else %}Copy{% if master %} based on {{ master.title }}{% endif %}{% endif %}. Your master letter stays unchanged.</p>
       {%- endif %}
     </div>
 
@@ -88,6 +104,7 @@
         <p class="m-0 text-xs font-semibold uppercase tracking-wide text-text-3">Live preview · A4</p>
         <div id="letter-preview" class="overflow-x-auto rounded-xl bg-muted p-3 md:p-6">
           {% include "pdf/cover_letter.html" %}
+          {% include "cover_letters/_plain_text.html" %}
         </div>
       </div>
     </div>
