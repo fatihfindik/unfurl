@@ -623,3 +623,32 @@
 - SPEC: yes, v2.1.34 (cover letters on applications, lock on send, PDF, Duplicate,
   Copy text, grouping). D-157…D-163.
 - WORKFLOW: no.
+
+## M9a — Apply flow without AI (2026-11-23, log written by Claude)
+
+**Concepts**
+- Tabs as plain links with the tab in the address (`?tab=details`): no JS, a reload or
+  a shared link keeps the tab, and the page's own htmx reload asks for the same tab.
+- One Jinja macro for a repeated piece of UI (`document_block`): the Documents card,
+  Apply › Prepare and Progress all show the same CV/letter block. An `id` prefix keeps
+  the ids unique when the macro is used twice on one page (`<label for>` needs that).
+- A rule-based checklist as a small, pure service (`final_check_service.run`): it gets
+  the objects and "today", returns plain dataclasses, and is unit-tested without a
+  database.
+- Reuse instead of new endpoints: "Mark as applied" and "I got an interview" send the
+  status picker's request, so locking, sent copies and Undo stay in one place.
+- A `<dialog>` that loads its content with htmx and lives outside the part of the
+  page that reloads, so a change on the page doesn't close it.
+
+**What was hard**
+- Where a "fix" link should go: name, email and experience come from the profile,
+  not the CV editor. The plan-reviewer caught it before any code was written.
+
+**What I will do differently**
+- Look for an existing component before planning a new one (`components/drawer.html`
+  and `data-dialog-load` were already there).
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.35 (tabs, Apply flow, rule-based Final check, drawer, Progress).
+  D-151, D-164…D-167.
+- WORKFLOW: no.
