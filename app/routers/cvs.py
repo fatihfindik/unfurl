@@ -23,7 +23,7 @@ from app.models.base import as_utc
 from app.models.cv import CV_LANGUAGES, CV_TEMPLATES
 from app.schemas.cv import CV_SECTIONS, LANGUAGE_NAMES, CVContent, CVEditForm, NewCVForm
 from app.schemas.profile import form_errors
-from app.security import limiter
+from app.security import MAX_ANY_FORM_FIELDS, limiter, read_limited_form
 from app.services import (
     application_service,
     cover_letter_service,
@@ -51,7 +51,9 @@ TOO_MANY_CVS = (
 
 
 async def read_form_data(request: Request) -> FormData:
-    return await request.form()
+    # The editor's form can pass Starlette's default of 1000 fields (1000 bullet
+    # checkboxes + the other fields), so the app-wide limit is given (D-171).
+    return await read_limited_form(request, MAX_ANY_FORM_FIELDS)
 
 
 SubmittedForm = Annotated[FormData, Depends(read_form_data)]

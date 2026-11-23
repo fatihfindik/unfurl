@@ -25,7 +25,7 @@ from app.routers.cvs import MASTER_UNLOCKED, action_message, go_to
 from app.schemas.cover_letter import LETTER_FIELDS, CoverLetterForm, NewCoverLetterForm
 from app.schemas.cv import LANGUAGE_NAMES
 from app.schemas.profile import form_errors
-from app.security import limiter
+from app.security import limiter, read_limited_form
 from app.services import application_service, pdf_service, undo_service
 from app.services import cover_letter_service as letters
 from app.services.auth_service import require_user
@@ -44,7 +44,7 @@ MAX_FORM_FIELDS = 50
 
 
 async def read_form_data(request: Request) -> FormData:
-    return await request.form(max_fields=MAX_FORM_FIELDS)
+    return await read_limited_form(request, MAX_FORM_FIELDS)
 
 
 SubmittedForm = Annotated[FormData, Depends(read_form_data)]

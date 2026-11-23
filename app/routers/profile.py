@@ -47,6 +47,7 @@ from app.schemas.profile import (
     SummaryForm,
     form_errors,
 )
+from app.security import read_limited_form
 from app.services import photo_service, profile_service, undo_service
 from app.services.auth_service import require_user
 from app.templating import is_htmx, templates
@@ -138,7 +139,7 @@ async def read_photo_upload(request: Request) -> PhotoUpload:
     if int(length) > photo_service.MAX_REQUEST_BYTES:
         return PhotoUpload(error=photo_service.TOO_BIG)
 
-    form = await request.form(max_files=1, max_fields=5)
+    form = await read_limited_form(request, max_fields=5, max_files=1)
     upload = form.get("photo")
     if not isinstance(upload, UploadFile):
         return PhotoUpload(error=photo_service.UNREADABLE)
