@@ -892,3 +892,31 @@ Kaynak: `docs/plans/M8b.md`, plan-reviewer (1 Blocker, 7 Should, 6 Nit; hepsi pl
 ### D-163 · Documents sayfasında gruplama ve silmede bağ
 - **Karar:** D-084 ve D-086'nın aynısı: Cover letters sekmesinde kopyalar başvuruya göre gruplanır, bağsızlar "Not linked to an application". Bağlı taslak mektup silinince başvurunun `cover_letter_id`'si boşalır; Undo `restore_cv`'nin üç koşuluyla yeniden bağlar (başvuru sahibinin, `cover_letter_id` boş, durum `saved`); başvuru yoksa `application_id` temizlenir.
 - **Alternatifler:** Silmede bağı hiç geri kurmamak (Undo yarım kalır).
+
+## M9a — Apply akışı, AI'sız (2026-11-23)
+
+Kaynak: `docs/plans/M9a.md`, plan-reviewer (1 Blocker, 7 Should, 5 Nit; hepsi plana işlendi); Fatih planı ve dört sorunun önerilen cevaplarını onayladı (2026-11-23). SPEC v2.1.35.
+
+### D-151 · Final check: kural tabanlı kontrol listesi
+- **Karar:** Apply › Final check AI'sız, kodla ve veritabanındaki alanlardan 8 kontrol yapar (`final_check_service`); her biri `ok`, `warn` ya da `missing`, eksiklerde düzeltme sayfasına link:
+  - `cv_linked` (yoksa missing → Apply › Prepare), `cv_contact` (CV'de ad ve e-posta; missing → profil + "Refresh from profile" notu, çünkü bu alanlar profilden gelir), `cv_content` (görünen bir deneyim ya da özet; warn → özet için CV editörü, deneyim için profil);
+  - `letter_linked` (warn: mektup isteğe bağlı), `letter_recipient` (mektubun alıcı şirketi başvurunun şirketi mi; büyük/küçük harf, boşluk ve GmbH/AG/KG/SE/Ltd/Inc/e.U./OG gibi ekler yok sayılır; warn → mektup editörü), `letter_body` (boşsa missing), `language` (CV ve mektup aynı dilde mi; warn). Mektup bağlı değilse son üçü listelenmez;
+  - `posting_open` (kapanış tarihi kullanıcının saat diliminde geçmiş mi; warn → Job & details).
+  - Liste **hiçbir şeyi engellemez** (Fatih): "I have applied" uyarılara rağmen çalışır; durum seçici zaten her geçişe izin verir (D-076). Kilitli belgede düzeltme linki yok. Sayfa sayısı (PDF çizmek gerekir) ve anahtar kelime/dil tespiti (AI) yok.
+- **Alternatifler:** `missing` varken "Mark as applied"ı kapatmak (durum seçiciyle aşılır, kullanıcıyı gereksiz durdurur); PDF sayfa sayısını kontrol etmek (her açılışta ~1 sn WeasyPrint).
+
+### D-164 · Başvuru detayında sekmeler
+- **Karar:** **Apply** (durum `saved`) / **Progress** (`applied`, `interview`, `offer`, `rejected`) ve **Job & details**. Sekme adresle: `/applications/{id}` ilk sekme, `?tab=details`; düz linkler, JS yok; bilinmeyen değer ilk sekme. `application-changed` yenilemesi bulunulan sekmenin adresini çeker. Sağ panel (Next step, Documents, Timeline) iki sekmede de aynı. Arşivli başvuruda sekme arşivden önceki duruma göre, işlemler gösterilmez ("Restore it to prepare documents.").
+- **Alternatifler:** Alpine ile istemci tarafı sekmeler (yenilemede kaybolur, adres paylaşılamaz).
+
+### D-165 · Apply sekmesi akışı
+- **Karar:** ① **Prepare documents:** CV ve mektup satırları, M8b'deki formlar ve route'lar (master'dan kopya, mevcut kopyayı kullan), bağlıysa "Preview & edit". CV ve mektup satırları ortak bir makroda (`id_prefix`), Documents kartıyla aynı; sayfada id'ler tekil. Adım **CV bağlanınca** tamamlanır ve daralır (mektup isteğe bağlı). ② **Final check:** CV bağlanana kadar pasif; D-151 listesi, "Ready? Send it yourself, then come back" kutusu, iki ayrı link "CV (PDF)" ve "Cover letter (PDF)" (Fatih), "I have applied · mark as applied" = mevcut `POST /applications/{id}/status` ile `applied` (kilit, `ApplicationDocument`, toast + Undo tek yerden, D-159). Applied'dan Saved'e dönen başvuruda kilitli belge kilitli kalır, yerine başkası bağlanamaz; tekrar "Mark as applied" ikinci kilit ya da kayıt oluşturmaz.
+- **Alternatifler:** Birleşik tek PDF (`pypdf` çalışma zamanına girer, portallar çoğunlukla ayrı dosya ister).
+
+### D-166 · Belge paneli (drawer)
+- **Karar:** "Preview & edit" mevcut `components/drawer.html` makrosunu (native `<dialog>`, sağ kenar; önizleme için daha geniş) mevcut `data-dialog-load` ile açar (izin listesine `/applications/`). İçerik `GET /applications/{id}/drawer?doc=cv|cover_letter` (giriş, `user_id`, 60/dk; bağlı belge yoksa 404, bilinmeyen `doc` 422): CV / Cover letter sekmeleri, ad · vN · rozet, editördeki önizlemenin aynısı (CSS'ler detay sayfasında yüklenir; mektubun `preview_context`'i servise taşınır), "Open full editor", "Download PDF". Panel her zaman salt okunur; kilitli belgede "This is what you sent." Panel `#application-page`'in dışında durur.
+- **Alternatifler:** Panelde düzenleme (editörün kopyası olur; asistanla düzenleme V2).
+
+### D-167 · Progress görünümü
+- **Karar:** "Applied on {applied_at}" kartı (`applied_at` boşsa, ör. Saved → Rejected: kart yok, "You did not apply to this job."), başvurunun şu anki CV ve mektubu (rozet, "Preview", "PDF", kilitli değilse "Lock as sent"). "What happens next": next step'in kendi başlığı ve tarihi (`next_step_service`; elle değişmiş adım da doğru adıyla), `applied` iken "I got an interview" (= durum `interview`, mülakat modalı). "How you applied" (daraltılmış): timeline olaylarından (belge bağlama, kilit, Applied) tarihleriyle; Final check sonucu saklanmaz (Fatih). "Draft a follow-up email" V2.
+- **Alternatifler:** "Mark as applied" anında Final check özetini timeline'a yazmak (board ve durum seçiciden geçişte olmaz, tutarsız).
