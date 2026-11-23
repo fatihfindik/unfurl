@@ -38,3 +38,17 @@ def log_in(client: TestClient, email: str = USER_EMAIL, password: str = USER_PAS
         data={"email": email, "password": password, "csrf_token": csrf_token(client)},
         follow_redirects=False,
     )
+
+
+def unlock_master(client: TestClient, kind: str, document_id: int) -> str:
+    """Click "Edit master" in the confirmation dialog (D-169) and return the value
+    that unlocks the master for this session. kind: "cv" or "letter"."""
+    from urllib.parse import parse_qs, urlsplit
+
+    base = "/cvs" if kind == "cv" else "/cover-letters"
+    response = client.post(
+        f"{base}/{document_id}/edit-master",
+        headers={"HX-Request": "true", "X-CSRF-Token": csrf_token(client)},
+    )
+    assert response.status_code == 200, response.status_code
+    return parse_qs(urlsplit(response.headers["HX-Redirect"]).query)["unlock"][0]

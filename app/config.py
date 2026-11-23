@@ -6,6 +6,7 @@ value (e.g. `SMTP_PORT=abc`) is caught when the app starts, not later.
 
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import SecretStr, field_validator, model_validator
@@ -54,6 +55,21 @@ class Settings(BaseSettings):
 
     # Extension: comma-separated "chrome-extension://<id>" values (D-137)
     extension_origins: str = ""
+
+    @property
+    def allowed_hosts(self) -> list[str]:
+        """Host header names the app answers to (D-168, against DNS rebinding): the
+        name in APP_BASE_URL, and the local names the dev server, the personal
+        instance, its Docker health check and the extension use. "testserver" is the
+        test client's name, only in development (a rebinding page sends its own
+        domain, never that name)."""
+        hosts = ["localhost", "127.0.0.1"]
+        base = urlsplit(self.app_base_url).hostname
+        if base and base not in hosts:
+            hosts.append(base)
+        if self.app_env == "development":
+            hosts.append("testserver")
+        return hosts
 
     @property
     def extension_origin_list(self) -> frozenset[str]:

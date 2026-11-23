@@ -79,7 +79,8 @@ def test_api_docs_are_shown_in_development(client, url):
 @pytest.mark.parametrize("url", API_DOCS_URLS)
 def test_api_docs_are_hidden_in_production(url):
     settings = make_production_settings()
-    production_client = TestClient(create_app(settings))
+    # A production app only answers to its own host names (D-168), not "testserver".
+    production_client = TestClient(create_app(settings), base_url="http://localhost")
     assert production_client.get(url).status_code == 404
 
 

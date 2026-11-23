@@ -8,6 +8,7 @@ from sqlmodel import select
 from app.models import CoverLetter
 from app.services import cover_letter_service as letters
 from app.services.profile_service import get_or_create_profile
+from tests.helpers import unlock_master
 from tests.test_cover_letter_pages import save, stored
 from tests.test_delete_undo import flash_of, undo_delete
 from tests.test_profile_sections import htmx_send
@@ -60,18 +61,19 @@ def test_a_master_is_refreshed_only_after_it_was_unlocked(auth_client, session, 
     assert response.status_code == 409
     assert stored(session, master).sender_phone is None
 
+    value = unlock_master(auth_client, "letter", master.id)
     response = htmx_send(
-        auth_client, "POST", f"/cover-letters/{master.id}/refresh", {"edit_master": "confirmed"}
+        auth_client, "POST", f"/cover-letters/{master.id}/refresh", {"unlock": value}
     )
     # Back in the editor, still unlocked.
-    assert response.headers["HX-Redirect"] == f"/cover-letters/{master.id}?edit_master=confirmed"
+    assert response.headers["HX-Redirect"] == f"/cover-letters/{master.id}?unlock={value}"
     assert stored(session, master).sender_phone == "+43 1 999"
 
 
 def test_edit_master_does_not_unlock_a_locked_letter(auth_client, session, copy):
     save(auth_client, copy, body="Sent text.")
     letters.lock(session, copy)
-    form = {"edit_master": "confirmed"}
+    form = {"unlock": "x"}
 
     assert save(auth_client, copy, body="Changed.", **form).status_code == 409
     refresh = htmx_send(auth_client, "POST", f"/cover-letters/{copy.id}/refresh", form)
@@ -145,7 +147,12 @@ def test_the_letter_limit_stops_a_new_version(auth_client, session, copy, monkey
 
 
 def test_a_master_without_copies_is_deleted_and_comes_back(auth_client, session, master):
-    save(auth_client, master, body="My master text.", edit_master="confirmed")
+    save(
+        auth_client,
+        master,
+        body="My master text.",
+        unlock=unlock_master(auth_client, "letter", master.id),
+    )
 
     response = delete(auth_client, master)
 

@@ -16,7 +16,7 @@
   </label>
 {%- endmacro %}
 
-<form id="notification-settings" class="m-0 flex flex-col" novalidate
+<form hx-disabled-elt="find [type=submit]" id="notification-settings" class="m-0 flex flex-col" novalidate
       hx-post="/settings/notifications" hx-target="this" hx-swap="outerHTML">
   <span class="pb-2 text-xs font-bold tracking-wide text-text-3 uppercase">Learning</span>
   {{ switch_row("study_reminder_enabled", "Daily study reminder", "A gentle nudge with today's learning task, on days with a task planned") }}

@@ -3,7 +3,7 @@
     says which form was shown: if the task changed in between, nothing is saved.
     Context: task_id, done, values, errors. -#}
 {%- from "components/forms.html" import text_field, primary_button -%}
-<form id="edit-task-form" class="m-0 flex flex-col gap-4" novalidate
+<form hx-disabled-elt="find [type=submit]" id="edit-task-form" class="m-0 flex flex-col gap-4" novalidate
       hx-post="/learning/tasks/{{ task_id }}" hx-target="this" hx-swap="outerHTML">
   <input type="hidden" name="kind" value="{{ 'done' if done else 'open' }}">
   {%- if errors.form %}

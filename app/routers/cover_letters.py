@@ -9,6 +9,7 @@ template. The list is on the Documents page (app/routers/cvs.py, ?tab=letters).
 import json
 import logging
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
@@ -16,16 +17,16 @@ from pydantic import ValidationError
 from sqlmodel import Session, select
 from starlette.datastructures import FormData
 
+# go_to and action_message are the same for CVs and letters.
+from app import master_unlock
 from app.db import get_session
 from app.models import Application, CoverLetter, User
 from app.models.cv import CV_LANGUAGES
-
-# go_to and action_message are the same for CVs and letters.
-from app.routers.cvs import MASTER_UNLOCKED, action_message, go_to
+from app.routers.cvs import action_message, go_to
 from app.schemas.cover_letter import LETTER_FIELDS, CoverLetterForm, NewCoverLetterForm
 from app.schemas.cv import LANGUAGE_NAMES
 from app.schemas.profile import form_errors
-from app.security import limiter
+from app.security import limiter, read_limited_form
 from app.services import application_service, pdf_service, undo_service
 from app.services import cover_letter_service as letters
 from app.services.auth_service import require_user
@@ -39,12 +40,12 @@ RequiredUser = Annotated[User, Depends(require_user)]
 TOO_MANY_LETTERS = (
     f"You can have up to {letters.MAX_LETTERS_PER_USER} cover letters. Delete one to add another."
 )
-# A form has 14 fields (13 + edit_master); anything far beyond is not from our page.
+# A form has 14 fields (13 + unlock); anything far beyond is not from our page.
 MAX_FORM_FIELDS = 50
 
 
 async def read_form_data(request: Request) -> FormData:
-    return await request.form(max_fields=MAX_FORM_FIELDS)
+    return await read_limited_form(request, MAX_FORM_FIELDS)
 
 
 SubmittedForm = Annotated[FormData, Depends(read_form_data)]
@@ -112,14 +113,16 @@ def new_letter_form(request: Request, user: User, values: dict, errors: dict) ->
 
 @router.get("/cover-letters/{letter_id}", response_class=HTMLResponse)
 def letter_editor(
-    request: Request, session: DbSession, user: RequiredUser, letter_id: str, edit_master: str = ""
+    request: Request, session: DbSession, user: RequiredUser, letter_id: str, unlock: str = ""
 ):
     letter = letters.get_owned_letter(session, user, letter_id)
-    unlocked = letter.is_master and edit_master == MASTER_UNLOCKED
+    # Only the value the session gave out unlocks a master (D-169).
+    unlocked = letter.is_master and master_unlock.is_unlocked(request, "letter", letter.id, unlock)
     master = None
     if letter.parent_id is not None:
         master = letters.get_owned_letter(session, user, letter.parent_id)
     context = editor_context(session, letter, master_unlocked=unlocked, master=master)
+    context["unlock_value"] = unlock if unlocked else ""  # sent back with every save
     # The application this copy was made for (D-162, like CVs in D-084): from the
     # letter itself, never from the address, so a link can't put another job's name
     # on this page.
@@ -141,7 +144,7 @@ def letter_save(
     the new preview. A field with a problem keeps its saved value and its message is
     shown; the other fields are saved (like the CV editor)."""
     letter = letters.get_owned_letter(session, user, letter_id)
-    unlocked = data.get("edit_master") == MASTER_UNLOCKED
+    unlocked = master_unlock.is_unlocked(request, "letter", letter.id, data.get("unlock"))
     values = {name: data.get(name) for name in LETTER_FIELDS}
     errors = {}
     try:
@@ -217,13 +220,26 @@ def letter_refresh(
     """Refresh the sender lines from the profile, after the confirmation modal
     (D-154). A master only when it was unlocked (D-048); a locked letter never."""
     letter = letters.get_owned_letter(session, user, letter_id)
-    unlocked = data.get("edit_master") == MASTER_UNLOCKED
+    sent = data.get("unlock")
+    unlocked = master_unlock.is_unlocked(request, "letter", letter.id, sent)
     try:
         letters.refresh_sender(session, user, letter, master_unlocked=unlocked)
     except (letters.DocumentLocked, letters.MasterNotUnlocked):
         raise HTTPException(status_code=409) from None
-    suffix = f"?edit_master={MASTER_UNLOCKED}" if unlocked else ""
+    suffix = f"?unlock={quote(sent)}" if unlocked else ""
     return go_to(request, f"/cover-letters/{letter.id}{suffix}")
+
+
+@router.post("/cover-letters/{letter_id}/edit-master", response_class=HTMLResponse)
+@limiter.limit("30/minute")
+def letter_edit_master(request: Request, session: DbSession, user: RequiredUser, letter_id: str):
+    """ "Edit master" in the confirmation dialog (D-048, D-169): the editor opens again
+    with the value that unlocks this master. Only a master; a copy is edited anyway."""
+    letter = letters.get_owned_letter(session, user, letter_id)
+    if not letter.is_master:
+        raise HTTPException(status_code=409)
+    value = master_unlock.unlock(request, "letter", letter.id)
+    return go_to(request, f"/cover-letters/{letter.id}?unlock={quote(value)}")
 
 
 @router.delete("/cover-letters/{letter_id}", response_class=HTMLResponse)

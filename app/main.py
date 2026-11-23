@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from starlette.datastructures import Headers
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app import scheduler
 from app.config import Settings, get_settings
@@ -300,6 +301,11 @@ def create_app(settings: Settings) -> FastAPI:
 
     # Origin check and body limit for the extension API, before any route (D-137).
     app.add_middleware(ExtensionApiGuard, settings=settings)
+
+    # Only our own host names (D-168): a page using DNS rebinding sends its own domain
+    # as Host and gets 400. Outside the extension guard (a bad Host is refused before
+    # any body is read), inside SecurityHeaders (the 400 still gets the headers).
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 
     # Added late, so it wraps the rest: every answer gets the headers, errors too.
     app.add_middleware(SecurityHeaders)

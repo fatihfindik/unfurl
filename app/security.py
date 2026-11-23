@@ -19,6 +19,7 @@ from urllib.parse import unquote, urlsplit
 from fastapi import HTTPException, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from starlette.datastructures import FormData
 
 from app.models.base import utcnow
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
@@ -103,6 +104,23 @@ CSRF_EXEMPT_PREFIXES = ("/api/ext/",)
 # (multipart/form-data) only come from htmx, which always sends the header.
 URLENCODED_FORM = "application/x-www-form-urlencoded"
 
+# The most fields any form of the app sends (D-171): the CV editor, with 50
+# experiences × 20 bullet checkboxes, 7 sections and about 10 other fields.
+MAX_ANY_FORM_FIELDS = 1100
+
+
+async def read_limited_form(request: Request, max_fields: int, max_files: int = 1000) -> FormData:
+    """The submitted form, with at most `max_fields` fields (400 otherwise).
+
+    Starlette parses a form only once and keeps it: if the CSRF check already parsed
+    it (a normal form sends the token as a field), that parse used the app-wide limit
+    and a smaller limit given here would be skipped (#88). So the fields are counted
+    again after parsing."""
+    form = await request.form(max_fields=max_fields, max_files=max_files)
+    if len(form.multi_items()) > max_fields:
+        raise HTTPException(status_code=400, detail="Too many fields.")
+    return form
+
 
 def get_csrf_token(request: Request) -> str:
     """The session's CSRF token; created on first use (also for logged-out visitors,
@@ -126,8 +144,10 @@ async def verify_csrf(request: Request) -> None:
     sent = request.headers.get(CSRF_HEADER)
     if not sent and request.headers.get("content-type", "").startswith(URLENCODED_FORM):
         # Starlette keeps the parsed form on the request, so the route's own
-        # Form(...) parameters still get the same data afterwards.
-        form = await request.form()
+        # Form(...) parameters still get the same data afterwards. Parsed with the
+        # app-wide limit (D-171); a route with a smaller limit counts again
+        # afterwards (read_limited_form), since this parse is the one that is kept.
+        form = await request.form(max_fields=MAX_ANY_FORM_FIELDS)
         sent = form.get(CSRF_FORM_FIELD)
     # A file upload (multipart) without the header is refused without reading it:
     # parsing it would write the whole body to disk first, even for a logged-out
@@ -396,11 +416,13 @@ def client_ip(request: Request) -> str:
 # log. Verify and reset links have their token there (/reset-password?token=...), and
 # a reset token in a log file would let anyone who reads the log take over the account.
 
-_TOKEN_IN_URL = re.compile(r"(token=)[^&\s]+")
+# unlock=: the value that unlocks a master for a session (D-169), not for a log either.
+_TOKEN_IN_URL = re.compile(r"((?:token|unlock)=)[^&\s]+")
 
 
 class HideTokensFilter(logging.Filter):
-    """Replaces every `token=...` value in a log line's arguments with `token=***`."""
+    """Replaces every `token=...` and `unlock=...` value in a log line's arguments
+    with `token=***` / `unlock=***`."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         if isinstance(record.args, tuple):

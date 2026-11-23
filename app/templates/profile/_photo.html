@@ -26,7 +26,7 @@
         {{ icon("edit") }}Edit<span class="sr-only"> profile photo</span>
       </summary>
       <div class="absolute left-0 top-full z-30 mt-1.5 flex w-56 flex-col rounded-lg border border-border-strong bg-surface p-1 shadow-lg">
-        <form class="m-0" hx-post="/profile/photo" hx-encoding="multipart/form-data"
+        <form hx-disabled-elt="find input[type=file]" class="m-0" hx-post="/profile/photo" hx-encoding="multipart/form-data"
               hx-trigger="change" hx-target="#profile-photo" hx-swap="outerHTML">
           <label class="block cursor-pointer rounded-md px-3 py-2 text-sm text-text hover:bg-muted focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-[#4F46E5]">
             Upload a photo…

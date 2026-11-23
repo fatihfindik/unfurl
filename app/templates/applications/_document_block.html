@@ -55,7 +55,7 @@
   {%- elif not application.archived %}
     <p class="m-0 text-xs text-text-3">{{ start_hint }}</p>
     {%- for master in masters %}
-      <form class="m-0" hx-post="/applications/{{ application.id }}/{{ route }}" hx-swap="none">
+      <form hx-disabled-elt="find [type=submit]" class="m-0" hx-post="/applications/{{ application.id }}/{{ route }}" hx-swap="none">
         <input type="hidden" name="master" value="{{ master.id }}">
         <button type="submit" class="text-[13px] font-semibold text-link hover:underline">Copy my master {{ "CV" if kind == "cv" else "letter" }} ({{ language_labels.get(master.language, master.language | upper) }})</button>
       </form>
@@ -63,7 +63,7 @@
       <p class="m-0 text-xs text-text-3">No master {{ "CV" if kind == "cv" else "letter" }} yet. <a href="{{ documents_url }}" class="text-link">Create one in Documents</a>.</p>
     {%- endfor %}
     {%- if linkable %}
-      <form class="m-0 flex gap-2" hx-post="/applications/{{ application.id }}/{{ route }}" hx-swap="none">
+      <form hx-disabled-elt="find [type=submit]" class="m-0 flex gap-2" hx-post="/applications/{{ application.id }}/{{ route }}" hx-swap="none">
         <label for="{{ prefix }}-link-{{ field }}" class="sr-only">Use an existing {{ "copy" if kind == "cv" else "cover letter" }}</label>
         <select id="{{ prefix }}-link-{{ field }}" name="{{ field }}" class="h-9 min-w-0 flex-1 text-sm">
           {%- for option in linkable %}

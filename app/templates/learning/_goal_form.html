@@ -5,7 +5,7 @@
 {%- from "components/forms.html" import text_field, select_field, checkbox_field, primary_button -%}
 {%- set values = goal_values %}
 {%- set errors = goal_errors %}
-<form id="new-goal-form" class="m-0 flex flex-col gap-4" novalidate
+<form hx-disabled-elt="find [type=submit]" id="new-goal-form" class="m-0 flex flex-col gap-4" novalidate
       hx-post="/learning/goals" hx-target="this" hx-swap="outerHTML">
   {%- if errors.form %}
     <p role="alert" class="m-0 rounded-[10px] bg-red-bg px-3 py-2.5 text-sm font-medium text-red-text">{{ errors.form }}</p>

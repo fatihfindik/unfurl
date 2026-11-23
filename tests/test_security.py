@@ -189,7 +189,8 @@ def session_cookie_header(app: FastAPI) -> str:
         get_csrf_token(request)
         return {}
 
-    response = TestClient(app, base_url="https://testserver").get("/test-session-cookie")
+    # "localhost": a production app only answers to its own host names (D-168).
+    response = TestClient(app, base_url="https://localhost").get("/test-session-cookie")
     return response.headers["set-cookie"]
 
 

@@ -9,6 +9,7 @@ import binascii
 import json
 import logging
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -16,6 +17,7 @@ from pydantic import ValidationError
 from sqlmodel import Session, col, select
 from starlette.datastructures import FormData
 
+from app import master_unlock
 from app.billing.entitlements import allowed_templates
 from app.db import get_session
 from app.models import Application, CVDocument, User
@@ -23,7 +25,7 @@ from app.models.base import as_utc
 from app.models.cv import CV_LANGUAGES, CV_TEMPLATES
 from app.schemas.cv import CV_SECTIONS, LANGUAGE_NAMES, CVContent, CVEditForm, NewCVForm
 from app.schemas.profile import form_errors
-from app.security import limiter
+from app.security import MAX_ANY_FORM_FIELDS, limiter, read_limited_form
 from app.services import (
     application_service,
     cover_letter_service,
@@ -51,7 +53,9 @@ TOO_MANY_CVS = (
 
 
 async def read_form_data(request: Request) -> FormData:
-    return await request.form()
+    # The editor's form can pass Starlette's default of 1000 fields (1000 bullet
+    # checkboxes + the other fields), so the app-wide limit is given (D-171).
+    return await read_limited_form(request, MAX_ANY_FORM_FIELDS)
 
 
 SubmittedForm = Annotated[FormData, Depends(read_form_data)]
@@ -151,9 +155,8 @@ SECTION_NAMES = {
     "certifications": "Certifications",
     "projects": "Projects",
 }
-# A master opens read-only; "Edit master" (after a confirmation) reloads the editor
-# with this in the URL, and the form then sends edit_master=confirmed (D-048).
-MASTER_UNLOCKED = "confirmed"
+# A master opens read-only; "Edit master" (after a confirmation) unlocks it with a
+# value kept in the session (app/master_unlock.py; D-048, D-169).
 
 
 def editor_context(
@@ -181,16 +184,20 @@ def editor_context(
 
 @router.get("/cvs/{cv_id}", response_class=HTMLResponse)
 def cv_editor(
-    request: Request, session: DbSession, user: RequiredUser, cv_id: str, edit_master: str = ""
+    request: Request, session: DbSession, user: RequiredUser, cv_id: str, unlock: str = ""
 ):
     cv = document_service.get_owned_cv(session, user, cv_id)
-    unlocked = cv.is_master and edit_master == MASTER_UNLOCKED
+    # Only the value the session gave out unlocks a master; an old
+    # ?edit_master=confirmed link opens it read-only (D-169).
+    unlocked = cv.is_master and master_unlock.is_unlocked(request, "cv", cv.id, unlock)
     master = None
     if cv.parent_id is not None:
         master = document_service.get_owned_cv(session, user, cv.parent_id)
     context = editor_context(
         cv, master_unlocked=unlocked, master=master, template_choices=template_choices(user)
     )
+    # The form and "Refresh from profile" send it back with every save (D-169).
+    context["unlock_value"] = unlock if unlocked else ""
     # The application this copy was made for (D-084): from the CV itself, never from
     # the address, so a link can't put another job's name on this page.
     application = linked_application(session, user, cv)
@@ -247,7 +254,7 @@ def cv_save(
     """Autosave from the editor form (htmx, 500 ms after the last change). Answers with
     the new preview; form errors come back next to the form and nothing is saved."""
     cv = document_service.get_owned_cv(session, user, cv_id)
-    unlocked = data.get("edit_master") == MASTER_UNLOCKED
+    unlocked = master_unlock.is_unlocked(request, "cv", cv.id, data.get("unlock"))
     values = {
         "title": data.get("title"),
         "headline": data.get("headline"),
@@ -363,13 +370,26 @@ def cv_refresh(
     """Refresh from profile, after the confirmation modal. A master only when it was
     unlocked (D-048); a locked copy never."""
     cv = document_service.get_owned_cv(session, user, cv_id)
-    unlocked = data.get("edit_master") == MASTER_UNLOCKED
+    sent = data.get("unlock")
+    unlocked = master_unlock.is_unlocked(request, "cv", cv.id, sent)
     try:
         document_service.refresh_from_profile(session, user, cv, master_unlocked=unlocked)
     except (document_service.DocumentLocked, document_service.MasterNotUnlocked):
         raise HTTPException(status_code=409) from None
-    suffix = f"?edit_master={MASTER_UNLOCKED}" if unlocked else ""
+    suffix = f"?unlock={quote(sent)}" if unlocked else ""
     return go_to(request, f"/cvs/{cv.id}{suffix}")
+
+
+@router.post("/cvs/{cv_id}/edit-master", response_class=HTMLResponse)
+@limiter.limit("30/minute")
+def cv_edit_master(request: Request, session: DbSession, user: RequiredUser, cv_id: str):
+    """ "Edit master" in the confirmation dialog (D-048, D-169): the editor opens again
+    with the value that unlocks this master. Only a master; a copy is edited anyway."""
+    cv = document_service.get_owned_cv(session, user, cv_id)
+    if not cv.is_master:
+        raise HTTPException(status_code=409)
+    value = master_unlock.unlock(request, "cv", cv.id)
+    return go_to(request, f"/cvs/{cv.id}?unlock={quote(value)}")
 
 
 @router.delete("/cvs/{cv_id}", response_class=HTMLResponse)

@@ -14,6 +14,7 @@ from app.services import document_service as docs
 from app.services import pdf_service
 from app.services.auth_service import create_user
 from app.services.profile_service import get_or_create_profile
+from tests.helpers import unlock_master
 from tests.test_cv_editor import save, stored
 from tests.test_cv_photo import give_profile_photo
 
@@ -138,7 +139,7 @@ def test_private_boxes_on_a_locked_copy_are_refused(auth_client, session, user, 
     docs.lock(session, copy)
     before = snapshot(session, copy)
 
-    response = save(auth_client, copy, edit_master="confirmed", **boxes)
+    response = save(auth_client, copy, unlock="x", **boxes)
 
     assert response.status_code == 409
     assert snapshot(session, copy) == before
@@ -176,7 +177,12 @@ def test_private_boxes_on_a_closed_master_are_refused(auth_client, session, user
 
 def test_private_boxes_on_an_unlocked_master_are_saved(auth_client, session, master):
     # The other side of the test above: the unlock really opens the boxes.
-    response = save(auth_client, master, show_nationality="on", edit_master="confirmed")
+    response = save(
+        auth_client,
+        master,
+        show_nationality="on",
+        unlock=unlock_master(auth_client, "cv", master.id),
+    )
 
     assert response.status_code == 200
     assert row(session, master).show_nationality

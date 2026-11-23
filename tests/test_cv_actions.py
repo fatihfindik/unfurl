@@ -8,6 +8,7 @@ from app.schemas.cv import CVContent
 from app.services import document_service as docs
 from app.services.auth_service import create_user
 from app.services.profile_service import get_or_create_profile
+from tests.helpers import unlock_master
 from tests.test_profile_sections import htmx_send
 
 
@@ -67,9 +68,10 @@ def test_duplicate_is_back_and_all_documents_needs_an_application(auth_client, c
 def test_closed_master_has_no_refresh_until_unlocked(auth_client, master):
     assert 'data-dialog-open="refresh-cv"' not in auth_client.get(f"/cvs/{master.id}").text
 
-    unlocked = auth_client.get(f"/cvs/{master.id}?edit_master=confirmed").text
+    value = unlock_master(auth_client, "cv", master.id)
+    unlocked = auth_client.get(f"/cvs/{master.id}?unlock={value}").text
     assert 'data-dialog-open="refresh-cv"' in unlocked
-    assert 'hx-vals=\'{"edit_master": "confirmed"}\'' in unlocked
+    assert f'hx-vals=\'{{"unlock": "{value}"}}\'' in unlocked
 
 
 def test_locked_copy_offers_only_duplicate_as_new_version(auth_client, session, copy):
@@ -164,10 +166,9 @@ def test_refresh_of_a_master_needs_the_unlock(auth_client, session, profile, mas
     assert htmx_send(auth_client, "POST", f"/cvs/{master.id}/refresh").status_code == 409
     assert CVContent.model_validate(all_cvs(session)[0].content).summary == "From the profile."
 
-    response = htmx_send(
-        auth_client, "POST", f"/cvs/{master.id}/refresh", {"edit_master": "confirmed"}
-    )
-    assert response.headers["HX-Redirect"] == f"/cvs/{master.id}?edit_master=confirmed"
+    value = unlock_master(auth_client, "cv", master.id)
+    response = htmx_send(auth_client, "POST", f"/cvs/{master.id}/refresh", {"unlock": value})
+    assert response.headers["HX-Redirect"] == f"/cvs/{master.id}?unlock={value}"
     assert CVContent.model_validate(all_cvs(session)[0].content).summary == "Newer profile text."
 
 

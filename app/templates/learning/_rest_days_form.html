@@ -2,7 +2,7 @@
     streak. At most six: at least one day a week counts.
     Context: rest_days (chosen keys), day_choices [(key, "Mon")], rest_error. -#}
 {%- from "components/forms.html" import primary_button -%}
-<form id="rest-days-form" class="m-0 flex flex-col gap-4" novalidate
+<form hx-disabled-elt="find [type=submit]" id="rest-days-form" class="m-0 flex flex-col gap-4" novalidate
       hx-post="/learning/rest-days" hx-target="this" hx-swap="outerHTML">
   <fieldset class="m-0 flex flex-col gap-3 border-0 p-0"{% if rest_error %} aria-describedby="rest-days-error"{% endif %}>
     <legend class="mb-3 p-0 text-sm text-text-2">Days you don't plan to study. They never break your streak; studying on them still counts.</legend>
