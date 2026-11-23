@@ -121,8 +121,10 @@
       <p class="m-0 text-sm text-text-2">Changes only affect new copies, not the copies you already have. Copies for applications start from the master.</p>
       <div class="flex justify-end gap-2">
         <form method="dialog" class="m-0"><button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold hover:bg-muted">Cancel</button></form>
-        <a href="/cvs/{{ cv.id }}?edit_master=confirmed"
-           class="inline-flex h-9 items-center rounded-lg bg-[#4F46E5] px-3 text-sm font-semibold text-white no-underline hover:bg-[#4338CA]">Edit master</a>
+        {#- A POST, not a link: the server unlocks this master for the session and opens
+            the editor again (D-169), so a link from elsewhere can't skip this dialog. -#}
+        <button hx-disabled-elt="this" type="button" hx-post="/cvs/{{ cv.id }}/edit-master" hx-swap="none"
+                class="inline-flex h-9 items-center rounded-lg bg-[#4F46E5] px-3 text-sm font-semibold text-white hover:bg-[#4338CA]">Edit master</button>
       </div>
     {% endcall %}
   {%- endif %}
@@ -132,7 +134,7 @@
       <div class="flex justify-end gap-2">
         <form method="dialog" class="m-0"><button type="submit" class="{{ button }}">Cancel</button></form>
         <button hx-disabled-elt="this" type="button" hx-post="/cvs/{{ cv.id }}/refresh" hx-target="#cv-action-message"
-                {%- if master_unlocked %} hx-vals='{"edit_master": "confirmed"}'{% endif %}
+                {%- if master_unlocked %} hx-vals='{{ {"unlock": unlock_value} | tojson }}'{% endif %}
                 class="inline-flex h-9 items-center rounded-lg bg-[#4F46E5] px-3 text-sm font-semibold text-white hover:bg-[#4338CA]">Refresh</button>
       </div>
     {% endcall %}

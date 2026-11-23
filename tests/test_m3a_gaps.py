@@ -11,7 +11,7 @@ from app.models import CVDocument
 from app.services import document_service as docs
 from app.services.auth_service import create_user
 from app.services.profile_service import get_or_create_profile
-from tests.helpers import csrf_token
+from tests.helpers import csrf_token, unlock_master
 from tests.test_cv_actions import all_cvs
 from tests.test_cv_editor import save, stored
 from tests.test_profile_sections import htmx_send
@@ -42,7 +42,7 @@ ROUTES = [
     ("GET", "/documents?tab=letters"),
     ("POST", "/cvs"),
     ("GET", "/cvs/1"),
-    ("GET", "/cvs/1?edit_master=confirmed"),
+    ("GET", "/cvs/1?unlock=x"),
     ("POST", "/cvs/1"),
     ("POST", "/cvs/1/versions"),
     ("POST", "/cvs/1/duplicate"),
@@ -115,8 +115,8 @@ def test_another_users_master_is_404_even_when_unlocked(
     before = (their_master.title, dict(their_master.content), their_master.updated_at)
     url = f"/cvs/{their_master.id}{path}"
     if method == "GET":
-        url += "?edit_master=confirmed"
-    form = {"title": "Taken", "summary": "Taken", "edit_master": "confirmed"}
+        url += "?unlock=x"
+    form = {"title": "Taken", "summary": "Taken", "unlock": "x"}
 
     response = htmx_send(auth_client, method, url, form)
 
@@ -147,10 +147,10 @@ def test_another_users_locked_copy_gives_no_new_draft(
 def test_the_unlock_does_not_open_a_locked_copy(auth_client, session, copy):
     docs.lock(session, copy)
 
-    page = auth_client.get(f"/cvs/{copy.id}?edit_master=confirmed").text
+    page = auth_client.get(f"/cvs/{copy.id}?unlock=x").text
     assert '<fieldset class="m-0 flex flex-col gap-4 border-0 p-0" disabled>' in page
 
-    response = save(auth_client, copy, summary="Changed after sending.", edit_master="confirmed")
+    response = save(auth_client, copy, summary="Changed after sending.", unlock="x")
     assert response.status_code == 409
     assert stored(session, copy).summary == "From the profile."
 
@@ -163,28 +163,30 @@ def test_refresh_of_a_locked_copy_is_refused_even_with_the_unlock(
     session.add(profile)
     session.commit()
 
-    response = htmx_send(
-        auth_client, "POST", f"/cvs/{copy.id}/refresh", {"edit_master": "confirmed"}
-    )
+    response = htmx_send(auth_client, "POST", f"/cvs/{copy.id}/refresh", {"unlock": "x"})
 
     assert response.status_code == 409
     assert stored(session, copy).summary == "From the profile."
 
 
-@pytest.mark.parametrize("value", ["yes", "Confirmed", "confirmed "])
-def test_only_the_exact_unlock_value_opens_a_master(auth_client, session, master, value):
-    response = save(auth_client, master, summary="Sneaky change.", edit_master=value)
+@pytest.mark.parametrize("value", ["confirmed", "yes", "", "WRONG"])
+def test_only_the_sessions_unlock_value_opens_a_master(auth_client, session, master, value):
+    real = unlock_master(auth_client, "cv", master.id)
+    sent = real[:-1] + ("A" if real[-1] != "A" else "B") if value == "WRONG" else value
+
+    response = save(auth_client, master, summary="Sneaky change.", unlock=sent)
 
     assert response.status_code == 409
     assert stored(session, master).summary == "From the profile."
 
 
-@pytest.mark.parametrize("value", ["yes", "Confirmed"])
-def test_the_editor_stays_read_only_for_other_unlock_values(auth_client, master, value):
-    page = auth_client.get(f"/cvs/{master.id}?edit_master={value}").text
+@pytest.mark.parametrize("query", ["edit_master=confirmed", "unlock=confirmed", "unlock="])
+def test_the_editor_stays_read_only_for_other_unlock_values(auth_client, master, query):
+    # The old link (#89) and guessed values open the master read-only.
+    page = auth_client.get(f"/cvs/{master.id}?{query}").text
 
     assert '<fieldset class="m-0 flex flex-col gap-4 border-0 p-0" disabled>' in page
-    assert 'name="edit_master"' not in page
+    assert 'name="unlock"' not in page
 
 
 @pytest.mark.parametrize("locked", [False, True])

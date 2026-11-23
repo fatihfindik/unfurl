@@ -11,6 +11,7 @@ from app.schemas.cv import CVContent
 from app.services import document_service as docs
 from app.services.auth_service import create_user
 from app.services.profile_service import add_item, get_or_create_profile
+from tests.helpers import unlock_master
 from tests.test_profile_sections import htmx_send
 
 
@@ -236,17 +237,20 @@ def test_a_master_opens_read_only_with_edit_master(auth_client, master):
 
     assert "This is your master CV (English)." in page
     assert 'data-dialog-open="edit-master"' in page
-    assert f'href="/cvs/{master.id}?edit_master=confirmed"' in page
+    # A POST, not a link: a link from elsewhere can't skip the dialog (D-169).
+    assert f'hx-post="/cvs/{master.id}/edit-master"' in page
+    assert "edit_master=confirmed" not in page
     assert '<fieldset class="m-0 flex flex-col gap-4 border-0 p-0" disabled>' in page
-    assert 'name="edit_master"' not in page
+    assert 'name="unlock"' not in page
 
 
 def test_an_unlocked_master_can_be_edited(auth_client, session, master):
-    page = auth_client.get(f"/cvs/{master.id}?edit_master=confirmed").text
-    assert 'name="edit_master" value="confirmed"' in page
+    value = unlock_master(auth_client, "cv", master.id)
+    page = auth_client.get(f"/cvs/{master.id}?unlock={value}").text
+    assert f'name="unlock" value="{value}"' in page
     assert "You are editing your master CV." in page
 
-    response = save(auth_client, master, summary="Better master.", edit_master="confirmed")
+    response = save(auth_client, master, summary="Better master.", unlock=value)
 
     assert response.status_code == 200
     assert stored(session, master).summary == "Better master."
@@ -260,7 +264,12 @@ def test_a_master_is_not_changed_without_the_confirmation(auth_client, session, 
 
 
 def test_editing_the_master_leaves_copies_alone(auth_client, session, master, copy):
-    save(auth_client, master, summary="Better master.", edit_master="confirmed")
+    save(
+        auth_client,
+        master,
+        summary="Better master.",
+        unlock=unlock_master(auth_client, "cv", master.id),
+    )
 
     assert stored(session, copy).summary == "From the profile."
 

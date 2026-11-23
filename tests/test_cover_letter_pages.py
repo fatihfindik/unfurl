@@ -14,14 +14,14 @@ from app.schemas.cover_letter import LETTER_FIELDS, CoverLetterForm
 from app.services import cover_letter_service as letters
 from app.services.auth_service import create_user
 from app.services.profile_service import get_or_create_profile
-from tests.helpers import csrf_token
+from tests.helpers import csrf_token, unlock_master
 from tests.test_profile_sections import htmx_send
 
 # (method, url) for every letter route; "1" stands for any letter id.
 ROUTES = [
     ("POST", "/cover-letters"),
     ("GET", "/cover-letters/1"),
-    ("GET", "/cover-letters/1?edit_master=confirmed"),
+    ("GET", "/cover-letters/1?unlock=x"),
     ("POST", "/cover-letters/1"),
     ("POST", "/cover-letters/1/versions"),
     ("POST", "/cover-letters/1/refresh"),
@@ -197,7 +197,9 @@ def test_a_master_is_read_only_until_unlocked(auth_client, session, master):
     assert save(auth_client, master, body="Changed.").status_code == 409
     assert stored(session, master).body == ""
 
-    response = save(auth_client, master, body="Changed.", edit_master="confirmed")
+    response = save(
+        auth_client, master, body="Changed.", unlock=unlock_master(auth_client, "letter", master.id)
+    )
     assert response.status_code == 200
     assert stored(session, master).body == "Changed."
 
@@ -324,8 +326,8 @@ def test_another_users_letter_is_404_even_when_unlocked(
 ):
     url = f"/cover-letters/{their_master.id}{path}"
     if method == "GET":
-        url += "?edit_master=confirmed"
-    form = {"title": "Taken", "body": "Taken", "edit_master": "confirmed"}
+        url += "?unlock=x"
+    form = {"title": "Taken", "body": "Taken", "unlock": "x"}
 
     response = htmx_send(auth_client, method, url, form)
 
