@@ -487,3 +487,16 @@ document.addEventListener("DOMContentLoaded", () => {
     field.value = zone;
   });
 });
+
+// A link to a folded part (<details>, e.g. Apply › Prepare documents: "#prepare")
+// opens it, so the user sees what the link points at (D-151 fix links). Works when the
+// link is on the same page and when the page opens with that #part in the address.
+function openLinkedDetails(hash) {
+  const target = hash && document.getElementById(decodeURIComponent(hash.slice(1)));
+  if (target instanceof HTMLDetailsElement) target.open = true;
+}
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("a[href*='#']");
+  if (link && link.pathname === window.location.pathname) openLinkedDetails(link.hash);
+});
+document.addEventListener("DOMContentLoaded", () => openLinkedDetails(window.location.hash));
