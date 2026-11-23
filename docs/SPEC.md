@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.35 — 2026-11-23
+> **Durum:** MVP planı, v2.1.36 — 2026-11-23
+> v2.1.36: Teknik borçlar (T1): bilinmeyen Host başlığı 400 (D-168); "Edit master" kilidi adresteki bayraktan değil oturuma bağlı bir değerden (D-169); çift tıklama kilidi formların kendisinde, `<body>`'de değil (D-170); bir formda en fazla 1100 alan, route'lar daha azını koyabilir (D-171).
 > v2.1.35: M9a Design kararları: Final check 8 kural tabanlı kontrol, engellemez (D-151); başvuru detayında Apply/Progress ve Job & details sekmeleri, adresle (`?tab=details`) (D-164); Apply akışı: Prepare documents CV bağlanınca tamamlanır, Final check'te iki ayrı PDF linki ve "Mark as applied" durum değişikliğiyle aynı (D-165); belge paneli salt okunur önizleme (D-166); Progress görünümü ve timeline'dan "How you applied" (D-167).
 > v2.1.34: M8b Design kararları: mektup başvuruya CV gibi bağlanır (`CoverLetter.application_id`, `Application.cover_letter_id`), başvuru için kopyada boş alanlar ilandan dolar, gönderimde CV ile birlikte kilitlenir (`ApplicationDocument.cover_letter_id`, snapshot'ta tarih), tarih gönderimde sabitlenir, PDF adında şirket yoksa alıcı şirket, editörde "← {Başvuru}", Duplicate ve Copy text, Documents sayfasında başvuruya göre gruplama (D-157…D-163).
 > v2.1.33: M8a Design kararları: `CoverLetter` düz kolonlar (gönderen, alıcı, şehir, konu, selamlama, gövde, kapanış; tone/length/ai_generated V2, application_id M8b), CV ile ortak soy kuralları (`lineage.py`), dile göre selamlama/kapanış ve tarih (`full_date`, bugün, kullanıcının saat diliminde), "Refresh from profile" sadece gönderen alanları ve onayla (D-152…D-154).
@@ -1018,6 +1019,8 @@ Versiyon numarası `AIUsage` kaydına ve `FitAnalysis.model` yanına (`model@pro
 - [ ] Dosya yüklemede tip ve boyut kontrolü yapılır. Profil fotoğrafı: JPEG/PNG, max 2 MB, Pillow ile yeniden kaydedilir (EXIF temizlenir).
 - [ ] Jinja autoescape açıktır. AI çıktıları asla `|safe` ile render edilmez.
 - [ ] Güvenlik header'ları: `Content-Security-Policy` (sadece kendi origin'inden script), `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY`. Giriş gerektiren sayfalarda `Cache-Control: no-store` (D-120; HSTS deploy'da).
+- [ ] Host başlığı izinli adlarla sınırlıdır (`APP_BASE_URL`'in adı, `localhost`, `127.0.0.1`); başkası 400 (D-168, DNS rebinding).
+- [ ] Bir form en fazla 1100 alan taşır; route'lar daha küçük sınır koyabilir ve bu sınır CSRF kontrolünden sonra da uygulanır (D-171).
 - [ ] Production'da `DEBUG=false`, hata sayfaları stack trace göstermez. 404, 422 ve 500 uygulamanın kendi sayfalarıdır ve güvenlik header'larını alır (500 dahil); htmx isteğinde boş gövde + toast (D-125).
 
 ### 10.2 GDPR

@@ -920,3 +920,23 @@ Kaynak: `docs/plans/M9a.md`, plan-reviewer (1 Blocker, 7 Should, 5 Nit; hepsi pl
 ### D-167 · Progress görünümü
 - **Karar:** "Applied on {applied_at}" kartı (`applied_at` boşsa, ör. Saved → Rejected: kart yok, "You did not apply to this job."), başvurunun şu anki CV ve mektubu (rozet, "Preview", "PDF", kilitli değilse "Lock as sent"). "What happens next": next step'in kendi başlığı ve tarihi (`next_step_service`; elle değişmiş adım da doğru adıyla), `applied` iken "I got an interview" (= durum `interview`, mülakat modalı). "How you applied" (daraltılmış): timeline olaylarından (belge bağlama, kilit, Applied) tarihleriyle; Final check sonucu saklanmaz (Fatih). "Draft a follow-up email" V2.
 - **Alternatifler:** "Mark as applied" anında Final check özetini timeline'a yazmak (board ve durum seçiciden geçişte olmaz, tutarsız).
+
+## T1 — Dört küçük teknik borç (2026-11-23)
+
+Kaynak: `docs/plans/T1-tech-debt.md`, issue #85, #88, #89, #90; plan-reviewer (3 Blocker, 7 Should, 4 Nit; hepsi plana işlendi); Fatih planı ve iki sekme cevabını onayladı (2026-11-23). SPEC v2.1.36.
+
+### D-168 · Host başlığı kontrolü (#85)
+- **Karar:** Starlette `TrustedHostMiddleware`; izinli adlar `APP_BASE_URL`'in host'u, `localhost`, `127.0.0.1` ve sadece development'ta `testserver` (test istemcisi; DNS rebinding'de Host saldırganın alan adıdır). Başka Host → 400. Middleware `SecurityHeaders`'ın içinde, `ExtensionApiGuard`'ın dışında: 400 cevabı güvenlik başlıklarını taşır, kötü Host'un gövdesi okunmaz. Yeni env değişkeni yok; kişisel ortamı başka bir adla açan `APP_BASE_URL`'i o ada ayarlar.
+- **Alternatifler:** Sadece kişisel ortamda açmak (dev'de aynı risk); `[::1]` eklemek (Starlette'in host ayrıştırması köşeli parantezli IPv6'yı tanımaz, kullanılmıyor).
+
+### D-169 · "Edit master" kilidi oturuma bağlı bir değerle (#89, D-048'i tamamlar)
+- **Karar:** Onay penceresindeki "Edit master" htmx POST'u gönderir (`POST /cvs/{id}/edit-master`, `POST /cover-letters/{id}/edit-master`; giriş, CSRF, `user_id`, 30/dk; master değilse 409, başkasınınki 404). Oturumda belge başına rastgele bir değer saklanır (varsa yeniden kullanılır, Fatih: iki sekme de çalışır) ve editör `?unlock={değer}` ile açılır. Editör, form kaydı ve "Refresh from profile" kilidi sadece değer oturumdakiyle eşleşirse (`secrets.compare_digest`) açık sayar. Eski `?edit_master=confirmed` yok sayılır. Çıkışta oturumla birlikte silinir.
+- **Alternatifler:** Kilidi oturumda süreli tutmak (master'ı yeniden açınca habersiz açık gelir); her onayda yeni değer (eski sekmenin yazdıkları kaybolur).
+
+### D-170 · Çift tıklama kilidi formun kendisinde (#90, D-126'yı günceller)
+- **Karar:** `<body hx-disabled-elt="find [type=submit]">` kalkar. Değişiklik gönderen her eleman kendi `hx-disabled-elt`'ini taşır: formlar `find [type=submit]` (otomatik kaydeden ve filtre formları `unset`), kendi başına istek atan butonlar ve alanlar `this`. Böylece kural miras kalmaz, formu olmayan `hx-get` elemanları konsola hata yazmaz. `tests/test_loading.py` her yazan elemanı ve `base.html`'in kuralı taşımadığını kontrol eder.
+- **Alternatifler:** Kuralı `<body>`'de bırakıp formu olmayan elemanlara `unset` eklemek (her yeni `hx-get`'te hata geri gelir).
+
+### D-171 · Form alanı üst sınırı (#88)
+- **Karar:** Uygulama genelinde bir form en fazla 1100 alan taşır (`MAX_ANY_FORM_FIELDS`; en büyük meşru form CV editörü: 1000 madde onay kutusu + 7 bölüm + ~10 alan). `verify_csrf` formu bu sınırla ayrıştırır (Starlette önbelleğe alır); daha küçük sınırı olan route'lar (mektup 50, fotoğraf 5) ayrıştırmadan sonra alanları sayar ve fazlasını 400 ile reddeder. Gövde ham olarak okunmaz (FastAPI `Form()` route'larında akışı önceden tüketir; ham okuma sınırsız bellek demektir).
+- **Alternatifler:** Ham gövdeden token'ı ayrıca okumak (login gibi `Form()` route'larında 500, bellek sınırı yok); Starlette'in önbelleğini silmek (özel alan).
