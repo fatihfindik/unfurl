@@ -622,7 +622,9 @@ def _undo_link(
             and document.user_id == user.id
             and document.application_id == application.id
         ):
-            if previous is None or session.get(Application, previous) is not None:
+            # Only back into the user's own application (defence in depth, review M8b).
+            old_owner = session.get(Application, previous) if previous is not None else None
+            if previous is None or (old_owner is not None and old_owner.user_id == user.id):
                 document.application_id = previous
                 session.add(document)
     created = extra.get(f"created_{kind}")
@@ -820,8 +822,10 @@ def link_cv(
 ) -> ApplicationEvent:
     """Use `cv` for `application` (D-080): a draft copy of the user that belongs to no
     other application. Linking to a job that was sent already does not lock it; the
-    "Lock as sent" button does (D-082)."""
+    "Lock as sent" button does (D-082). A sent CV is never replaced."""
     if cv.user_id != user.id or cv.is_master or cv.is_locked:
+        raise CannotLink
+    if has_sent(session, user, application, CVDocument):  # a sent CV stays (review M8b)
         raise CannotLink
     if cv.application_id not in (None, application.id):
         raise CannotLink
@@ -854,11 +858,24 @@ def unlink_cv(session: Session, user: User, application: Application) -> Applica
     return event
 
 
+def has_sent(session: Session, user: User, application: Application, model) -> bool:
+    """True when the application's current CV or letter (`model`) is locked: it was
+    sent and stays in its place (D-082, D-159), so no other copy may take it."""
+    current_id = application.cv_id if model is CVDocument else application.cover_letter_id
+    if current_id is None:
+        return False
+    current = session.get(model, current_id)
+    return current is not None and current.user_id == user.id and current.is_locked
+
+
 def link_letter(
     session: Session, user: User, application: Application, letter: CoverLetter
 ) -> ApplicationEvent:
-    """Use `letter` for `application` (D-157): the same rules as link_cv."""
+    """Use `letter` for `application` (D-157): the same rules as link_cv. A sent
+    letter is never replaced (D-159, security review M8b)."""
     if letter.user_id != user.id or letter.is_master or letter.is_locked:
+        raise CannotLink
+    if has_sent(session, user, application, CoverLetter):
         raise CannotLink
     if letter.application_id not in (None, application.id):
         raise CannotLink

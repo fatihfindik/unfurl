@@ -907,7 +907,8 @@ def application_cv(
     """Use a CV for this application (D-080): `master` = make a new copy of that
     master, `cv` = an existing draft copy. Toast with Undo."""
     application = application_service.get_owned_application(session, user, application_id)
-    if application.archived:
+    # A sent CV stays (D-082); checked before a copy is made, so none is left over.
+    if application.archived or application_service.has_sent(session, user, application, CVDocument):
         raise HTTPException(status_code=409)
     before = application_service.note(session, user, application)
     created = None
@@ -971,7 +972,10 @@ def application_letter(
     a new copy of that master, with the job's details in its empty fields (D-158),
     `letter` = an existing draft copy. Toast with Undo."""
     application = application_service.get_owned_application(session, user, application_id)
-    if application.archived:
+    # A sent letter stays (D-159); checked before a copy is made, so none is left over.
+    if application.archived or application_service.has_sent(
+        session, user, application, CoverLetter
+    ):
         raise HTTPException(status_code=409)
     before = application_service.note(session, user, application)
     if data.get("master"):
