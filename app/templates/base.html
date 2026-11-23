@@ -25,11 +25,10 @@
   <title>{% block title %}{% endblock %} · Unfurl</title>
 </head>
 {#- hx-headers: every htmx request sends the CSRF token as a header (app/security.py).
-    hx-disabled-elt: while a form's request runs, its submit button is disabled, so a
-    second click can't send it twice (D-126). Buttons that send a request themselves
-    have hx-disabled-elt="this"; forms that save while typing have "unset". -#}
-<body class="min-h-screen md:flex" hx-headers='{{ {"X-CSRF-Token": csrf_token} | tojson }}'
-      hx-disabled-elt="find [type=submit]">
+    The double-click guard is not set here: each element that sends a change carries
+    its own hx-disabled-elt (D-126, D-170), so it isn't inherited by requests that
+    have nothing to disable (the console stays clean). -#}
+<body class="min-h-screen md:flex" hx-headers='{{ {"X-CSRF-Token": csrf_token} | tojson }}'>
 
   <nav aria-label="Main" x-data="mobileNav"
        class="flex flex-col gap-1 bg-surface border-b border-border px-3.5 py-3 md:w-[220px] md:shrink-0 md:border-b-0 md:border-r md:py-5">

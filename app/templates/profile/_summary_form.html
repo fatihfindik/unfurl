@@ -2,7 +2,7 @@
 <section id="profile-summary" aria-labelledby="profile-summary-title"
          class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
   <h2 id="profile-summary-title" class="m-0 text-base font-bold">Summary</h2>
-  <form hx-post="/profile/summary" hx-target="#profile-summary" hx-swap="outerHTML"
+  <form hx-disabled-elt="find [type=submit]" hx-post="/profile/summary" hx-target="#profile-summary" hx-swap="outerHTML"
         class="m-0 flex flex-col gap-4" novalidate>
     {{ csrf_field(csrf_token) }}
     {{ textarea_field("summary", "Summary", value=values.summary, error=errors.summary, maxlength=5000, rows=5, id_prefix="summary") }}

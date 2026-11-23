@@ -54,7 +54,7 @@
              class="flex size-8 cursor-pointer list-none items-center justify-center rounded-lg border border-border text-text-2 hover:border-border-strong">⋯</summary>
     <div class="absolute right-0 z-10 mt-1 flex w-60 flex-col gap-3 rounded-lg border border-border bg-surface p-3 shadow-[0_8px_24px_rgba(16,24,40,0.18)]">
       {%- if not row.done %}
-        <form class="m-0 flex items-end gap-2" hx-post="/learning/tasks/{{ row.id }}/reschedule" hx-swap="none">
+        <form hx-disabled-elt="find [type=submit]" class="m-0 flex items-end gap-2" hx-post="/learning/tasks/{{ row.id }}/reschedule" hx-swap="none">
           <label class="flex min-w-0 flex-1 flex-col gap-1 text-xs font-semibold text-text-2">Reschedule
             <input type="date" name="due_date" value="{{ row.due }}" required class="w-full">
           </label>

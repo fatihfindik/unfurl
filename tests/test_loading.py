@@ -43,22 +43,32 @@ def writing_tags():
                 yield f"{path.relative_to(TEMPLATES)}:{line}", name, tag
 
 
-def test_the_page_disables_a_forms_submit_button_while_it_saves():
+def test_the_page_sets_no_guard_for_everything():
+    # Inherited from <body>, the rule logged a console error for every request that
+    # has no submit button (badge, links, tabs; #90). Each element sets its own (D-170).
     base = (TEMPLATES / "base.html").read_text()
 
-    assert 'hx-disabled-elt="find [type=submit]"' in base
+    assert "hx-disabled-elt" not in without_comments(base)
 
 
 def test_every_element_that_sends_a_change_is_guarded():
-    # A <form> is covered by the page's rule; anything else that sends a request
-    # itself (a button, a checkbox, a select) disables itself ("this").
-    unguarded = [
-        where
-        for where, name, tag in writing_tags()
-        if name != "form" and "hx-disabled-elt" not in tag
-    ]
+    # A form disables its submit button ("find [type=submit]") or, when it saves while
+    # typing, nothing ("unset"); a button, checkbox or select disables itself ("this").
+    unguarded = [where for where, name, tag in writing_tags() if "hx-disabled-elt" not in tag]
 
     assert unguarded == []
+
+
+def test_forms_guard_their_submit_button_or_nothing():
+    wrong = [
+        where
+        for where, name, tag in writing_tags()
+        if name == "form"
+        and 'hx-disabled-elt="find [type=submit]"' not in tag
+        and 'hx-disabled-elt="unset"' not in tag
+    ]
+
+    assert wrong == []
 
 
 def test_the_scan_finds_the_known_cases():
