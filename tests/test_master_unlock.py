@@ -154,3 +154,44 @@ def test_at_most_30_a_minute(auth_client, cv_master):
     answers = [post(auth_client, f"/cvs/{cv_master.id}/edit-master").status_code for _ in range(31)]
 
     assert 429 not in answers[:30] and answers[30] == 429
+
+
+# --- Security review T1 (W1, W3) --------------------------------------------------------------
+
+
+def test_the_unlock_value_is_hidden_in_the_access_log():
+    import logging
+
+    from app.security import HideTokensFilter
+
+    record = logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        "",
+        0,
+        "%s",
+        ("GET /cvs/3?unlock=SECRETvalue HTTP/1.1",),
+        None,
+    )
+    HideTokensFilter().filter(record)
+
+    assert "SECRETvalue" not in record.args[0] and "unlock=***" in record.args[0]
+
+
+def test_the_session_keeps_at_most_20_unlock_values():
+    from app import master_unlock
+
+    class FakeRequest:
+        session: dict = {}
+
+    request = FakeRequest()
+    request.session = {}
+    first = master_unlock.unlock(request, "cv", 1)
+    for document_id in range(2, 22):  # 20 more masters
+        master_unlock.unlock(request, "cv", document_id)
+
+    assert len(request.session[master_unlock.SESSION_KEY]) == master_unlock.MAX_VALUES
+    assert not master_unlock.is_unlocked(request, "cv", 1, first)  # the oldest went first
+    assert master_unlock.is_unlocked(
+        request, "cv", 21, request.session[master_unlock.SESSION_KEY]["cv:21"]
+    )

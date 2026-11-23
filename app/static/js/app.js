@@ -500,3 +500,13 @@ document.addEventListener("click", (event) => {
   if (link && link.pathname === window.location.pathname) openLinkedDetails(link.hash);
 });
 document.addEventListener("DOMContentLoaded", () => openLinkedDetails(window.location.hash));
+
+// An unlocked master's editor (D-169): the unlock value stays in the form, but leaves
+// the address, so the browser's history and address bar don't offer a link that
+// opens the master unlocked without the "Edit master?" dialog (security review T1, W2).
+document.addEventListener("DOMContentLoaded", () => {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("unlock")) return;
+  url.searchParams.delete("unlock");
+  window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+});

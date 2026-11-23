@@ -17,6 +17,9 @@ import secrets
 from fastapi import Request
 
 SESSION_KEY = "master_unlock"
+# At most this many masters keep a value; the oldest go first. Values of deleted
+# masters would otherwise pile up in the session cookie (security review T1, W3).
+MAX_VALUES = 20
 
 
 def _key(kind: str, document_id: int) -> str:
@@ -30,6 +33,9 @@ def unlock(request: Request, kind: str, document_id: int) -> str:
     if not isinstance(value, str) or not value:
         value = secrets.token_urlsafe(16)
         values[_key(kind, document_id)] = value
+        # A dict keeps the order things were added in: drop the oldest.
+        while len(values) > MAX_VALUES:
+            values.pop(next(iter(values)))
         request.session[SESSION_KEY] = values
     return value
 
@@ -39,4 +45,6 @@ def is_unlocked(request: Request, kind: str, document_id: int, sent) -> bool:
     stored = (request.session.get(SESSION_KEY) or {}).get(_key(kind, document_id))
     if not isinstance(sent, str) or not sent or not isinstance(stored, str):
         return False
-    return secrets.compare_digest(sent, stored)
+    # As bytes: compare_digest refuses str with non-ASCII characters (a 500 for
+    # ?unlock=ä, security review T1, F1).
+    return secrets.compare_digest(sent.encode(), stored.encode())

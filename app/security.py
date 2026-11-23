@@ -416,11 +416,13 @@ def client_ip(request: Request) -> str:
 # log. Verify and reset links have their token there (/reset-password?token=...), and
 # a reset token in a log file would let anyone who reads the log take over the account.
 
-_TOKEN_IN_URL = re.compile(r"(token=)[^&\s]+")
+# unlock=: the value that unlocks a master for a session (D-169), not for a log either.
+_TOKEN_IN_URL = re.compile(r"((?:token|unlock)=)[^&\s]+")
 
 
 class HideTokensFilter(logging.Filter):
-    """Replaces every `token=...` value in a log line's arguments with `token=***`."""
+    """Replaces every `token=...` and `unlock=...` value in a log line's arguments
+    with `token=***` / `unlock=***`."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         if isinstance(record.args, tuple):
