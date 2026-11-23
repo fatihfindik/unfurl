@@ -1,6 +1,56 @@
 {#- The Apply tab (SPEC §6.7, D-165): ① Prepare documents → ② Final check.
+    Prepare is done once a CV is linked (the letter is optional); it then folds up and
+    Final check opens. An archived job shows the steps without their actions.
     Context: application and the documents context (see detail_context). -#}
-<section id="apply" aria-labelledby="apply-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
-  <h2 id="apply-title" class="m-0 text-base font-bold">Apply</h2>
-  <p class="m-0 text-sm text-text-2">Prepare your documents for this job, check them, then send them yourself.</p>
-</section>
+{% from "applications/_document_block.html" import document_block with context %}
+{%- set prepared = current_cv is not none %}
+<div id="apply" class="flex flex-col gap-4">
+  {%- if application.archived %}
+    <p class="m-0 rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm text-text-2">This job is archived. Restore it to prepare documents.</p>
+  {%- endif %}
+
+  {#- ① Prepare documents. Folded when done; "Show" opens it again (a reload folds it
+      again, D-165). -#}
+  <details id="prepare" class="group rounded-xl border border-border bg-surface p-5"{% if not prepared %} open{% endif %}>
+    <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
+      <span class="flex items-center gap-3">
+        {%- if prepared %}
+          <span aria-hidden="true" class="flex size-7 flex-none items-center justify-center rounded-full bg-green-bg text-sm font-bold text-green-text">✓</span>
+        {%- else %}
+          <span aria-hidden="true" class="flex size-7 flex-none items-center justify-center rounded-full bg-accent-bg-2 text-sm font-bold text-accent-text">1</span>
+        {%- endif %}
+        <span class="flex flex-col gap-0.5">
+          <strong class="text-[15px]">Prepare documents</strong>
+          <span class="text-xs text-text-3">
+            {%- if prepared %}
+              CV v{{ current_cv.version }}{% if current_letter %}, cover letter v{{ current_letter.version }}{% else %}, no cover letter{% endif %}
+            {%- else %}
+              Make a copy of your master for this job. Your master stays unchanged.
+            {%- endif %}
+          </span>
+        </span>
+      </span>
+      <span class="text-[13px] font-semibold text-link"><span class="group-open:hidden">Show</span><span class="hidden group-open:inline">Hide</span></span>
+    </summary>
+    <div class="mt-4 flex flex-col gap-3">
+      <h3 class="m-0 text-[13px] font-bold text-text-2">CV</h3>
+      {{ document_block("prepare", "cv", current_cv, masters, linkable, can_send) }}
+      <h3 class="m-0 mt-1 text-[13px] font-bold text-text-2">Cover letter <span class="font-normal text-text-3">· optional</span></h3>
+      {{ document_block("prepare", "letter", current_letter, letter_masters, linkable_letters, can_send_letter) }}
+    </div>
+  </details>
+
+  {#- ② Final check: waits until a CV is linked (D-165). -#}
+  <section id="final-check" aria-labelledby="final-check-title"
+           class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5{% if not prepared %} opacity-60{% endif %}">
+    <div class="flex items-center gap-3">
+      <span aria-hidden="true" class="flex size-7 flex-none items-center justify-center rounded-full bg-muted text-sm font-bold text-text-2">2</span>
+      <h2 id="final-check-title" class="m-0 text-[15px] font-bold">Final check</h2>
+    </div>
+    {%- if not prepared %}
+      <p class="m-0 text-sm text-text-3">Prepare your CV first.</p>
+    {%- else %}
+      <p class="m-0 text-sm text-text-2">Check your documents before you send them.</p>
+    {%- endif %}
+  </section>
+</div>
