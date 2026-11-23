@@ -50,7 +50,7 @@ The MVP ships without AI (D-150): items marked V2 are not built now. Order: M8a 
 - [ ] M6b Chrome extension: AI auto-fill and fit analysis · V2 (D-150)
 - [ ] M7 Fit analysis (Apply › Should I apply?) · V2 (D-150)
 - [x] M8a Cover letter: model and editor (no AI)
-- [ ] M8b Cover letter: PDF and applications
+- [x] M8b Cover letter: PDF and applications
 - [ ] M9a Apply flow without AI: prepare documents, final check, drawer, Progress
 - [x] M10 Learning
 - [x] M11a Notifications: bell, panel, scheduler, job search reminders
