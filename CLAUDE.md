@@ -60,6 +60,6 @@ The MVP ships without AI (D-150): items marked V2 are not built now. Order: M8a 
 - [x] M13a Polish: error pages, empty states, loading, Settings › Documents
 - [x] M13b GDPR: legal pages, data export, account deletion, Settings › Account
 - [ ] M13c Deploy · later (D-155): the MVP runs as a personal local instance
-- [ ] M13d Portfolio README
+- [x] M13d Portfolio README
 
 Update this checklist when a milestone is done.
