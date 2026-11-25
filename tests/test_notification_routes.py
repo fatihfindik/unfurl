@@ -55,6 +55,17 @@ def test_the_bell_loads_its_badge_and_panel(auth_client):
     assert 'id="notification-panel"' in html
 
 
+def test_the_badge_swaps_only_itself(auth_client):
+    """The badge sits inside the bell button, whose hx-target is the panel body.
+    htmx children inherit hx-target, so without hx-target="this" the badge replaced
+    the panel body on load and the bell opened an empty panel."""
+    page = auth_client.get("/").text
+    badge = auth_client.get("/notifications/badge").text
+
+    assert 'hx-trigger="load, every 120s" hx-target="this" hx-swap="outerHTML"' in page
+    assert 'hx-target="this" hx-swap="outerHTML"' in badge
+
+
 def test_no_bell_without_a_login(client):
     html = client.get("/login").text
 
