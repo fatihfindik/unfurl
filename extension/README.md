@@ -6,7 +6,7 @@ fields, click **Save to Unfurl** (SPEC §7, plan `docs/plans/M6a.md`).
 ## Install (developer mode)
 
 1. Start Unfurl: the extension talks to your personal instance on `http://127.0.0.1:8100`
-   (main `README.md`, "Personal local use"; D-156). For development, set `APP_BASE_URL` in
+   (`docs/DEVELOPMENT.md`, "Personal local use"; D-156). For development, set `APP_BASE_URL` in
    `config.js` to `http://localhost:8000` and run `uv run fastapi dev app/main.py`.
 2. In `.env`, set `EXTENSION_ORIGINS=chrome-extension://kjeninhhhleogjjnmplhbhifjnafmkmd`
    (the id that the `key` in `manifest.json` gives; see `.env.example`) and restart the server.

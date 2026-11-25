@@ -940,3 +940,19 @@ Kaynak: `docs/plans/T1-tech-debt.md`, issue #85, #88, #89, #90; plan-reviewer (3
 ### D-171 · Form alanı üst sınırı (#88)
 - **Karar:** Uygulama genelinde bir form en fazla 1100 alan taşır (`MAX_ANY_FORM_FIELDS`; en büyük meşru form CV editörü: 1000 madde onay kutusu + 7 bölüm + ~10 alan). `verify_csrf` formu bu sınırla ayrıştırır (Starlette önbelleğe alır); daha küçük sınırı olan route'lar (mektup 50, fotoğraf 5) ayrıştırmadan sonra alanları sayar ve fazlasını 400 ile reddeder. Gövde ham olarak okunmaz (FastAPI `Form()` route'larında akışı önceden tüketir; ham okuma sınırsız bellek demektir).
 - **Alternatifler:** Ham gövdeden token'ı ayrıca okumak (login gibi `Form()` route'larında 500, bellek sınırı yok); Starlette'in önbelleğini silmek (özel alan).
+
+## M13d — Portföy README'si (2026-11-23)
+
+Kaynak: `docs/plans/M13d.md`, issue #94; plan-reviewer (0 Blocker, 7 Should, 5 Nit; hepsi plana işlendi); Fatih planı ve altı sorunun cevaplarını onayladı (2026-11-23). SPEC v2.1.37.
+
+### D-172 · README portföy sayfası, işletim ayrıntıları ayrı dosyada
+- **Karar:** Repo herkese açık; `README.md` portföy okuyucusu için: ne olduğu, ekran görüntüleri, özellikler, mimari, nasıl yapıldı, What I learned, kendi bilgisayarında çalıştır (dev ve kişisel ortam; önkoşullar ve kişisel ortam uyarısı README'de kalır), belgeler. Ayrıntılı işletim notları `docs/DEVELOPMENT.md`'ye taşınır, metin kaybolmaz. Dürüst kapsam: AI'sız MVP, AI V2'de (D-150); canlı demo yok (D-155). Lisans dosyası yok, "All rights reserved" (Fatih). Emek satırı: "Built by Fatih Findik (product owner) with Claude Code".
+- **Alternatifler:** Her şeyi README'de tutmak (uzun, portföy okuyucusu kaybolur); MIT lisansı (Fatih şimdilik istemedi, sonra eklenebilir).
+
+### D-173 · Ekran görüntüleri sahte verili demo hesaptan
+- **Karar:** `scripts/seed_demo.py` kurgusal "Jana Novak"ı (fotoğrafsız) ve verisini uygulamanın servisleriyle yazar. Sadece `DATABASE_URL` SQLite ve dosya adı `demo.db` iken çalışır (hiçbir `app` modülünü import etmeden kontrol eder) ve veritabanında kullanıcı varsa durur; şifre çalışırken üretilir, sadece terminale yazılır. Tarihler bugüne göre, durumlar ve kilitler servislerle. Görüntüler açık temada (Fatih), 1440 px, ayrı bir Chrome profilinde çekilir (çerezler port ayırmaz; kişisel yer imi/otomatik doldurma görünmez), `docs/screenshots/` altında. Eklenti görüntüsü için demo bir kez `localhost:8000`'de çalışır (eklenti sadece 8000 ve 8100'e bağlanır, D-156).
+- **Alternatifler:** Prototip ekranları (uygulamanın kendisi değil); kendi hesabından bulanıklaştırılmış görüntü (gerçek veri, herkese açık repo).
+
+### D-174 · Mimari şema Mermaid ile
+- **Karar:** README'de GitHub'ın çizdiği Mermaid `flowchart`: tarayıcı (HTMX, Alpine, Tailwind) ve Chrome eklentisi (Bearer, `/api/ext`) → FastAPI middleware (TrustedHost, SecurityHeaders, Session, CSRF) → routers → services → SQLModel → PostgreSQL/SQLite; WeasyPrint, APScheduler, e-posta, Alembic; kişisel ortam Docker Compose.
+- **Alternatifler:** Çizim aracıyla PNG (güncellemesi zor, metin olarak incelenemez).

@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.36 — 2026-11-23
+> **Durum:** MVP planı, v2.1.37 — 2026-11-23
+> v2.1.37: M13d Design kararları: README portföy sayfası, işletim ayrıntıları `docs/DEVELOPMENT.md`'de (D-172); ekran görüntüleri sahte verili demo hesaptan (`scripts/seed_demo.py`, sadece `demo.db`'ye yazar), açık tema, eklenti dahil (D-173); mimari şema README'de Mermaid ile (D-174). Lisans yok, "All rights reserved".
 > v2.1.36: Teknik borçlar (T1): bilinmeyen Host başlığı 400 (D-168); "Edit master" kilidi adresteki bayraktan değil oturuma bağlı bir değerden (D-169); çift tıklama kilidi formların kendisinde, `<body>`'de değil (D-170); bir formda en fazla 1100 alan, route'lar daha azını koyabilir (D-171).
 > v2.1.35: M9a Design kararları: Final check 8 kural tabanlı kontrol, engellemez (D-151); başvuru detayında Apply/Progress ve Job & details sekmeleri, adresle (`?tab=details`) (D-164); Apply akışı: Prepare documents CV bağlanınca tamamlanır, Final check'te iki ayrı PDF linki ve "Mark as applied" durum değişikliğiyle aynı (D-165); belge paneli salt okunur önizleme (D-166); Progress görünümü ve timeline'dan "How you applied" (D-167).
 > v2.1.34: M8b Design kararları: mektup başvuruya CV gibi bağlanır (`CoverLetter.application_id`, `Application.cover_letter_id`), başvuru için kopyada boş alanlar ilandan dolar, gönderimde CV ile birlikte kilitlenir (`ApplicationDocument.cover_letter_id`, snapshot'ta tarih), tarih gönderimde sabitlenir, PDF adında şirket yoksa alıcı şirket, editörde "← {Başvuru}", Duplicate ve Copy text, Documents sayfasında başvuruya göre gruplama (D-157…D-163).
@@ -213,6 +214,8 @@ unfurl/
 │   ├── SPEC.md                # BU DOKÜMAN
 │   ├── prototype/             # Tıklanabilir prototip (*.dc.html), tasarım referansı
 │   ├── DECISIONS.md           # Mimari kararlar ve varsayımlar
+│   ├── DEVELOPMENT.md         # Kurulum ve işletim ayrıntıları (README'den taşındı, D-172)
+│   ├── screenshots/           # README görüntüleri, demo verisinden (D-173)
 │   └── LEARNING_LOG.md        # Her milestone'da öğrenilenler
 ├── app/
 │   ├── main.py                # FastAPI app, middleware, router kayıtları
@@ -311,6 +314,7 @@ unfurl/
 │   ├── extract_job/           # Örnek ilan metinleri + beklenen alanlar
 │   ├── fit_analysis/
 │   └── run_evals.py
+├── scripts/                   # build_css.sh, kişisel ortam (start/backup/restore), seed_demo.py (D-173)
 └── tests/
     ├── conftest.py
     ├── test_auth.py
@@ -1319,7 +1323,9 @@ MVP'de deploy yok; kişisel local ortam kullanılır (§11, D-155, D-156). Aşa�
 
 ### M13d — Portföy README'si (D-123)
 - Ekran görüntüleri, mimari şema, "What I learned" bölümü
-- **Kabul:** README'de "kendi bilgisayarında çalıştır" adımları (dev ve kişisel ortam), mimari şema ve ekran görüntüleri var; canlı URL deploy ile (D-155).
+- README portföy sayfası (ne olduğu, görüntüler, özellikler, mimari, nasıl yapıldı, What I learned, kendi bilgisayarında çalıştır); ayrıntılar `docs/DEVELOPMENT.md` (D-172)
+- Görüntüler `scripts/seed_demo.py`'nin kurgusal kullanıcısıyla, ayrı `demo.db`'den; açık tema; eklenti dahil (D-173). Mimari şema Mermaid (D-174)
+- **Kabul:** README'de "kendi bilgisayarında çalıştır" adımları (dev ve kişisel ortam), mimari şema ve ekran görüntüleri var; görüntülerde ve belgelerde gerçek kişisel veri yok; canlı URL deploy ile (D-155).
 
 ---
 

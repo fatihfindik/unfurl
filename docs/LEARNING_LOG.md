@@ -679,3 +679,29 @@
 **SPEC / WORKFLOW changes?**
 - SPEC: yes, v2.1.36 (§10.1: Host check, form field limit). D-168…D-171.
 - WORKFLOW: no.
+
+## M13d — Portfolio README (2026-11-25, log written by Claude)
+
+**Concepts**
+- A README has a reader: a portfolio visitor wants what it is, pictures and how it was
+  built; operating notes belong in a separate file (`docs/DEVELOPMENT.md`, D-172).
+- Screenshots from a fictional demo account in its own database (`demo.db`), never from
+  real data. The seed script refuses any other database and any database with users.
+- Playwright drives a fresh browser profile from a script: same viewport and theme for
+  every shot, and no bookmarks or extensions in the picture.
+- A Mermaid diagram is text in the README; GitHub draws it, and it changes with the code
+  in the same PR (D-174).
+- Taking screenshots is also a test: the empty notification panel showed a bug that
+  every pytest test missed (#95). htmx children inherit `hx-target`, so the badge
+  inside the bell button replaced the panel body.
+
+**What was hard**
+- Claims in a README go stale or are slightly wrong ("tests run on Postgres in CI");
+  every sentence was checked against the code and `ci.yml`.
+
+**What I will do differently**
+- Look at the real page in a browser for any htmx change, not only at the test results.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.37 (M13d details, §4 tree). D-172…D-174.
+- WORKFLOW: no.
