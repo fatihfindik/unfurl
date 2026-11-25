@@ -92,7 +92,7 @@ def seed(session, password: str) -> None:
         "messy field work into simple tools."
     )
     profile.email = "jana.novak@example.com"
-    profile.phone = "+43 1 234 5678"
+    profile.phone = "+43 1 000 0000"  # clearly fictional, not a real line
     profile.location = "Wien, Austria"
     session.add(profile)
     session.commit()
