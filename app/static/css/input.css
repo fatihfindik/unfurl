@@ -251,7 +251,8 @@
     padding: 10px 12px;
   }
   /* Selects draw their own chevron (D-197): the browser's arrow sits right at the
-     edge. A mid grey that reads in both themes; room on the right for the arrow. */
+     edge. A mid grey that reads in both themes; room on the right for the arrow.
+     Don't give a select px-* or pr-* (it would cover the arrow); use pl-* instead. */
   select {
     appearance: none;
     padding-right: 36px;
