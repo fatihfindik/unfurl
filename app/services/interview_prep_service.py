@@ -366,8 +366,11 @@ def restore(session: Session, user: User, payload: dict) -> None:
     application_id = payload.get("application_id")
     if type(application_id) is not int or not 0 < application_id <= MAX_ID:
         raise trash_service.CannotRestore
+    # Locked like add (Postgres), so an Undo and an add at the same moment can't pass 100.
     application = session.exec(
-        select(Application).where(Application.id == application_id, Application.user_id == user.id)
+        select(Application)
+        .where(Application.id == application_id, Application.user_id == user.id)
+        .with_for_update()
     ).first()
     if application is None or application.archived:
         raise trash_service.CannotRestore

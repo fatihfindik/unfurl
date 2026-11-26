@@ -22,7 +22,7 @@ from starlette.datastructures import FormData
 from app.db import get_session
 from app.models import Application, User
 from app.models.interview import MAX_QUESTIONS
-from app.security import UserFacingHTTPException, limiter
+from app.security import UserFacingHTTPException, limiter, read_limited_form
 from app.services import application_service, undo_service
 from app.services import interview_prep_service as prep
 from app.services.auth_service import require_user
@@ -41,16 +41,12 @@ CARDS = {"likely": "applications/_prep_likely.html", "to_ask": "applications/_pr
 
 
 async def read_form_data(request: Request) -> FormData:
-    """The submitted form (async, so the routes can stay sync, like applications.py)."""
-    return await request.form()
+    """The submitted form, at most MAX_FIELDS fields (400 otherwise, D-171). Async, so
+    the routes can stay sync, like applications.py."""
+    return await read_limited_form(request, MAX_FIELDS)
 
 
 SubmittedForm = Annotated[FormData, Depends(read_form_data)]
-
-
-def check_field_count(data: FormData) -> None:
-    if len(data.multi_items()) > MAX_FIELDS:
-        raise HTTPException(status_code=400)
 
 
 @contextmanager
@@ -82,9 +78,13 @@ def card(request, session, user, application: Application, kind: str, headers=No
     return render(request, CARDS[kind], context, headers)
 
 
-def owned(session, user, application_id: str, question_id: str | None = None):
-    """The user's application (404 otherwise) and, if asked for, its question."""
-    application = application_service.get_owned_application(session, user, application_id)
+def owned(session, user, application_id: str, question_id: str | None = None, *, lock=False):
+    """The user's application (404 otherwise) and, if asked for, its question. With
+    lock, the application row stays locked until the commit (Postgres), so two adds at
+    the same moment can't both pass the 100-question check (security review M14a, W2)."""
+    application = application_service.get_owned_application(
+        session, user, application_id, lock=lock
+    )
     if question_id is None:
         return application, None
     return application, prep.get_owned_question(session, user, application, question_id)
@@ -105,7 +105,6 @@ def start_prep(
     """ "Start interview prep" (with the starter set) or "Start with an empty list".
     Nothing is typed yet, so the page may reload itself (application-changed); the
     address keeps the tab. A second start (another tab) changes nothing."""
-    check_field_count(data)
     application, _ = owned(session, user, application_id)
     with service_errors():
         prep.start(session, user, application, with_starters=data.get("starters") == "1")
@@ -125,8 +124,7 @@ def add_question(
     data: SubmittedForm,
 ):
     """ "Add a question" under either card. The answer is that card, drawn again."""
-    check_field_count(data)
-    application, _ = owned(session, user, application_id)
+    application, _ = owned(session, user, application_id, lock=True)
     kind = data.get("kind")
     with service_errors():
         prep.add(session, user, application, kind, data.get("category"), data.get("text"))
@@ -179,7 +177,6 @@ def question_save(
     data: SubmittedForm,
 ):
     """Save the edit form. The card is drawn again: a new category moves the question."""
-    check_field_count(data)
     application, question = owned(session, user, application_id, question_id)
     with service_errors():
         prep.update_question(session, application, question, data.get("text"), data.get("category"))
@@ -201,7 +198,6 @@ def answer_save(
 ):
     """The answer draft (or their answer), saved while typing (D-179). The answer is
     only "Saved" and the "{n} of {m} answered" line, never the textarea itself."""
-    check_field_count(data)
     application, question = owned(session, user, application_id, question_id)
     with service_errors():
         prep.save_answer(session, application, question, data.get("answer"))
@@ -222,7 +218,6 @@ def asked_save(
 ):
     """The "asked" tick of a question to ask. The form sends a hidden "0" and, when
     ticked, the checkbox's "1"."""
-    check_field_count(data)
     application, question = owned(session, user, application_id, question_id)
     with service_errors():
         prep.set_asked(session, application, question, "1" in data.getlist("asked"))
@@ -261,7 +256,6 @@ def notes_save(
     data: SubmittedForm,
 ):
     """The company and role notes, saved while typing (D-179)."""
-    check_field_count(data)
     application, _ = owned(session, user, application_id)
     with service_errors():
         prep.save_notes(session, application, data.get("interview_notes"))
