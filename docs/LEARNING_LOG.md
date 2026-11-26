@@ -761,3 +761,10 @@
 **SPEC / WORKFLOW changes?**
 - SPEC: yes, v2.1.39 (§5.2b, §5.5c, §6.4, §6.7, §12 M14b). D-181…D-185.
 - WORKFLOW: no.
+
+## #103 — Learning plan: Done tab, goal filter, edit by title (2026-11-26, log written by Claude)
+
+- Real data shows what tests don't: with 287 tasks, things at the bottom of a list are invisible. Feedback from real use changed the design.
+- A query parameter that filters must be validated and then only the checked value is used to build links (`goal_filter`), never the raw text.
+- htmx inherits attributes from parent elements: a control inside `#learning-region` needs its own `hx-target`, or it swaps the whole region into itself.
+- State in the URL (`?view=done&goal=2`) survives reloads, tabs and bookmarks, and every link of the region must carry it.
