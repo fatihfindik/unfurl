@@ -303,10 +303,10 @@ def test_too_many_notes(session, user, job, monkeypatch):
 def test_status_change_whose_note_does_not_fit(session, user, job, monkeypatch):
     monkeypatch.setattr(apps, "MAX_NOTES_PER_APPLICATION", 0)
 
-    with pytest.raises(m.Failed, match="Status changed, but the note didn't fit"):
+    with pytest.raises(m.Failed, match="too many notes"):
         m.update_application_status(session, user, job.id, "rejected", note="Got an email")
 
-    assert fresh(session, job).status == "rejected"  # the message says so
+    assert fresh(session, job).status == "saved"  # an error means nothing changed
 
 
 @pytest.mark.parametrize("note", ["", "   ", "x" * 2001])

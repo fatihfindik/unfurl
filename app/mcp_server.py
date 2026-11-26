@@ -539,7 +539,7 @@ def list_applications(
     jobs = list(session.exec(query))
     if text:
         words = applications.search_key(text[:100]).split()
-        jobs = [job for job in jobs if applications._matches(job, words)]
+        jobs = [job for job in jobs if applications.matches(job, words)]
     jobs.sort(key=lambda job: (clock.local(job.last_activity_at), job.id), reverse=True)
     return {
         "total": len(jobs),
@@ -674,14 +674,14 @@ def update_application_status(
     if status != "archived" and status not in BOARD_STATUSES:
         raise Failed(f"status must be one of {', '.join(BOARD_STATUSES)} or archived.")
     form = _form(NoteForm, {"text": note}) if note is not None else None
+    # Check the note first: an error must mean nothing changed (Claude may try again).
+    if form is not None and not applications.has_room_for_note(session, job):
+        raise Failed("The note doesn't fit: this application has too many notes.")
     _check_lock(session, user, job, status, confirm_lock)
     locks = _would_lock(session, user, job, status)
     events = applications.set_status(session, user, job, status)
     if form is not None:
-        try:
-            events.append(applications.add_note(session, user, job, form.text))
-        except applications.TooManyNotes:
-            raise Failed("Status changed, but the note didn't fit: too many notes.") from None
+        events.append(applications.add_note(session, user, job, form.text))
     session.refresh(job)
     return application_info(job) | {
         "changed": bool(events),  # False: it already had that status
@@ -717,7 +717,7 @@ DESCRIPTIONS = {
     "are left alone; tasks it added are removed only if untouched.",
     "discard_changes": "Drop a preview without applying it.",
     "list_applications": "List job applications, most recently active first. Filter by "
-    "status (saved/applied/interview/offer/rejected), text in company or title, "
+    "status (saved/applied/interview/offer/rejected), text in company, title or location, "
     "include_archived. At most 200 per call; page with offset.",
     "get_application": "One application: details, next step, interview and the latest "
     "timeline lines (notes, status changes).",
