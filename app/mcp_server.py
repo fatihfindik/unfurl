@@ -33,7 +33,14 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy import Engine
 from sqlmodel import Session, col, func, select
 
-from app.models import Application, LearningGoal, LearningTask, User
+from app.models import (
+    Application,
+    CoverLetter,
+    CVDocument,
+    LearningGoal,
+    LearningTask,
+    User,
+)
 from app.models.application import BOARD_STATUSES
 from app.models.change_set import PendingChangeSet
 from app.models.user import normalize_email
@@ -433,15 +440,23 @@ def _cut(text: str | None) -> str | None:
     return text if text is None or len(text) <= MAX_TEXT else text[:MAX_TEXT] + "…"
 
 
-def _would_lock(job: Application, status: str) -> bool:
+def _would_lock(session: Session, user: User, job: Application, status: str) -> bool:
     """True if moving `job` to `status` locks its linked CV or letter for good (D-082):
-    a sent status, from one that isn't, with a document linked."""
-    sent = applications.SENT_STATUSES
-    return bool(job.cv_id or job.cover_letter_id) and status in sent and job.status not in sent
+    every move into a sent status locks the linked documents that are still drafts,
+    also Applied → Interview (a draft linked after applying stays a draft until then)."""
+    if status not in applications.SENT_STATUSES or status == job.status:
+        return False  # no move (only a restore at most), so nothing gets locked
+    for model, doc_id in ((CVDocument, job.cv_id), (CoverLetter, job.cover_letter_id)):
+        doc = session.get(model, doc_id) if doc_id else None
+        if doc is not None and doc.user_id == user.id and not doc.is_locked:
+            return True
+    return False
 
 
-def _check_lock(job: Application, status: str, confirm_lock: bool) -> None:
-    if _would_lock(job, status) and not confirm_lock:
+def _check_lock(
+    session: Session, user: User, job: Application, status: str, confirm_lock: bool
+) -> None:
+    if _would_lock(session, user, job, status) and not confirm_lock:
         raise Failed(
             "This would lock the application's linked CV and cover letter for good. Ask "
             "the user; if they agree, call again with confirm_lock=true."
@@ -619,10 +634,10 @@ def schedule_interview(
     confirm_lock: bool = False,
 ) -> dict:
     """Save an interview (D-076). The application moves to Interview (and out of the
-    archive); if it wasn't sent yet, that locks its linked CV and cover letter (D-082),
-    which needs confirm_lock=true."""
+    archive); moving there locks its linked CV and cover letter that are still drafts
+    (D-082), which needs confirm_lock=true."""
     job = _application(session, user, application_id)
-    _check_lock(job, "interview", confirm_lock)
+    _check_lock(session, user, job, "interview", confirm_lock)
     form = _form(
         InterviewForm,
         {
@@ -652,15 +667,15 @@ def update_application_status(
     confirm_lock: bool = False,
 ) -> dict:
     """Move an application to another status, or "archived" (SPEC §9.8, with an optional
-    note). Applied, Interview and Offer lock its linked CV and cover letter (D-082) if
-    it wasn't sent yet: that needs confirm_lock=true and can't be undone here. A new
+    note). Moving to Applied, Interview or Offer locks its linked CV and cover letter
+    that are still drafts (D-082): that needs confirm_lock=true and can't be undone. A new
     status also clears a next step set by hand (D-073)."""
     job = _application(session, user, application_id)
     if status != "archived" and status not in BOARD_STATUSES:
         raise Failed(f"status must be one of {', '.join(BOARD_STATUSES)} or archived.")
     form = _form(NoteForm, {"text": note}) if note is not None else None
-    _check_lock(job, status, confirm_lock)
-    locks = _would_lock(job, status)
+    _check_lock(session, user, job, status, confirm_lock)
+    locks = _would_lock(session, user, job, status)
     events = applications.set_status(session, user, job, status)
     if form is not None:
         try:
@@ -712,13 +727,14 @@ DESCRIPTIONS = {
     "note (needed for custom).",
     "finish_next_step": "Mark an application's current next step done.",
     "schedule_interview": "Save an interview: date, optional time, type (video/phone/onsite) "
-    "and who with. Moves the application to Interview; if it wasn't sent yet that locks "
-    "its linked CV and cover letter for good, which needs confirm_lock=true after the "
-    "user agreed.",
+    "and who with. Moves the application to Interview; that locks its linked CV and "
+    "cover letter for good if they are still drafts, which needs confirm_lock=true after "
+    "the user agreed.",
     "update_application_status": "Change an application's status (saved, applied, "
     "interview, offer, rejected) or archive it, with an optional note. It clears a next "
-    "step set by hand. Applied, interview and offer lock the linked CV and cover letter "
-    "for good (if not sent yet): that needs confirm_lock=true after the user agreed.",
+    "step set by hand. Moving to applied, interview or offer locks the linked CV and "
+    "cover letter for good if they are still drafts: that needs confirm_lock=true after "
+    "the user agreed.",
 }
 TOOLS = [
     (get_learning_plan, READ),
