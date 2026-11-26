@@ -242,10 +242,12 @@ def restore_story(session: Session, user: User, payload: dict) -> Story:
     for application_id in dict.fromkeys(application_ids):  # each once, in order
         if type(application_id) is not int or not 0 < application_id <= MAX_ID:
             continue
+        # Locked like a pick (Postgres), so an Undo and a pick at the same moment can't
+        # pass MAX_STORIES_PER_INTERVIEW (security review M14b, W2).
         owned = session.exec(
-            select(Application.id).where(
-                Application.id == application_id, Application.user_id == user.id
-            )
+            select(Application.id)
+            .where(Application.id == application_id, Application.user_id == user.id)
+            .with_for_update()
         ).first()
         if owned is None:
             continue

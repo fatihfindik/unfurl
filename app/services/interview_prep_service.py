@@ -240,9 +240,10 @@ def stories_of(session: Session, user: User, application: Application) -> list[S
     """The stories picked for this interview, in the order they were picked."""
     return list(
         session.exec(
-            select(Story)
+            _user_stories()
             .join(InterviewStory, col(InterviewStory.story_id) == col(Story.id))
             .where(
+                Profile.user_id == user.id,  # the story's owner too, not only the link's
                 InterviewStory.user_id == user.id,
                 InterviewStory.application_id == application.id,
             )
@@ -304,6 +305,8 @@ def unlink_story(session: Session, user: User, application: Application, story_i
         number = int(story_id)
     except (TypeError, ValueError):
         raise HTTPException(status_code=404) from None
+    if not 0 < number <= MAX_ID:  # Postgres can't compare a bigger number to an id
+        raise HTTPException(status_code=404)
     link = session.exec(
         select(InterviewStory).where(
             InterviewStory.user_id == user.id,
