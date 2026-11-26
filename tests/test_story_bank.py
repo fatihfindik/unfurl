@@ -273,3 +273,167 @@ def test_undo_into_another_profile_is_refused(session, user, profile):
     with pytest.raises(trash_service.CannotRestore):
         profile_service.restore_story(session, user, {"profile_id": theirs.id, "title": "X"})
     assert session.exec(select(Profile).where(Profile.id == theirs.id)).one().version == 0
+
+
+# --- Stories for this interview (D-183, D-184) --------------------------------------
+
+from app.services import interview_prep_service as prep  # noqa: E402
+
+
+@pytest.fixture
+def job(session, user):
+    application = apps.create(session, user, company="Kranich Health", job_title="Senior PM")
+    application.status = "interview"
+    session.add(application)
+    session.commit()
+    prep.start(session, user, application, with_starters=False)
+    return application
+
+
+def card_of(client, job) -> str:
+    html = client.get(f"/applications/{job.id}?tab=interview").text
+    start = html.index('<section id="prep-stories"')
+    return html[start : html.index("</section>", start)]
+
+
+def pick(client, job, story_id):
+    return send(client, "POST", f"/applications/{job.id}/prep/stories", {"story_id": str(story_id)})
+
+
+def remove(client, job, story_id):
+    return send(client, "POST", f"/applications/{job.id}/prep/stories/{story_id}/remove")
+
+
+def links(session):
+    session.expire_all()
+    return [(link.application_id, link.story_id) for link in session.exec(select(InterviewStory))]
+
+
+def test_an_empty_library_links_to_my_profile(auth_client, profile, job):
+    card = card_of(auth_client, job)
+
+    assert "No stories yet." in card and 'href="/profile#profile-stories"' in card
+    assert "Add a story" not in card
+
+
+def test_the_card_sits_between_questions_and_notes(auth_client, profile, job):
+    html = auth_client.get(f"/applications/{job.id}?tab=interview").text
+
+    assert html.index('id="prep-likely"') < html.index('id="prep-stories"')
+    assert html.index('id="prep-stories"') < html.index('id="prep-notes"')
+
+
+def test_pick_and_remove_a_story(auth_client, session, profile, job):
+    story = add(session, Story(profile_id=profile.id, title="Launch", tags="SQL", result="Shipped"))
+    assert f'<option value="{story.id}">Launch · SQL</option>' in card_of(auth_client, job)
+
+    response = pick(auth_client, job, story.id)
+
+    assert response.status_code == 200
+    assert response.text.lstrip().startswith('<section id="prep-stories"')
+    assert "Shipped" in response.text and "Add a story" not in response.text  # none left
+    assert "HX-Trigger" not in response.headers
+    assert links(session) == [(job.id, story.id)]
+
+    response = remove(auth_client, job, story.id)
+    assert response.status_code == 200 and "HX-Trigger" not in response.headers
+    assert links(session) == []
+    assert session.get(Story, story.id) is not None  # only the link is gone
+
+
+def test_picking_twice_keeps_one_link(auth_client, session, profile, job):
+    story = add(session, Story(profile_id=profile.id, title="Launch"))
+
+    pick(auth_client, job, story.id)
+    assert pick(auth_client, job, story.id).status_code == 200
+
+    assert links(session) == [(job.id, story.id)]
+
+
+def test_picking_starts_the_prep(auth_client, session, user, profile):
+    fresh_job = apps.create(session, user, company="Alpha", job_title="PM")
+    story = add(session, Story(profile_id=profile.id, title="Launch"))
+
+    pick(auth_client, fresh_job, story.id)
+
+    session.refresh(fresh_job)
+    assert fresh_job.interview_prep_started_at is not None
+
+
+def test_at_most_20_stories(auth_client, session, user, profile, job):
+    stories = [add(session, Story(profile_id=profile.id, title=f"S{n}")) for n in range(21)]
+    for story in stories[:20]:
+        add(session, InterviewStory(user_id=user.id, application_id=job.id, story_id=story.id))
+
+    response = pick(auth_client, job, stories[20].id)
+
+    assert response.status_code == 409
+    toast = json.loads(response.headers["HX-Trigger"])["toast"]
+    assert toast["message"] == "An interview can have up to 20 stories."
+    assert len(links(session)) == 20
+    assert "Add a story" not in card_of(auth_client, job)
+
+
+def test_archived_job_is_409_and_read_only(auth_client, session, user, profile, job):
+    story = add(session, Story(profile_id=profile.id, title="Launch"))
+    other = add(session, Story(profile_id=profile.id, title="Other"))
+    add(session, InterviewStory(user_id=user.id, application_id=job.id, story_id=story.id))
+    job.archived = True
+    session.add(job)
+    session.commit()
+
+    assert pick(auth_client, job, other.id).status_code == 409
+    assert remove(auth_client, job, story.id).status_code == 409
+    card = card_of(auth_client, job)
+    assert "Remove" not in card and "Add a story" not in card
+    assert links(session) == [(job.id, story.id)]
+
+
+def test_another_users_story_or_job_is_404(auth_client, session, user, profile, job):
+    other = create_user(session, email="other@example.com", password="x" * 12, full_name="O")
+    their_profile = profile_service.get_or_create_profile(session, other)
+    their_story = add(session, Story(profile_id=their_profile.id, title="Theirs"))
+    their_job = apps.create(session, other, company="Other", job_title="PM")
+    mine = add(session, Story(profile_id=profile.id, title="Mine"))
+    add(
+        session,
+        InterviewStory(user_id=other.id, application_id=their_job.id, story_id=their_story.id),
+    )
+
+    assert pick(auth_client, job, their_story.id).status_code == 404
+    assert pick(auth_client, their_job, mine.id).status_code == 404
+    assert remove(auth_client, their_job, their_story.id).status_code == 404
+    assert links(session) == [(their_job.id, their_story.id)]
+
+
+@pytest.mark.parametrize("bad", ["", "abc", "0", str(2**31)])
+def test_a_bad_story_id_is_404(auth_client, profile, job, bad):
+    assert pick(auth_client, job, bad).status_code == 404
+    assert remove(auth_client, job, bad or "x").status_code == 404
+
+
+def test_removing_a_story_that_isnt_picked_is_404(auth_client, session, profile, job):
+    story = add(session, Story(profile_id=profile.id, title="Launch"))
+
+    assert remove(auth_client, job, story.id).status_code == 404
+
+
+def test_story_writes_need_csrf_and_few_fields(auth_client, session, profile, job):
+    story = add(session, Story(profile_id=profile.id, title="Launch"))
+    url = f"/applications/{job.id}/prep/stories"
+
+    assert auth_client.post(url, data={"story_id": str(story.id)}).status_code == 403
+    many = {"story_id": str(story.id)} | {f"f{n}": "x" for n in range(20)}
+    assert send(auth_client, "POST", url, many).status_code == 400
+    assert links(session) == []
+
+
+def test_picked_stories_are_escaped(auth_client, session, profile, job):
+    story = add(
+        session, Story(profile_id=profile.id, title="<i>T</i>", action="<script>x</script>")
+    )
+    pick(auth_client, job, story.id)
+
+    card = card_of(auth_client, job)
+
+    assert "&lt;i&gt;T&lt;/i&gt;" in card and "&lt;script&gt;" in card
