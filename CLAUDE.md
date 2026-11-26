@@ -34,7 +34,7 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - Personal instance (Fatih's real data, D-155): `docker compose -f docker-compose.personal.yml --env-file .env.personal up -d --build` on http://127.0.0.1:8100; backup `scripts/backup_personal.sh`, restore `scripts/restore_personal.sh`. Never run `down -v` on it, and never test against it: test copies use `UNFURL_PROJECT`/`UNFURL_PORT`/`UNFURL_ENV_FILE`.
 
 ## Milestone status
-The MVP ships without AI (D-150): items marked V2 are not built now. Order: M8a → M8b → M9a → M13d; no deploy for now (D-155).
+The MVP ships without AI (D-150): items marked V2 are not built now. Order: M8a → M8b → M9a → M13d → M14a → M14b; no deploy for now (D-155).
 - [x] M0 Project skeleton
 - [x] M1a Authentication: session core, CSRF, redirects, entitlements
 - [x] M1b Authentication: email verification, password reset, login lockout
@@ -61,5 +61,7 @@ The MVP ships without AI (D-150): items marked V2 are not built now. Order: M8a 
 - [x] M13b GDPR: legal pages, data export, account deletion, Settings › Account
 - [ ] M13c Deploy · later (D-155): the MVP runs as a personal local instance
 - [x] M13d Portfolio README
+- [x] M14a Interview prep tab (no AI, D-175)
+- [ ] M14b Interview prep: STAR story bank (no AI, D-175)
 
 Update this checklist when a milestone is done.

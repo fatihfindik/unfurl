@@ -1,0 +1,58 @@
+{#- The Interview prep tab (SPEC §6.7, M14a, D-176…D-180): likely questions with my
+    answer drafts, the company and role notes, and questions to ask them. No AI (D-175).
+    Context: application and interview_prep_service.tab_context (prep_*).
+    Opening the tab writes nothing (D-178): the starter set comes with the button.
+    Nothing here reloads the page (D-179): each card and field swaps itself. -#}
+<div id="interview-prep" class="flex flex-col gap-4">
+  <section aria-labelledby="prep-when" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-5 py-4">
+    {%- if prep_interview_line %}
+      <p id="prep-when" class="m-0 text-sm"><strong>Interview</strong> · {{ prep_interview_line }}</p>
+    {%- else %}
+      <p id="prep-when" class="m-0 text-sm text-text-2">No interview date yet.</p>
+    {%- endif %}
+    {%- if application.status == "interview" and not application.archived %}
+      {#- The same modal as the Next step card's button (app.js openInterview). -#}
+      <button type="button" data-interview-open="{{ application.id }}"
+              class="text-[13px] font-semibold text-link hover:underline">{{ "Change" if application.interview_at else "Add it" }}</button>
+    {%- endif %}
+  </section>
+
+  {%- if application.archived %}
+    <p class="m-0 rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm text-text-2">This job is archived. Restore it to edit your prep.</p>
+  {%- endif %}
+
+  {%- if not prep_started %}
+    <section aria-labelledby="prep-start-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+      <h2 id="prep-start-title" class="m-0 text-base font-bold">Prepare for your interview</h2>
+      <p class="m-0 text-sm text-text-2">Write down answers to the questions you will likely get, notes about {{ application.company }}, and the questions you want to ask. Start with 12 common questions and 4 questions to ask, and change them as you like.</p>
+      {%- if prep_editable %}
+        <div class="flex flex-wrap gap-2.5">
+          {%- for starters, label, style in [("1", "Start interview prep", "border-transparent bg-[#4F46E5] text-white hover:bg-[#4338CA]"), ("0", "Start with an empty list", "border-border-strong bg-surface text-text hover:bg-muted")] %}
+            <button type="button" hx-post="/applications/{{ application.id }}/prep/start" hx-vals='{"starters": "{{ starters }}"}'
+                    hx-swap="none" hx-disabled-elt="this"
+                    class="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold {{ style }}">{{ label }}</button>
+          {%- endfor %}
+        </div>
+      {%- endif %}
+    </section>
+  {%- else %}
+    {% include "applications/_prep_likely.html" %}
+
+    <section id="prep-notes" aria-labelledby="prep-notes-title" class="flex flex-col gap-2 rounded-xl border border-border bg-surface p-5">
+      <div class="flex items-baseline justify-between gap-2">
+        <h2 id="prep-notes-title" class="m-0 text-base font-bold"><label for="prep-notes-field">Company &amp; role notes</label></h2>
+        <span id="prep-notes-saved" class="text-xs text-text-3" aria-live="polite"></span>
+      </div>
+      {#- Saved 500 ms after typing stops, like the letter editor (D-179). -#}
+      <form class="m-0" hx-post="/applications/{{ application.id }}/prep/notes" hx-trigger="input delay:500ms" hx-sync="this:replace"
+            hx-disabled-elt="unset" hx-target="#prep-notes-saved" hx-swap="innerHTML">
+        <textarea id="prep-notes-field" name="interview_notes" rows="5" maxlength="{{ max_interview_notes }}"
+                  placeholder="What the company does, who you will meet, salary range, things to mention…"
+                  class="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
+                  {%- if not prep_editable %} disabled{% endif %}>{{ application.interview_notes or "" }}</textarea>
+      </form>
+    </section>
+
+    {% include "applications/_prep_to_ask.html" %}
+  {%- endif %}
+</div>

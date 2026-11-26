@@ -1,0 +1,5 @@
+{#- The answer to a save while typing (D-179): "Saved" next to the field and, for an
+    answer draft, the new "{n} of {m} answered" (out of band). Context: count_oob,
+    prep_answered, prep_likely_count. -#}
+Saved
+{%- if count_oob %}{% with oob=True %}{% include "applications/_prep_answered.html" %}{% endwith %}{% endif %}

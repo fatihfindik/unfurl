@@ -156,6 +156,8 @@ def job_search_due(
                     title,
                     f"{job.company} · {job.job_title}",
                     job.id,
+                    # Straight to the Interview prep tab (D-180).
+                    link=f"/applications/{job.id}?tab=interview",
                 )
             )
     return due

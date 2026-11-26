@@ -1,0 +1,27 @@
+{#- A question's text (and, for a likely question, its category) as a form, in place
+    of the row (D-179). Save draws the card again (a new category moves it); Cancel
+    asks for the row as it was. Context: application, question, prep_categories,
+    max_question_text. -#}
+{%- set base = "/applications/" ~ application.id ~ "/prep/questions/" ~ question.id %}
+{%- set card = "#prep-likely" if question.kind == "likely" else "#prep-to-ask" %}
+<li id="prep-question-{{ question.id }}" class="rounded-lg border border-border-strong px-3.5 py-2.5">
+  <form class="m-0 flex flex-wrap items-end gap-2" hx-post="{{ base }}" hx-target="{{ card }}" hx-swap="outerHTML"
+        hx-disabled-elt="find [type=submit]">
+    {%- if question.kind == "likely" %}
+      <label class="flex flex-col gap-1 text-[13px] font-semibold text-text-2">Category
+        <select name="category" class="h-9 text-sm">
+          {%- for value, label in prep_categories.items() %}
+            <option value="{{ value }}"{% if value == question.category %} selected{% endif %}>{{ label }}</option>
+          {%- endfor %}
+        </select>
+      </label>
+    {%- endif %}
+    <label class="flex min-w-[220px] flex-1 flex-col gap-1 text-[13px] font-semibold text-text-2">Question
+      <input type="text" name="text" required maxlength="{{ max_question_text }}" value="{{ question.text }}"
+             class="h-9 w-full rounded-lg border border-border-strong px-3 text-sm">
+    </label>
+    <button type="submit" class="inline-flex h-9 items-center justify-center rounded-lg bg-[#4F46E5] px-3 text-sm font-semibold text-white hover:bg-[#4338CA]">Save</button>
+    <button type="button" hx-get="{{ base }}" hx-target="#prep-question-{{ question.id }}" hx-swap="outerHTML"
+            class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Cancel</button>
+  </form>
+</li>

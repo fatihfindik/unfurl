@@ -17,6 +17,7 @@ from app.models import (
     DeletedItem,
     Education,
     Experience,
+    InterviewQuestion,
     LanguageSkill,
     LearningGoal,
     LearningResource,
@@ -105,6 +106,17 @@ def fill_account(session: Session, user: User, photo_path: str | None = None) ->
             doc_type="cover_letter",
             cover_letter_id=rows["letter_copy"].id,
             content_snapshot={"title": "For Acme", "date": "18.11.2026"},
+        )
+    )
+
+    rows["question"] = add(
+        InterviewQuestion(
+            user_id=user.id,
+            application_id=job.id,
+            kind="likely",
+            category="general",
+            text="Tell me about yourself.",
+            answer="I build things.",
         )
     )
 

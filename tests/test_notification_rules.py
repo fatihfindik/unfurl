@@ -143,6 +143,19 @@ def test_interview_tomorrow(session, user, offset, expected):
         assert found == []
 
 
+def test_interview_tomorrow_links_to_the_prep_tab(session, user):
+    job = add(
+        session,
+        user,
+        status="interview",
+        interview_at=clock.to_utc(TODAY + dt.timedelta(days=1), dt.time(10, 30)),
+    )
+
+    [item] = notes.due_for_user(session, user, NOW)
+
+    assert item.link_url == f"/applications/{job.id}?tab=interview"  # D-180
+
+
 def test_an_all_day_interview_has_no_time(session, user):
     add(session, user, status="interview", interview_at=clock.to_utc(TODAY + dt.timedelta(days=1)))
 

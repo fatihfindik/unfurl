@@ -1,0 +1,54 @@
+{#- One interview question (D-177, D-179). A likely question shows my answer draft;
+    a question to ask has the "asked" tick and, folded, their answer. Both answers are
+    saved while typing; the answer is only the "Saved" note next to it.
+    Context: application, question, prep_editable, max_answer. -#}
+{%- set base = "/applications/" ~ application.id ~ "/prep/questions/" ~ question.id %}
+{%- set card = "#prep-likely" if question.kind == "likely" else "#prep-to-ask" %}
+<li id="prep-question-{{ question.id }}" class="flex flex-col gap-2 rounded-lg border border-border px-3.5 py-2.5">
+  <div class="flex items-start justify-between gap-3">
+    {%- if question.kind == "to_ask" %}
+      <div class="flex min-w-0 items-start gap-2">
+        {#- A form can't sit inside a <label>: the label points at the box by id.
+            An unticked checkbox sends nothing, so the hidden field sends "0". -#}
+        <form class="m-0 flex" hx-post="{{ base }}/asked" hx-trigger="change" hx-swap="none" hx-disabled-elt="unset">
+          <input type="hidden" name="asked" value="0">
+          <input type="checkbox" id="prep-asked-{{ question.id }}" name="asked" value="1" class="mt-0.5 size-4"
+                 {%- if question.asked %} checked{% endif %}{% if not prep_editable %} disabled{% endif %}>
+        </form>
+        <label for="prep-asked-{{ question.id }}" class="min-w-0 break-words text-sm font-semibold">{{ question.text }}</label>
+      </div>
+    {%- else %}
+      <span class="min-w-0 break-words text-sm font-semibold">{{ question.text }}</span>
+    {%- endif %}
+    {%- if prep_editable %}
+      <span class="flex flex-none items-center gap-3">
+        <button type="button" hx-get="{{ base }}/edit" hx-target="#prep-question-{{ question.id }}" hx-swap="outerHTML"
+                class="text-[13px] font-semibold text-link hover:underline">Edit<span class="sr-only">: {{ question.text }}</span></button>
+        <button type="button" hx-post="{{ base }}/delete" hx-target="{{ card }}" hx-swap="outerHTML" hx-disabled-elt="this"
+                class="text-[13px] font-semibold text-red-text hover:underline">Delete<span class="sr-only">: {{ question.text }}</span></button>
+      </span>
+    {%- endif %}
+  </div>
+  {%- set field_id = "prep-answer-" ~ question.id %}
+  {%- set answer_label = "Your answer" if question.kind == "likely" else "Their answer" %}
+  {%- set answer_field %}
+    <form class="m-0 flex flex-col gap-1" hx-post="{{ base }}/answer" hx-trigger="input delay:500ms" hx-sync="this:replace"
+          hx-disabled-elt="unset" hx-target="#prep-saved-{{ question.id }}" hx-swap="innerHTML">
+      <span class="flex items-baseline justify-between gap-2">
+        <label for="{{ field_id }}" class="text-xs font-semibold text-text-3">{{ answer_label }}</label>
+        <span id="prep-saved-{{ question.id }}" class="text-xs text-text-3" aria-live="polite"></span>
+      </span>
+      <textarea id="{{ field_id }}" name="answer" rows="{{ 4 if question.kind == 'likely' else 2 }}" maxlength="{{ max_answer }}"
+                class="w-full rounded-lg border border-border-strong px-3 py-2 text-sm"
+                {%- if not prep_editable %} disabled{% endif %}>{{ question.answer or "" }}</textarea>
+    </form>
+  {%- endset %}
+  {%- if question.kind == "likely" %}
+    {{ answer_field }}
+  {%- else %}
+    <details class="group"{% if question.answer %} open{% endif %}>
+      <summary class="cursor-pointer list-none text-xs font-semibold text-link"><span class="group-open:hidden">Add their answer</span><span class="hidden group-open:inline">Their answer</span></summary>
+      <div class="mt-1.5">{{ answer_field }}</div>
+    </details>
+  {%- endif %}
+</li>

@@ -86,7 +86,8 @@ def test_the_file_has_every_section(auth_client, session, user):
     for key in (
         "experience", "education", "skills", "languages", "certifications", "projects",
         "cvs", "cover_letters", "applications", "application_events", "application_documents",
-        "learning_goals", "learning_resources", "learning_tasks", "study_log", "notifications",
+        "interview_questions", "learning_goals", "learning_resources", "learning_tasks",
+        "study_log", "notifications",
     ):  # fmt: skip
         assert len(data[key]) >= 1, key
     assert {cv["id"] for cv in data["cvs"]} == {rows["master"].id, rows["copy"].id}

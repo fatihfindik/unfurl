@@ -33,6 +33,7 @@ from app.services import (
     cover_letter_service,
     document_service,
     final_check_service,
+    interview_prep_service,
     next_step_service,
     pdf_service,
     undo_service,
@@ -508,8 +509,15 @@ def application_detail(
     application = application_service.get_owned_application(session, user, application_id)
     context = detail_context(session, user, application)
     context["first_tab"] = first_tab(application)
-    # Any other value (or none) shows the first tab.
-    context["tab"] = "details" if tab == "details" else context["first_tab"]
+    context["has_prep"] = interview_prep_service.has_tab(application)
+    # Any other value (or none) shows the first tab. The Interview prep tab only
+    # while it is shown (D-176): a saved job opened with ?tab=interview gets the first.
+    if tab == "details" or (tab == "interview" and context["has_prep"]):
+        context["tab"] = tab
+    else:
+        context["tab"] = context["first_tab"]
+    if context["tab"] == "interview":
+        context |= interview_prep_service.tab_context(session, user, application)
     if context["tab"] == "progress":
         # "How you applied" (D-167): the steps from the timeline, oldest first.
         source_name = SOURCE_NAMES.get(application.source, "Other")

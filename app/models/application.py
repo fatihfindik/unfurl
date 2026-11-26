@@ -131,6 +131,13 @@ class Application(SQLModel, table=True):
             unique=True,
         ),
     )
+    # Interview prep (M14a): the company and role notes (D-177), and when the prep was
+    # started, so the starter questions are added only once (D-178).
+    interview_notes: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    interview_prep_started_at: dt.datetime | None = Field(
+        default=None, sa_column=datetime_column(nullable=True)
+    )
+
     # Hidden from Needs attention until then (D-074).
     snoozed_until: dt.datetime | None = Field(
         default=None, sa_column=datetime_column(nullable=True)
