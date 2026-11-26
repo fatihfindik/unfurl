@@ -378,6 +378,17 @@ def set_done(session: Session, user: User, task: LearningTask, done: bool) -> Le
     resource's units go up (or down)."""
     if task.done == done:
         return task
+    apply_done(session, user, task, done)
+    session.commit()
+    session.refresh(task)
+    return task
+
+
+def apply_done(session: Session, user: User, task: LearningTask, done: bool) -> None:
+    """The changes of set_done without the commit, so a set of changes can be written
+    in one transaction (D-193). Does nothing if the task is already in that state."""
+    if task.done == done:
+        return
     resource = None
     if task.resource_id is not None:
         resource = session.exec(
@@ -409,9 +420,6 @@ def set_done(session: Session, user: User, task: LearningTask, done: bool) -> Le
     if resource is not None:
         session.add(resource)
     session.add(task)
-    session.commit()
-    session.refresh(task)
-    return task
 
 
 def set_rest_days(session: Session, user: User, days: list[str]) -> NotificationPreference:
