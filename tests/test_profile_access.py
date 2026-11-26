@@ -17,6 +17,7 @@ from app.models import (
     Profile,
     Project,
     Skill,
+    Story,
 )
 from app.routers.profile import SECTIONS
 from app.services.auth_service import create_user
@@ -82,6 +83,7 @@ ROWS = {
     "languages": lambda pid: LanguageSkill(profile_id=pid, language="B's language", level="B2"),
     "certifications": lambda pid: Certification(profile_id=pid, name="B's certificate"),
     "projects": lambda pid: Project(profile_id=pid, name="B's project"),
+    "stories": lambda pid: Story(profile_id=pid, title="B's story"),
 }
 CHANGE = {
     "experience": {"title": "Taken", "company": "Taken", "start_date": "2020-01"},
@@ -90,6 +92,7 @@ CHANGE = {
     "languages": {"language": "Taken", "level": "A1"},
     "certifications": {"name": "Taken"},
     "projects": {"name": "Taken"},
+    "stories": {"title": "Taken"},
 }
 
 

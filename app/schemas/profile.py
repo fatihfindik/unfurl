@@ -11,7 +11,7 @@ import re
 
 from pydantic import BaseModel, EmailStr, Field, TypeAdapter, ValidationError, field_validator
 
-from app.models.profile import LANGUAGE_LEVELS, LONG_TEXT, SHORT_TEXT, URL_TEXT
+from app.models.profile import LANGUAGE_LEVELS, LONG_TEXT, MAX_STORY_TEXT, SHORT_TEXT, URL_TEXT
 
 MAX_BULLETS = 20
 BULLET_TEXT = 300
@@ -238,6 +238,57 @@ class ProjectForm(ProfileForm):
     @classmethod
     def check_link(cls, value):
         return check_url(value)
+
+
+# Ids fit in 32 bits (like profile_service.MAX_ID); a bigger number can't be a row.
+_MAX_ID = 2**31 - 1
+CHOOSE_EXPERIENCE = "Choose an experience from the list."
+
+
+def clean_tags(value: str | None) -> str | None:
+    """ "SQL,  leadership , sql" -> "SQL, leadership" (D-182): trimmed, empty parts
+    dropped, the same tag once whatever its case (the first spelling stays)."""
+    if not value:
+        return None
+    tags, seen = [], set()
+    for part in value.split(","):
+        tag = part.strip()
+        if tag and tag.casefold() not in seen:
+            seen.add(tag.casefold())
+            tags.append(tag)
+    return ", ".join(tags) or None
+
+
+class StoryForm(ProfileForm):
+    """An interview story in the STAR format (M14b, D-182). Whether the experience
+    belongs to the same profile is checked by the router (it needs the database)."""
+
+    title: str = Field(max_length=SHORT_TEXT)
+    situation: str | None = Field(default=None, max_length=MAX_STORY_TEXT)
+    task: str | None = Field(default=None, max_length=MAX_STORY_TEXT)
+    action: str | None = Field(default=None, max_length=MAX_STORY_TEXT)
+    result: str | None = Field(default=None, max_length=MAX_STORY_TEXT)
+    tags: str | None = Field(default=None, max_length=SHORT_TEXT)  # after cleaning
+    experience_id: int | None = None
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def tidy_tags(cls, value):
+        return clean_tags(value.strip() if isinstance(value, str) else value)
+
+    @field_validator("experience_id", mode="before")
+    @classmethod
+    def check_experience_id(cls, value):
+        # Empty = no experience. Anything else must look like a row id; its owner is
+        # checked later. Not Pydantic's int message ("Choose a level…").
+        if value is None or value == "":
+            return None
+        text = str(value)
+        if not (text.isascii() and text.isdigit() and len(text) <= 10) or not (
+            0 < int(text) <= _MAX_ID
+        ):
+            raise ValueError(CHOOSE_EXPERIENCE)
+        return int(text)
 
 
 # --- Error messages ---------------------------------------------------------------

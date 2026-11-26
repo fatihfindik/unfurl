@@ -6,7 +6,16 @@ from datetime import date
 import pytest
 from sqlmodel import select
 
-from app.models import Certification, Education, Experience, LanguageSkill, Profile, Project, Skill
+from app.models import (
+    Certification,
+    Education,
+    Experience,
+    LanguageSkill,
+    Profile,
+    Project,
+    Skill,
+    Story,
+)
 from app.services.profile_service import MAX_ITEMS_PER_SECTION
 from tests.helpers import csrf_token
 
@@ -14,6 +23,12 @@ HTMX = {"HX-Request": "true"}
 
 # For each section: the table, a valid new row, a change, and text the page shows.
 SECTIONS = {
+    "stories": (
+        Story,
+        {"title": "Migration", "situation": "Legacy system", "tags": "sql, Leadership, SQL"},
+        {"title": "Migration under deadline", "result": "Done in 6 weeks"},
+        "Migration under deadline",
+    ),
     "experience": (
         Experience,
         {
@@ -69,6 +84,7 @@ REQUIRED_FIELD = {
     "languages": "language",
     "certifications": "name",
     "projects": "name",
+    "stories": "title",
 }
 
 
