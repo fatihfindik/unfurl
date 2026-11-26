@@ -480,3 +480,18 @@ def test_no_write_but_start_reloads_the_page(auth_client, session, user, job):
     for path, data in write_requests(job, question)[1:-2]:
         response = post(auth_client, job, path, data)
         assert "application-changed" not in response.headers.get("HX-Trigger", ""), path
+
+
+# --- Links to the tab (D-180) -------------------------------------------------------
+
+
+@pytest.mark.parametrize(("status", "shown"), [("applied", False), ("interview", True)])
+def test_progress_links_to_the_prep_in_the_interview_stage(
+    auth_client, session, job, status, shown
+):
+    set_status(session, job, status)
+
+    html = tab(auth_client, job, "")
+
+    link = f'<a href="/applications/{job.id}?tab=interview" class="font-semibold text-link'
+    assert (link in html) is shown

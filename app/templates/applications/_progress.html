@@ -27,6 +27,7 @@
       {%- elif application.status == "interview" %}
         <li>{% if step %}<strong class="text-text">{{ step_title }}</strong>.{% else %}Add the interview date so we can remind you.{% endif %}</li>
         <li>After the interview, a short thank-you note helps.</li>
+        <li><a href="/applications/{{ application.id }}?tab=interview" class="font-semibold text-link no-underline hover:underline">Prepare for it →</a></li>
       {%- elif application.status == "offer" %}
         <li>You have an offer.{% if step %} <strong class="text-text">{{ step_title }}</strong>.{% endif %}</li>
       {%- else %}
