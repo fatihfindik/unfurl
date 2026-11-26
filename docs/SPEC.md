@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.40 — 2026-11-26
+> **Durum:** MVP planı, v2.1.41 — 2026-11-26
+> v2.1.41: Kişisel ortamın volume'ları `external`: compose `down -v` onları silemez; `start_personal.sh` oluşturur, test kopyası `remove_test_copy.sh` ile kaldırılır (D-190, #104).
 > v2.1.40: #103 Learning planı: **Done** ayrı sekme (bitmiş görevlerin hepsi, 30 gün sınırı yok), "Add task" kart başlığında, hedef filtresi (adreste `goal`), başlığa tıklayınca Edit (D-187…D-189).
 > v2.1.39: M14b Design kararları: STAR hikâyeleri My profile'da **Stories** bölümü (başlık, S/T/A/R, etiketler, isteğe bağlı deneyim; CV'ye ve profil gücüne girmez), Interview prep sekmesinde "Stories for this interview" kartıyla seçilir (başvuru başına 20, kaldırmada Undo yok), hikâye silme Undo'su bağlarıyla geri gelir; soruya bağlama V2 (D-181…D-185).
 > v2.1.38: #43 mülakat hazırlığı AI'sız, iki milestone: M14a başvuru detayında **Interview prep** sekmesi (olası sorular ve cevap taslakları, 12 soruluk hazır İngilizce set "Start interview prep" ile, şirket ve rol notları, soracağın sorular), M14b STAR hikâye bankası. AI'sız hazırlık ücretsiz; AI'lı hazırlık V2 (D-175…D-180).

@@ -18,6 +18,9 @@ services:
   db:
     # Same image as docker-compose.yml and ci.yml (D-143).
     image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+    # Named after the volume, not the -p project: a second database on the same data
+    # (a hand-typed `-p other` without UNFURL_PROJECT) can't start, the name is taken.
+    container_name: ${UNFURL_PROJECT:-unfurl-personal}-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env.personal}
@@ -70,9 +73,14 @@ services:
       start_period: 5s
 
 volumes:
-  # Named after the project: unfurl-personal_db, unfurl-personal_uploads.
-  # They survive `down` and rebuilds. Only `down -v` deletes them: don't use -v here.
+  # unfurl-personal_db and unfurl-personal_uploads hold all your data. They are
+  # "external" (D-190): Compose never creates or deletes them, so no `down -v` can
+  # remove them, whatever -p or UNFURL_PROJECT says. scripts/start_personal.sh creates
+  # them (a volume that exists is left as it is). Only `docker volume rm` or a prune
+  # can delete them: backups are the real safety net.
   db:
     name: ${UNFURL_PROJECT:-unfurl-personal}_db
+    external: true
   uploads:
     name: ${UNFURL_PROJECT:-unfurl-personal}_uploads
+    external: true

@@ -31,7 +31,7 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - Lint/format: `uv run ruff check . && uv run ruff format --check .`
 - With Postgres: `docker compose up`
 - Migrations: `uv run alembic revision --autogenerate -m "..."` and `uv run alembic upgrade head`
-- Personal instance (Fatih's real data, D-155): `docker compose -f docker-compose.personal.yml --env-file .env.personal up -d --build` on http://127.0.0.1:8100; backup `scripts/backup_personal.sh`, restore `scripts/restore_personal.sh`. Never run `down -v` on it, and never test against it: test copies use `UNFURL_PROJECT`/`UNFURL_PORT`/`UNFURL_ENV_FILE`.
+- Personal instance (Fatih's real data, D-155): `scripts/start_personal.sh` on http://127.0.0.1:8100 (it creates the external volumes, D-190); backup `scripts/backup_personal.sh`, restore `scripts/restore_personal.sh`. Never test against it: test copies use `UNFURL_PROJECT`/`UNFURL_PORT`/`UNFURL_ENV_FILE` and are removed with `scripts/remove_test_copy.sh <project>`. Never `docker volume rm`/`prune` its volumes.
 
 ## Milestone status
 The MVP ships without AI (D-150): items marked V2 are not built now. Order: M8a → M8b → M9a → M13d → M14a → M14b; no deploy for now (D-155).

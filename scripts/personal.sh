@@ -24,6 +24,22 @@ compose() {
     --env-file "$UNFURL_ENV_FILE" "$@"
 }
 
+# The two data volumes are "external" (D-190): Compose won't create them, so the start
+# script does. `docker volume create` returns a volume that exists unchanged. Backup
+# and restore don't call this: they need a running instance, whose volumes exist.
+# A test copy's volumes get the label unfurl.test=1: remove_test_copy.sh deletes
+# only labelled volumes, never the real ones (or the development ones).
+ensure_volumes() {
+  local label=()
+  if [[ "$UNFURL_PROJECT" != "unfurl-personal" ]]; then label=(--label unfurl.test=1); fi
+  local volume
+  for volume in "${UNFURL_PROJECT}_db" "${UNFURL_PROJECT}_uploads"; do
+    if ! docker volume inspect "$volume" > /dev/null 2>&1; then
+      docker volume create ${label[@]+"${label[@]}"} "$volume" > /dev/null
+    fi
+  done
+}
+
 # The app runs in development mode, which skips its own production checks (D-156),
 # so the start script checks the key here: at least 32 characters, like production.
 check_keys() {

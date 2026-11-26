@@ -768,3 +768,10 @@
 - A query parameter that filters must be validated and then only the checked value is used to build links (`goal_filter`), never the raw text.
 - htmx inherits attributes from parent elements: a control inside `#learning-region` needs its own `hx-target`, or it swaps the whole region into itself.
 - State in the URL (`?view=done&goal=2`) survives reloads, tabs and bookmarks, and every link of the region must carry it.
+
+## #104 — External volumes for the personal instance (2026-11-26, log written by Claude)
+
+- `docker compose -p name` sets the project name, but a volume with an explicit `name:` keeps that name: `-p` and the volume name can disagree, and `down -v` follows the volume name.
+- `external: true` volumes are never created or deleted by Compose; a script creates them with `docker volume create`, which leaves an existing volume unchanged.
+- A near-miss is worth a fix: the safety came from luck (the instance was running), not from the design.
+
