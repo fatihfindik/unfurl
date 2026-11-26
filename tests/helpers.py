@@ -16,7 +16,6 @@ PRODUCTION_SETTINGS = {
     "email_backend": "smtp",
     "smtp_host": "smtp.example.com",
     "app_base_url": "https://unfurl.example.com",
-    "forwarded_allow_ips": "*",
 }
 
 

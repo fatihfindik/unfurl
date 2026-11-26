@@ -9,6 +9,8 @@ import os
 os.environ["APP_ENV"] = "development"
 os.environ["DATABASE_URL"] = "sqlite://"  # in-memory SQLite, nothing written to disk
 os.environ["SCHEDULER_ENABLED"] = "false"
+# Production checks read it from the real environment, like uvicorn (D-199).
+os.environ["FORWARDED_ALLOW_IPS"] = "127.0.0.1"
 os.environ["EMAIL_BACKEND"] = "console"  # never SMTP from tests, whatever .env says
 # The real Impressum details live in .env; tests never read them (D-133).
 for name in ("LEGAL_OPERATOR_NAME", "LEGAL_ADDRESS", "LEGAL_EMAIL"):
@@ -26,11 +28,12 @@ from pwdlib.hashers.argon2 import Argon2Hasher  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 from sqlmodel import Session, SQLModel, create_engine  # noqa: E402
 
+from app import security  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.db import enable_sqlite_foreign_keys, get_session  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
-from app.security import email_limiter, limiter, login_lockout  # noqa: E402
+from app.security import limiter  # noqa: E402
 from app.services import auth_service, email_service  # noqa: E402
 from app.services.auth_service import create_user  # noqa: E402
 from tests.helpers import USER_EMAIL, USER_PASSWORD, log_in  # noqa: E402
@@ -54,9 +57,10 @@ def cheap_password_hashing(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def reset_limits():
-    """Limits live in memory for the whole test run; start every test with none used."""
-    login_lockout.reset()
-    email_limiter.reset()
+    """slowapi's limits live in memory for the whole test run; start every test with
+    none used. The lockout and email counters are in each test's own database (the
+    engine fixture); without it they use app.db.engine, an empty in-memory database
+    here, so a test that forgot the fixture fails instead of reaching real data."""
     limiter.reset()
 
 
@@ -69,7 +73,7 @@ def upload_dir(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def engine():
+def engine(monkeypatch):
     """A fresh, empty in-memory database for each test.
 
     StaticPool keeps one connection open, so every session sees the same
@@ -83,6 +87,9 @@ def engine():
     )
     enable_sqlite_foreign_keys(engine)  # like the app (D-034)
     SQLModel.metadata.create_all(engine)
+    # The sign-in lockout and email limits keep their counts here (D-198).
+    # monkeypatch puts the old value back after the test.
+    monkeypatch.setattr(security._DbCounters, "engine", engine)
     yield engine
     engine.dispose()
 

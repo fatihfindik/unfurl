@@ -4,6 +4,7 @@ Every variable from `.env.example` becomes a typed attribute here, so a wrong
 value (e.g. `SMTP_PORT=abc`) is caught when the app starts, not later.
 """
 
+import os
 from functools import lru_cache
 from typing import Literal
 from urllib.parse import urlsplit
@@ -77,11 +78,6 @@ class Settings(BaseSettings):
         origins = (origin.strip().rstrip("/") for origin in self.extension_origins.split(","))
         return frozenset(origin for origin in origins if origin)
 
-    # Proxy (D-199): the addresses whose X-Forwarded-For uvicorn (`fastapi run`) trusts.
-    # uvicorn reads the same variable itself; it is here so production can check it is
-    # set on purpose. Unset, uvicorn trusts only 127.0.0.1.
-    forwarded_allow_ips: str | None = None
-
     # Scheduler / reminders
     scheduler_enabled: bool = True
     default_timezone: str = "Europe/Vienna"
@@ -134,14 +130,14 @@ class Settings(BaseSettings):
             raise ValueError("SMTP_HOST must be set in production.")
 
         # Emails link to APP_BASE_URL: the default would send people to localhost (#18).
-        if self.app_base_url == DEFAULT_APP_BASE_URL or not self.app_base_url.startswith(
-            "https://"
-        ):
+        if not self.app_base_url.startswith("https://"):
             raise ValueError("APP_BASE_URL must be the site's https:// address in production.")
         # Behind a proxy every request seems to come from the proxy, so all users would
         # share one rate limit and lockout. Set it on purpose: the proxy's address (or *
         # on Render), or 127.0.0.1 without a proxy (D-199).
-        if not (self.forwarded_allow_ips or "").strip():
+        # Read from the process environment, not .env: uvicorn (`fastapi run`) only sees
+        # real environment variables. Unset, it trusts only 127.0.0.1.
+        if not os.environ.get("FORWARDED_ALLOW_IPS", "").strip():
             raise ValueError(
                 "FORWARDED_ALLOW_IPS must be set in production (the proxy's address, "
                 "or 127.0.0.1 without a proxy)."

@@ -49,8 +49,12 @@ def pg_engine():
 
 
 @pytest.fixture
-def pg(pg_engine):
-    """A session on Postgres; every table is emptied after the test."""
+def pg(pg_engine, monkeypatch):
+    """A session on Postgres; every table is emptied after the test. The sign-in and
+    email counters use Postgres too (D-198)."""
+    from app.security import _DbCounters
+
+    monkeypatch.setattr(_DbCounters, "engine", pg_engine)
     with Session(pg_engine) as session:
         yield session
     with pg_engine.begin() as connection:
@@ -234,3 +238,23 @@ def test_the_nightly_token_purge_works_on_postgres(pg):
     assert deleted == 3  # revoked + Jana's two old-version tokens
     assert token_service.check(pg, other_raw) is not None
     assert token_service.check(pg, jana_raw) is None
+
+
+# --- Sign-in lockout and email limit in the database (D-198) -------------------------------
+
+
+def test_lockout_and_email_limit_work_on_postgres(pg):
+    from app.security import EmailLimiter, LoginLockout, purge_security_counters
+
+    with freeze_time("2026-11-27 10:00:00"):
+        for _ in range(5):
+            LoginLockout().record_failure("203.0.113.7", USER_EMAIL)
+        assert LoginLockout().is_locked("203.0.113.7", USER_EMAIL)  # a "restart" keeps it
+        assert not LoginLockout().is_locked("198.51.100.1", USER_EMAIL)
+        assert all(EmailLimiter().allow(USER_EMAIL) for _ in range(3))
+        assert not EmailLimiter().allow(USER_EMAIL)
+        LoginLockout().clear_email(USER_EMAIL)
+        assert not LoginLockout().is_locked("203.0.113.7", USER_EMAIL)
+
+    with freeze_time("2026-11-27 13:00:00"):
+        assert purge_security_counters(pg, auth_service.utcnow()) > 0

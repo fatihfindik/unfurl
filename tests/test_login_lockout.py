@@ -2,15 +2,23 @@
 
 from datetime import timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 from freezegun import freeze_time
-from sqlmodel import Session
+from sqlmodel import Session, select
 from starlette.requests import Request
 
 from app.main import app
 from app.models import User
 from app.models.base import utcnow
-from app.security import MAX_TRACKED_KEYS, LoginLockout, login_lockout
+from app.models.security_counter import SecurityCounter
+from app.security import (
+    COUNTER_KEEP,
+    EmailLimiter,
+    LoginLockout,
+    login_lockout,
+    purge_security_counters,
+)
 from app.services import auth_service
 from app.services.auth_service import create_user, make_reset_token
 from tests.helpers import USER_EMAIL, USER_PASSWORD, csrf_token, log_in
@@ -94,35 +102,50 @@ def test_successful_login_resets_the_count(client, user):
 
 
 # --- LoginLockout itself ----------------------------------------------------------------
+# The counters live in the test's database (D-198); every LoginLockout() here uses it.
 
 
-def test_too_long_email_is_not_tracked():
+@pytest.fixture(autouse=True)
+def counters_database(engine):
+    return engine
+
+
+def counter_rows(engine, kind=None) -> list[SecurityCounter]:
+    with Session(engine) as session:
+        query = select(SecurityCounter)
+        if kind:
+            query = query.where(SecurityCounter.kind == kind)
+        return list(session.exec(query).all())
+
+
+def test_too_long_email_is_not_tracked(engine):
     lockout = LoginLockout()
     long_email = "a" * 321
     for _ in range(5):
         lockout.record_failure(IP, long_email)
     assert not lockout.is_locked(IP, long_email)
-    assert len(lockout._entries) == 0
+    assert counter_rows(engine) == []
 
 
-def test_store_keeps_at_most_max_tracked_keys():
+def test_old_rows_of_a_key_go_with_its_next_failure(engine):
     lockout = LoginLockout()
-    for i in range(MAX_TRACKED_KEYS + 5):
-        lockout.record_failure(IP, f"user{i}@example.com")
-
-    assert len(lockout._entries) == MAX_TRACKED_KEYS
-    # The oldest keys were dropped, the newest are kept.
-    assert (IP, "user0@example.com") not in lockout._entries
-    assert (IP, f"user{MAX_TRACKED_KEYS + 4}@example.com") in lockout._entries
+    with freeze_time(utcnow()) as frozen:
+        lockout.record_failure(IP, "a@example.com", per_email=False)
+        frozen.tick(COUNTER_KEEP + timedelta(minutes=1))
+        lockout.record_failure(IP, "a@example.com", per_email=False)
+        assert len(counter_rows(engine)) == 1  # without the nightly job too
 
 
-def test_expired_entries_are_removed():
+def test_the_nightly_purge_deletes_rows_nobody_needs(engine):
     lockout = LoginLockout()
     with freeze_time(utcnow()) as frozen:
         lockout.record_failure(IP, "a@example.com")
-        frozen.tick(timedelta(minutes=16))
+        frozen.tick(timedelta(minutes=30))
         lockout.record_failure(IP, "b@example.com")
-    assert list(lockout._entries) == [(IP, "b@example.com")]
+        with Session(engine) as session:
+            assert purge_security_counters(session, utcnow() + COUNTER_KEEP) == 2  # a's rows
+        assert {row.kind for row in counter_rows(engine)} == {"fail_pair", "fail_email"}
+        assert len(counter_rows(engine)) == 2  # b's rows stay
 
 
 def test_clear_email_unlocks_every_ip():
@@ -222,40 +245,77 @@ def test_a_successful_login_keeps_the_email_counter_a_reset_clears_it():
     assert not lockout.is_locked("192.0.2.1", USER_EMAIL)
 
 
-def test_reset_empties_every_store():
+def test_reset_empties_every_store(engine):
     lockout = LoginLockout()
     fail_from_many_ips(lockout)
     lockout.reset()
     assert not lockout.is_locked(IP, USER_EMAIL)
     lockout.record_failure(IP, USER_EMAIL, user_id=1)
     lockout.reset()
-    assert not lockout._entries and not lockout._by_email and not lockout._by_user
+    assert counter_rows(engine) == []
 
 
-def test_the_email_store_keeps_at_most_max_tracked_keys():
-    lockout = LoginLockout()
-    for i in range(MAX_TRACKED_KEYS + 5):
-        lockout.record_failure(f"10.0.{i // 250}.{i % 250}", f"user{i}@example.com")
-
-    assert len(lockout._by_email) == MAX_TRACKED_KEYS
-    assert "user0@example.com" not in lockout._by_email
-
-
-def test_a_full_store_drops_unlocked_entries_before_locked_ones():
-    lockout = LoginLockout()
-    fail_from_many_ips(lockout)  # locks USER_EMAIL first, so it is the oldest entry
-    for i in range(MAX_TRACKED_KEYS + 5):
-        lockout.record_failure(f"10.0.{i // 250}.{i % 250}", f"user{i}@example.com")
-
-    assert len(lockout._by_email) == MAX_TRACKED_KEYS
-    assert lockout.is_locked("192.0.2.1", USER_EMAIL)
-
-
-def test_values_no_account_can_have_are_not_counted():
+def test_values_no_account_can_have_are_not_counted(engine):
     lockout = LoginLockout()
     for ip in OTHER_IPS[:20]:
         lockout.record_failure(ip, "")
-    assert not lockout._by_email
+    assert counter_rows(engine) == []
+    assert not lockout.is_locked(IP, "")
+
+
+# --- In the database (D-198) -----------------------------------------------------------
+
+
+def test_a_restart_keeps_the_lock():
+    fail_from_many_ips(LoginLockout())
+
+    # A new object, like after a restart: the lock is in the database, not in memory.
+    assert LoginLockout().is_locked("192.0.2.1", USER_EMAIL)
+
+
+def test_the_email_limit_survives_a_restart():
+    for _ in range(3):
+        assert EmailLimiter().allow(USER_EMAIL)
+    assert not EmailLimiter().allow(USER_EMAIL)
+
+
+def test_rows_never_hold_the_ip_or_the_email(engine):
+    lockout = LoginLockout()
+    lockout.record_failure(IP, USER_EMAIL, user_id=7)
+    EmailLimiter().allow(USER_EMAIL)
+
+    rows = counter_rows(engine)
+    assert {row.kind for row in rows} == {"fail_pair", "fail_email", "fail_user", "email_sent"}
+    for row in rows:
+        text = f"{row.key} {row.email_key}"
+        assert IP not in text and USER_EMAIL not in text and "7" != row.key
+        assert len(row.key) == 64
+
+
+def test_keys_depend_on_the_secret_key(engine, monkeypatch):
+    lockout = LoginLockout()
+    lockout.record_failure(IP, USER_EMAIL, per_email=False)
+    first = counter_rows(engine)[0].key
+
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "secret_key", type(get_settings().secret_key)("y" * 40))
+    lockout.record_failure(IP, USER_EMAIL, per_email=False)
+
+    assert len({row.key for row in counter_rows(engine)}) == 2 and first
+    # Plain sha256 of the values would be guessable; the stored key is not that.
+    import hashlib
+
+    assert first != hashlib.sha256(f"{IP}\x1f{USER_EMAIL}".encode()).hexdigest()
+
+
+def test_a_lock_starts_the_count_again(engine):
+    lockout = LoginLockout()
+    for _ in range(5):
+        lockout.record_failure(IP, USER_EMAIL, per_email=False)
+
+    assert counter_rows(engine, "fail_pair") == []
+    assert len(counter_rows(engine, "lock_pair")) == 1
 
 
 # --- The Settings user lock (security review M1) -------------------------------------------
@@ -279,10 +339,10 @@ def test_twenty_settings_failures_from_many_ips_lock_that_users_settings_checks(
     assert not lockout.is_locked("192.0.2.1", USER_EMAIL)
 
 
-def test_failed_logins_do_not_fill_the_settings_user_counter():
+def test_failed_logins_do_not_fill_the_settings_user_counter(engine):
     lockout = LoginLockout()
     fail_from_many_ips(lockout)
-    assert not lockout._by_user
+    assert counter_rows(engine, "fail_user") == [] and counter_rows(engine, "lock_user") == []
     assert not lockout.is_locked("192.0.2.1", USER_EMAIL, per_email=False, user_id=1)
 
 

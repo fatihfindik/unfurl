@@ -7,21 +7,25 @@
 - Security headers for every answer (D-120); app/main.py and the error pages use them
 """
 
+import hashlib
+import hmac
 import logging
 import re
 import secrets
-import threading
-from collections import OrderedDict
-from dataclasses import dataclass, field
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from urllib.parse import unquote, urlsplit
 
 from fastapi import HTTPException, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy import Engine
+from sqlmodel import Session, col, delete, func, select
 from starlette.datastructures import FormData
 
 from app.models.base import utcnow
+from app.models.security_counter import SecurityCounter
 from app.models.user import EMAIL_MAX_LENGTH, normalize_email
 
 # --- Errors with a message for the user -----------------------------------------
@@ -167,14 +171,17 @@ def _tokens_match(sent: str, expected: str) -> bool:
     return secrets.compare_digest(sent.encode(), expected.encode())
 
 
-# --- Limits (SPEC §6.1, D-020) ----------------------------------------------------
-# Kept in memory: a restart clears them and they only work with one app process
-# (D-020). Each store keeps at most MAX_TRACKED_KEYS entries, so someone who tries
-# thousands of different emails can't fill the server's memory.
-# Sync routes run in parallel threads, so every store is changed under a lock
-# (threading.Lock: only one thread at a time inside a `with self._lock:` block).
-
-MAX_TRACKED_KEYS = 10_000
+# --- Limits (SPEC §6.1, D-020, D-149, D-198) ----------------------------------------
+# Kept in the database (table securitycounter): a restart keeps every lock and count,
+# and more than one app process sees the same numbers. Each call opens its own short
+# session and commits it. Rule: call these only while the route's session has no
+# written but uncommitted changes (every caller does so today): on SQLite the counter's
+# write would wait for the route's lock. Keys are HMAC hashes: the IP address and the
+# email are never stored. Two failures at the same moment may both pass the count
+# before either is saved, so a lock can come one or two failures late; that is
+# accepted like D-149 (no row lock: the counts only need to be about right).
+# slowapi's per-IP request limits (below) stay in memory: their windows are a minute,
+# so a restart clearing them does no harm (D-198).
 
 
 def _email_key(email: str) -> str | None:
@@ -185,85 +192,71 @@ def _email_key(email: str) -> str | None:
     return email
 
 
-def _drop_oldest(entries: OrderedDict) -> None:
-    while len(entries) > MAX_TRACKED_KEYS:
-        entries.popitem(last=False)  # the key that was changed least recently
+def _hash(*parts: object) -> str:
+    """A fixed-length key for a counter row: HMAC-SHA256 with SECRET_KEY, so the IP or
+    email can't be found again by hashing every IPv4 address or a known email. A new
+    SECRET_KEY only starts the counts again. "\\x1f" can't appear in an IP or email."""
+    from app.config import get_settings
+
+    secret = get_settings().secret_key.get_secret_value().encode()
+    message = "\x1f".join(str(part) for part in parts).encode()
+    return hmac.new(secret, message, hashlib.sha256).hexdigest()
 
 
-# Both stores below keep their keys ordered from least to most recently changed
-# (move_to_end on every change). An entry that changed earlier also runs out earlier,
-# so cleaning up only looks at the oldest entries and stops at the first one still in
-# use: fast, even with thousands of keys.
+# Rows older than this are of no use any more: the longest window and lock is an hour.
+COUNTER_KEEP = timedelta(hours=2)
 
 
-@dataclass
-class _LockoutEntry:
-    failures: list[datetime] = field(default_factory=list)
-    locked_until: datetime | None = None
+class _DbCounters:
+    """The database behind LoginLockout and EmailLimiter. `engine` is the app's
+    database (app.db.engine) unless a test sets its own (tests/conftest.py)."""
 
-    def refresh(self, now: datetime, window: timedelta) -> None:
-        """Forget an ended lock and failures older than the window."""
-        if self.locked_until is not None and self.locked_until <= now:
-            self.locked_until = None
-        self.failures = [t for t in self.failures if now - t < window]
+    engine: Engine | None = None
 
-    def is_empty(self) -> bool:
-        return self.locked_until is None and not self.failures
+    @contextmanager
+    def _session(self) -> Iterator[Session]:
+        from app import db  # here, not at the top: app.db reads the settings on import
 
+        with Session(self.engine or db.engine) as session:
+            yield session
 
-def _prune(entries: OrderedDict, now: datetime, window: timedelta) -> None:
-    """Drop entries that are empty again, oldest first (see the note above)."""
-    while entries:
-        key, entry = next(iter(entries.items()))  # the oldest
-        entry.refresh(now, window)
-        if not entry.is_empty():
-            break
-        del entries[key]
+    @staticmethod
+    def _count(session: Session, kind: str, key: str, since: datetime) -> int:
+        return session.exec(
+            select(func.count())
+            .select_from(SecurityCounter)
+            .where(
+                SecurityCounter.kind == kind,
+                SecurityCounter.key == key,
+                col(SecurityCounter.at) > since,
+            )
+        ).one()
 
+    @staticmethod
+    def _forget_old(session: Session, key: str, now: datetime) -> None:
+        """Rows of this key nobody looks at any more, also when the nightly job is off."""
+        session.exec(
+            delete(SecurityCounter).where(
+                SecurityCounter.key == key, col(SecurityCounter.at) < now - COUNTER_KEEP
+            )
+        )
 
-def _is_locked(entries: OrderedDict, key, now: datetime, window: timedelta) -> bool:
-    _prune(entries, now, window)
-    entry = entries.get(key)
-    if entry is None:
-        return False
-    entry.refresh(now, window)
-    return entry.locked_until is not None
+    @staticmethod
+    def _delete(session: Session, kinds: tuple[str, ...], key: str) -> None:
+        session.exec(
+            delete(SecurityCounter).where(
+                col(SecurityCounter.kind).in_(kinds), SecurityCounter.key == key
+            )
+        )
 
-
-# How far _drop_oldest_unlocked looks for an unlocked entry: it runs under the store's
-# lock, so a store full of locks must not make every failure walk 10,000 entries.
-EVICTION_SCAN = 100
-
-
-def _drop_oldest_unlocked(entries: OrderedDict, now: datetime) -> None:
-    """Like _drop_oldest, but an unlocked entry (or one whose lock has ended) among the
-    oldest EVICTION_SCAN goes first: failures on thousands of other emails must not
-    push a lock out (#57, D-149). If they are all locked, the oldest goes."""
-    while len(entries) > MAX_TRACKED_KEYS:
-        victim = next(iter(entries))
-        for _, (key, entry) in zip(range(EVICTION_SCAN), entries.items(), strict=False):
-            if entry.locked_until is None or entry.locked_until <= now:
-                victim = key
-                break
-        del entries[victim]
+    def reset(self) -> None:
+        """Forget every count (tests)."""
+        with self._session() as session:
+            session.exec(delete(SecurityCounter))
+            session.commit()
 
 
-def _count_failure(
-    entries: OrderedDict, key, now: datetime, window: timedelta, limit: int, lock: timedelta
-) -> None:
-    _prune(entries, now, window)
-    entry = entries.setdefault(key, _LockoutEntry())
-    entry.refresh(now, window)
-    entry.failures.append(now)
-    if len(entry.failures) >= limit:
-        # A fixed lock time: it doesn't end early when old failures leave the window.
-        entry.locked_until = now + lock
-        entry.failures = []
-    entries.move_to_end(key)
-    _drop_oldest_unlocked(entries, now)
-
-
-class LoginLockout:
+class LoginLockout(_DbCounters):
     """Three counters for wrong passwords (SPEC §6.1):
 
     - per IP + email: 5 within 15 minutes lock that pair for 15 minutes (D-020);
@@ -274,38 +267,57 @@ class LoginLockout:
     - per user, Settings checks only: 20 within an hour lock that user's Settings
       checks for an hour, so a stolen session can't guess from many IPs either. Only
       someone signed in to the account can fill it.
-    Every lock counts from the failure that reached the limit.
+    Every lock counts from the failure that reached the limit, and a new lock starts
+    the count again from zero.
     """
 
     MAX_FAILURES = 5
     WINDOW = timedelta(minutes=15)
     LOCK_TIME = timedelta(minutes=15)
-    # Window and lock time are equal, so an entry that changed earlier also runs out
-    # earlier and the oldest-first clean-up stays right.
     EMAIL_MAX_FAILURES = 20
     EMAIL_WINDOW = timedelta(hours=1)
     EMAIL_LOCK_TIME = timedelta(hours=1)
 
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._entries: OrderedDict[tuple[str, str], _LockoutEntry] = OrderedDict()
-        self._by_email: OrderedDict[str, _LockoutEntry] = OrderedDict()
-        self._by_user: OrderedDict[int, _LockoutEntry] = OrderedDict()
+    def _locked(self, session: Session, scope: str, key: str, now: datetime) -> bool:
+        # A lock row's `at` is when the lock ends.
+        return self._count(session, f"lock_{scope}", key, now) > 0
 
     def is_locked(
         self, ip: str, email: str, *, per_email: bool = True, user_id: int | None = None
     ) -> bool:
         """per_email=False skips the email lock; user_id adds the Settings user lock."""
-        now = utcnow()
         email_key = _email_key(email)
-        with self._lock:
-            if _is_locked(self._entries, (ip, email_key), now, self.WINDOW):
+        if email_key is None:
+            return False  # no account can have it; record_failure doesn't count it either
+        now = utcnow()
+        with self._session() as session:
+            if self._locked(session, "pair", _hash(ip, email_key), now):
                 return True
-            if user_id is not None and _is_locked(self._by_user, user_id, now, self.EMAIL_WINDOW):
+            if user_id is not None and self._locked(session, "user", _hash(user_id), now):
                 return True
-            if per_email and email_key is not None:
-                return _is_locked(self._by_email, email_key, now, self.EMAIL_WINDOW)
-            return False
+            return per_email and self._locked(session, "email", _hash(email_key), now)
+
+    def _count_failure(
+        self,
+        session: Session,
+        scope: str,
+        key: str,
+        email_hash: str | None,
+        now: datetime,
+        window: timedelta,
+        limit: int,
+        lock: timedelta,
+    ) -> None:
+        self._forget_old(session, key, now)
+        session.add(SecurityCounter(kind=f"fail_{scope}", key=key, email_key=email_hash, at=now))
+        session.flush()
+        if self._count(session, f"fail_{scope}", key, now - window) >= limit:
+            # A fixed lock time; the failures that led to it are gone, so the next lock
+            # needs `limit` new ones.
+            self._delete(session, (f"fail_{scope}",), key)
+            session.add(
+                SecurityCounter(kind=f"lock_{scope}", key=key, email_key=email_hash, at=now + lock)
+            )
 
     def record_failure(
         self, ip: str, email: str, *, per_email: bool = True, user_id: int | None = None
@@ -314,63 +326,73 @@ class LoginLockout:
         if email_key is None:
             return
         now = utcnow()
-        with self._lock:
-            _count_failure(
-                self._entries, (ip, email_key), now, self.WINDOW, self.MAX_FAILURES, self.LOCK_TIME
+        email_hash = _hash(email_key)
+        with self._session() as session:
+            self._count_failure(
+                session,
+                "pair",
+                _hash(ip, email_key),
+                email_hash,
+                now,
+                self.WINDOW,
+                self.MAX_FAILURES,
+                self.LOCK_TIME,
             )
             # The email and user counters share the same limit and times.
-            stores = []
+            scopes = []
             if per_email:
-                stores.append((self._by_email, email_key))
+                scopes.append(("email", email_hash, email_hash))
             if user_id is not None:
-                stores.append((self._by_user, user_id))
-            for entries, key in stores:
-                _count_failure(
-                    entries,
+                scopes.append(("user", _hash(user_id), None))
+            for scope, key, email_column in scopes:
+                self._count_failure(
+                    session,
+                    scope,
                     key,
+                    email_column,
                     now,
                     self.EMAIL_WINDOW,
                     self.EMAIL_MAX_FAILURES,
                     self.EMAIL_LOCK_TIME,
                 )
+            session.commit()
 
     def clear(self, ip: str, email: str) -> None:
         """After a successful login: only this pair. The email counter stays, so the
         owner signing in doesn't reset the count of someone guessing elsewhere."""
-        with self._lock:
-            self._entries.pop((ip, _email_key(email)), None)
+        email_key = _email_key(email)
+        if email_key is None:
+            return
+        with self._session() as session:
+            self._delete(session, ("fail_pair", "lock_pair"), _hash(ip, email_key))
+            session.commit()
 
     def clear_email(self, email: str, user_id: int | None = None) -> None:
         """After a password reset (or an undone email change, a deleted account): the
         owner proved who they are, so every lock on this email goes, on any IP, and
         the user's Settings lock too when user_id is given."""
         email_key = _email_key(email)
-        with self._lock:
-            for key in [key for key in self._entries if key[1] == email_key]:
-                del self._entries[key]
-            self._by_email.pop(email_key, None)
+        with self._session() as session:
+            if email_key is not None:
+                # Pair rows and email rows both carry the email's hash.
+                session.exec(
+                    delete(SecurityCounter).where(
+                        col(SecurityCounter.kind).in_(
+                            ("fail_pair", "lock_pair", "fail_email", "lock_email")
+                        ),
+                        SecurityCounter.email_key == _hash(email_key),
+                    )
+                )
             if user_id is not None:
-                self._by_user.pop(user_id, None)
-
-    def reset(self) -> None:
-        with self._lock:
-            self._entries.clear()
-            self._by_email.clear()
-            self._by_user.clear()
+                self._delete(session, ("fail_user", "lock_user"), _hash(user_id))
+            session.commit()
 
 
-class EmailLimiter:
+class EmailLimiter(_DbCounters):
     """At most 3 emails per address per hour (forgot-password, resend; SPEC §6.1)."""
 
     MAX_EMAILS = 3
     WINDOW = timedelta(hours=1)
-
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._sent: OrderedDict[str, list[datetime]] = OrderedDict()
-
-    def _recent(self, email_key: str, now: datetime) -> list[datetime]:
-        return [t for t in self._sent.get(email_key, []) if now - t < self.WINDOW]
 
     def allow(self, email: str) -> bool:
         """True (and counted) if another email may be sent to this address now."""
@@ -378,24 +400,25 @@ class EmailLimiter:
         if email_key is None:
             return False
         now = utcnow()
-        with self._lock:
-            while self._sent:
-                key = next(iter(self._sent))  # the oldest
-                if self._recent(key, now):
-                    break
-                del self._sent[key]
-
-            sent = self._recent(email_key, now)
-            if len(sent) >= self.MAX_EMAILS:
+        key = _hash(email_key)
+        with self._session() as session:
+            self._forget_old(session, key, now)
+            session.commit()
+            if self._count(session, "email_sent", key, now - self.WINDOW) >= self.MAX_EMAILS:
                 return False
-            self._sent[email_key] = [*sent, now]
-            self._sent.move_to_end(email_key)
-            _drop_oldest(self._sent)
+            session.add(SecurityCounter(kind="email_sent", key=key, at=now))
+            session.commit()
             return True
 
-    def reset(self) -> None:
-        with self._lock:
-            self._sent.clear()
+
+def purge_security_counters(session: Session, now: datetime) -> int:
+    """Delete counter rows nobody looks at any more (the nightly job, D-198). A lock
+    row's `at` is its end, so a lock is only deleted an hour after it ended."""
+    result = session.exec(
+        delete(SecurityCounter).where(col(SecurityCounter.at) < now - COUNTER_KEEP)
+    )
+    session.commit()
+    return result.rowcount
 
 
 login_lockout = LoginLockout()

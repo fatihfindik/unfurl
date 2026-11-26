@@ -14,7 +14,7 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import Engine
 from sqlmodel import Session
 
-from app import db
+from app import db, security
 from app.config import Settings
 from app.services import clock, notification_service, token_service
 
@@ -24,6 +24,7 @@ GENERATE_EVERY_MINUTES = 15
 PURGE_AT_HOUR = 3  # 03:00 in DEFAULT_TIMEZONE, when hardly anyone uses the app
 # Dead extension tokens at 03:10, so the two clean-ups don't hit the database at once.
 PURGE_TOKENS_AT_MINUTE = 10
+PURGE_COUNTERS_AT_MINUTE = 20  # old sign-in and email counters (D-198)
 
 
 def generate_notifications(engine: Engine | None = None) -> None:
@@ -51,6 +52,18 @@ def purge_api_tokens(engine: Engine | None = None) -> None:
         except Exception:
             session.rollback()
             logger.exception("Purging extension tokens failed")
+
+
+def purge_security_counters(engine: Engine | None = None) -> None:
+    """Delete old sign-in and email counters (D-198); a failure is logged and tried
+    again tomorrow."""
+    with Session(engine or db.engine) as session:
+        try:
+            deleted = security.purge_security_counters(session, clock.now())
+            logger.info("Deleted %d old security counters", deleted)
+        except Exception:
+            session.rollback()
+            logger.exception("Purging security counters failed")
 
 
 def build(settings: Settings) -> BackgroundScheduler:
@@ -84,6 +97,13 @@ def build(settings: Settings) -> BackgroundScheduler:
             hour=PURGE_AT_HOUR, minute=PURGE_TOKENS_AT_MINUTE, timezone=settings.default_timezone
         ),
         id="purge_api_tokens",
+    )
+    scheduler.add_job(
+        purge_security_counters,
+        CronTrigger(
+            hour=PURGE_AT_HOUR, minute=PURGE_COUNTERS_AT_MINUTE, timezone=settings.default_timezone
+        ),
+        id="purge_security_counters",
     )
     return scheduler
 
