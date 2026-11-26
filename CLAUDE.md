@@ -61,7 +61,7 @@ The MVP ships without AI (D-150): items marked V2 are not built now. Order: M8a 
 - [x] M13b GDPR: legal pages, data export, account deletion, Settings › Account
 - [ ] M13c Deploy · later (D-155): the MVP runs as a personal local instance
 - [x] M13d Portfolio README
-- [ ] M14a Interview prep tab (no AI, D-175)
+- [x] M14a Interview prep tab (no AI, D-175)
 - [ ] M14b Interview prep: STAR story bank (no AI, D-175)
 
 Update this checklist when a milestone is done.

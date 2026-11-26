@@ -705,3 +705,32 @@
 **SPEC / WORKFLOW changes?**
 - SPEC: yes, v2.1.37 (M13d details, §4 tree). D-172…D-174.
 - WORKFLOW: no.
+
+## M14a — Interview prep tab (2026-11-26, log written by Claude)
+
+**Concepts**
+- A GET request must never write: "open the tab and the starter questions appear"
+  became a "Start interview prep" button (POST). Browsers, link previews and HEAD
+  requests may open a page without the user asking (D-142, D-178).
+- A race condition: two clicks at the same moment can both see "not started yet".
+  One conditional `UPDATE … WHERE interview_prep_started_at IS NULL` checks and writes
+  in a single step; only the request that changed a row adds the questions.
+- A row lock (`SELECT … FOR UPDATE`, Postgres) makes two "Add" requests wait for each
+  other, so a limit like 100 questions can't be passed by sending them together.
+- Saving while typing without losing the text: the answer to an autosave is only the
+  "Saved" note, and `hx-swap-oob` updates the "{n} of {m} answered" count elsewhere on
+  the page. Reloading the whole page would have thrown away the cursor and new text.
+- HTML rules matter for accessibility: a `<form>` can't sit inside a `<label>`, so the
+  label points at the checkbox with `for`/`id` instead.
+
+**What was hard**
+- The issue was written for an AI version; finding the useful no-AI core and splitting
+  it into two milestones (M14a, M14b) came before any code.
+
+**What I will do differently**
+- Check the URL space before naming routes: `/applications/{id}/interview` already
+  existed, so the new routes became `/prep/…`.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.38 (M14a, M14b, §5.5b, §6.7, §6.11, §17.1). D-175…D-180.
+- WORKFLOW: no.
