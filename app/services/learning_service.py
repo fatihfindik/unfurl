@@ -20,6 +20,7 @@ from app.models import (
     StudyLog,
     User,
 )
+from app.models.base import as_utc
 from app.models.learning import DEFAULT_REST_DAYS, WEEKDAYS
 from app.services import clock, profile_service, trash_service
 
@@ -156,10 +157,9 @@ def this_week(session: Session, user: User) -> Week:
     return Week(start, end, minutes or 0, float(target or 0), sum(tasks), len(tasks))
 
 
-# --- Plan views (SPEC §6.10, D-096) -----------------------------------------------------------
+# --- Plan views (SPEC §6.10, D-096, D-187) ---------------------------------------------------
 
-VIEWS = ("today", "week", "all", "catchup")
-DONE_DAYS = 30  # All tasks shows what was completed in the last 30 days
+VIEWS = ("today", "week", "all", "catchup", "done")
 
 
 @dataclass(frozen=True)
@@ -171,19 +171,25 @@ class Group:
 @dataclass(frozen=True)
 class Plan:
     view: str
-    groups: list[Group]  # open tasks; empty groups are left out
-    done: list[LearningTask]  # the collapsed "Done (n)" section
+    groups: list[Group]  # open tasks (the Done tab: its one group of done tasks)
     catchup_count: int  # open tasks from before today, for the "Catch-up (n)" tab
+    done_count: int  # all done tasks, for the "Done (n)" tab
+
+
+def _newest_done_first(task: LearningTask) -> tuple:
+    """Sort key: the latest done_at first, the same moment by id; no done_at goes last."""
+    stamp = as_utc(task.done_at).timestamp() if task.done_at else float("-inf")
+    return (-stamp, -(task.id or 0))
 
 
 def build_plan(all_tasks: list[LearningTask], view: str, today: dt.date) -> Plan:
     """Split the tasks (sorted by date) for one tab of the plan card.
 
-    - Today: due today. Next 7 days: today … today + 6.
-    - Catch-up: due before today and not done. Its Done section holds the old tasks
-      completed today, so a task just caught up on can still be undone.
-    - All tasks: open tasks grouped Overdue / This week / Next week / Later; Done holds
-      the tasks completed in the last DONE_DAYS days.
+    - Today: due today. Next 7 days: today … today + 6. Catch-up: due before today
+      and not done. All tasks: open tasks grouped Overdue / This week / Next week /
+      Later. These tabs show open tasks only: a task ticked off leaves the list, and
+      the toast's Undo or the Done tab brings it back (D-187).
+    - Done: every completed task, the newest first.
     """
     if view not in VIEWS:
         view = "today"
@@ -191,19 +197,15 @@ def build_plan(all_tasks: list[LearningTask], view: str, today: dt.date) -> Plan
     done_tasks = [task for task in all_tasks if task.done]
     catchup = [task for task in open_tasks if task.due_date < today]
 
-    def done_on(task: LearningTask) -> dt.date | None:
-        return clock.local(task.done_at).date() if task.done_at else None
-
     if view == "today":
         groups = [Group("", [t for t in open_tasks if t.due_date == today])]
-        done = [t for t in done_tasks if t.due_date == today]
     elif view == "week":
         last = today + dt.timedelta(days=6)
         groups = [Group("", [t for t in open_tasks if today <= t.due_date <= last])]
-        done = [t for t in done_tasks if today <= t.due_date <= last]
     elif view == "catchup":
         groups = [Group("", catchup)]
-        done = [t for t in done_tasks if t.due_date < today and done_on(t) == today]
+    elif view == "done":
+        groups = [Group("", sorted(done_tasks, key=_newest_done_first))]
     else:
         _, sunday = week_of(today)
         next_sunday = sunday + dt.timedelta(days=7)
@@ -213,11 +215,8 @@ def build_plan(all_tasks: list[LearningTask], view: str, today: dt.date) -> Plan
             Group("Next week", [t for t in open_tasks if sunday < t.due_date <= next_sunday]),
             Group("Later", [t for t in open_tasks if t.due_date > next_sunday]),
         ]
-        since = today - dt.timedelta(days=DONE_DAYS)
-        done = [t for t in done_tasks if (done_on(t) or today) >= since]
-    if view == "all":
         groups = [group for group in groups if group.tasks]
-    return Plan(view, groups, done, len(catchup))
+    return Plan(view, groups, len(catchup), len(done_tasks))
 
 
 # --- Goals and tasks -------------------------------------------------------------------------

@@ -50,7 +50,13 @@ async def read_form_data(request: Request) -> FormData:
 
 SubmittedForm = Annotated[FormData, Depends(read_form_data)]
 
-VIEW_TITLES = {"today": "Today", "week": "Next 7 days", "all": "All tasks", "catchup": "Catch-up"}
+VIEW_TITLES = {
+    "today": "Today",
+    "week": "Next 7 days",
+    "all": "All tasks",
+    "catchup": "Catch-up",
+    "done": "Done",
+}
 DAY_NAMES = dict(zip(WEEKDAYS, ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"), strict=True))
 GOAL_COLORS = 6  # app/templates/learning/_parts.html has one class pair per color (D-096)
 
@@ -94,6 +100,11 @@ def task_row(task, today: dt.date, goal_info: dict, spent: dict | None = None) -
     when = day_text(task.due_date, today)
     if not task.done and task.due_date < today:
         when = f"Was due {when}" if when != "Yesterday" else "Was due yesterday"
+    done_when = ""
+    if task.done and task.done_at:
+        # The Done tab (D-187): "Done 4 Nov", with the year when it isn't this year.
+        day = clock.local(task.done_at).date()
+        done_when = "Done " + day.strftime("%-d %b" if day.year == today.year else "%-d %b %Y")
     return {
         "id": task.id,
         "title": task.title,
@@ -102,6 +113,7 @@ def task_row(task, today: dt.date, goal_info: dict, spent: dict | None = None) -
         "goal": goal["title"],
         "color": goal["color"],
         "when": when,
+        "done_when": done_when,
         "duration": duration_text(minutes),
         "url": task.url,
     }
@@ -146,17 +158,21 @@ def page_context(session: Session, user: User, view: str) -> dict:
         )
 
     target_minutes = round(week.target_hours * 60)
+    counts = {"catchup": plan.catchup_count, "done": plan.done_count}
     return {
         "view": plan.view,
         "views": [
-            (key, f"{title} ({plan.catchup_count})" if key == "catchup" else title)
+            (key, f"{title} ({counts[key]})" if key in counts else title)
             for key, title in VIEW_TITLES.items()
         ],
         "groups": [
-            {"label": group.label, "rows": [task_row(t, today, goal_info) for t in group.tasks]}
+            # Done rows show the time really spent (D-117); open ones their estimate.
+            {
+                "label": group.label,
+                "rows": [task_row(t, today, goal_info, spent) for t in group.tasks],
+            }
             for group in plan.groups
         ],
-        "done_rows": [task_row(t, today, goal_info, spent) for t in plan.done],
         "streak": learning.streak(session, user),
         "rest_note": rest_days_text(prefs.rest_days),
         "week_hours": hours_text(week.minutes),

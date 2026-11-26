@@ -239,3 +239,86 @@ def test_other_users_data_is_not_shown(auth_client, session):
     html = auth_client.get("/learning?view=all").text
 
     assert "Their secret goal" not in html and "Their task" not in html
+
+
+# --- Done tab, Add task at the top, edit by title (D-187, D-189) ---------------------------
+
+
+def plan_card(html: str) -> str:
+    return html.split('id="plan-title"', 1)[1].split('id="goals-title"', 1)[0]
+
+
+def test_done_tab_lists_every_done_task_newest_first(auth_client, session, user):
+    goal = add_goal(session, user)
+    old = add_task(session, goal, "Old one", day(-60), done=True,
+                   done_at=NOW - dt.timedelta(days=60))  # fmt: skip
+    new = add_task(session, goal, "New one", day(-1), done=True, done_at=NOW)
+    html = auth_client.get("/learning?view=done").text
+
+    assert "Done (2)" in html
+    card_html = plan_card(html)
+    assert card_html.index(f'data-task="{new.id}"') < card_html.index(f'data-task="{old.id}"')
+    assert "Done 18 Nov" in card_html and "Done 19 Sep" in card_html
+    assert "line-through" in card_html
+
+
+def test_done_from_another_year_shows_the_year(auth_client, session, user):
+    goal = add_goal(session, user)
+    add_task(session, goal, "Last year", day(0), done=True, done_at=NOW - dt.timedelta(days=365))
+
+    assert "Done 18 Nov 2025" in auth_client.get("/learning?view=done").text
+
+
+@pytest.mark.parametrize("view", ["today", "week", "all", "catchup"])
+def test_other_tabs_show_open_tasks_only(auth_client, session, user, view):
+    goal = add_goal(session, user)
+    done = add_task(session, goal, "Finished", day(0), done=True, done_at=NOW)
+    old = add_task(session, goal, "Finished late", day(-2), done=True, done_at=NOW)
+    html = plan_card(auth_client.get(f"/learning?view={view}").text)
+
+    assert f'data-task="{done.id}"' not in html and f'data-task="{old.id}"' not in html
+    assert '<details class="group' not in html  # no collapsed Done section any more
+
+
+def test_done_tab_empty(auth_client, session, user):
+    add_goal(session, user)
+
+    assert "No completed tasks yet." in auth_client.get("/learning?view=done").text
+
+
+def test_add_task_is_in_the_plan_header(auth_client, session, user):
+    goal = add_goal(session, user)
+    for number in range(5):
+        add_task(session, goal, f"Lesson {number}", day(number))
+    html = plan_card(auth_client.get("/learning?view=all").text)
+
+    add = html.index('data-dialog-url="/learning/tasks/new"')
+    assert add < html.index('aria-label="Plan view"')  # above the tabs and the list
+    assert html.count('data-dialog-url="/learning/tasks/new"') == 1
+
+
+def test_no_add_task_in_the_header_without_goals(auth_client):
+    html = plan_card(auth_client.get("/learning").text)
+
+    assert 'data-dialog-url="/learning/tasks/new"' not in html
+
+
+@pytest.mark.parametrize("view", ["today", "done"])
+def test_a_title_opens_the_edit_dialog(auth_client, session, user, view):
+    goal = add_goal(session, user)
+    task = add_task(session, goal, "Lecture <4>", day(0), done=view == "done",
+                    done_at=NOW if view == "done" else None)  # fmt: skip
+    html = plan_card(auth_client.get(f"/learning?view={view}").text)
+    row = html.split(f'data-task="{task.id}"', 1)[1].split("</li>", 1)[0]
+
+    title = re.search(r'<button type="button" data-dialog-load="edit-task"[^>]*>', row).group(0)
+    assert f'data-dialog-url="/learning/tasks/{task.id}/edit"' in title
+    assert 'aria-label="Edit Lecture &lt;4&gt;"' in title  # escaped
+    assert "Lecture <4>" not in row
+
+
+def test_tasks_done_card_links_to_the_done_tab(auth_client, session, user):
+    add_goal(session, user)
+    tasks_card = card(auth_client.get("/learning").text, "tasks")
+
+    assert 'hx-get="/learning?view=done"' in tasks_card and "See done tasks" in tasks_card

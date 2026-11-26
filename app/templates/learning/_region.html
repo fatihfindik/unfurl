@@ -33,6 +33,8 @@
       <span class="text-[13px] font-semibold text-text-3">Tasks done</span>
       <span class="text-[30px] font-bold leading-tight">{{ tasks_done }} <span class="text-base font-medium text-text-3">/ {{ tasks_total }}</span></span>
       <span class="text-xs text-text-3">{{ week_range }}</span>
+      <a href="/learning?view=done" hx-get="/learning?view=done" hx-target="#learning-region" hx-swap="outerHTML" hx-push-url="true"
+         class="self-start text-xs font-semibold text-link no-underline hover:underline">See done tasks</a>
     </div>
     {#- D-115: when the next study reminder comes. -#}
     <div data-card="reminder" class="flex flex-col gap-1.5 rounded-xl border border-border bg-surface px-5 py-[18px]">
@@ -60,7 +62,14 @@
   <div class="flex flex-wrap items-start gap-6">
     <section aria-labelledby="plan-title" class="flex min-w-0 flex-[3_1_560px] flex-col gap-3.5 rounded-xl border border-border bg-surface p-5">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="plan-title" class="m-0 text-base font-bold">Plan</h2>
+        <div class="flex items-center gap-3">
+          <h2 id="plan-title" class="m-0 text-base font-bold">Plan</h2>
+          {%- if goal_cards %}
+            {#- At the top, not under a long list (D-187). -#}
+            <button type="button" data-dialog-load="add-task" data-dialog-url="/learning/tasks/new"
+                    class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border-strong bg-surface px-3 text-[13px] font-medium text-text-2 hover:bg-muted">{{ icon("plus") }}Add task</button>
+          {%- endif %}
+        </div>
         <nav aria-label="Plan view" class="flex flex-wrap gap-0.5 rounded-[10px] bg-muted p-[3px]">
           {%- for key, title in views %}
             {%- set url = "/learning?view=" ~ key %}
@@ -75,14 +84,14 @@
         <p class="m-0 rounded-lg bg-amber-bg px-3 py-2.5 text-[13px] leading-normal text-amber-text">These are overdue. No stress, you can reschedule them.</p>
       {%- endif %}
 
-      {%- set open_count = groups | map(attribute="rows") | map("length") | sum %}
-      {%- if open_count %}
+      {%- set row_count = groups | map(attribute="rows") | map("length") | sum %}
+      {%- if row_count %}
         <ul class="m-0 flex list-none flex-col p-0">
           {%- for group in groups %}
             {%- if group.label %}
               <li class="pt-3.5 pb-1.5 text-xs font-bold uppercase tracking-[0.04em] text-text-3">{{ group.label }}</li>
             {%- endif %}
-            {%- for row in group.rows %}{{ task_item(row) }}{% endfor %}
+            {%- for row in group.rows %}{{ done_item(row) if view == "done" else task_item(row) }}{% endfor %}
           {%- endfor %}
         </ul>
       {%- elif not goal_cards %}
@@ -92,28 +101,9 @@
           {%- if view == "today" %}Nothing planned for today.
           {%- elif view == "week" %}Nothing planned for the next 7 days.
           {%- elif view == "catchup" %}Nothing to catch up on. Nice.
+          {%- elif view == "done" %}No completed tasks yet.
           {%- else %}No open tasks.{% endif -%}
         </p>
-      {%- endif %}
-
-      {%- if done_rows %}
-        <details class="group border-t border-muted pt-3">
-          <summary class="flex cursor-pointer list-none items-center justify-between text-text-3">
-            <span class="text-[13px] font-bold">Done ({{ done_rows | length }})</span>
-            <span class="text-xs font-semibold text-link group-open:hidden">Show</span>
-            <span class="hidden text-xs font-semibold text-link group-open:inline">Hide</span>
-          </summary>
-          <ul class="m-0 flex list-none flex-col p-0">
-            {%- for row in done_rows %}{{ done_item(row) }}{% endfor %}
-          </ul>
-        </details>
-      {%- endif %}
-
-      {%- if goal_cards %}
-        <div class="flex flex-wrap gap-2 border-t border-muted pt-3.5">
-          <button type="button" data-dialog-load="add-task" data-dialog-url="/learning/tasks/new"
-                  class="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-3.5 text-[13px] font-medium text-text-2 hover:bg-muted">{{ icon("plus") }}Add task</button>
-        </div>
       {%- endif %}
     </section>
 

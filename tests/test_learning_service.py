@@ -290,22 +290,20 @@ def test_today_view():
     plan = learning.build_plan(plan_tasks(), "today", WED)
 
     assert [titles(group.tasks) for group in plan.groups] == [["today"]]
-    assert titles(plan.done) == ["today done"]
     assert plan.catchup_count == 1
+    assert plan.done_count == 4
 
 
 def test_next_seven_days_view():
     plan = learning.build_plan(plan_tasks(), "week", WED)
 
     assert titles(plan.groups[0].tasks) == ["today", "sunday", "next monday", "in six days"]
-    assert titles(plan.done) == ["today done"]
 
 
 def test_catchup_view():
     plan = learning.build_plan(plan_tasks(), "catchup", WED)
 
     assert titles(plan.groups[0].tasks) == ["overdue"]
-    assert titles(plan.done) == ["caught up today"]
 
 
 def test_all_tasks_view_groups_by_week():
@@ -317,7 +315,31 @@ def test_all_tasks_view_groups_by_week():
         ("Next week", ["next monday", "in six days", "next sunday"]),
         ("Later", ["later"]),
     ]
-    assert set(titles(plan.done)) == {"caught up today", "done last week", "today done"}
+
+
+def test_done_view_lists_every_done_task_newest_first():
+    # No 30-day limit any more (D-187): the task done 40 days ago is there too.
+    plan = learning.build_plan(plan_tasks(), "done", WED)
+
+    (group,) = plan.groups
+    done = titles(group.tasks)
+    assert set(done[:2]) == {"caught up today", "today done"}  # both done at NOW
+    assert done[2:] == ["done last week", "done long ago"]
+    assert plan.done_count == 4
+
+
+def test_done_view_ties_go_by_id_and_no_done_at_goes_last():
+    goal = LearningGoal(id=1, user_id=1, title="G")
+    rows = [
+        task(goal, day(0), "no stamp", done=True),
+        task(goal, day(0), "first", done=True, done_at=NOW),
+        task(goal, day(0), "second", done=True, done_at=NOW),
+    ]
+    for number, row in enumerate(rows, start=1):
+        row.id = number
+    plan = learning.build_plan(rows, "done", WED)
+
+    assert titles(plan.groups[0].tasks) == ["second", "first", "no stamp"]
 
 
 def test_all_tasks_leaves_out_empty_groups():

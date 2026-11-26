@@ -69,12 +69,20 @@
   </details>
 {%- endmacro %}
 
+{#- The task's title: a button that opens its Edit dialog (D-189). The inner span
+    keeps the text styles. -#}
+{% macro title_button(row, text_classes) -%}
+  <button type="button" data-dialog-load="edit-task" data-dialog-url="/learning/tasks/{{ row.id }}/edit"
+          aria-label="Edit {{ row.title }}"
+          class="min-w-0 cursor-pointer self-start rounded border-0 bg-transparent p-0 text-left hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4F46E5]"><span class="{{ text_classes }}">{{ row.title }}</span></button>
+{%- endmacro %}
+
 {#- One open task in the plan. `row`: see app/routers/learning.py task_row. -#}
 {% macro task_item(row) %}
   <li data-task="{{ row.id }}" class="flex items-center gap-3 border-t border-muted py-3">
     {{ done_box(row) }}
     <div class="flex min-w-0 flex-1 flex-col gap-1">
-      <span class="text-sm font-medium text-text [overflow-wrap:anywhere]">{{ row.title }}</span>
+      {{ title_button(row, "text-sm font-medium text-text [overflow-wrap:anywhere]") }}
       <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs text-text-3">
         {{ goal_badge(row.goal, row.color) }}
         <span>{{ row.when }}</span>
@@ -86,12 +94,18 @@
   </li>
 {%- endmacro %}
 
-{#- One completed task in the collapsed "Done (n)" section. -#}
+{#- One completed task in the Done tab (D-187). -#}
 {% macro done_item(row) %}
   <li data-task="{{ row.id }}" class="flex items-center gap-3 border-t border-muted py-2.5">
     {{ done_box(row) }}
-    <span class="flex-1 text-sm text-text-3 line-through [overflow-wrap:anywhere]">{{ row.title }}</span>
-    <span class="text-xs text-text-3">{{ row.duration }}</span>
+    <div class="flex min-w-0 flex-1 flex-col gap-1">
+      {{ title_button(row, "text-sm text-text-3 line-through [overflow-wrap:anywhere]") }}
+      <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs text-text-3">
+        {{ goal_badge(row.goal, row.color) }}
+        {%- if row.done_when %}<span>{{ row.done_when }}</span>{% endif %}
+        <span>{{ row.duration }}</span>
+      </div>
+    </div>
     {{ task_menu(row) }}
   </li>
 {%- endmacro %}
