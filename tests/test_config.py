@@ -63,6 +63,25 @@ def test_production_rejects_empty_smtp_host():
         make_production_settings(smtp_host="")
 
 
+@pytest.mark.parametrize(
+    "url", ["http://localhost:8000", "http://unfurl.example.com", "unfurl.example.com"]
+)
+def test_production_rejects_a_base_url_that_is_not_https(url):
+    with pytest.raises(ValidationError, match="APP_BASE_URL"):
+        make_production_settings(app_base_url=url)
+
+
+@pytest.mark.parametrize("value", [None, "", "  "])
+def test_production_needs_forwarded_allow_ips_set_on_purpose(value):
+    with pytest.raises(ValidationError, match="FORWARDED_ALLOW_IPS"):
+        make_production_settings(forwarded_allow_ips=value)
+
+
+def test_development_needs_neither_https_nor_forwarded_allow_ips():
+    settings = make_settings(app_env="development", app_base_url="http://127.0.0.1:8100")
+    assert settings.forwarded_allow_ips is None
+
+
 def test_production_accepts_real_secrets_and_smtp():
     settings = make_production_settings()
     assert settings.app_env == "production"

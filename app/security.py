@@ -403,7 +403,8 @@ email_limiter = EmailLimiter()
 
 # Requests per IP address (slowapi). Routes use it as a decorator, for example
 # @limiter.limit("10/minute"); the route must have a `request: Request` parameter.
-# Behind a proxy, the real IP needs uvicorn's --proxy-headers (deploy, M13).
+# Behind a proxy, `fastapi run` takes the real IP from X-Forwarded-For only when the
+# proxy is in FORWARDED_ALLOW_IPS; production refuses to start without it (D-199).
 limiter = Limiter(key_func=get_remote_address)
 
 

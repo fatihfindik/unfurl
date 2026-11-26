@@ -14,6 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The placeholder value from .env.example. It must never be used in production.
 DEFAULT_SECRET_KEY = "change-me"
+DEFAULT_APP_BASE_URL = "http://localhost:8000"
 MIN_SECRET_KEY_LENGTH = 32
 
 
@@ -27,7 +28,7 @@ class Settings(BaseSettings):
     # Required, no default: if a deploy forgot APP_ENV and we silently fell back to
     # "development", every production check below would be skipped.
     app_env: Literal["development", "production"]
-    app_base_url: str = "http://localhost:8000"
+    app_base_url: str = DEFAULT_APP_BASE_URL
     # SecretStr hides the value when printed or logged ("**********").
     secret_key: SecretStr = SecretStr(DEFAULT_SECRET_KEY)
     encryption_key: SecretStr = SecretStr("")
@@ -75,6 +76,11 @@ class Settings(BaseSettings):
     def extension_origin_list(self) -> frozenset[str]:
         origins = (origin.strip().rstrip("/") for origin in self.extension_origins.split(","))
         return frozenset(origin for origin in origins if origin)
+
+    # Proxy (D-199): the addresses whose X-Forwarded-For uvicorn (`fastapi run`) trusts.
+    # uvicorn reads the same variable itself; it is here so production can check it is
+    # set on purpose. Unset, uvicorn trusts only 127.0.0.1.
+    forwarded_allow_ips: str | None = None
 
     # Scheduler / reminders
     scheduler_enabled: bool = True
@@ -126,6 +132,20 @@ class Settings(BaseSettings):
             raise ValueError("EMAIL_BACKEND must be smtp in production.")
         if not self.smtp_host:
             raise ValueError("SMTP_HOST must be set in production.")
+
+        # Emails link to APP_BASE_URL: the default would send people to localhost (#18).
+        if self.app_base_url == DEFAULT_APP_BASE_URL or not self.app_base_url.startswith(
+            "https://"
+        ):
+            raise ValueError("APP_BASE_URL must be the site's https:// address in production.")
+        # Behind a proxy every request seems to come from the proxy, so all users would
+        # share one rate limit and lockout. Set it on purpose: the proxy's address (or *
+        # on Render), or 127.0.0.1 without a proxy (D-199).
+        if not (self.forwarded_allow_ips or "").strip():
+            raise ValueError(
+                "FORWARDED_ALLOW_IPS must be set in production (the proxy's address, "
+                "or 127.0.0.1 without a proxy)."
+            )
         return self
 
 
