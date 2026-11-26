@@ -23,7 +23,7 @@ from app.models.interview import (
     MAX_QUESTION_TEXT,
     MAX_QUESTIONS,
 )
-from app.services import trash_service
+from app.services import clock, next_step_service, trash_service
 from app.services.profile_service import MAX_ID
 
 # The tab is shown once the user applied (D-176). A saved job has nothing to prepare yet.
@@ -186,6 +186,46 @@ def questions_of(session: Session, user: User, application: Application) -> dict
 def answered_count(likely: list[InterviewQuestion]) -> int:
     """How many likely questions have an answer draft ("{n} of {m} answered")."""
     return sum(1 for question in likely if question.answer)
+
+
+def interview_line(application: Application) -> str:
+    """ "Wed, 2 Dec 2026, 14:00 · Video call · with Mira Huber" for the top of the tab;
+    "" without a date. An all-day interview has no time (like the next step)."""
+    if application.interview_at is None:
+        return ""
+    local = clock.local(application.interview_at)
+    when = local.strftime("%a, %-d %b %Y")
+    if not clock.is_start_of_day(application.interview_at):
+        when += local.strftime(", %H:%M")
+    parts = [when]
+    if application.interview_type:
+        parts.append(next_step_service.INTERVIEW_TYPE_NAMES.get(application.interview_type, ""))
+    if application.interview_with:
+        parts.append(f"with {application.interview_with}")
+    return " · ".join(part for part in parts if part)
+
+
+def tab_context(session: Session, user: User, application: Application) -> dict:
+    """What the Interview prep tab and its cards show (D-176…D-179). Reads only (D-178)."""
+    questions = questions_of(session, user, application)
+    likely = questions["likely"]
+    groups = [
+        (key, CATEGORY_TITLES[key], [question for question in likely if question.category == key])
+        for key in CATEGORIES
+    ]
+    return {
+        "prep_started": application.interview_prep_started_at is not None,
+        "prep_editable": not application.archived,
+        "prep_groups": [group for group in groups if group[2]],
+        "prep_likely_count": len(likely),
+        "prep_answered": answered_count(likely),
+        "prep_to_ask": questions["to_ask"],
+        "prep_interview_line": interview_line(application),
+        "prep_categories": CATEGORY_TITLES,
+        "max_question_text": MAX_QUESTION_TEXT,
+        "max_answer": MAX_ANSWER,
+        "max_interview_notes": MAX_INTERVIEW_NOTES,
+    }
 
 
 # --- Writing ------------------------------------------------------------------------

@@ -489,42 +489,6 @@ def detail_context(session: Session, user: User, application) -> dict:
     )
 
 
-def interview_line(application) -> str:
-    """ "Tue, 2 Dec, 14:00 · Video · with Mira Huber" for the top of the Interview prep
-    tab; "" without a date. An all-day interview has no time (like the next step)."""
-    if application.interview_at is None:
-        return ""
-    local = clock.local(application.interview_at)
-    when = local.strftime("%a, %-d %b %Y")
-    if not clock.is_start_of_day(application.interview_at):
-        when += local.strftime(", %H:%M")
-    parts = [when]
-    if application.interview_type:
-        parts.append(next_step_service.INTERVIEW_TYPE_NAMES.get(application.interview_type, ""))
-    if application.interview_with:
-        parts.append(f"with {application.interview_with}")
-    return " · ".join(part for part in parts if part)
-
-
-def prep_context(session: Session, user: User, application) -> dict:
-    """What the Interview prep tab shows (D-176…D-179). Reads only (D-178)."""
-    questions = interview_prep_service.questions_of(session, user, application)
-    likely = questions["likely"]
-    groups = [
-        (key, interview_prep_service.CATEGORY_TITLES[key], [q for q in likely if q.category == key])
-        for key in interview_prep_service.CATEGORIES
-    ]
-    return {
-        "prep_started": application.interview_prep_started_at is not None,
-        "prep_groups": [group for group in groups if group[2]],
-        "prep_likely_count": len(likely),
-        "prep_answered": interview_prep_service.answered_count(likely),
-        "prep_to_ask": questions["to_ask"],
-        "prep_interview_line": interview_line(application),
-        "prep_categories": interview_prep_service.CATEGORY_TITLES,
-    }
-
-
 def first_tab(application) -> str:
     """The first tab (D-164): Apply while the job is only saved, Progress once it
     was sent or answered. An archived job keeps the status it had, so it opens the
@@ -553,7 +517,7 @@ def application_detail(
     else:
         context["tab"] = context["first_tab"]
     if context["tab"] == "interview":
-        context |= prep_context(session, user, application)
+        context |= interview_prep_service.tab_context(session, user, application)
     if context["tab"] == "progress":
         # "How you applied" (D-167): the steps from the timeline, oldest first.
         source_name = SOURCE_NAMES.get(application.source, "Other")

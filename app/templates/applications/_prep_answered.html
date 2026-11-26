@@ -1,0 +1,4 @@
+{#- "{n} of {m} answered" under Likely questions. Sent again out of band (hx-swap-oob)
+    when an answer is saved, so the count follows without redrawing the card.
+    Context: prep_answered, prep_likely_count, oob (optional). -#}
+<span id="prep-answered" class="text-[13px] text-text-3"{% if oob %} hx-swap-oob="true"{% endif %}>{{ prep_answered }} of {{ prep_likely_count }} answered</span>

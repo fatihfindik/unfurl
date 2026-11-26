@@ -18,6 +18,7 @@ from app.security import limiter
 from app.services import (
     cover_letter_service,
     document_service,
+    interview_prep_service,
     learning_service,
     profile_service,
     trash_service,
@@ -64,6 +65,8 @@ def undo_delete(request: Request, session: DbSession, user: RequiredUser, data: 
                 learning_service.restore_task(session, user, payload)
             elif kind == "learning_goal":
                 learning_service.restore_goal(session, user, payload)
+            elif kind == "interview_question":  # D-179
+                interview_prep_service.restore(session, user, payload)
             else:
                 raise trash_service.CannotRestore
             session.commit()
