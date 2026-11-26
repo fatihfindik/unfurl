@@ -783,3 +783,9 @@
 - A conditional `UPDATE … WHERE status = 'pending'` "claims" a row, so two calls at the same time can't both apply the same change set.
 - Reviews found what tests missed: reopening a done task silently deleted logged time, so the MCP server can't reopen tasks; huge ids crashed the database driver instead of meaning "not found".
 
+## #107 (I107b) — MCP tools for applications (2026-11-26, log written by Claude)
+
+- A guard must use the same rule as the action it guards. `_would_lock` only looked at "unsent → sent", while `move()` locks on every move into a sent status, so Applied → Interview locked a draft without asking. The fix asks the same question the service answers.
+- Check everything that can fail before the first write: a tool error should mean "nothing changed", otherwise the model may retry and do the change twice.
+- A flag like `confirm_lock=true` is the model's own claim, not proof the user agreed; the real gate is the client's per-call permission prompt (`destructiveHint`).
+- MCP tool results come back as JSON text in `content[0].text`; `structured_content` is only filled when the tool declares an output schema.
