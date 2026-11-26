@@ -318,3 +318,53 @@ def test_main_reports_problems_and_exits_with_1(engine, session, user, monkeypat
     assert code == 1
     assert "Nothing was imported" in capsys.readouterr().err
     assert nothing_written(session, user)
+
+
+# --- Security review fixes ------------------------------------------------------------
+
+
+def test_the_summary_shows_what_the_account_has_before(session, user):
+    run(session, USER_EMAIL, payload(goal("Old", [task(), task()])), True)
+    out = run(session, USER_EMAIL, payload(goal("New")), False)
+    assert f"for user #{user.id} (before: 1 goals, 2 tasks):" in out
+
+
+def test_a_goal_differing_only_in_case_stops_the_import(session, user):
+    run(session, USER_EMAIL, payload(goal("Phase 1")), True)
+    with pytest.raises(ImportFailed, match="already have"):
+        run(session, USER_EMAIL, payload(goal("PHASE 1")), True)
+    with pytest.raises(ImportFailed, match="more than once"):
+        run(session, USER_EMAIL, payload(goal("A b"), goal("a B")), False)
+
+
+@pytest.mark.parametrize("value", [20261102, 2026.11, True, ["2026-11-02"]])
+def test_a_date_that_isnt_text_is_an_error(session, user, value):
+    with pytest.raises(ImportFailed, match="YYYY-MM-DD"):
+        run(session, USER_EMAIL, payload(goal(tasks=[task(due_date=value)])), True)
+    assert nothing_written(session, user)
+
+
+@pytest.mark.parametrize("value", [False, 0, []])
+def test_a_link_that_isnt_text_is_an_error(session, user, value):
+    with pytest.raises(ImportFailed, match="link must be text"):
+        run(session, USER_EMAIL, payload(goal(tasks=[task(url=value)])), True)
+
+
+@pytest.mark.parametrize("value", ["", None])
+def test_an_empty_link_is_no_link(session, user, value):
+    run(session, USER_EMAIL, payload(goal(tasks=[task(url=value)])), True)
+    assert tasks_of(session, user)[0].url is None
+
+
+def test_a_deeply_nested_file_is_a_clean_error(session, user):
+    text = '{"goals": ' + "[" * 100_000 + "]" * 100_000 + "}"
+    with pytest.raises(ImportFailed, match="nested too deeply"):
+        run(session, USER_EMAIL, text, True)
+
+
+def test_main_refuses_a_file_that_isnt_utf8(engine, session, user, monkeypatch, capsys):
+    monkeypatch.setattr("app.db.engine", engine)
+    stdin = io.TextIOWrapper(io.BytesIO(b'{"goals": "\xff\xfe"}'), encoding="utf-8")
+    assert import_learning.main(["--email", USER_EMAIL, "--apply"], stdin) == 1
+    assert "not UTF-8" in capsys.readouterr().err
+    assert nothing_written(session, user)

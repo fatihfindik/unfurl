@@ -83,7 +83,11 @@ def _task(raw, where: str, problems: list[str], warnings: list[str]) -> TaskIn |
     # The same rules as the task form (D-094): 30 days back to 2 years ahead.
     due_date = None
     try:
-        due_date = check_task_date(raw.get("due_date"))
+        raw_date = raw.get("due_date")
+        # Only text: fromisoformat would also take the number 20261102 (security review).
+        if raw_date is not None and not isinstance(raw_date, str):
+            raise ValueError("Use the format YYYY-MM-DD.")
+        due_date = check_task_date(raw_date)
     except ValueError as error:
         problems.append(f"{where}: {error}")
 
@@ -92,7 +96,9 @@ def _task(raw, where: str, problems: list[str], warnings: list[str]) -> TaskIn |
     if type(minutes) is not int or not MIN_TASK_MINUTES <= minutes <= MAX_TASK_MINUTES:
         problems.append(f"{where}: minutes must be from {MIN_TASK_MINUTES} to {MAX_TASK_MINUTES}.")
 
-    url = raw.get("url") or None
+    url = raw.get("url")
+    if url == "":
+        url = None  # an empty link is no link; false or 0 is an error below
     if url is not None:
         try:
             if not isinstance(url, str) or len(url) > URL_TEXT:
@@ -121,6 +127,8 @@ def parse(text: str) -> tuple[list[GoalIn], list[str]]:
         data = json.loads(text)
     except json.JSONDecodeError as error:
         raise ImportFailed([f"The file is not valid JSON: {error}"]) from None
+    except RecursionError:  # very deeply nested lists or objects
+        raise ImportFailed(["The file is nested too deeply."]) from None
     if not isinstance(data, dict) or set(data) != {"goals"} or not isinstance(data["goals"], list):
         raise ImportFailed(['The file must be {"goals": [...]} and nothing else.'])
 
@@ -147,7 +155,8 @@ def parse(text: str) -> tuple[list[GoalIn], list[str]]:
 
     if not goals:
         problems.append("The file has no goals.")
-    titles = [goal.title for goal in goals if goal.title]
+    # "Phase 1" and "phase 1" count as the same goal (casefold is lower() for all languages).
+    titles = [goal.title.casefold() for goal in goals if goal.title]
     for title in sorted({t for t in titles if titles.count(t) > 1}):
         problems.append(f'The file has the goal "{title}" more than once.')
     if problems:
@@ -157,11 +166,12 @@ def parse(text: str) -> tuple[list[GoalIn], list[str]]:
 
 def check_user(session: Session, user: User, goals: list[GoalIn]) -> None:
     """Stop before writing if a goal title exists already or a limit would be passed."""
-    existing = set(session.exec(select(LearningGoal.title).where(LearningGoal.user_id == user.id)))
+    rows = session.exec(select(LearningGoal.title).where(LearningGoal.user_id == user.id))
+    existing = {title.casefold() for title in rows}
     problems = [
         f'You already have a goal "{goal.title}". Nothing was imported.'
         for goal in goals
-        if goal.title in existing
+        if goal.title.casefold() in existing
     ]
     try:
         learning_service._check_room(session, user, LearningGoal, MAX_GOALS, adding=len(goals))
@@ -204,9 +214,21 @@ def write(session: Session, user: User, goals: list[GoalIn]) -> None:
         raise
 
 
-def summary(user: User, goals: list[GoalIn], warnings: list[str], applied: bool) -> str:
+def counts(session: Session, user: User) -> tuple[int, int]:
+    """How many goals and tasks the user has: shown so a wrong account is easy to spot."""
+    goal_count = len(learning_service.goals(session, user))
+    task_count = len(learning_service.tasks(session, user))
+    return goal_count, task_count
+
+
+def summary(
+    user: User, before: tuple[int, int], goals: list[GoalIn], warnings: list[str], applied: bool
+) -> str:
     """What was (or would be) imported. No email: the output may end up in a terminal log."""
-    lines = [f"{'Imported' if applied else 'Dry run, nothing written'} for user #{user.id}:"]
+    lines = [
+        f"{'Imported' if applied else 'Dry run, nothing written'} for user #{user.id}"
+        f" (before: {before[0]} goals, {before[1]} tasks):"
+    ]
     for goal in goals:
         days = [task.due_date for task in goal.tasks]
         done = sum(task.done for task in goal.tasks)
@@ -231,9 +253,10 @@ def run(session: Session, email: str, text: str, apply: bool) -> str:
     with clock.use_timezone(user.timezone):
         goals, warnings = parse(text)
         check_user(session, user, goals)
+        before = counts(session, user)
         if apply:
             write(session, user, goals)
-        return summary(user, goals, warnings, apply)
+        return summary(user, before, goals, warnings, apply)
 
 
 def main(argv: list[str] | None = None, stdin: TextIO = sys.stdin) -> int:
@@ -241,7 +264,11 @@ def main(argv: list[str] | None = None, stdin: TextIO = sys.stdin) -> int:
     parser.add_argument("--email", required=True, help="the user who gets the goals")
     parser.add_argument("--apply", action="store_true", help="write (default: dry run)")
     args = parser.parse_args(argv)
-    text = stdin.read(MAX_INPUT_BYTES + 1)  # one byte more, so a too large file is noticed
+    try:
+        text = stdin.read(MAX_INPUT_BYTES + 1)  # one byte more, so a too large file is noticed
+    except UnicodeDecodeError:
+        print("Nothing was imported: the file is not UTF-8 text.", file=sys.stderr)
+        return 1
 
     from app.db import engine  # here, not at the top: tests import this module freely
 
