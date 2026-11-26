@@ -21,7 +21,7 @@ from starlette.datastructures import FormData
 
 from app.db import get_session
 from app.models import Application, User
-from app.models.interview import MAX_QUESTIONS
+from app.models.interview import MAX_QUESTIONS, MAX_STORIES_PER_INTERVIEW
 from app.security import UserFacingHTTPException, limiter, read_limited_form
 from app.services import application_service, undo_service
 from app.services import interview_prep_service as prep
@@ -37,7 +37,11 @@ RequiredUser = Annotated[User, Depends(require_user)]
 MAX_FIELDS = 10
 DELETE_UNDO_URL = "/undo/delete"  # app/routers/undo.py, shared with CVs and learning
 
-CARDS = {"likely": "applications/_prep_likely.html", "to_ask": "applications/_prep_to_ask.html"}
+CARDS = {
+    "likely": "applications/_prep_likely.html",
+    "to_ask": "applications/_prep_to_ask.html",
+    "stories": "applications/_prep_stories.html",
+}
 
 
 async def read_form_data(request: Request) -> FormData:
@@ -61,6 +65,11 @@ def service_errors():
     except prep.TooManyQuestions:
         raise UserFacingHTTPException(
             status_code=409, detail=f"An application can have up to {MAX_QUESTIONS} questions."
+        ) from None
+    except prep.TooManyStories:
+        raise UserFacingHTTPException(
+            status_code=409,
+            detail=f"An interview can have up to {MAX_STORIES_PER_INTERVIEW} stories.",
         ) from None
     except prep.InvalidInput:
         raise UserFacingHTTPException(
@@ -241,6 +250,47 @@ def question_delete(
     toast = {"message": "Question deleted.", "undo_url": DELETE_UNDO_URL, "undo_token": token}
     headers = {"HX-Trigger": json.dumps({"toast": toast})}
     return card(request, session, user, application, kind, headers)
+
+
+# --- Stories for this interview (M14b, D-183, D-184) ----------------------------------
+
+
+@router.post("/applications/{application_id}/prep/stories", response_class=HTMLResponse)
+@limiter.limit("30/minute")
+def story_link(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    data: SubmittedForm,
+):
+    """Pick a story from My profile for this interview. The answer is the card."""
+    # Locked (Postgres), so two picks at the same moment can't pass the limit.
+    application, _ = owned(session, user, application_id, lock=True)
+    story = prep.get_owned_story(session, user, data.get("story_id"))
+    with service_errors():
+        prep.link_story(session, user, application, story)
+    return card(request, session, user, application, "stories")
+
+
+@router.post(
+    "/applications/{application_id}/prep/stories/{story_id}/remove",
+    response_class=HTMLResponse,
+)
+@limiter.limit("30/minute")
+def story_unlink(
+    request: Request,
+    session: DbSession,
+    user: RequiredUser,
+    application_id: str,
+    story_id: str,
+    data: SubmittedForm,
+):
+    """Remove a story from this interview: only the link, no Undo (D-184)."""
+    application, _ = owned(session, user, application_id)
+    with service_errors():
+        prep.unlink_story(session, user, application, story_id)
+    return card(request, session, user, application, "stories")
 
 
 # --- Notes --------------------------------------------------------------------------

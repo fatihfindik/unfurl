@@ -984,3 +984,27 @@ Kaynak: `docs/plans/M14a.md`, issue #43; plan-reviewer (0 Blocker, 10 Should, 6 
 ### D-180 · Bildirim ve Progress'ten sekmeye link
 - **Karar:** "Interview tomorrow" bildirimi `/applications/{id}?tab=interview`'a gider (yeni bildirimler; eskiler değişmez). Progress › "What happens next" durum `interview` iken "Prepare for it →" gösterir.
 - **Alternatifler:** Bildirimin başvuru sayfasına gitmesi (bir tık fazla).
+
+## M14b — STAR hikâye bankası (2026-11-26)
+
+Kaynak: `docs/plans/M14b.md`, issue #43; plan-reviewer (1 Blocker, 9 Should, 5 Nit; hepsi plana işlendi); Fatih bütün sorularda önerileri seçti ve planı onayladı (2026-11-26). SPEC v2.1.39.
+
+### D-181 · Hikâyeler profil bölümü
+- **Karar:** Yeni `Story` tablosu bir profil bölümüdür (`profile_id`, `sort_order`; sahiplik profilden, D-032). My profile'da Projects'ten sonra **Stories**; mevcut bölüm route'ları (ekle, düzenle, sil + Undo, ↑/↓, sürükle-bırak), sınır 50. Hikâyeler CV'ye (`snapshot_from_profile` modelleri tek tek sayar) ve profil gücüne girmez. Genel kod gereği hikâye değişiklikleri de `Profile.version`'ı artırır: bugün zararsız, V2'de AI önbelleği gereksiz yenilenebilir.
+- **Alternatifler:** Ayrı sayfa (yeni menü öğesi ve kod); sadece Interview prep sekmesinde (başvuruya bağlı görünür).
+
+### D-182 · Hikâye alanları
+- **Karar:** `title` zorunlu (≤ 200); `situation`, `task`, `action`, `result` isteğe bağlı (her biri ≤ 2000: sözlü bir STAR cevabı ~2 dakikadır); `tags` ≤ 200 (temizlemeden sonra), virgülle ayrılmış, boşluklar temizlenir, büyük/küçük harf duyarsız tekil (ilk yazılış kalır), ekranda rozet; `experience_id` isteğe bağlı, sadece aynı profilin deneyimi (FK `SET NULL`). Geçersiz deneyim (başka profil, sayı değil, aralık dışı) formda alan hatası "Choose an experience from the list." (200, htmx 4xx göstermez). Deneyim adları ("Title · Company") bölüm için tek sorguyla okunur.
+- **Alternatifler:** Etiketleri ayrı tabloda tutmak (arama yok); profildeki Skills'ten seçmek (sadece var olan beceriler).
+
+### D-183 · Mülakata bağlama
+- **Karar:** `InterviewStory` (`user_id`, `application_id`, `story_id`; çift unique). Interview prep sekmesinde Likely questions ile notlar arasında **Stories for this interview** kartı: seçilenler (başlık, etiketler, daraltılmış S/T/A/R), "Add a story" seçimi, "Remove", "Manage stories" (`/profile#profile-stories`); boş kütüphanede açıklama + link. Yollar `/applications/{id}/prep/stories` ve `…/stories/{story_id}/remove`; kart kendini çizer, `application-changed` yok. Başvuru başına 20; ekleme başvuru satırını kilitler, çiftte IntegrityError "zaten bağlı" sayılır; başlamamış prep'i başlatır. Arşivli 409, başkasının başvurusu/hikâyesi 404. Bir hikâyeyi bir soruya bağlamak V2.
+- **Alternatifler:** Soruya bağlama (daha çok arayüz, Fatih istemedi); bağ olmadan sadece liste.
+
+### D-184 · Kaldırma, silme ve Undo
+- **Karar:** "Remove" sadece bağı siler, Undo yok (hikâye kalır, tek tıkla geri eklenir). Profilden hikâye silinince bağlar cascade ile gider; kopyaya bağlı başvuru id'leri eklenir. Undo (`undo.py`'de `stories` dalı `SECTIONS`'tan önce): hikâye geri gelir, flush, bağlar yeniden kurulur. Atlananlar: geçersiz id, kullanıcının olmayan ya da silinmiş başvuru, 20'si dolu başvuru, zaten var olan çift. Arşivli başvurulara da geri bağlanır (eski hâli geri getirmek düzenleme değildir). Geri gelen hikâyenin deneyimi yoksa ya da başka profilinse `experience_id` boşaltılır. Bir deneyimin silinip Undo ile dönmesinde (yeni id) hikâyelerin deneyim bağı geri gelmez: kabul edildi.
+- **Alternatifler:** Kaldırmada toast + Undo (gereksiz); deneyim kopyasında hikâye id'lerini taşımak (nadir durum için ek kod).
+
+### D-185 · Dışa aktarma ve silme
+- **Karar:** Dışa aktarmada `stories` (profil) ve `interview_stories` (kullanıcı) bölümleri; hesap silinince profil ve kullanıcı cascade'i ile gider. Gizlilik sayfası listesine "stories".
+- **Alternatifler:** Yok.

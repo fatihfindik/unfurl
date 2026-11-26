@@ -1,0 +1,64 @@
+{#- Interview prep › Stories for this interview (M14b, D-183, D-184): stories from
+    My profile picked for this interview, read only here (edited on My profile).
+    Drawn again after pick and remove (hx-target="#prep-stories").
+    Context: application, prep_stories, prep_story_choices, prep_has_library,
+    prep_stories_full, prep_editable. -#}
+<section id="prep-stories" aria-labelledby="prep-stories-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+  <div class="flex flex-wrap items-baseline justify-between gap-2">
+    <h2 id="prep-stories-title" class="m-0 text-base font-bold">Stories for this interview</h2>
+    <a href="/profile#profile-stories" class="text-[13px] font-semibold text-link no-underline hover:underline">Manage stories</a>
+  </div>
+  {%- if not prep_has_library %}
+    <p class="m-0 text-sm text-text-2">No stories yet. Write them once in <a href="/profile#profile-stories" class="font-semibold text-link">My profile</a> and reuse them in every interview.</p>
+  {%- else %}
+    {%- if prep_stories %}
+      <ul class="m-0 flex list-none flex-col gap-2 p-0">
+        {%- for story in prep_stories %}
+          <li id="prep-story-{{ story.id }}" class="flex flex-col gap-1.5 rounded-lg border border-border px-3.5 py-2.5">
+            <div class="flex items-start justify-between gap-3">
+              <span class="min-w-0 break-words text-sm font-semibold">{{ story.title }}</span>
+              {%- if prep_editable %}
+                <button type="button" hx-post="/applications/{{ application.id }}/prep/stories/{{ story.id }}/remove"
+                        hx-target="#prep-stories" hx-swap="outerHTML" hx-disabled-elt="this"
+                        class="flex-none text-[13px] font-semibold text-red-text hover:underline">Remove<span class="sr-only">: {{ story.title }}</span></button>
+              {%- endif %}
+            </div>
+            {%- if story.tags %}
+              <span class="flex flex-wrap gap-1">
+                {%- for tag in story.tags.split(", ") %}
+                  <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-text-2">{{ tag }}</span>
+                {%- endfor %}
+              </span>
+            {%- endif %}
+            {%- set parts = [("Situation", story.situation), ("Task", story.task), ("Action", story.action), ("Result", story.result)] | selectattr(1) | list %}
+            {%- if parts %}
+              <details>
+                <summary class="cursor-pointer text-xs font-semibold text-link">Show story</summary>
+                <dl class="m-0 mt-1.5 flex flex-col gap-1.5">
+                  {%- for label, text in parts %}
+                    <div><dt class="text-xs font-semibold text-text-3">{{ label }}</dt><dd class="m-0 whitespace-pre-line break-words text-sm text-text-2">{{ text }}</dd></div>
+                  {%- endfor %}
+                </dl>
+              </details>
+            {%- endif %}
+          </li>
+        {%- endfor %}
+      </ul>
+    {%- else %}
+      <p class="m-0 text-sm text-text-2">Pick the stories you want to tell in this interview.</p>
+    {%- endif %}
+    {%- if prep_editable and prep_story_choices and not prep_stories_full %}
+      <form class="m-0 flex flex-wrap items-end gap-2" hx-post="/applications/{{ application.id }}/prep/stories"
+            hx-target="#prep-stories" hx-swap="outerHTML" hx-disabled-elt="find [type=submit]">
+        <label class="flex min-w-[220px] flex-1 flex-col gap-1 text-[13px] font-semibold text-text-2">Add a story
+          <select name="story_id" required class="h-9 text-sm">
+            {%- for story in prep_story_choices %}
+              <option value="{{ story.id }}">{{ story.title }}{{ " · " ~ story.tags if story.tags }}</option>
+            {%- endfor %}
+          </select>
+        </label>
+        <button type="submit" class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Add</button>
+      </form>
+    {%- endif %}
+  {%- endif %}
+</section>

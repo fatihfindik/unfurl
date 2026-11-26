@@ -32,10 +32,12 @@ from app.models import (
     Profile,
     Project,
     Skill,
+    Story,
     User,
 )
 from app.models.profile import LANGUAGE_LEVELS
 from app.schemas.profile import (
+    CHOOSE_EXPERIENCE,
     MAX_BULLETS,
     CertificationForm,
     EducationForm,
@@ -44,6 +46,7 @@ from app.schemas.profile import (
     PersonalInfoForm,
     ProjectForm,
     SkillForm,
+    StoryForm,
     SummaryForm,
     form_errors,
 )
@@ -343,6 +346,16 @@ SECTIONS = {
             "No projects yet. Side projects and open source work show what you can build.",
             sortable=True,
         ),
+        Section(
+            "stories",
+            "Stories",
+            "story",
+            Story,
+            StoryForm,
+            "No stories yet. Write your best examples once in the STAR format "
+            "(Situation, Task, Action, Result) and pick them for each interview.",
+            sortable=True,
+        ),
         Section("skills", "Skills", "skill", Skill, SkillForm, "No skills yet."),
         Section(
             "languages", "Languages", "language", LanguageSkill, LanguageForm, "No languages yet."
@@ -351,7 +364,7 @@ SECTIONS = {
 }
 
 # Where each section sits on the page (docs/prototype/Profile.dc.html).
-MAIN_COLUMN = ["experience", "education", "certifications", "projects"]
+MAIN_COLUMN = ["experience", "education", "certifications", "projects", "stories"]
 SIDE_COLUMN = ["skills", "languages"]
 
 TOO_MANY_ITEMS = "You can add up to 50 entries here. Delete one to add another."
@@ -394,6 +407,24 @@ def item_values(item: SQLModel, section: Section) -> dict:
     return values
 
 
+def section_extras(session: Session, profile: Profile, section: Section) -> dict:
+    """Data only one section needs. Stories: the profile's experiences, read once, for
+    the form's choices and the "at …" line of each story (D-182)."""
+    if section.key == "stories":
+        return {"experience_names": profile_service.experience_names(session, profile)}
+    return {}
+
+
+def story_errors(session: Session, profile: Profile, section: Section, form) -> dict:
+    """A story may only point at an experience of the same profile (D-182). Shown like
+    any form error (status 200): htmx doesn't show a 4xx answer."""
+    if section.key == "stories" and not profile_service.owns_experience(
+        session, profile, form.experience_id
+    ):
+        return {"experience_id": CHOOSE_EXPERIENCE}
+    return {}
+
+
 def section_context(session: Session, profile: Profile, section: Section, new_form=None) -> dict:
     """What _section.html needs. `new_form` = {"values", "errors"} keeps the add form
     open (after an error); None shows the section closed."""
@@ -403,15 +434,15 @@ def section_context(session: Session, profile: Profile, section: Section, new_fo
         "new_form": new_form,
         "language_levels": LANGUAGE_LEVEL_CHOICES,
         "skill_levels": SKILL_LEVEL_CHOICES,
-    }
+    } | section_extras(session, profile, section)
 
 
 def row_context(session: Session, user: User, section: Section, item) -> dict:
     """item_context for a row shown on its own (after Save or Cancel): it also says
     whether the row is first or last, so the right ↑ / ↓ button is turned off."""
-    context = item_context(section, item)
+    profile = profile_service.get_or_create_profile(session, user)
+    context = item_context(section, item) | section_extras(session, profile, section)
     if section.sortable:
-        profile = profile_service.get_or_create_profile(session, user)
         ids = [row.id for row in profile_service.list_items(session, profile, section.model)]
         context["is_first"] = ids[0] == item.id
         context["is_last"] = ids[-1] == item.id
@@ -460,6 +491,13 @@ def section_add(
     values = form_to_dict(data, section)
     try:
         form = section.form.model_validate(values)
+        if errors := story_errors(session, profile, section, form):
+            new_form = {"values": values, "errors": errors}
+            return fragment(
+                request,
+                "profile/_section.html",
+                section_context(session, profile, section, new_form),
+            )
         profile_service.add_item(
             session, profile, section.model, form.model_dump(exclude={"ongoing"})
         )
@@ -523,7 +561,9 @@ def item_edit(
 ):
     section = get_section(section_key)
     item = profile_service.get_owned_item(session, user, section.model, item_id)
-    return fragment(request, section.form_template, item_context(section, item))
+    profile = profile_service.get_or_create_profile(session, user)
+    context = item_context(section, item) | section_extras(session, profile, section)
+    return fragment(request, section.form_template, context)
 
 
 @router.post("/profile/{section_key}/{item_id}", response_class=HTMLResponse)
@@ -538,12 +578,16 @@ def item_save(
     section = get_section(section_key)
     item = profile_service.get_owned_item(session, user, section.model, item_id)
     values = form_to_dict(data, section)
+    profile = profile_service.get_or_create_profile(session, user)
+    extras = section_extras(session, profile, section)
     try:
         form = section.form.model_validate(values)
     except ValidationError as exc:
-        return fragment(
-            request, section.form_template, item_context(section, item, values, form_errors(exc))
-        )
+        context = item_context(section, item, values, form_errors(exc)) | extras
+        return fragment(request, section.form_template, context)
+    if errors := story_errors(session, profile, section, form):
+        context = item_context(section, item, values, errors) | extras
+        return fragment(request, section.form_template, context)
 
     profile_service.update_item(session, item, form.model_dump(exclude={"ongoing"}))
     context = row_context(session, user, section, item)

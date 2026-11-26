@@ -1,0 +1,31 @@
+{#- One interview story (M14b, D-181, D-182): title, tags, the job it happened in, and
+    the STAR parts folded. Context: section, item, experience_names, is_first, is_last. -#}
+{%- from "profile/_macros.html" import drag_handle, item_actions with context -%}
+<li id="profile-stories-{{ item.id }}" class="group flex items-start justify-between gap-3 py-3">
+  {{ drag_handle(section) }}
+  <div class="flex min-w-0 flex-1 flex-col gap-1">
+    <span class="break-words text-sm font-semibold">{{ item.title }}</span>
+    {%- if item.experience_id and item.experience_id in experience_names %}
+      <span class="text-xs text-text-3">at {{ experience_names[item.experience_id] }}</span>
+    {%- endif %}
+    {%- if item.tags %}
+      <span class="flex flex-wrap gap-1">
+        {%- for tag in item.tags.split(", ") %}
+          <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-text-2">{{ tag }}</span>
+        {%- endfor %}
+      </span>
+    {%- endif %}
+    {%- set parts = [("Situation", item.situation), ("Task", item.task), ("Action", item.action), ("Result", item.result)] | selectattr(1) | list %}
+    {%- if parts %}
+      <details class="group/star">
+        <summary class="cursor-pointer list-none text-xs font-semibold text-link"><span class="group-open/star:hidden">Show story</span><span class="hidden group-open/star:inline">Hide story</span></summary>
+        <dl class="m-0 mt-1.5 flex flex-col gap-1.5">
+          {%- for label, text in parts %}
+            <div><dt class="text-xs font-semibold text-text-3">{{ label }}</dt><dd class="m-0 whitespace-pre-line break-words text-sm text-text-2">{{ text }}</dd></div>
+          {%- endfor %}
+        </dl>
+      </details>
+    {%- endif %}
+  </div>
+  {{ item_actions(section, item, item.title) }}
+</li>

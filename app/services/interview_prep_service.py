@@ -11,9 +11,10 @@ archived application are refused (Archived → 409 in the router), like the Appl
 
 from fastapi import HTTPException
 from sqlalchemy import func, update
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
-from app.models import Application, InterviewQuestion, User
+from app.models import Application, InterviewQuestion, InterviewStory, Profile, Story, User
 from app.models.base import utcnow
 from app.models.interview import (
     CATEGORIES,
@@ -22,6 +23,7 @@ from app.models.interview import (
     MAX_INTERVIEW_NOTES,
     MAX_QUESTION_TEXT,
     MAX_QUESTIONS,
+    MAX_STORIES_PER_INTERVIEW,
 )
 from app.services import clock, next_step_service, trash_service
 from app.services.profile_service import MAX_ID
@@ -67,6 +69,10 @@ class Archived(Exception):
 
 class TooManyQuestions(Exception):
     """The application already has MAX_QUESTIONS questions (D-179)."""
+
+
+class TooManyStories(Exception):
+    """The application already has MAX_STORIES_PER_INTERVIEW stories (D-183)."""
 
 
 class InvalidInput(ValueError):
@@ -205,6 +211,115 @@ def interview_line(application: Application) -> str:
     return " · ".join(part for part in parts if part)
 
 
+# --- Stories for this interview (M14b, D-183, D-184) -----------------------------------
+
+
+def _user_stories():
+    """The stories of a user's profile: Story joined to its profile (stories have no
+    user_id, they belong to the profile, D-032)."""
+    return select(Story).join(Profile, col(Profile.id) == col(Story.profile_id))
+
+
+def get_owned_story(session: Session, user: User, story_id) -> Story:
+    """The user's story `story_id`, otherwise 404 (another user's, missing, not a number)."""
+    try:
+        number = int(story_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=404) from None
+    if not 0 < number <= MAX_ID:
+        raise HTTPException(status_code=404)
+    story = session.exec(
+        _user_stories().where(Story.id == number, Profile.user_id == user.id)
+    ).first()
+    if story is None:
+        raise HTTPException(status_code=404)
+    return story
+
+
+def stories_of(session: Session, user: User, application: Application) -> list[Story]:
+    """The stories picked for this interview, in the order they were picked."""
+    return list(
+        session.exec(
+            _user_stories()
+            .join(InterviewStory, col(InterviewStory.story_id) == col(Story.id))
+            .where(
+                Profile.user_id == user.id,  # the story's owner too, not only the link's
+                InterviewStory.user_id == user.id,
+                InterviewStory.application_id == application.id,
+            )
+            .order_by(col(InterviewStory.id))
+        )
+    )
+
+
+def all_stories(session: Session, user: User) -> list[Story]:
+    """The user's whole story library, in My profile order."""
+    return list(
+        session.exec(
+            _user_stories()
+            .where(Profile.user_id == user.id)
+            .order_by(col(Story.sort_order), col(Story.id))
+        )
+    )
+
+
+def link_story(session: Session, user: User, application: Application, story: Story) -> None:
+    """Pick a story for this interview. Already picked: nothing changes. The caller
+    locked the application row, so two picks at the same moment can't pass the limit;
+    the unique pair catches the rest. Also starts the prep, like add."""
+    _check_writable(application)
+    exists = session.exec(
+        select(InterviewStory.id).where(
+            InterviewStory.user_id == user.id,
+            InterviewStory.application_id == application.id,
+            InterviewStory.story_id == story.id,
+        )
+    ).first()
+    if exists is not None:
+        return
+    count = session.exec(
+        select(func.count())
+        .select_from(InterviewStory)
+        .where(
+            InterviewStory.user_id == user.id,
+            InterviewStory.application_id == application.id,
+        )
+    ).one()
+    if count >= MAX_STORIES_PER_INTERVIEW:
+        raise TooManyStories
+    session.add(InterviewStory(user_id=user.id, application_id=application.id, story_id=story.id))
+    if application.interview_prep_started_at is None:
+        application.interview_prep_started_at = utcnow()
+        session.add(application)
+    try:
+        session.commit()
+    except IntegrityError:  # picked in another tab at the same moment
+        session.rollback()
+
+
+def unlink_story(session: Session, user: User, application: Application, story_id) -> None:
+    """Remove a story from this interview (D-184): only the link, the story stays on
+    My profile, no Undo. A story that isn't picked here is a 404."""
+    _check_writable(application)
+    try:
+        number = int(story_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=404) from None
+    if not 0 < number <= MAX_ID:  # Postgres can't compare a bigger number to an id
+        raise HTTPException(status_code=404)
+    link = session.exec(
+        select(InterviewStory).where(
+            InterviewStory.user_id == user.id,
+            InterviewStory.application_id == application.id,
+            InterviewStory.story_id == number,
+        )
+    ).first()
+    if link is None:
+        raise HTTPException(status_code=404)
+    session.delete(link)
+    session.commit()
+
+
 def tab_context(session: Session, user: User, application: Application) -> dict:
     """What the Interview prep tab and its cards show (D-176…D-179). Reads only (D-178)."""
     questions = questions_of(session, user, application)
@@ -225,6 +340,20 @@ def tab_context(session: Session, user: User, application: Application) -> dict:
         "max_question_text": MAX_QUESTION_TEXT,
         "max_answer": MAX_ANSWER,
         "max_interview_notes": MAX_INTERVIEW_NOTES,
+    } | stories_context(session, user, application)
+
+
+def stories_context(session: Session, user: User, application: Application) -> dict:
+    """The "Stories for this interview" card (D-183): the picked ones, and the rest of
+    the library to pick from."""
+    picked = stories_of(session, user, application)
+    picked_ids = {story.id for story in picked}
+    library = all_stories(session, user)
+    return {
+        "prep_stories": picked,
+        "prep_story_choices": [story for story in library if story.id not in picked_ids],
+        "prep_has_library": bool(library),
+        "prep_stories_full": len(picked) >= MAX_STORIES_PER_INTERVIEW,
     }
 
 

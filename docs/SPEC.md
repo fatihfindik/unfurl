@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.38 — 2026-11-26
+> **Durum:** MVP planı, v2.1.39 — 2026-11-26
+> v2.1.39: M14b Design kararları: STAR hikâyeleri My profile'da **Stories** bölümü (başlık, S/T/A/R, etiketler, isteğe bağlı deneyim; CV'ye ve profil gücüne girmez), Interview prep sekmesinde "Stories for this interview" kartıyla seçilir (başvuru başına 20, kaldırmada Undo yok), hikâye silme Undo'su bağlarıyla geri gelir; soruya bağlama V2 (D-181…D-185).
 > v2.1.38: #43 mülakat hazırlığı AI'sız, iki milestone: M14a başvuru detayında **Interview prep** sekmesi (olası sorular ve cevap taslakları, 12 soruluk hazır İngilizce set "Start interview prep" ile, şirket ve rol notları, soracağın sorular), M14b STAR hikâye bankası. AI'sız hazırlık ücretsiz; AI'lı hazırlık V2 (D-175…D-180).
 > v2.1.37: M13d Design kararları: README portföy sayfası, işletim ayrıntıları `docs/DEVELOPMENT.md`'de (D-172); ekran görüntüleri sahte verili demo hesaptan (`scripts/seed_demo.py`, sadece `demo.db`'ye yazar), açık tema, eklenti dahil (D-173); mimari şema README'de Mermaid ile (D-174). Lisans yok, "All rights reserved".
 > v2.1.36: Teknik borçlar (T1): bilinmeyen Host başlığı 400 (D-168); "Edit master" kilidi adresteki bayraktan değil oturuma bağlı bir değerden (D-169); çift tıklama kilidi formların kendisinde, `<body>`'de değil (D-170); bir formda en fazla 1100 alan, route'lar daha azını koyabilir (D-171).
@@ -117,7 +118,7 @@
 |---|---|---|
 | **Hesap ve giriş** | E-posta + şifre, e-posta doğrulama, şifre sıfırlama, güvenli oturum | Google ile giriş |
 | **Onboarding** | "Check your inbox" ekranı; "Continue to setup" My profile'a gider | Sihirbaz: CV veya LinkedIn PDF'inden AI ile profil doldurma (kurulumda ücretsiz) veya "Enter my details myself" kısa formu, belge dili seçimi, 3 adımlı eklenti kurulum anlatımı, AI kredisi açıklaması (D-150) |
-| **Profil (My profile)** | Avatar menüsünden açılır. Deneyim, eğitim, beceri, dil, sertifika, proje. İsteğe bağlı fotoğraf ve doğum tarihi. Tamamlanma yüzdesi (Documents sayfasında "Profile strength" kartı). | Biten kurs ve sertifikalar otomatik eklenir |
+| **Profil (My profile)** | Avatar menüsünden açılır. Deneyim, eğitim, beceri, dil, sertifika, proje, mülakat hikâyeleri (STAR, M14b). İsteğe bağlı fotoğraf ve doğum tarihi. Tamamlanma yüzdesi (Documents sayfasında "Profile strength" kartı). | Biten kurs ve sertifikalar otomatik eklenir |
 | **CV oluşturucu** | 3 ATS uyumlu şablon, DE/EN/TR, canlı önizleme, PDF, **master CV ve başvuruya özel versiyonlar** | AI ile ilana uyarlama (kabul/ret, D-150), premium şablonlar, versiyon karşılaştırma ve geri yükleme |
 | **Motivasyon mektubu** | Elle yazma, DACH formatı, düzenleme, PDF, **master mektup ve versiyonlar** (M8a, M8b) | AI taslağı (dil, ton, uzunluk, vurgu; D-150), takip (follow-up) e-postası taslakları |
 | **Apply akışı** | Detay sayfasında 2 adım (M9a, D-150): ① Prepare documents (master CV ve mektuptan bu ilana özel taslak kopya) ② Final check (kural tabanlı kontrol listesi, PDF indirme, "I have applied"). Belgeler sağdan açılan panelde önizlenir. Başvurudan sonra sekme **Progress** görünümüne döner, **gönderilen versiyonlar kilitlenir**. | ① Should I apply? (uyum analizi), Prepare documents'ta AI önerileri (seçilebilir öneriler + serbest metin isteği), AI ile "Ready to apply?" kontrolü ve tek tıkla düzeltme (D-150) |
@@ -384,6 +385,7 @@ Alt tablolar (her biri `profile_id` FK ve `sort_order` int içerir):
 - **LanguageSkill:** language, level (enum: A1, A2, B1, B2, C1, C2, native)
 - **Certification:** name, issuer, date, url
 - **Project:** name, description, url
+- **Story** (M14b, D-181, D-182): title (≤ 200), situation, task, action, result (text, her biri ≤ 2000), tags (str ≤ 200, virgülle; büyük/küçük harf duyarsız tekil), experience_id (FK Experience, SET NULL, nullable; sadece aynı profilin). CV'ye ve profil gücüne girmez.
 
 ### 5.3 CVDocument
 Profilin **anlık görüntüsüdür** (snapshot). Bir ilana göre uyarlanan CV, ana profili değiştirmez.
@@ -493,6 +495,9 @@ Tarih satırı kaydedilmez: taslakta her zaman bugün (kullanıcının saat dili
 | created_at, updated_at | datetime | |
 
 Başvuru başına en fazla 100 soru. Silme toast + Undo (`DeletedItem`, D-179). Timeline'a olay yazılmaz.
+
+### 5.5c InterviewStory (mülakata seçilen hikâyeler, M14b, D-183)
+user_id (FK, cascade), application_id (FK, cascade), story_id (FK, cascade), created_at, updated_at. `(application_id, story_id)` unique; başvuru başına en fazla 20.
 
 ### 5.6 ApplicationEvent (zaman çizelgesi)
 | Alan | Tip |
@@ -633,7 +638,7 @@ Giriş sonrası açılan sayfa Applications'tır (ayrı bir Dashboard yok).
 
 ### 6.4 My profile (/profile)
 - Menüde yoktur. Avatar menüsünden ve Documents sayfasındaki "Profile strength" kartından açılır. Başlıkta "← Documents".
-- Bölümler: Personal info, Summary, Experience, Education, Skills, Languages, Certifications, Projects.
+- Bölümler: Personal info, Summary, Experience, Education, Skills, Languages, Certifications, Projects, Stories (M14b, D-181: STAR hikâyeleri, sıralanabilir).
 - Her bölüm HTMX ile satır içi düzenlenir (sayfa yenilenmez).
 - Deneyim, eğitim ve projeler sürükle-bırak ile sıralanabilir (SortableJS). Klavye ve ekran okuyucu kullananlar için her satırda ayrıca ↑ / ↓ butonları vardır.
 - Deneyim maddeleri (bullets) liste olarak eklenir/silinir.
@@ -680,7 +685,7 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 **Başvuru detay sayfası (/applications/{id}):**
 - **Başlık** (6.0/3): "← Applications", şirket avatarı, pozisyon, şirket · konum · çalışma şekli · kaynak, "‹ 1 of 10 ›", durum seçici (Saved/Applied/Interview/Offer/Rejected/Archived), "View posting ↗".
 - **Sekmeler:** **Apply** (başvurudan sonra adı **Progress**), **Interview prep** (M14a, D-176: durum Applied, Interview, Offer veya Rejected iken; `?tab=interview`) ve **Job & details**.
-- **Interview prep sekmesi (M14a, D-176…D-180):** üstte mülakat bilgisi (yoksa "Add it"); boşken "Start interview prep" (12 olası soru + 4 soracağın soru, İngilizce, `{company}` dolu; bir kez) ve "Start with an empty list"; **Likely questions** kategoriye göre, her birinde yazarken kaydedilen cevap taslağı, "{n} of {m} answered"; **Company & role notes** (tek alan); **Questions to ask them** ("asked" işareti, cevap notu). Ekle, düzenle, sil + Undo. Arşivli başvuruda salt okunur. STAR hikâyeleri M14b.
+- **Interview prep sekmesi (M14a, D-176…D-180):** üstte mülakat bilgisi (yoksa "Add it"); boşken "Start interview prep" (12 olası soru + 4 soracağın soru, İngilizce, `{company}` dolu; bir kez) ve "Start with an empty list"; **Likely questions** kategoriye göre, her birinde yazarken kaydedilen cevap taslağı, "{n} of {m} answered"; **Company & role notes** (tek alan); **Questions to ask them** ("asked" işareti, cevap notu). Ekle, düzenle, sil + Undo. Arşivli başvuruda salt okunur. Likely questions ile notlar arasında **Stories for this interview** kartı (M14b, D-183): My profile'daki hikâyelerden seçilir.
 - **Apply sekmesi – MVP: 2 adım (M9a, D-150):** ① **Prepare documents:** bu ilan için master CV'den (ve varsa master mektuptan) taslak kopya oluştur ve başvuruya bağla; her biri için "Preview & edit". AI önerisi yok. ② **Final check:** kural tabanlı kontrol listesi (D-151: CV bağlı, CV'de ad ve e-posta, CV'de özet ya da deneyim, mektup bağlı, mektuptaki şirket, mektup gövdesi, CV ve mektup aynı dilde, ilan süresi; `ok`/`warn`/`missing`), her eksik düzeltme sayfasına götürür, **hiçbir şeyi engellemez**; altında "CV (PDF)" ve "Cover letter (PDF)" linkleri ve "I have applied · mark as applied" (durum seçiciyle aynı: kilit, `ApplicationDocument`, toast + Undo). Prepare adımı CV bağlanınca tamamlanır ve daralır (mektup isteğe bağlı); Final check o zamana kadar pasiftir (D-165). Sekme adresle seçilir: `/applications/{id}` ilk sekme, `?tab=details` Job & details; arşivli başvuruda işlemler gösterilmez (D-164).
 - **Apply sekmesi – V2 tasarımı: 3 adım** (D-150; MVP'de yukarıdaki 2 adım):
   1. **Should I apply?** – skor, karar, özet, eşleşenler, eksikler (severity). Önemi critical veya moderate olan her eksikte **"+ Add to learning plan"**: önceden doldurulmuş bir modal açar (hedef, hedef tarih, haftalık saat, isteğe bağlı kaynak, "yeni hedef" veya "mevcut hedefe ekle"). Kaydedince satır "Added as a goal · view" olur. Butonlar: "Not for me, archive" (toast + Undo) ve "Yes, prepare my documents →".
@@ -1357,11 +1362,11 @@ MVP'de deploy yok; kişisel local ortam kullanılır (§11, D-155, D-156). Aşa�
 - "Interview tomorrow" bildirimi ve Progress'teki "Prepare for it →" sekmeye götürür (D-180)
 - **Kabul:** Sekmeyi açmak veri yazmıyor (test). Hazır set bir başvuruya bir kez ekleniyor, `{company}` dolu (test). Silme Undo ile geri geliyor (test). Başka kullanıcının başvurusunda ve sorusunda bütün işlemler 404, arşivli başvuruda yazma 409 (test). Sorular ve notlar veri dışa aktarmada var, hesap silinince gidiyor (test).
 
-### M14b — Mülakat hazırlığı: STAR hikâye bankası (AI'sız, D-175)
-- Hesap düzeyinde hikâyeler (başlık, Situation, Task, Action, Result); yeri ve sayfası M14b Design'da
-- Interview prep sekmesinde bu mülakata uyan hikâyeleri seçme; isteğe bağlı bir soruya bağlama
-- Dışa aktarma ve hesap silme kapsamı
-- **Kabul:** M14b planında yazılır.
+### M14b — Mülakat hazırlığı: STAR hikâye bankası (AI'sız, D-175; plan: `docs/plans/M14b.md`, D-181…D-185)
+- My profile'da **Stories** bölümü: başlık, Situation/Task/Action/Result, etiketler, isteğe bağlı deneyim; ekle, düzenle, sil + Undo, sırala (D-181, D-182)
+- Interview prep sekmesinde **"Stories for this interview"** kartı: kütüphaneden seç, kaldır (Undo yok), başvuru başına 20 (D-183, D-184)
+- Hikâye silme Undo'su bağlarıyla geri gelir; dışa aktarma ve hesap silme kapsamı (D-184, D-185). Soruya bağlama V2.
+- **Kabul:** Hikâye ekle, düzenle, sil + Undo; Undo bağlarıyla geri getiriyor (test). Başka kullanıcının hikâyesi ve başvurusu 404, başka profilin deneyimi formda hata, arşivli başvuruda bağlama 409 (test). Hikâyeler CV snapshot'ına ve profil gücüne girmiyor (test). Hikâyeler ve bağlar veri dışa aktarmada var, hesap silinince gidiyor (test).
 ---
 
 ## 13. Test Stratejisi

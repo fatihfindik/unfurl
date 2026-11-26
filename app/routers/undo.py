@@ -59,6 +59,8 @@ def undo_delete(request: Request, session: DbSession, user: RequiredUser, data: 
                 document_service.restore_cv(session, user, payload)
             elif kind == "cover_letter":  # D-152
                 cover_letter_service.restore_letter(session, user, payload)
+            elif kind == "stories":  # before SECTIONS: the links come back too (D-184)
+                profile_service.restore_story(session, user, payload)
             elif kind in SECTIONS:
                 profile_service.restore_item(session, user, SECTIONS[kind].model, payload)
             elif kind == "learning_task":  # D-095

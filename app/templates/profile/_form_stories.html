@@ -1,0 +1,17 @@
+{#- Add or edit an interview story (M14b, D-182). The experience list shows only this
+    profile's jobs. Context: section, item (None when adding), values, errors,
+    experience_names. -#}
+{%- from "profile/_macros.html" import item_form with context -%}
+{%- from "components/forms.html" import text_field, select_field, textarea_field -%}
+{%- set prefix = "stories-" ~ (item.id if item else "new") -%}
+{% call item_form(section, item, errors) %}
+  {{ text_field("title", "Title", value=values.title, error=errors.title, maxlength=200, id_prefix=prefix, placeholder="Migration under a tight deadline") }}
+  <div class="grid gap-3 sm:grid-cols-2">
+    {{ select_field("experience_id", "Where it happened", experience_names.items() | list, value=values.experience_id, error=errors.experience_id, placeholder="No experience", id_prefix=prefix) }}
+    {{ text_field("tags", "Tags", value=values.tags, error=errors.tags, maxlength=200, required=False, id_prefix=prefix, placeholder="leadership, conflict") }}
+  </div>
+  {{ textarea_field("situation", "Situation", value=values.situation, error=errors.situation, hint="Where and when? What was going on?", maxlength=2000, rows=2, id_prefix=prefix) }}
+  {{ textarea_field("task", "Task", value=values.task, error=errors.task, hint="What did you have to do?", maxlength=2000, rows=2, id_prefix=prefix) }}
+  {{ textarea_field("action", "Action", value=values.action, error=errors.action, hint="What did you do, step by step?", maxlength=2000, rows=3, id_prefix=prefix) }}
+  {{ textarea_field("result", "Result", value=values.result, error=errors.result, hint="What came out of it? Numbers help.", maxlength=2000, rows=2, id_prefix=prefix) }}
+{% endcall %}

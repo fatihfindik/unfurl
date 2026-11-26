@@ -734,3 +734,30 @@
 **SPEC / WORKFLOW changes?**
 - SPEC: yes, v2.1.38 (M14a, M14b, §5.5b, §6.7, §6.11, §17.1). D-175…D-180.
 - WORKFLOW: no.
+
+## M14b — Interview prep: STAR story bank (2026-11-26, log written by Claude)
+
+**Concepts**
+- Reusing a generic design: Stories became one more `Section(...)` on the profile, so
+  add, edit, delete + Undo and reorder came from the existing routes. Leaving a model
+  out of a list (`CV_SECTIONS`, profile strength) is as important as adding it (D-181).
+- A foreign key only checks that a row exists, not who owns it: `experience_id` must
+  also belong to the same profile, both in the form and in Undo (D-182).
+- A link table (`InterviewStory`) joins two things many-to-many; `ondelete=CASCADE`
+  removes the links with the story, and Undo has to bring them back by hand (D-184).
+- Ownership on both sides of a join: a query through a link table filters on the
+  link's `user_id` and on the story owner's too (security review fix).
+- Postgres integers have a maximum; an id bigger than `MAX_ID` is a 404 before the
+  query, otherwise the database raises an error instead of "not found".
+
+**What was hard**
+- Undo of a deleted story: the story, its tags, its experience link and its interview
+  links all had to come back, skipping applications that were archived or deleted.
+
+**What I will do differently**
+- Lock rows the same way on every path that can add to a limited list (pick and Undo),
+  not only on the obvious one.
+
+**SPEC / WORKFLOW changes?**
+- SPEC: yes, v2.1.39 (§5.2b, §5.5c, §6.4, §6.7, §12 M14b). D-181…D-185.
+- WORKFLOW: no.
