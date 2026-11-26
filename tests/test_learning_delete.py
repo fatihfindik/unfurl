@@ -145,8 +145,10 @@ def test_task_rows_have_the_menu(auth_client, session, user, goal):
 
     assert f'hx-post="/learning/tasks/{second.id}/reschedule"' in html
     assert f'hx-post="/learning/tasks/{second.id}/delete"' in html
-    # The done task (in the Done section) can be deleted but not rescheduled.
+    # The done task (in the Done tab, D-187) can be deleted but not rescheduled.
     first = tasks_of(session, user)[0]
+    assert f'data-task="{first.id}"' not in html
+    html = auth_client.get("/learning?view=done").text
     assert f'hx-post="/learning/tasks/{first.id}/delete"' in html
     assert f'hx-post="/learning/tasks/{first.id}/reschedule"' not in html
 

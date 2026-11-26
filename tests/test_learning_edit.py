@@ -200,10 +200,10 @@ def test_a_done_row_shows_the_time_spent(auth_client, session, user):
         spent_minutes="20",
     )
 
-    html = auth_client.get("/learning?view=all").text
+    html = auth_client.get("/learning?view=done").text
 
-    done_section = html.split("Done (")[1]
-    assert "20 min" in done_section and "45 min" not in done_section
+    row = html.split(f'data-task="{task.id}"')[1].split("</li>")[0]
+    assert "20 min" in row and "45 min" not in row
 
 
 @pytest.mark.parametrize("value", ["0", "601", "", "1.5"])

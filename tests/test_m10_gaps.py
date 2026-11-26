@@ -105,7 +105,14 @@ def their_goal(session, other) -> LearningGoal:
 
 
 @pytest.mark.parametrize(
-    "url", ["/learning", "/learning?view=all", "/learning/tasks/new", "/learning/goals/1/delete"]
+    "url",
+    [
+        "/learning",
+        "/learning?view=all",
+        "/learning?view=done&goal=1",
+        "/learning/tasks/new",
+        "/learning/goals/1/delete",
+    ],
 )
 def test_logged_out_pages_go_to_login(client, url):
     response = client.get(url, follow_redirects=False)

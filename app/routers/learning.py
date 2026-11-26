@@ -50,7 +50,13 @@ async def read_form_data(request: Request) -> FormData:
 
 SubmittedForm = Annotated[FormData, Depends(read_form_data)]
 
-VIEW_TITLES = {"today": "Today", "week": "Next 7 days", "all": "All tasks", "catchup": "Catch-up"}
+VIEW_TITLES = {
+    "today": "Today",
+    "week": "Next 7 days",
+    "all": "All tasks",
+    "catchup": "Catch-up",
+    "done": "Done",
+}
 DAY_NAMES = dict(zip(WEEKDAYS, ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"), strict=True))
 GOAL_COLORS = 6  # app/templates/learning/_parts.html has one class pair per color (D-096)
 
@@ -94,6 +100,11 @@ def task_row(task, today: dt.date, goal_info: dict, spent: dict | None = None) -
     when = day_text(task.due_date, today)
     if not task.done and task.due_date < today:
         when = f"Was due {when}" if when != "Yesterday" else "Was due yesterday"
+    done_when = ""
+    if task.done and task.done_at:
+        # The Done tab (D-187): "Done 4 Nov", with the year when it isn't this year.
+        day = clock.local(task.done_at).date()
+        done_when = "Done " + day.strftime("%-d %b" if day.year == today.year else "%-d %b %Y")
     return {
         "id": task.id,
         "title": task.title,
@@ -102,12 +113,26 @@ def task_row(task, today: dt.date, goal_info: dict, spent: dict | None = None) -
         "goal": goal["title"],
         "color": goal["color"],
         "when": when,
+        "done_when": done_when,
         "duration": duration_text(minutes),
         "url": task.url,
     }
 
 
-def page_context(session: Session, user: User, view: str) -> dict:
+def chosen_goal(goals: list[LearningGoal], raw: str) -> int | None:
+    """The goal filter (D-188): a goal id of this user, else None ("All goals").
+    Anything else (text, a huge number, someone else's id) simply means no filter;
+    the templates only ever see this checked value, never the raw one."""
+    try:
+        number = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if not 0 < number <= learning.MAX_ID:
+        return None
+    return number if number in {goal.id for goal in goals} else None
+
+
+def page_context(session: Session, user: User, view: str, goal: str = "") -> dict:
     """Everything the page shows. The tasks are read once and split in Python."""
     today = clock.today()
     prefs = learning.preferences(session, user)
@@ -117,7 +142,10 @@ def page_context(session: Session, user: User, view: str) -> dict:
     tasks = learning.tasks(session, user)
     minutes = learning.minutes_by_goal(session, user)
     spent = learning.minutes_by_task(session, user)
-    plan = learning.build_plan(tasks, view, today)
+    goal_filter = chosen_goal(goals, goal)
+    # Only the plan is filtered; the summary cards and the Goals card stay whole.
+    plan_tasks = [t for t in tasks if t.goal_id == goal_filter] if goal_filter else tasks
+    plan = learning.build_plan(plan_tasks, view, today)
 
     goal_info = {}
     goal_cards = []
@@ -146,17 +174,25 @@ def page_context(session: Session, user: User, view: str) -> dict:
         )
 
     target_minutes = round(week.target_hours * 60)
+    counts = {"catchup": plan.catchup_count, "done": plan.done_count}
     return {
         "view": plan.view,
+        "goal_filter": goal_filter,
+        # Added to every link of the region, so a tab or a reload keeps the filter.
+        "goal_query": f"&goal={goal_filter}" if goal_filter else "",
+        "goal_options": [(goal.id, goal.title) for goal in goals],
         "views": [
-            (key, f"{title} ({plan.catchup_count})" if key == "catchup" else title)
+            (key, f"{title} ({counts[key]})" if key in counts else title)
             for key, title in VIEW_TITLES.items()
         ],
         "groups": [
-            {"label": group.label, "rows": [task_row(t, today, goal_info) for t in group.tasks]}
+            # Done rows show the time really spent (D-117); open ones their estimate.
+            {
+                "label": group.label,
+                "rows": [task_row(t, today, goal_info, spent) for t in group.tasks],
+            }
             for group in plan.groups
         ],
-        "done_rows": [task_row(t, today, goal_info, spent) for t in plan.done],
         "streak": learning.streak(session, user),
         "rest_note": rest_days_text(prefs.rest_days),
         "week_hours": hours_text(week.minutes),
@@ -172,8 +208,10 @@ def page_context(session: Session, user: User, view: str) -> dict:
 
 
 @router.get("/learning", response_class=HTMLResponse)
-def learning_page(request: Request, session: DbSession, user: RequiredUser, view: str = "today"):
-    context = page_context(session, user, view)
+def learning_page(
+    request: Request, session: DbSession, user: RequiredUser, view: str = "today", goal: str = ""
+):
+    context = page_context(session, user, view, goal)
     if is_htmx(request):
         # A tab was picked, or the page asks again after a change: only the region.
         return templates.TemplateResponse(request, "learning/_region.html", context)

@@ -504,6 +504,7 @@ Kaynak: M10 Design fazı, plan-reviewer; Fatih onayladı (2026-11-17). SPEC §5.
 ### D-092 · Görev tamamlama
 Kaynak: M10 Design fazı; Fatih plan onayıyla onayladı (2026-11-17).
 - **Karar:** İşaretlenince `done=true`, `done_at=now`, görevin tahmini süresiyle bugüne bir `StudyLog`, göreve bağlı kaynak varsa `units_done += 1` (en fazla `units_total`). İşareti kaldırmak bunların tersini yapar. Toast + Undo (`undo-learning` tuzu, 60 sn, karşılaştır-ve-yaz). Haftalık saat: bu haftanın (Pzt–Paz) StudyLog dakikaları; hedefi: aktif hedeflerin `weekly_hours_target` toplamı. Üst kartlar, plan ve Goals kartı D-065 düzeniyle güncellenir: yanıt `learning-changed` olayını gönderir, `#learning-region` aynı sekmeyle kendini yeniden yükler (sayılar hep sunucudan).
+- **Güncelleme (D-187, D-188, #103):** Bölge aynı sekme **ve hedef filtresiyle** yeniden yüklenir. İşaretlenen görev açık listeden çıkar; geri alma toast'taki Undo ya da Done sekmesinde kutuyu kaldırmakla.
 
 ### D-093 · "Create one task per week"
 Kaynak: M10 Design fazı; Fatih plan onayıyla onayladı (2026-11-17).
@@ -523,6 +524,7 @@ Kaynak: M10 Design fazı, plan-reviewer; Fatih onayladı (2026-11-17).
 ### D-096 · Learning görünüm detayları
 Kaynak: M10 Design fazı, plan-reviewer; Fatih plan onayıyla onayladı (2026-11-17).
 - **Karar:** `progress_pct` saklanmaz: kaynakta `units_total` varsa `units_done/units_total`, yoksa tamamlanan/tüm görevler, görev yoksa 0. Hedef rengi saklanmaz, hedeflerin sırasına göre 6 renklik sabit paletten gelir. All tasks grupları: Overdue, This week (bugün … Pazar), Next week, Later; boş grup gösterilmez. Tamamlananlar her sekmenin altında daraltılmış "Done (n)" bölümünde: Today ve Next 7 days'te o tarih aralığındakiler, Catch-up'ta bugün tamamlanan eski görevler, All tasks'ta son 30 gün. Today: bugün; Next 7 days: bugün … +6; Catch-up: geçmiş ve açık.
+- **Güncelleme (D-187, #103):** Done artık ayrı bir sekme ve bitmiş görevlerin hepsini gösterir; sekmelerin altındaki Done bölümleri ve 30 gün sınırı kalktı.
 
 ### D-097 · Elle test uygulamanın sonunda
 Kaynak: Fatih, 2026-11-18 (sohbet: "elle testi uygulama bitince yapıcam").
@@ -1012,3 +1014,19 @@ Kaynak: `docs/plans/M14b.md`, issue #43; plan-reviewer (1 Blocker, 9 Should, 5 N
 ### D-186 · Learning görevlerini tek seferlik içe aktarma (#101)
 - **Karar:** Fatih yol haritasını Notion'dan Unfurl'e bir kez taşır; senkron ve arayüz yok. `app/tools/import_learning.py` (`python -m app.tools.import_learning --email … [--apply] < tasks.json`; `app/` altında çünkü çalışan imajda `scripts/` yok). Genel JSON (`goals[].tasks[]`: title, due_date, minutes, url, done); Notion → JSON çevirisini Claude MCP ile yapar, dosya repoya girmez. Varsayılan dry run, `--apply` ile tek transaction; tek geçersiz satır hiçbir şey yazdırmaz; aynı başlıklı hedef varsa durur; `MAX_GOALS`/`MAX_TASKS` korunur; formlardaki doğrulama kuralları; 200'den uzun başlık "…" ile kısaltılır (uyarı). Araç `clock.use_timezone(user.timezone)` içinde çalışır; doğrulama formların kendi kodu (`check_task_date`, 5…600 dk, `check_url`), bitmiş ama gelecek tarihli görev hata, hedef başlığı çifti (mevcut ya da dosyada) hata, bütün kontroller yazmadan önce. Bitmiş görev: `done_at` = o gün 12:00 (kullanıcının saat dilimi), StudyLog yok (dakikalar şişmesin; streak'e o günler aktif gün olarak girer, bu gerçek geçmiş; arayüzde düzenlenirse o görev için StudyLog yazılır, kabul). Önce test kopyasında prova, sonra yedek + Fatih'in onayıyla kişisel ortam.
 - **Alternatifler:** Arayüzlü CSV import (bir kez kullanılacak özellik); Notion API ile sürekli senkron (token, çakışma; Notion bırakılıyor); veritabanına elle SQL (doğrulama yok).
+
+### D-187 · Done ayrı sekme (#103)
+Kaynak: gerçek kullanım geri bildirimi; Fatih seçti, ayrıntılar Claude karar verdi (2026-11-26).
+- **Karar:** Sekmeler Today / Next 7 days / All tasks / Catch-up (n) / **Done (n)**. Done: bitmiş görevlerin hepsi, `(done_at, id)` yeniden eskiye (`done_at` boşsa sonda); satırda "Done 4 Nov" (başka yılsa "Done 4 Nov 2025"), harcanan süre, kutu (işareti kaldırmak açar). Diğer sekmelerde Done bölümü yok; işaretlenen görev listeden çıkar, geri alma toast'taki Undo (60 sn, D-092) ya da Done sekmesinden. Boş: "No completed tasks yet.". 30 gün sınırı (`DONE_DAYS`) kalktı; liste görev sınırıyla (1.000) sınırlı, sayfalama yok. "Add task" plan kartının başlığına taşındı (listenin altındaki kalktı). "Tasks done" kartında "See done tasks" linki.
+- **Gerekçe:** 287 görevlik listede altta kalan Done ve Add task görünmüyordu; bitmiş görevler 30 gün sonra listeden kayboluyordu.
+- **Alternatifler:** Listenin üstünde kapalı bölüm (açılınca açık görevleri iter); sayfalama.
+
+### D-188 · Hedef filtresi (#103)
+Kaynak: Fatih önerdi, ayrıntılar Claude karar verdi (2026-11-26).
+- **Karar:** Sekmelerin yanında "All goals" + hedefler seçimi (`aria-label="Filter by goal"`); `goal` sorgu parametresi, sadece kullanıcının hedeflerinden biriyse geçerli (değilse All goals, hata yok). Görevler `build_plan`'dan önce süzülür: bütün sekmeler ve sayıları (Catch-up, Done) o hedefe göre. Filtre adreste kalır, sekme linkleri ve bölgenin kendini yeniden yüklemesi onu taşır; "All goals"da adreste `goal` yok. Goals kartında hedef adı filtre linki (`aria-current`). Filtre açıkken "Add task" o hedefi önceden seçer. Özet kartları ve Goals kartı filtrelenmez. Kabul edilenler: filtrelenen hedef silinince bölge All goals'a döner (adres çubuğunda eski `goal` kalır, Undo yeni id verir); başka hedefe eklenen görev filtreli listede görünmez; Windows'ta ok tuşları seçimde her basışta yeniler.
+- **Alternatifler:** Hedef başına ayrı sayfa; çip listesi (7+ hedefte kalabalık).
+
+### D-189 · Başlıktan düzenleme (#103)
+Kaynak: Fatih önerdi (2026-11-26).
+- **Karar:** Görev başlığı bir düğme (`type="button"`, `aria-label="Edit {title}"`), tıklanınca bugünkü Edit modalı açılır (açık ve bitmiş görevde, D-116); ⋯ menüsü aynen kalır.
+- **Alternatifler:** Satırın tamamını tıklanabilir yapmak (kutu, ↗ ve ⋯ ile çakışır).

@@ -87,7 +87,10 @@ def test_ticking_updates_hours_and_counters(auth_client, session, user, goal, ta
     assert "1 day" in streak
     goal_html = html.split(f'data-goal="{goal.id}"', 1)[1].split("</article>", 1)[0]
     assert "Week 1 / 3" in goal_html and "33%" in goal_html
+    # A done task leaves the open list and shows in the Done tab (D-187).
     assert "Done (1)" in html
+    assert f'data-task="{task.id}"' not in html
+    assert f'data-task="{task.id}"' in auth_client.get("/learning?view=done").text
 
 
 def test_the_same_tick_twice_is_one_tick(auth_client, session, task):
@@ -98,9 +101,9 @@ def test_the_same_tick_twice_is_one_tick(auth_client, session, task):
     assert session.exec(select(LearningResource)).one().units_done == 1
 
 
-def test_unticking_from_the_done_section(auth_client, session, task):
+def test_unticking_from_the_done_tab(auth_client, session, task):
     tick(auth_client, task)
-    html = auth_client.get("/learning").text
+    html = auth_client.get("/learning?view=done").text
     assert f'hx-post="/learning/tasks/{task.id}/done"' in html
     assert "Mark as not done: Week 1" in html
 

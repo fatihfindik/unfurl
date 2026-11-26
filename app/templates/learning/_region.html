@@ -6,7 +6,7 @@
     Context: app/routers/learning.py page_context. -#}
 {% from "components/icons.html" import icon %}
 {% from "learning/_parts.html" import goal_dot, task_item, done_item %}
-{%- set region_url = "/learning?view=" ~ view %}
+{%- set region_url = "/learning?view=" ~ view ~ goal_query %}
 <div id="learning-region" class="flex flex-col gap-6" hx-history="false"
      hx-get="{{ region_url }}" hx-trigger="learning-changed from:body" hx-swap="outerHTML">
 
@@ -33,6 +33,8 @@
       <span class="text-[13px] font-semibold text-text-3">Tasks done</span>
       <span class="text-[30px] font-bold leading-tight">{{ tasks_done }} <span class="text-base font-medium text-text-3">/ {{ tasks_total }}</span></span>
       <span class="text-xs text-text-3">{{ week_range }}</span>
+      <a href="/learning?view=done" hx-get="/learning?view=done" hx-target="#learning-region" hx-swap="outerHTML" hx-push-url="true"
+         class="self-start text-xs font-semibold text-link no-underline hover:underline">See done tasks</a>
     </div>
     {#- D-115: when the next study reminder comes. -#}
     <div data-card="reminder" class="flex flex-col gap-1.5 rounded-xl border border-border bg-surface px-5 py-[18px]">
@@ -60,29 +62,53 @@
   <div class="flex flex-wrap items-start gap-6">
     <section aria-labelledby="plan-title" class="flex min-w-0 flex-[3_1_560px] flex-col gap-3.5 rounded-xl border border-border bg-surface p-5">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="plan-title" class="m-0 text-base font-bold">Plan</h2>
+        <div class="flex items-center gap-3">
+          <h2 id="plan-title" class="m-0 text-base font-bold">Plan</h2>
+          {%- if goal_cards %}
+            {#- At the top, not under a long list (D-187). -#}
+            {#- With a goal filter the new task gets that goal (D-188). -#}
+            <button type="button" data-dialog-load="add-task" data-dialog-url="/learning/tasks/new{{ '?goal=' ~ goal_filter if goal_filter }}"
+                    class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border-strong bg-surface px-3 text-[13px] font-medium text-text-2 hover:bg-muted">{{ icon("plus") }}Add task</button>
+          {%- endif %}
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+        {%- if goal_options %}
+          {#- The goal filter (D-188). hx-target: the region, not the select itself
+              (the region's own hx-swap would be inherited otherwise). app.js leaves
+              out an empty goal, so "All goals" keeps the address short. -#}
+          <select id="learning-goal-filter" name="goal" aria-label="Filter by goal"
+                  hx-get="/learning" hx-trigger="change" hx-target="#learning-region" hx-swap="outerHTML"
+                  hx-push-url="true" hx-vals='{{ {"view": view} | tojson }}'
+                  class="h-9 max-w-[220px] rounded-lg border border-border-strong bg-surface px-2.5 text-[13px] font-semibold text-text">
+            <option value="">All goals</option>
+            {%- for id, title in goal_options %}
+              <option value="{{ id }}"{% if id == goal_filter %} selected{% endif %}>{{ title }}</option>
+            {%- endfor %}
+          </select>
+        {%- endif %}
         <nav aria-label="Plan view" class="flex flex-wrap gap-0.5 rounded-[10px] bg-muted p-[3px]">
           {%- for key, title in views %}
-            {%- set url = "/learning?view=" ~ key %}
+            {%- set url = "/learning?view=" ~ key ~ goal_query %}
             <a href="{{ url }}" hx-get="{{ url }}" hx-target="#learning-region" hx-swap="outerHTML" hx-push-url="true"
                {% if key == view %}aria-current="page"{% endif %}
                class="rounded-[7px] px-3 py-1.5 text-[13px] font-semibold text-text-3 no-underline hover:text-text aria-[current=page]:bg-surface aria-[current=page]:text-text aria-[current=page]:shadow-sm">{{ title }}</a>
           {%- endfor %}
         </nav>
+        </div>
       </div>
 
       {%- if view == "catchup" and groups[0].rows %}
         <p class="m-0 rounded-lg bg-amber-bg px-3 py-2.5 text-[13px] leading-normal text-amber-text">These are overdue. No stress, you can reschedule them.</p>
       {%- endif %}
 
-      {%- set open_count = groups | map(attribute="rows") | map("length") | sum %}
-      {%- if open_count %}
+      {%- set row_count = groups | map(attribute="rows") | map("length") | sum %}
+      {%- if row_count %}
         <ul class="m-0 flex list-none flex-col p-0">
           {%- for group in groups %}
             {%- if group.label %}
               <li class="pt-3.5 pb-1.5 text-xs font-bold uppercase tracking-[0.04em] text-text-3">{{ group.label }}</li>
             {%- endif %}
-            {%- for row in group.rows %}{{ task_item(row) }}{% endfor %}
+            {%- for row in group.rows %}{{ done_item(row) if view == "done" else task_item(row) }}{% endfor %}
           {%- endfor %}
         </ul>
       {%- elif not goal_cards %}
@@ -92,28 +118,9 @@
           {%- if view == "today" %}Nothing planned for today.
           {%- elif view == "week" %}Nothing planned for the next 7 days.
           {%- elif view == "catchup" %}Nothing to catch up on. Nice.
+          {%- elif view == "done" %}{{ "No completed tasks for this goal yet." if goal_filter else "No completed tasks yet." }}
           {%- else %}No open tasks.{% endif -%}
         </p>
-      {%- endif %}
-
-      {%- if done_rows %}
-        <details class="group border-t border-muted pt-3">
-          <summary class="flex cursor-pointer list-none items-center justify-between text-text-3">
-            <span class="text-[13px] font-bold">Done ({{ done_rows | length }})</span>
-            <span class="text-xs font-semibold text-link group-open:hidden">Show</span>
-            <span class="hidden text-xs font-semibold text-link group-open:inline">Hide</span>
-          </summary>
-          <ul class="m-0 flex list-none flex-col p-0">
-            {%- for row in done_rows %}{{ done_item(row) }}{% endfor %}
-          </ul>
-        </details>
-      {%- endif %}
-
-      {%- if goal_cards %}
-        <div class="flex flex-wrap gap-2 border-t border-muted pt-3.5">
-          <button type="button" data-dialog-load="add-task" data-dialog-url="/learning/tasks/new"
-                  class="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-3.5 text-[13px] font-medium text-text-2 hover:bg-muted">{{ icon("plus") }}Add task</button>
-        </div>
       {%- endif %}
     </section>
 
@@ -125,7 +132,12 @@
       {%- for goal in goal_cards %}
         <article data-goal="{{ goal.id }}" class="flex flex-col gap-2 rounded-[10px] border border-border p-3.5{{ ' opacity-70' if goal.status != 'active' }}">
           <div class="flex items-baseline justify-between gap-2.5">
-            <h3 class="m-0 flex min-w-0 items-center gap-2 text-sm font-bold [overflow-wrap:anywhere]">{{ goal_dot(goal.color) }}{{ goal.title }}
+            <h3 class="m-0 flex min-w-0 items-center gap-2 text-sm font-bold [overflow-wrap:anywhere]">{{ goal_dot(goal.color) }}
+              {#- The name filters the plan to this goal (D-188). -#}
+              {%- set goal_url = "/learning?view=" ~ view ~ "&goal=" ~ goal.id %}
+              <a href="{{ goal_url }}" hx-get="{{ goal_url }}" hx-target="#learning-region" hx-swap="outerHTML" hx-push-url="true"
+                 {% if goal.id == goal_filter %}aria-current="true"{% endif %}
+                 class="text-text no-underline hover:underline aria-[current=true]:text-link">{{ goal.title }}</a>
               {%- if goal.status != "active" %}
                 <span data-goal-status class="shrink-0 rounded-[10px] bg-muted px-2 py-0.5 text-[11px] font-semibold text-text-3">{{ "Paused" if goal.status == "paused" else "Done" }}</span>
               {%- endif %}</h3>
