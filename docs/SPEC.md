@@ -1266,7 +1266,7 @@ M1 dışında: onboarding sihirbazı (V2, D-150), temanın `User.theme`'e bağla
 - Admin için basit maliyet raporu: `uv run python -m app.billing.report` → son 30 gün, plan ve özellik bazında kullanıcı başına ortalama token ve tahmini maliyet
 - `evals/extract_job` + `run_evals.py`
 - Gizlilik sayfasına Anthropic'i (AI işleme, ABD aktarımı ve dayanağı) ekle (D-133)
-- **Kabul:** Kota aşımı 429 dönüyor. BYOK ile kredi düşmüyor. Testler FakeAIClient ile geçiyor. Eval doğruluğu ≥ %85 (company + job_title).
+- **Kabul:** Kota aşımı 429 dönüyor. BYOK ile kredi düşmüyor. Testler FakeAIClient ile geçiyor. Eval doğruluğu ≥ %85 (company + job_title). Eklentiden gelen `description_raw` (sayfa sahibinin yazdığı gizli JSON-LD dahil) prompt'a güvenilmeyen veri olarak etiketli girer (§ Prompt injection koruması) ve hiçbir araç eylemini PendingChangeSet önizlemesi olmadan başlatamaz; bir test bunu kötü niyetli bir ilan metniyle dener (#64).
 
 ### M6 — Chrome eklentisi (D-135: M6a ve M6b)
 M6 ikiye bölündü. Sıra (D-150, D-155): M6a ✓ → M8a → M8b → M9a → M13d; M6b ve diğer AI milestone'ları V2; M13c sonra.
@@ -1286,7 +1286,7 @@ M6 ikiye bölündü. Sıra (D-150, D-155): M6a ✓ → M8a → M8b → M9a → M
 - `fit_analysis` özelliği, önbellekleme (profile_version), Apply › **Should I apply?** adımı (archive, "prepare" geçişi), Kanban kartında skor rozeti (eklentideki "Analyze fit" M6b'de, D-135)
 - `evals/fit_analysis`
 - Should I apply? eksiklerinde "Add to learning plan" modalı (M10'dan taşındı, D-089)
-- **Kabul:** Sonuç kaydediliyor ve önbellekten dönüyor. Profil değişince "Profile changed – re-analyze?" uyarısı çıkıyor. Eval'de verdict'lerin en az 4/5'i beklenen aralıkta. Eksikten oluşturulan hedef başvuruya bağlı.
+- **Kabul:** Sonuç kaydediliyor ve önbellekten dönüyor. Profil değişince "Profile changed – re-analyze?" uyarısı çıkıyor. İlan metni M5'teki gibi güvenilmeyen veri olarak etiketli (#64). Eval'de verdict'lerin en az 4/5'i beklenen aralıkta. Eksikten oluşturulan hedef başvuruya bağlı.
 
 ### M8 — Motivasyon mektubu (D-150: M8a ve M8b, AI'sız)
 AI ile oluşturma V2. Mektup CV'lerle aynı master/kopya/kilit kurallarını kullanır.
@@ -1355,7 +1355,7 @@ AI ile oluşturma V2. Mektup CV'lerle aynı master/kopya/kilit kurallarını kul
 
 ### M13c — Deploy (D-123) · Sonra (D-155)
 MVP'de deploy yok; kişisel local ortam kullanılır (§11, D-155, D-156). Aşağıdakiler deploy edilince yapılır.
-- Render'a deploy (Docker, Frankfurt, Postgres), production env, HSTS, proxy header'ları ve `APP_BASE_URL` kontrolü (#18), e-postada `List-Unsubscribe`, eklentide prod URL
+- Render'a deploy (Docker, Frankfurt, Postgres), production env, HSTS, proxy header'ları ve `APP_BASE_URL` kontrolü (#18, D-199: production `https://` adres ve `FORWARDED_ALLOW_IPS` olmadan başlamaz), e-postada `List-Unsubscribe`, eklentide prod URL (`scripts/build_extension.py <https-adres>`: sadece https, `key` çıkarılır; D-199)
 - Zamanlayıcı tek instance'ta; #17 belgelenmiş sınırlama olarak kalır. Deploy öncesi Postgres test çalıştırması (CI `postgres-tests`).
 - Yasal sayfalarda sağlayıcıların gerçek adları; SPEC §10.1 kontrol listesi madde madde işaretlenir.
 - **Kabul:** Canlı URL'de kayıttan ilan kaydına, CV ve mektup indirmeye kadar tüm akış çalışıyor.

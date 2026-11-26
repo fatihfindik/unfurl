@@ -17,6 +17,10 @@ fields, click **Save to Unfurl** (SPEC §7, plan `docs/plans/M6a.md`).
 After changing a file here, click the reload arrow on the extension's card in
 `chrome://extensions` and open the popup again.
 
+## Build for a deployed Unfurl (later, M13c)
+
+`uv run python scripts/build_extension.py https://your-unfurl-address` writes `dist/extension/` with that address as the only host permission. It refuses anything that isn't a public `https://` address, and leaves out the development `key` (the Chrome Web Store gives the id, which goes into `EXTENSION_ORIGINS`). This folder stays as it is.
+
 ## What it does and doesn't do
 
 - It runs **only when you click it**, and only on the tab you have open (`activeTab`):
