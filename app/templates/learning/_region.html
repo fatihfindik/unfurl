@@ -78,7 +78,7 @@
               out an empty goal, so "All goals" keeps the address short. -#}
           <select id="learning-goal-filter" name="goal" aria-label="Filter by goal"
                   hx-get="/learning" hx-trigger="change" hx-target="#learning-region" hx-swap="outerHTML"
-                  hx-push-url="true" hx-vals='{"view": "{{ view }}"}'
+                  hx-push-url="true" hx-vals='{{ {"view": view} | tojson }}'
                   class="h-9 max-w-[220px] rounded-lg border border-border-strong bg-surface px-2.5 text-[13px] font-semibold text-text">
             <option value="">All goals</option>
             {%- for id, title in goal_options %}
@@ -137,7 +137,6 @@
               {%- set goal_url = "/learning?view=" ~ view ~ "&goal=" ~ goal.id %}
               <a href="{{ goal_url }}" hx-get="{{ goal_url }}" hx-target="#learning-region" hx-swap="outerHTML" hx-push-url="true"
                  {% if goal.id == goal_filter %}aria-current="true"{% endif %}
-                 title="Show only this goal's tasks"
                  class="text-text no-underline hover:underline aria-[current=true]:text-link">{{ goal.title }}</a>
               {%- if goal.status != "active" %}
                 <span data-goal-status class="shrink-0 rounded-[10px] bg-muted px-2 py-0.5 text-[11px] font-semibold text-text-3">{{ "Paused" if goal.status == "paused" else "Done" }}</span>
