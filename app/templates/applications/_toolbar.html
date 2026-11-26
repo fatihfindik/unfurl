@@ -20,7 +20,7 @@
       <option value="{{ value }}"{% if query.source == value %} selected{% endif %}>{{ label }}</option>
     {%- endfor %}
   </select>
-  <select name="mode" aria-label="Work mode" class="h-10 w-full sm:w-[150px]">
+  <select name="mode" aria-label="Work mode" class="h-10 w-full sm:w-[180px]">
     <option value="">Any work mode</option>
     {%- for value, label in mode_choices %}
       <option value="{{ value }}"{% if query.mode == value %} selected{% endif %}>{{ label }}</option>
