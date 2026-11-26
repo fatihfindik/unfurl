@@ -2,6 +2,7 @@
 {% from "components/page_header.html" import page_header, page_width %}
 {% from "components/modal.html" import modal %}
 {% from "components/icons.html" import icon %}
+{% from "components/forms.html" import add_classes %}
 
 {% block title %}Documents{% endblock %}
 
@@ -15,7 +16,14 @@
 {% endmacro %}
 
 {% block content %}
-  {{ page_header("Documents", subtitle="Master documents stay clean. Each application gets its own copy.") }}
+  {#- The page's add button sits in the header like on every page (D-196). -#}
+  {% call page_header("Documents", subtitle="Master documents stay clean. Each application gets its own copy.") %}
+    {%- if tab == "cvs" %}
+      <button type="button" data-dialog-open="new-cv" class="{{ add_classes('page') }}">{{ icon("plus") }}Add CV</button>
+    {%- else %}
+      <button type="button" data-dialog-open="new-letter" class="{{ add_classes('page') }}">{{ icon("plus") }}Add cover letter</button>
+    {%- endif %}
+  {% endcall %}
   <div class="flex w-full {{ page_width() }} flex-col gap-5 px-4 pt-5 pb-8 md:px-8">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <nav aria-label="Document type" class="flex gap-1 rounded-lg bg-muted p-1 text-sm font-semibold">
@@ -25,13 +33,6 @@
              class="rounded-md px-3 py-1.5 no-underline {{ 'bg-surface text-text shadow-sm' if tab == key else 'text-text-2 hover:text-text' }}">{{ label }}</a>
         {%- endfor %}
       </nav>
-      {%- if tab == "cvs" %}
-        <button type="button" data-dialog-open="new-cv"
-                class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#4F46E5] px-3 text-sm font-semibold text-white hover:bg-[#4338CA]">New CV</button>
-      {%- else %}
-        <button type="button" data-dialog-open="new-letter"
-                class="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#4F46E5] px-3 text-sm font-semibold text-white hover:bg-[#4338CA]">New cover letter</button>
-      {%- endif %}
     </div>
 
     <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
@@ -57,7 +58,7 @@
             {%- else %}
               <div class="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border-strong bg-surface p-5">
                 <p class="m-0 text-sm text-text-2">No cover letters yet. Create your first master letter: later letters start from it.</p>
-                <button type="button" data-dialog-open="new-letter" class="text-sm font-semibold text-link hover:underline">Create a master letter</button>
+                <button type="button" data-dialog-open="new-letter" class="{{ add_classes('inline') }}">{{ icon("plus") }}Add a master letter</button>
               </div>
             {%- endif %}
           </section>
@@ -121,7 +122,7 @@
             {%- else %}
               <div class="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border-strong bg-surface p-5">
                 <p class="m-0 text-sm text-text-2">No CVs yet. Create your first master CV from your profile.</p>
-                <button type="button" data-dialog-open="new-cv" class="text-sm font-semibold text-link hover:underline">Create a master CV</button>
+                <button type="button" data-dialog-open="new-cv" class="{{ add_classes('inline') }}">{{ icon("plus") }}Add a master CV</button>
               </div>
             {%- endif %}
           </section>
@@ -176,11 +177,11 @@
   </div>
 
   {%- if tab == "cvs" %}
-    {% call modal("new-cv", "New CV") %}
+    {% call modal("new-cv", "Add CV") %}
       {% include "cvs/_new_cv_form.html" %}
     {% endcall %}
   {%- else %}
-    {% call modal("new-letter", "New cover letter") %}
+    {% call modal("new-letter", "Add cover letter") %}
       {% include "cover_letters/_new_letter_form.html" %}
     {% endcall %}
   {%- endif %}

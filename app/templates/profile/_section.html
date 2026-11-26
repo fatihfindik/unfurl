@@ -2,14 +2,17 @@
     Context: section (app/routers/profile.py Section), items, new_form ({"values",
     "errors"} while the add form is open, else None). Add, delete and the add form's
     Cancel all replace this whole element. -#}
-{%- from "components/forms.html" import icon_button -%}
+{%- from "components/forms.html" import add_classes -%}
+{%- from "components/icons.html" import icon -%}
 {%- set chips = section.key == "skills" -%}
 <section id="profile-{{ section.key }}" aria-labelledby="profile-{{ section.key }}-title"
          class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
-  <div class="flex items-center justify-between gap-3">
+  <div class="flex flex-wrap items-center justify-between gap-3">
     <h2 id="profile-{{ section.key }}-title" class="m-0 text-base font-bold">{{ section.title }}</h2>
     {%- if not new_form %}
-      {{ icon_button("plus", "Add " ~ section.noun, hx_get="/profile/" ~ section.key ~ "/new", hx_target="#profile-" ~ section.key) }}
+      {#- A card's add button: labelled, right of the heading (D-196). -#}
+      <button type="button" hx-get="/profile/{{ section.key }}/new" hx-target="#profile-{{ section.key }}" hx-swap="outerHTML"
+              class="{{ add_classes('card') }}">{{ icon("plus") }}Add {{ section.noun }}</button>
     {%- endif %}
   </div>
 

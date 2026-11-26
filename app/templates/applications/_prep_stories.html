@@ -3,6 +3,8 @@
     Drawn again after pick and remove (hx-target="#prep-stories").
     Context: application, prep_stories, prep_story_choices, prep_has_library,
     prep_stories_full, prep_editable. -#}
+{%- from "components/forms.html" import add_classes -%}
+{%- from "components/icons.html" import icon -%}
 <section id="prep-stories" aria-labelledby="prep-stories-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
   <div class="flex flex-wrap items-baseline justify-between gap-2">
     <h2 id="prep-stories-title" class="m-0 text-base font-bold">Stories for this interview</h2>
@@ -50,14 +52,14 @@
     {%- if prep_editable and prep_story_choices and not prep_stories_full %}
       <form class="m-0 flex flex-wrap items-end gap-2" hx-post="/applications/{{ application.id }}/prep/stories"
             hx-target="#prep-stories" hx-swap="outerHTML" hx-disabled-elt="find [type=submit]">
-        <label class="flex min-w-[220px] flex-1 flex-col gap-1 text-[13px] font-semibold text-text-2">Add a story
+        <label class="flex min-w-[220px] flex-1 flex-col gap-1 text-[13px] font-semibold text-text-2">Story
           <select name="story_id" required class="h-9 text-sm">
             {%- for story in prep_story_choices %}
               <option value="{{ story.id }}">{{ story.title }}{{ " · " ~ story.tags if story.tags }}</option>
             {%- endfor %}
           </select>
         </label>
-        <button type="submit" class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Add</button>
+        <button type="submit" class="{{ add_classes('submit') }}">{{ icon("plus") }}Add story</button>
       </form>
     {%- endif %}
   {%- endif %}

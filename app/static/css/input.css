@@ -250,6 +250,24 @@
     height: auto;
     padding: 10px 12px;
   }
+  /* Selects draw their own chevron (D-197): the browser's arrow sits right at the
+     edge. A mid grey that reads in both themes; room on the right for the arrow.
+     Don't give a select px-* or pr-* (it would cover the arrow); use pl-* instead. */
+  select {
+    appearance: none;
+    padding-right: 36px;
+    background-image: url("../img/select-chevron.svg"); /* a file: the CSP blocks data: images */
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px 16px;
+  }
+  /* Windows high contrast hides background images: give the browser's arrow back. */
+  @media (forced-colors: active) {
+    select {
+      appearance: auto;
+      background-image: none;
+    }
+  }
   /* A field with an error (aria-invalid is set by the form macros). */
   [aria-invalid="true"] {
     border-color: var(--red-text);

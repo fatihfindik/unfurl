@@ -2,6 +2,7 @@
 {% from "components/page_header.html" import page_header, page_width %}
 {% from "components/modal.html" import modal %}
 {% from "components/icons.html" import icon %}
+{% from "components/forms.html" import add_classes %}
 
 {% block title %}Learning{% endblock %}
 
@@ -9,7 +10,7 @@
 {% block content %}
   {% call page_header("Learning", subtitle="Your goals, where you study and what is next.") %}
     <button type="button" data-dialog-open="new-goal"
-            class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]">{{ icon("plus") }}New goal</button>
+            class="{{ add_classes('page') }}">{{ icon("plus") }}Add goal</button>
   {% endcall %}
   <div class="w-full px-4 pt-6 pb-10 md:px-8">
     <div class="{{ page_width() }}">
@@ -17,7 +18,7 @@
     </div>
   </div>
 
-  {% call modal("new-goal", "New goal") %}
+  {% call modal("new-goal", "Add goal") %}
     {% include "learning/_goal_form.html" %}
   {% endcall %}
 

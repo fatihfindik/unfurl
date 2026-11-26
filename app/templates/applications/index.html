@@ -2,6 +2,7 @@
 {% from "components/page_header.html" import page_header %}
 {% from "components/modal.html" import modal %}
 {% from "components/icons.html" import icon %}
+{% from "components/forms.html" import add_classes %}
 
 {% block title %}Applications{% endblock %}
 
@@ -10,7 +11,7 @@
 {% block content %}
   {% call page_header("Applications", subtitle="Every job you saved or applied to. Drag a card to change its status.", wide="full") %}
     <button type="button" data-dialog-open="add-job"
-            class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]">{{ icon("plus") }}Add job</button>
+            class="{{ add_classes('page') }}">{{ icon("plus") }}Add job</button>
   {% endcall %}
   {#- `board` (app.js) remembers whether Rejected is open; it sits around the region,
       so reloading the region doesn't close the column again. -#}
@@ -24,7 +25,7 @@
 
   {% include "applications/_interview_modal.html" %}
 
-  {% call modal("add-job", "Add a job") %}
+  {% call modal("add-job", "Add job") %}
     {% include "applications/_add_job_form.html" %}
   {% endcall %}
 {% endblock %}

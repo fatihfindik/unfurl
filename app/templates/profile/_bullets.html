@@ -1,5 +1,7 @@
 {#- Experience bullets (SPEC §6.4): a list of inputs with "Add bullet" and ×.
     Behaviour in app.js (bulletList). Context: values.bullets, errors.bullets. -#}
+{%- from "components/forms.html" import add_classes -%}
+{%- from "components/icons.html" import icon -%}
 {%- macro bullet_row(value="") -%}
   <li class="flex items-center gap-2">
     <input name="bullets" value="{{ value }}" maxlength="300" class="w-full" aria-label="Bullet"
@@ -17,7 +19,7 @@
     {%- endfor %}
   </ul>
   <template x-ref="template">{{ bullet_row() }}</template>
-  <button type="button" x-on:click="add" class="self-start text-sm font-semibold text-link hover:underline">+ Add bullet</button>
+  <button type="button" x-on:click="add" class="{{ add_classes('inline') }}">{{ icon("plus") }}Add bullet</button>
   {%- if errors.bullets %}
     <span id="{{ prefix }}-bullets-error" class="text-xs font-medium text-red-text">{{ errors.bullets }}</span>
   {%- endif %}

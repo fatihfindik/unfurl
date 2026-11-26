@@ -313,7 +313,7 @@ def test_an_empty_library_links_to_my_profile(auth_client, profile, job):
     card = card_of(auth_client, job)
 
     assert "No stories yet." in card and 'href="/profile#profile-stories"' in card
-    assert "Add a story" not in card
+    assert 'name="story_id"' not in card
 
 
 def test_the_card_sits_between_questions_and_notes(auth_client, profile, job):
@@ -331,7 +331,7 @@ def test_pick_and_remove_a_story(auth_client, session, profile, job):
 
     assert response.status_code == 200
     assert response.text.lstrip().startswith('<section id="prep-stories"')
-    assert "Shipped" in response.text and "Add a story" not in response.text  # none left
+    assert "Shipped" in response.text and 'name="story_id"' not in response.text  # none left
     assert "HX-Trigger" not in response.headers
     assert links(session) == [(job.id, story.id)]
 
@@ -371,7 +371,7 @@ def test_at_most_20_stories(auth_client, session, user, profile, job):
     toast = json.loads(response.headers["HX-Trigger"])["toast"]
     assert toast["message"] == "An interview can have up to 20 stories."
     assert len(links(session)) == 20
-    assert "Add a story" not in card_of(auth_client, job)
+    assert 'name="story_id"' not in card_of(auth_client, job)
 
 
 def test_archived_job_is_409_and_read_only(auth_client, session, user, profile, job):
@@ -385,7 +385,7 @@ def test_archived_job_is_409_and_read_only(auth_client, session, user, profile, 
     assert pick(auth_client, job, other.id).status_code == 409
     assert remove(auth_client, job, story.id).status_code == 409
     card = card_of(auth_client, job)
-    assert "Remove" not in card and "Add a story" not in card
+    assert "Remove" not in card and 'name="story_id"' not in card
     assert links(session) == [(job.id, story.id)]
 
 
