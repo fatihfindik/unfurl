@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.37 — 2026-11-23
+> **Durum:** MVP planı, v2.1.38 — 2026-11-26
+> v2.1.38: #43 mülakat hazırlığı AI'sız, iki milestone: M14a başvuru detayında **Interview prep** sekmesi (olası sorular ve cevap taslakları, 12 soruluk hazır İngilizce set "Start interview prep" ile, şirket ve rol notları, soracağın sorular), M14b STAR hikâye bankası. AI'sız hazırlık ücretsiz; AI'lı hazırlık V2 (D-175…D-180).
 > v2.1.37: M13d Design kararları: README portföy sayfası, işletim ayrıntıları `docs/DEVELOPMENT.md`'de (D-172); ekran görüntüleri sahte verili demo hesaptan (`scripts/seed_demo.py`, sadece `demo.db`'ye yazar), açık tema, eklenti dahil (D-173); mimari şema README'de Mermaid ile (D-174). Lisans yok, "All rights reserved".
 > v2.1.36: Teknik borçlar (T1): bilinmeyen Host başlığı 400 (D-168); "Edit master" kilidi adresteki bayraktan değil oturuma bağlı bir değerden (D-169); çift tıklama kilidi formların kendisinde, `<body>`'de değil (D-170); bir formda en fazla 1100 alan, route'lar daha azını koyabilir (D-171).
 > v2.1.35: M9a Design kararları: Final check 8 kural tabanlı kontrol, engellemez (D-151); başvuru detayında Apply/Progress ve Job & details sekmeleri, adresle (`?tab=details`) (D-164); Apply akışı: Prepare documents CV bağlanınca tamamlanır, Final check'te iki ayrı PDF linki ve "Mark as applied" durum değişikliğiyle aynı (D-165); belge paneli salt okunur önizleme (D-166); Progress görünümü ve timeline'dan "How you applied" (D-167).
@@ -126,6 +127,7 @@
 | **İş keşfi** | – | Adzuna/Jooble ile ilan önerileri ve otomatik skor, takip edilen şirketler (Greenhouse, Lever, Personio, Workable), LinkedIn iş alarmı e-postalarını içe aktarma |
 | **Uyum analizi** | – (D-150) | Skor 0–100, karar, eşleşenler, eksikler, anahtar kelimeler, mülakat noktaları, "Add to learning plan" (M7); önerilen ilanlar için otomatik analiz |
 | **Learning** | Hedefler (kaynak hedefin içinde), görevler (her görev bir hedefe bağlı), Today / Next 7 days / All tasks / Catch-up, tamamlananlar "Done" bölümünde, New goal ve Add task modalları, haftalık saat hedefi, seri, dinlenme günleri | AI ile öğrenme planı, ilerleme grafikleri, Notion içe aktarma, Google Calendar senkronizasyonu |
+| **Mülakat hazırlığı** | Başvuruda Interview prep sekmesi: sorular ve cevap taslakları (hazır set), şirket ve rol notları, soracağın sorular (M14a); STAR hikâye bankası (M14b) (D-175) | AI ile profilden ve ilandan soru üretme, uyum analizindeki eksiklerden "refresh" görevleri, asistanla mock interview (D-150) |
 | **Bildirimler** | Uygulama içi bildirim zili, günlük çalışma hatırlatması (uygulama içi ve e-posta), takip, mülakat ve bekleyen ilan bildirimleri, tür bazında ayarlar | AI sonucu bildirimi (D-150), haftalık e-posta özeti, takip hatırlatmaları e-postayla, tarayıcı push bildirimleri (PWA) |
 | **Assistant: bilgi** | – (V2, D-150). Tasarım: Her sayfada sağ altta yüzen panel (geçmiş, büyütme). Profil, başvurular, uyum analizleri, belgeler, Learning planı ve bulunduğun sayfa | Geçmiş haftaların özeti |
 | **Assistant: başvuru işlemleri** | – (V2, D-150). Tasarım: Listeleme ve detay, durum değiştirme, not ekleme, Next step ve mülakat tarihi belirleme, uyum analizi çalıştırma, mektup taslağı oluşturma, **Final check** | Takip e-postası yazma, iş önerilerini açıklama |
@@ -472,6 +474,25 @@ Tarih satırı kaydedilmez: taslakta her zaman bugün (kullanıcının saat dili
 | snoozed_until | datetime, nullable | Needs attention'da "Snooze": bu tarihe kadar gizli; durum veya next step değişince temizlenir (D-074) |
 | archived | bool | Arşivlenen ilan board'da görünmez, "Show archived" ile görünür ve geri alınabilir. Silinmez. |
 | last_activity_at | datetime | Kartta ve listede "Updated": ekleme, durum değişikliği, arşiv ve restore'da değişir (sıra değişince değişmez; D-061) |
+| interview_notes | text, nullable | Interview prep › Company & role notes (M14a, D-177), en fazla 10 000 karakter |
+| interview_prep_started_at | datetime, nullable | "Start interview prep" ya da "Start with an empty list" anı; hazır set bir kez eklenir (D-178) |
+
+### 5.5b InterviewQuestion (mülakat soruları, M14a, D-177)
+
+| Alan | Tip | Not |
+|---|---|---|
+| id | PK | |
+| user_id | FK, cascade | Her sorgu bununla filtrelenir |
+| application_id | FK, cascade | |
+| kind | enum likely/to_ask | `likely`: bana sorulabilecek; `to_ask`: benim soracağım |
+| category | enum general/behavioural/role/company/other, nullable | Sadece `likely`'de |
+| text | str(300) | Soru |
+| answer | text, nullable | `likely`: cevap taslağım; `to_ask`: aldığım cevap notu (en fazla 5000) |
+| asked | bool | Sadece `to_ask` |
+| position | int | Tür ve kategori içinde sıra |
+| created_at, updated_at | datetime | |
+
+Başvuru başına en fazla 100 soru. Silme toast + Undo (`DeletedItem`, D-179). Timeline'a olay yazılmaz.
 
 ### 5.6 ApplicationEvent (zaman çizelgesi)
 | Alan | Tip |
@@ -658,7 +679,8 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 
 **Başvuru detay sayfası (/applications/{id}):**
 - **Başlık** (6.0/3): "← Applications", şirket avatarı, pozisyon, şirket · konum · çalışma şekli · kaynak, "‹ 1 of 10 ›", durum seçici (Saved/Applied/Interview/Offer/Rejected/Archived), "View posting ↗".
-- **Sekmeler:** **Apply** (başvurudan sonra adı **Progress**) ve **Job & details**.
+- **Sekmeler:** **Apply** (başvurudan sonra adı **Progress**), **Interview prep** (M14a, D-176: durum Applied, Interview, Offer veya Rejected iken; `?tab=interview`) ve **Job & details**.
+- **Interview prep sekmesi (M14a, D-176…D-180):** üstte mülakat bilgisi (yoksa "Add it"); boşken "Start interview prep" (12 olası soru + 4 soracağın soru, İngilizce, `{company}` dolu; bir kez) ve "Start with an empty list"; **Likely questions** kategoriye göre, her birinde yazarken kaydedilen cevap taslağı, "{n} of {m} answered"; **Company & role notes** (tek alan); **Questions to ask them** ("asked" işareti, cevap notu). Ekle, düzenle, sil + Undo. Arşivli başvuruda salt okunur. STAR hikâyeleri M14b.
 - **Apply sekmesi – MVP: 2 adım (M9a, D-150):** ① **Prepare documents:** bu ilan için master CV'den (ve varsa master mektuptan) taslak kopya oluştur ve başvuruya bağla; her biri için "Preview & edit". AI önerisi yok. ② **Final check:** kural tabanlı kontrol listesi (D-151: CV bağlı, CV'de ad ve e-posta, CV'de özet ya da deneyim, mektup bağlı, mektuptaki şirket, mektup gövdesi, CV ve mektup aynı dilde, ilan süresi; `ok`/`warn`/`missing`), her eksik düzeltme sayfasına götürür, **hiçbir şeyi engellemez**; altında "CV (PDF)" ve "Cover letter (PDF)" linkleri ve "I have applied · mark as applied" (durum seçiciyle aynı: kilit, `ApplicationDocument`, toast + Undo). Prepare adımı CV bağlanınca tamamlanır ve daralır (mektup isteğe bağlı); Final check o zamana kadar pasiftir (D-165). Sekme adresle seçilir: `/applications/{id}` ilk sekme, `?tab=details` Job & details; arşivli başvuruda işlemler gösterilmez (D-164).
 - **Apply sekmesi – V2 tasarımı: 3 adım** (D-150; MVP'de yukarıdaki 2 adım):
   1. **Should I apply?** – skor, karar, özet, eşleşenler, eksikler (severity). Önemi critical veya moderate olan her eksikte **"+ Add to learning plan"**: önceden doldurulmuş bir modal açar (hedef, hedef tarih, haftalık saat, isteğe bağlı kaynak, "yeni hedef" veya "mevcut hedefe ekle"). Kaydedince satır "Added as a goal · view" olur. Butonlar: "Not for me, archive" (toast + Undo) ve "Yes, prepare my documents →".
@@ -698,7 +720,7 @@ ATS kuralları (tüm şablonlarda): gerçek metin (görsel değil), tablo ile d�
 |---|---|---|
 | study_reminder | Kullanıcının saat diliminde seçtiği saatte (veya sonraki 15 dakikalık çalışmada), dinlenme günü değilse, o gün henüz görev tamamlanmadıysa ve aktif bir hedefin bugüne ya da öncesine planlı açık görevi varsa (D-107, D-111; Paused/Done hedefin görevleri sayılmaz, D-122). Günde bir (`study:{gün}`), ertesi güne taşmaz. "Time to study: 25 min" / "CS50P Week 3 · keep your 12-day streak going" (seri ayarı açık ve ≥ 2 gün). E-posta sadece doğrulanmış adrese (D-112). | Uygulama içi + e-posta (ayara bağlı) |
 | follow_up | `applied` başvurunun next step'i "Follow up" ve günü geldi (başvurudan 10 gün sonra veya elle konan tarih; Needs attention ile aynı hesap, D-099). Her yeni follow-up adımı için bir kez. "Time to follow up" / "{Company} · no reply for {n} days" | Uygulama içi |
-| interview_tomorrow | Durumu `interview` ve `interview_at` yarın olan başvuru. "Interview tomorrow, {HH:MM}" (tüm gün: saatsiz) / "{Company} · {Role}" | Uygulama içi |
+| interview_tomorrow | Durumu `interview` ve `interview_at` yarın olan başvuru. "Interview tomorrow, {HH:MM}" (tüm gün: saatsiz) / "{Company} · {Role}"; link Interview prep sekmesi (`?tab=interview`, D-180) | Uygulama içi |
 | stale_saved | `saved` ilanın adımı "Waiting" ve günü geldi (kaydedildikten 7 gün sonra). "Saved {n} days ago" / "{Company} · apply or archive?" | Uygulama içi |
 | ai_result | V2 (D-150). Uzun süren AI işlemi bittiğinde (mektup, analiz) | Uygulama içi |
 | streak_milestone | 7, 30, 100 günlük seri (`streak_enabled`; son aktif gün bugün ya da dün; anahtar `streak:{n}:{son aktif gün}`, D-113). "{n}-day streak" / "You studied {n} days in a row. Nice work." | Uygulama içi |
@@ -1327,6 +1349,19 @@ MVP'de deploy yok; kişisel local ortam kullanılır (§11, D-155, D-156). Aşa�
 - Görüntüler `scripts/seed_demo.py`'nin kurgusal kullanıcısıyla, ayrı `demo.db`'den; açık tema; eklenti dahil (D-173). Mimari şema Mermaid (D-174)
 - **Kabul:** README'de "kendi bilgisayarında çalıştır" adımları (dev ve kişisel ortam), mimari şema ve ekran görüntüleri var; görüntülerde ve belgelerde gerçek kişisel veri yok; canlı URL deploy ile (D-155).
 
+
+### M14a — Mülakat hazırlığı: Interview prep sekmesi (AI'sız, D-175; plan: `docs/plans/M14a.md`)
+- Başvuru detayında **Interview prep** sekmesi (`?tab=interview`, Applied ve sonrası; D-176)
+- **Likely questions:** kategoriye göre sorular ve cevap taslağı (yazarken kaydedilir); "Start interview prep" ile hazır İngilizce set, bir kez (D-178); ekle, düzenle, sil + Undo (D-179)
+- **Company & role notes** (tek alan) ve **Questions to ask them** ("asked" işareti, cevap notu)
+- "Interview tomorrow" bildirimi ve Progress'teki "Prepare for it →" sekmeye götürür (D-180)
+- **Kabul:** Sekmeyi açmak veri yazmıyor (test). Hazır set bir başvuruya bir kez ekleniyor, `{company}` dolu (test). Silme Undo ile geri geliyor (test). Başka kullanıcının başvurusunda ve sorusunda bütün işlemler 404, arşivli başvuruda yazma 409 (test). Sorular ve notlar veri dışa aktarmada var, hesap silinince gidiyor (test).
+
+### M14b — Mülakat hazırlığı: STAR hikâye bankası (AI'sız, D-175)
+- Hesap düzeyinde hikâyeler (başlık, Situation, Task, Action, Result); yeri ve sayfası M14b Design'da
+- Interview prep sekmesinde bu mülakata uyan hikâyeleri seçme; isteğe bağlı bir soruya bağlama
+- Dışa aktarma ve hesap silme kapsamı
+- **Kabul:** M14b planında yazılır.
 ---
 
 ## 13. Test Stratejisi
@@ -1396,7 +1431,7 @@ Bu projeyi Claude Code ile geliştirirken öğrenmeyi hızlandıracak öneriler:
 - **MVP'de ödeme alınmaz.** Önce kullanım ve değer kanıtlanır, sonra fiyatlandırma yapılır.
 - **Hedef model: freemium + dönem paketi.** İş arama dönemsel bir ihtiyaç (genellikle 2-4 ay), bu yüzden aylık abonelik yerine tek ödemeli bir "Job Search Pass" (ör. 3 ay) birincil seçenektir. Aylık abonelik ileride ikinci seçenek olarak test edilebilir.
 - **Ücretsiz plan cömert kalır:** başvuru takibi, profil, CV ve mektup editörü, eklenti (V2'de günlük sınırlı AI, D-150). Kendi API anahtarını (BYOK) kullananlar AI'ı limitsiz kullanır.
-- **Pro planın değeri** (V2, D-150; taslak, kullanıcı verisine göre değişecek): daha yüksek günlük AI kredisi, premium CV şablonları, Faz 2'deki otomatik ilan önerileri ve mülakat hazırlığı.
+- **Pro planın değeri** (V2, D-150; taslak, kullanıcı verisine göre değişecek): daha yüksek günlük AI kredisi, premium CV şablonları, Faz 2'deki otomatik ilan önerileri ve AI ile mülakat hazırlığı (AI'sız Interview prep herkese ücretsiz, D-175).
 - **Fiyat** henüz belirlenmez. Kararı 17.4'teki metrikler belirler.
 
 ### 17.2 Plan ve yetki (entitlement) altyapısı

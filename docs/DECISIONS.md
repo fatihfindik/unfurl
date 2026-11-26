@@ -956,3 +956,31 @@ Kaynak: `docs/plans/M13d.md`, issue #94; plan-reviewer (0 Blocker, 7 Should, 5 N
 ### D-174 · Mimari şema Mermaid ile
 - **Karar:** README'de GitHub'ın çizdiği Mermaid `flowchart`: tarayıcı (HTMX, Alpine, Tailwind) ve Chrome eklentisi (Bearer, `/api/ext`) → FastAPI middleware (TrustedHost, SecurityHeaders, Session, CSRF) → routers → services → SQLModel → PostgreSQL/SQLite; WeasyPrint, APScheduler, e-posta, Alembic; kişisel ortam Docker Compose.
 - **Alternatifler:** Çizim aracıyla PNG (güncellemesi zor, metin olarak incelenemez).
+
+## M14a — Mülakat hazırlığı: Interview prep sekmesi (2026-11-26)
+
+Kaynak: `docs/plans/M14a.md`, issue #43; plan-reviewer (0 Blocker, 10 Should, 6 Nit; hepsi plana işlendi); Fatih bütün sorularda önerileri seçti ve planı onayladı (2026-11-26). SPEC v2.1.38.
+
+### D-175 · Mülakat hazırlığı AI'sız, iki milestone
+- **Karar:** #43 AI'sız yapılır ve ikiye bölünür: M14a başvuruya bağlı Interview prep sekmesi (olası sorular ve cevap taslakları, şirket ve rol notları, soracağın sorular), M14b hesap düzeyinde STAR hikâye bankası. AI ile soru üretme, uyum analizinden "refresh" görevleri ve mock interview V2 (D-150). AI'sız hazırlık herkese ücretsiz: `entitlements` kontrolü yok; SPEC §17.1'de Pro değeri "AI ile mülakat hazırlığı" olur.
+- **Alternatifler:** Tek milestone (2 haftayı aşar, WORKFLOW §2); AI'ı beklemek (API anahtarı yok); Pro'ya bağlamak (ödeme V3, MVP'de anlamsız).
+
+### D-176 · Interview prep sekmesi
+- **Karar:** Başvuru detayında üçüncü sekme, `?tab=interview`, sıra Apply/Progress · Interview prep · Job & details. Durum `applied`, `interview`, `offer` veya `rejected` iken görünür; `saved`'da gizli (adresle açılırsa ilk sekme; veri silinmez). Durum `interview` iken etikette mor nokta (`aria-hidden`, ekran okuyucu için "(interview stage)"). Arşivli başvuruda salt okunur ("Restore it to edit your prep."), bütün yazma endpoint'leri 409.
+- **Alternatifler:** Sadece `interview`'da göstermek (hazırlık mülakat gelmeden başlar); Progress içinde bölüm (sekme çok uzar); ayrı sayfa (sağ panel ve gezinme tekrar eder).
+
+### D-177 · Veri modeli ve router
+- **Karar:** Yeni tablo `InterviewQuestion` (user_id, application_id, kind `likely`/`to_ask`, category sadece `likely`'de, text ≤ 300, answer ≤ 5000, asked, position) ve `Application.interview_notes` (≤ 10 000), `Application.interview_prep_started_at`. Ayrı "prep" tablosu yok. Endpoint'ler ayrı `app/routers/interview_prep.py`'de, yollar `/applications/{id}/prep/…` (`/interview` mülakat tarihi modalının). Dışa aktarmada `interview_questions` bölümü; hesap silinince cascade.
+- **Alternatifler:** İki tür için iki tablo (aynı kolonlar); notları ayrı tabloda tutmak (başvuru başına tek alan).
+
+### D-178 · Hazır soru seti, butonla ve bir kez
+- **Karar:** Kodda sabit İngilizce 12 olası soru (General, Behavioural, Role, Company; `{company}` şirket adıyla dolar) ve 4 "to ask" sorusu. GET veri yazmaz (D-142); boş sekmede "Start interview prep" (set) ve "Start with an empty list" (set yok) butonları. Başlama atomik: `interview_prep_started_at IS NULL` koşullu UPDATE, sorular sadece bir satır değiştiyse eklenir; iki sekme ya da çift tıklama tek set verir. Sorular silinse de set geri gelmez.
+- **Alternatifler:** İlk açılışta otomatik ekleme (GET'te yazma); belge diline göre üç set (Fatih istemedi).
+
+### D-179 · Kaydetme, düzenleme, silme ve sınırlar
+- **Karar:** Cevap taslağı, "their answer" notu ve şirket notları yazarken kaydedilir (`input delay:500ms`, `hx-sync="this:replace"`, `hx-disabled-elt="unset"`, "Saved"); bu endpoint'ler sadece "Saved" parçasını döner. Soru metni htmx ile satırda düzenlenir (`GET …/edit` form, `GET …` okuma hâli, `POST …` kaydet; JS yok). Hiçbir prep endpoint'i `application-changed` göndermez; ekle/sil kendi kartını, asked kendi satırını değiştirir, "{n} of {m} answered" out-of-band güncellenir. Başka işlemler sayfayı yenilediğinde son ~0,5 sn'de yazılan kaybolabilir: kabul edildi. Silme toast + Undo (`DeletedItem` kind `interview_question`); Undo başvuru arşivliyse ya da 100 soru doluysa "Nothing to undo.". Sınırlar: başvuru başına 100 soru; fazla form alanı 400 (D-171); geçersiz tür/kategori, `to_ask` + kategori, boş ya da uzun metin 422; geçersiz `qid` 404. Sıra: kategori, sonra `position`; sürükle-bırak yok. Timeline'a olay yok.
+- **Alternatifler:** "Save" butonu (mektup editöründen farklı); Alpine ile düzenleme (CSP build'de ayrı bileşen, gereksiz JS); prep kartlarını sayfa yenilemesinin dışında tutmak (karmaşık şablon).
+
+### D-180 · Bildirim ve Progress'ten sekmeye link
+- **Karar:** "Interview tomorrow" bildirimi `/applications/{id}?tab=interview`'a gider (yeni bildirimler; eskiler değişmez). Progress › "What happens next" durum `interview` iken "Prepare for it →" gösterir.
+- **Alternatifler:** Bildirimin başvuru sayfasına gitmesi (bir tık fazla).
