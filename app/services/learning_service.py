@@ -361,11 +361,23 @@ def create_goal(
 
 
 def add_task(
-    session: Session, user: User, goal: LearningGoal, *, title: str, due_date: dt.date, minutes: int
+    session: Session,
+    user: User,
+    goal: LearningGoal,
+    *,
+    title: str,
+    due_date: dt.date,
+    minutes: int,
+    url: str | None = None,
 ) -> LearningTask:
     _check_room(session, user, LearningTask, MAX_TASKS)
     task = LearningTask(
-        user_id=user.id, goal_id=goal.id, title=title, due_date=due_date, estimated_minutes=minutes
+        user_id=user.id,
+        goal_id=goal.id,
+        title=title,
+        due_date=due_date,
+        estimated_minutes=minutes,
+        url=url,
     )
     session.add(task)
     session.commit()

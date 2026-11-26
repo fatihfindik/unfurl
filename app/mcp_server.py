@@ -236,14 +236,11 @@ def add_task(
     minutes = _check(changes._minutes, minutes, "minutes")
     url = _check(changes._url, url, "url")
     try:
-        task = learning.add_task(session, user, goal, title=title, due_date=day, minutes=minutes)
+        task = learning.add_task(
+            session, user, goal, title=title, due_date=day, minutes=minutes, url=url
+        )
     except learning.TooMany:
         raise Failed(f"You have the most tasks allowed ({learning.MAX_TASKS}).") from None
-    if url:
-        task.url = url
-        session.add(task)
-        session.commit()
-        session.refresh(task)
     return task_info(task, _goal_titles(session, user))
 
 
@@ -275,10 +272,11 @@ def update_task(
     return task_info(task, _goal_titles(session, user))
 
 
-def set_task_done(session: Session, user: User, task_id: int, done: bool = True) -> dict:
-    """Tick a task off (or back on). Its time is logged, as in the app (D-092)."""
+def set_task_done(session: Session, user: User, task_id: int) -> dict:
+    """Tick a task off. Its time is logged, as in the app (D-092). Reopening a done task
+    removes its logged time, so only the app does that (security review F1)."""
     task = _owned(session, user, LearningTask, task_id)
-    learning.set_done(session, user, task, done)
+    learning.set_done(session, user, task, True)
     return task_info(task, _goal_titles(session, user))
 
 
@@ -430,7 +428,7 @@ DESCRIPTIONS = {
     "update_task": "Change one task's title, due_date, minutes or url (an empty url "
     "removes the link). A done task keeps its date. For more than two tasks use "
     "propose_learning_changes.",
-    "set_task_done": "Mark one task done (done=true) or open again (done=false).",
+    "set_task_done": "Mark one task done. A done task can only be reopened in the Unfurl app.",
     "log_study_time": "Log study time for a goal without a task (minutes 1-600, date today "
     "or up to 30 days ago).",
     "propose_learning_changes": "Prepare changes to many tasks WITHOUT making them: shift "
@@ -451,7 +449,7 @@ TOOLS = [
     (update_task, WRITE),
     (set_task_done, WRITE),
     (log_study_time, WRITE),
-    (propose_learning_changes, READ),  # saves a preview, changes no plan data
+    (propose_learning_changes, WRITE),  # saves a preview; changes no plan data
     (apply_changes, BULK),
     (undo_changes, BULK),
     (discard_changes, WRITE),

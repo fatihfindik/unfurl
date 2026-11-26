@@ -12,7 +12,7 @@ anything the user changed in between is left alone and counted as skipped.
 import datetime as dt
 from dataclasses import dataclass
 
-from sqlmodel import Session, col, func, select
+from sqlmodel import Session, col, func, select, update
 
 from app.models import LearningGoal, LearningResource, LearningTask, StudyLog, User
 from app.models.base import as_utc, utcnow
@@ -93,6 +93,12 @@ def _date_ok(value: str) -> bool:
     return True
 
 
+def _id_ok(value) -> bool:
+    """An id the database can compare: an int (not bool) from 1 to MAX_ID. Anything
+    else simply matches nothing (a huge int would crash SQLite and Postgres)."""
+    return type(value) is int and 0 < value <= learning.MAX_ID
+
+
 def _current(task: LearningTask, fields) -> dict:
     """The task's values for these fields, as stored in a change (dates as text)."""
     values = {}
@@ -113,7 +119,7 @@ def _set(task: LearningTask, values: dict) -> None:
 
 
 def _tasks_by_id(session: Session, user: User, ids) -> dict[int, LearningTask]:
-    ids = {number for number in ids if type(number) is int}
+    ids = {number for number in ids if _id_ok(number)}
     if not ids:
         return {}
     rows = session.exec(
@@ -123,7 +129,7 @@ def _tasks_by_id(session: Session, user: User, ids) -> dict[int, LearningTask]:
 
 
 def _owned_set(session: Session, user: User, set_id) -> PendingChangeSet:
-    if type(set_id) is not int:
+    if not _id_ok(set_id):
         raise ChangeSetError("Unknown change set.")
     change_set = session.exec(
         select(PendingChangeSet).where(
@@ -169,6 +175,9 @@ def propose(
 ) -> PendingChangeSet:
     """Check a request and save it as a preview. Nothing in the plan changes yet.
     Call inside clock.use_timezone(user.timezone): the date rules use "today"."""
+    for items in (moves, updates, completes, new_goals, adds):
+        if len(items) > MAX_CHANGES:
+            raise ChangeSetError(f"Too many changes; at most {MAX_CHANGES} at once.")
     changes: list[dict] = []
     skipped: list[str] = []
     touched: set[int] = set()
@@ -244,6 +253,7 @@ def propose(
                 {
                     "op": "update",
                     "target_id": task.id,
+                    "goal_id": task.goal_id,
                     "title": task.title,
                     "before": before,
                     "after": after,
@@ -255,6 +265,9 @@ def propose(
         done = item.get("done", True)
         if type(done) is not bool:
             raise ChangeSetError(f"Complete task {task.id}: done must be true or false.")
+        if not done and task.done:
+            # Reopening removes the task's logged time (D-092); only the app does that.
+            raise ChangeSetError(f"Task {task.id} is done: reopen it in the Unfurl app.")
         if done != task.done:
             changes.append(
                 {
@@ -294,7 +307,7 @@ def propose(
                 after["goal_ref"] = new_refs[key]
             else:
                 raise ChangeSetError(
-                    f'{what}: no goal "{item["goal_title"]}"; add it to new_goals.'
+                    f'{what}: no goal "{item["goal_title"][:60]}"; add it to new_goals.'
                 )
         else:
             raise ChangeSetError(f"{what}: give goal_id or goal_title.")
@@ -341,7 +354,7 @@ def _iso(value, what: str) -> dt.date:
 
 def _owned_goal(session: Session, user: User, goal_id, what: str) -> LearningGoal:
     goal = None
-    if type(goal_id) is int:
+    if _id_ok(goal_id):
         goal = session.exec(
             select(LearningGoal).where(LearningGoal.id == goal_id, LearningGoal.user_id == user.id)
         ).first()
@@ -354,6 +367,7 @@ def _move(task: LearningTask, new: str) -> dict:
     return {
         "op": "move",
         "target_id": task.id,
+        "goal_id": task.goal_id,  # a task moved to another goal since is skipped
         "title": task.title,
         "before": {"due_date": task.due_date.isoformat()},
         "after": {"due_date": new},
@@ -409,6 +423,10 @@ def apply(session: Session, user: User, set_id) -> Result:
     added = sum(1 for c in changes if c["op"] == "add")
     if _count(session, user, LearningTask) + added > learning.MAX_TASKS:
         raise ChangeSetError(f"This would pass the limit of {learning.MAX_TASKS} tasks.")
+    new_goals = sum(1 for c in changes if c["op"] == "add_goal")
+    if _count(session, user, LearningGoal) + new_goals > learning.MAX_GOALS:
+        raise ChangeSetError(f"This would pass the limit of {learning.MAX_GOALS} goals.")
+    _claim(session, user, change_set, "pending")
 
     tasks = _tasks_by_id(session, user, [c.get("target_id") for c in changes])
     goal_ids = {goal.id for goal in learning.goals(session, user)}
@@ -424,8 +442,10 @@ def apply(session: Session, user: User, set_id) -> Result:
                 new_date = change["after"].get("due_date")
                 if (
                     task is None
+                    or task.goal_id != change.get("goal_id", task.goal_id)
                     or _current(task, fields) != change["before"]
-                    or (new_date and (task.done or not _date_ok(new_date)))
+                    or (task.done and set(change["after"]) - {"title"})  # D-116
+                    or (new_date and not _date_ok(new_date))
                 ):
                     skipped += 1
                     continue
@@ -436,6 +456,14 @@ def apply(session: Session, user: User, set_id) -> Result:
                     skipped += 1
                     continue
                 learning.apply_done(session, user, task, change["after"]["done"])
+                session.flush()
+                log = session.exec(
+                    select(StudyLog)
+                    .where(StudyLog.user_id == user.id, StudyLog.task_id == task.id)
+                    .order_by(col(StudyLog.id).desc())
+                ).first()
+                if log is not None:  # undo removes only this row, if unchanged
+                    change["created_log"] = {"id": log.id, "minutes": log.minutes}
             elif op == "add_goal":
                 goal = LearningGoal(
                     user_id=user.id, title=change["after"]["title"], sort_order=len(goal_ids)
@@ -465,6 +493,7 @@ def apply(session: Session, user: User, set_id) -> Result:
                 session.add(task)
                 session.flush()
                 change["created_id"] = task.id
+                change["placed_goal_id"] = goal_id
             change["applied"] = True
             done += 1
         change_set.changes = changes  # a new list, so the JSON column is saved
@@ -489,6 +518,7 @@ def undo(session: Session, user: User, set_id) -> Result:
         )
     if change_set.applied_at is None or utcnow() - as_utc(change_set.applied_at) > UNDO_FOR:
         raise ChangeSetError("Undo is possible for 24 hours after applying.")
+    _claim(session, user, change_set, "applied")
     changes = [c for c in change_set.changes if c.get("applied")]
     ids = [c.get("target_id") or c.get("created_id") for c in changes if c["op"] != "add_goal"]
     tasks = _tasks_by_id(session, user, ids)
@@ -498,23 +528,29 @@ def undo(session: Session, user: User, set_id) -> Result:
             op = change["op"]
             if op in ("move", "update"):
                 task = tasks.get(change["target_id"])
-                if task is None or _current(task, change["after"].keys()) != change["after"]:
+                if (
+                    task is None
+                    or _current(task, change["after"].keys()) != change["after"]
+                    or (task.done and set(change["before"]) - {"title"})  # D-116
+                ):
                     skipped += 1
                     continue
                 _set(task, change["before"])
                 session.add(task)
             elif op == "complete":
                 task = tasks.get(change["target_id"])
-                if task is None or task.done != change["after"]["done"]:
-                    skipped += 1
+                if task is None or not task.done or not _only_own_log(session, user, task, change):
+                    skipped += 1  # reopened since, or its time was edited in the app
                     continue
-                learning.apply_done(session, user, task, change["before"]["done"])
+                learning.apply_done(session, user, task, False)
             elif op == "add":
                 task = tasks.get(change.get("created_id"))
                 expected = {k: change["after"][k] for k in FIELDS}
                 if (
                     task is None
                     or task.done
+                    or task.resource_id is not None
+                    or task.goal_id != change.get("placed_goal_id")
                     or _current(task, FIELDS) != expected
                     or _has_log(session, user, task)
                 ):
@@ -531,6 +567,10 @@ def undo(session: Session, user: User, set_id) -> Result:
                 if (
                     goal is None
                     or goal.title != change["after"]["title"]
+                    # The user edited it since (description, date, hours, status): keep it.
+                    or (goal.description, goal.target_date, goal.weekly_hours_target)
+                    != (None, None, None)
+                    or goal.status != "active"
                     or _goal_in_use(session, user, goal)
                 ):
                     skipped += 1
@@ -556,6 +596,37 @@ def discard(session: Session, user: User, set_id) -> PendingChangeSet:
     session.commit()
     session.refresh(change_set)
     return change_set
+
+
+def _claim(session: Session, user: User, change_set: PendingChangeSet, status: str) -> None:
+    """Take the set with a conditional UPDATE, so two calls at the same time can't both
+    apply (or undo) it: the second finds no row in that status (security review W1).
+    Rolled back with everything else if the work fails."""
+    claimed = session.exec(
+        update(PendingChangeSet)
+        .where(
+            PendingChangeSet.id == change_set.id,
+            PendingChangeSet.user_id == user.id,
+            PendingChangeSet.status == status,
+        )
+        .values(status="working")
+    )
+    if claimed.rowcount != 1:
+        session.rollback()
+        raise ChangeSetError("This change set is being changed by another call; try again.")
+
+
+def _only_own_log(session: Session, user: User, task: LearningTask, change: dict) -> bool:
+    """True if the task's only StudyLog is the one this set wrote, with its minutes."""
+    own = change.get("created_log")
+    logs = list(
+        session.exec(
+            select(StudyLog).where(StudyLog.user_id == user.id, StudyLog.task_id == task.id)
+        )
+    )
+    if own is None:
+        return not logs
+    return len(logs) == 1 and logs[0].id == own["id"] and logs[0].minutes == own["minutes"]
 
 
 def _has_log(session: Session, user: User, task: LearningTask) -> bool:

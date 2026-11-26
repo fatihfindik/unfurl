@@ -175,8 +175,10 @@ def test_set_done_and_log_time(session, user, goal):
 
     assert m.set_task_done(session, user, task.id)["done"] is True
     assert len(session.exec(select(StudyLog)).all()) == 1
-    assert m.set_task_done(session, user, task.id, done=False)["done"] is False
-    assert session.exec(select(StudyLog)).all() == []
+    # Reopening would remove the logged time: only the app does it (security review F1).
+    import inspect
+
+    assert "done" not in inspect.signature(m.set_task_done).parameters
 
     logged = m.log_study_time(session, user, goal.id, 45, day(-1))
     assert logged == {"goal_id": goal.id, "date": day(-1), "minutes": 45}

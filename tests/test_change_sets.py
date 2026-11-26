@@ -402,3 +402,97 @@ def test_discard(session, user, goal):
     with pytest.raises(ChangeSetError, match="discarded"):
         cs.apply(session, user, change_set.id)
     assert fresh(session, a).due_date.isoformat() == day(1)
+
+
+# --- Security review fixes ------------------------------------------------------------------
+
+
+def test_reopening_a_done_task_is_refused(session, user, goal):
+    task = add_task(session, goal, "Done", 0, done=True, done_at=utcnow())
+    with pytest.raises(ChangeSetError, match="reopen it in the Unfurl app"):
+        cs.propose(session, user, completes=[{"task_id": task.id, "done": False}])
+
+
+def test_undo_of_complete_removes_only_its_own_unchanged_log(session, user, goal):
+    a = add_task(session, goal, "A", 0)
+    b = add_task(session, goal, "B", 0)
+    change_set = cs.propose(session, user, completes=[{"task_id": a.id}, {"task_id": b.id}])
+    cs.apply(session, user, change_set.id)
+    log_b = session.exec(select(StudyLog).where(StudyLog.task_id == b.id)).one()
+    learning.update_done_task(session, user, fresh(session, b), title="B", spent_minutes=15)
+
+    result = cs.undo(session, user, change_set.id)
+
+    assert (result.done, result.skipped) == (1, 1)
+    assert fresh(session, a).done is False
+    assert fresh(session, b).done is True
+    assert session.get(StudyLog, log_b.id).minutes == 15  # the user's edit stays
+
+
+def test_a_set_being_applied_elsewhere_is_refused(engine, session, user, goal):
+    from sqlmodel import Session
+
+    a = add_task(session, goal, "A", 1)
+    change_set = cs.propose(session, user, moves=[{"task_id": a.id, "due_date": day(2)}])
+    with Session(engine) as elsewhere:  # another call takes the set first
+        row = elsewhere.get(PendingChangeSet, change_set.id)
+        row.status = "working"
+        elsewhere.add(row)
+        elsewhere.commit()
+
+    # This call still holds the old "pending" object: the conditional UPDATE refuses.
+    with pytest.raises(ChangeSetError, match="another call"):
+        cs._claim(session, user, change_set, "pending")
+    assert fresh(session, a).due_date.isoformat() == day(1)
+
+
+def test_apply_and_undo_keep_a_done_tasks_date(session, user, goal):
+    a = add_task(session, goal, "A", 1)
+    change_set = cs.propose(session, user, updates=[{"task_id": a.id, "minutes": 30}])
+    learning.set_done(session, user, fresh(session, a), True)
+
+    result = cs.apply(session, user, change_set.id)
+    assert (result.done, result.skipped) == (0, 1)
+
+    b = add_task(session, goal, "B", 1)
+    moved = cs.propose(session, user, moves=[{"task_id": b.id, "due_date": day(3)}])
+    cs.apply(session, user, moved.id)
+    learning.set_done(session, user, fresh(session, b), True)
+    result = cs.undo(session, user, moved.id)
+    assert (result.done, result.skipped) == (0, 1)
+    assert fresh(session, b).due_date.isoformat() == day(3)
+
+
+def test_undo_keeps_an_added_task_linked_to_a_resource(session, user, goal):
+    from app.models import LearningResource
+
+    change_set = cs.propose(
+        session, user, adds=[{"goal_id": goal.id, "title": "New", "due_date": day(2)}]
+    )
+    cs.apply(session, user, change_set.id)
+    resource = LearningResource(user_id=user.id, goal_id=goal.id, name="Course")
+    session.add(resource)
+    session.commit()
+    added = session.exec(select(LearningTask).where(LearningTask.title == "New")).one()
+    added.resource_id = resource.id
+    session.add(added)
+    session.commit()
+
+    result = cs.undo(session, user, change_set.id)
+
+    assert result.skipped == 1
+    assert session.exec(select(LearningTask).where(LearningTask.title == "New")).first()
+
+
+def test_apply_rechecks_the_goal_limit(session, user, goal, monkeypatch):
+    change_set = cs.propose(session, user, new_goals=["Toolbox"])
+    monkeypatch.setattr(learning, "MAX_GOALS", 1)
+
+    with pytest.raises(ChangeSetError, match="limit of 1 goals"):
+        cs.apply(session, user, change_set.id)
+
+
+def test_too_long_lists_are_refused_before_any_work(session, user, goal, monkeypatch):
+    monkeypatch.setattr(cs, "MAX_CHANGES", 2)
+    with pytest.raises(ChangeSetError, match="at most 2"):
+        cs.propose(session, user, new_goals=["a", "b", "c"])
