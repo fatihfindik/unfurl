@@ -233,7 +233,8 @@ unfurl/
 │   │   ├── cv.py
 │   │   ├── cover_letter.py
 │   │   ├── application.py
-│   │   ├── ai.py              # AIUsage, FitAnalysis, ReadinessCheck, ChatThread, ChatMessage, PendingChangeSet
+│   │   ├── ai.py              # AIUsage, FitAnalysis, ReadinessCheck, ChatThread, ChatMessage
+│   │   ├── change_set.py      # PendingChangeSet (D-193)
 │   │   ├── learning.py        # LearningGoal, LearningResource, LearningTask, StudyLog
 │   │   ├── notification.py    # Notification, NotificationPreference
 │   │   └── api_token.py

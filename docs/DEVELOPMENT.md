@@ -97,3 +97,40 @@ CI (GitHub Actions) runs lint and tests on every push; on pull requests to `main
 - **Legal pages** (D-133): drafted texts with a "Draft" band until `LEGAL_REVIEWED=true`. The Impressum's name, address and email come from `LEGAL_OPERATOR_NAME`, `LEGAL_ADDRESS`, `LEGAL_EMAIL` in `.env`; never put them in the repository.
 - **Chrome extension** (D-135…D-141): install it from `extension/` as described in `extension/README.md` ("Load unpacked"); `EXTENSION_ORIGINS` in `.env` must name its id. It talks to `/api/ext` with a Bearer token only (no cookies, no CORS); requests from other origins get 403 and bodies over 256 KB get 413. Tokens last 90 days and end with Sign out, a password or email change, or Revoke in Settings › Browser extension. "Already saved" compares `Application.canonical_url` (`app/services/url_service.py`). Manual test list: `extension/TESTING.md`.
 - **Behind a proxy** (deploy, M13c, later: D-155) the app sees the proxy's IP address unless uvicorn runs with `--proxy-headers` and `--forwarded-allow-ips`; otherwise all users share one IP limit.
+
+## Claude app (local MCP server)
+
+Unfurl has a small MCP server (D-191, #107): the Claude Desktop app (or Claude Code) can
+read and change your Learning plan in a chat, like the Notion connector. It runs inside
+the personal instance's container and talks over stdin/stdout; nothing is opened to the
+internet. Claude uses your own Claude subscription (no Anthropic API key).
+
+1. Start the personal instance (`scripts/start_personal.sh`).
+2. Claude Desktop › Settings › Developer › **Edit Config**, and add (use your account's
+   email; `which docker` shows the path, Claude Desktop does not read your shell's PATH):
+
+   ```json
+   {
+     "mcpServers": {
+       "unfurl": {
+         "command": "/usr/local/bin/docker",
+         "args": ["exec", "-i", "unfurl-personal-app",
+                  "python", "-m", "app.mcp_server", "--email", "you@example.com"]
+       }
+     }
+   }
+   ```
+3. Restart Claude Desktop. Ask e.g. "What's on my learning plan this week?"
+
+- **Allow carefully:** reading tools can be allowed always. `apply_changes` and
+  `undo_changes` change many tasks at once: never choose "Always allow" for them, so you
+  confirm every bulk change after reading its preview.
+- **More than two tasks** (shift the plan, add a block) always go through a preview
+  (`propose_learning_changes`) that changes nothing until you say yes. An applied change
+  can be undone within 24 hours. Nothing can be deleted.
+- After `scripts/start_personal.sh` rebuilds the container, Claude Desktop reconnects on
+  its next restart.
+- Claude Code: `claude mcp add unfurl -- /usr/local/bin/docker exec -i unfurl-personal-app python -m app.mcp_server --email you@example.com`.
+- Development: `uv run python -m app.mcp_server --email you@example.com` uses the
+  development database.
+

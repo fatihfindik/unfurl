@@ -422,6 +422,18 @@ def apply_done(session: Session, user: User, task: LearningTask, done: bool) -> 
     session.add(task)
 
 
+def log_time(
+    session: Session, user: User, goal: LearningGoal, minutes: int, day: dt.date
+) -> StudyLog:
+    """Study time without a task (SPEC §9.8 log_study_time, D-194): counts for the
+    week's hours, the goal's time and the streak like any StudyLog row."""
+    log = StudyLog(user_id=user.id, goal_id=goal.id, task_id=None, date=day, minutes=minutes)
+    session.add(log)
+    session.commit()
+    session.refresh(log)
+    return log
+
+
 def set_rest_days(session: Session, user: User, days: list[str]) -> NotificationPreference:
     prefs = preferences(session, user)
     prefs.rest_days = [day for day in WEEKDAYS if day in days]
