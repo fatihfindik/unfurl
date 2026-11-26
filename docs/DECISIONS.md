@@ -1022,6 +1022,7 @@ Kaynak: gerçek kullanım geri bildirimi; Fatih seçti, ayrıntılar Claude kara
 - **Karar:** Sekmeler Today / Next 7 days / All tasks / Catch-up (n) / **Done (n)**. Done: bitmiş görevlerin hepsi, `(done_at, id)` yeniden eskiye (`done_at` boşsa sonda); satırda "Done 4 Nov" (başka yılsa "Done 4 Nov 2025"), harcanan süre, kutu (işareti kaldırmak açar). Diğer sekmelerde Done bölümü yok; işaretlenen görev listeden çıkar, geri alma toast'taki Undo (60 sn, D-092) ya da Done sekmesinden. Boş: "No completed tasks yet.". 30 gün sınırı (`DONE_DAYS`) kalktı; liste görev sınırıyla (1.000) sınırlı, sayfalama yok. "Add task" plan kartının başlığına taşındı (listenin altındaki kalktı). "Tasks done" kartında "See done tasks" linki.
 - **Gerekçe:** 287 görevlik listede altta kalan Done ve Add task görünmüyordu; bitmiş görevler 30 gün sonra listeden kayboluyordu.
 - **Alternatifler:** Listenin üstünde kapalı bölüm (açılınca açık görevleri iter); sayfalama.
+- **Güncelleme: D-196** (2026-11-27): "Add task" Plan kartı başlık satırının sağında; hedef filtresi ve sekmeler alttaki satırda.
 
 ### D-188 · Hedef filtresi (#103)
 Kaynak: Fatih önerdi, ayrıntılar Claude karar verdi (2026-11-26).
@@ -1065,3 +1066,20 @@ Kaynak: I107b planı, plan-reviewer; Fatih "sormadan devam" dedi, Claude karar v
 - **`confirm_lock` Claude'un kendi beyanıdır:** kullanıcının onayını kanıtlamaz (ilan metni Claude'u `confirm_lock=true` göndermeye yönlendirebilir). Asıl kapı Claude Desktop'ın `destructiveHint` ile her çağrıda sorduğu izindir; bu iki araç için "Always allow" seçilmemeli (DEVELOPMENT.md).
 - **Prompt injection:** şirket, pozisyon, konum, maaş, iletişim alanları eklentiyle sayfalardan gelebilir (D-141); sunucu talimatı bunları veri sayar. Uzun dış metin (ilan) hiç dönmez.
 - **Alternatifler:** `propose_application_changes` (ertelendi); kilitlemeyi tamamen yasaklamak (Fatih'in "başvurdum" demesini engeller).
+
+### D-196 · Tek ekleme deseni (#110)
+Kaynak: Fatih'in ekran görüntüleri (2026-11-26: "Tek bir pattern istiyorum: wording, butonun yeri, yapısı, + kullanılıp kullanılmaması"); ayrıntılar Claude karar verdi, plan-reviewer.
+- **Karar:** Her ekleme butonu **"Add {şey}"** der ve metnin solunda `icon("plus")` vardır (düz "+" karakteri yok). "New …" ve "Create …" ekleme butonunda kullanılmaz; modal başlığı ve gönder butonu aynı kelimeler (Add goal / Add CV / Add cover letter / Add job). İstisna: "Create account". Modal id'leri (`new-goal`, `new-cv`, `new-letter`) değişmez, sadece görünen metin.
+- **Seviyeler** (`components/forms.html` `add_classes(level)`):
+  - `page`: sayfanın ana eylemi, `page_header`'ın sağında, primary `h-10` (Applications, Learning, Documents: sekmeye göre Add CV / Add cover letter).
+  - `card`: kart başlık satırının sağında, çerçeveli `h-8` (Plan › Add task, Goals › Add goal, profil bölümleri › Add {bölüm}). Profilde kalem (Edit) ikon-buton olarak kalır.
+  - `inline`: satır, küçük kart veya boş durum içinde link (hedef satırı Add task, Next reminder, Add bullet, "Add a master CV/letter").
+  - `submit`: bir alanın yanındaki gönder butonu, çerçeveli `h-9` (Add note, Add question, Add story).
+- Hedef satırındaki butonun ekran okuyucu adı görünen metinle başlar: "Add task to {hedef}" (WCAG 2.5.3).
+- Kapsam dışı (ekleme butonu değil, açıklama/link): "Add interview details" / "Change interview details", "Create one in Documents", "Create a goal first.", boş durum cümleleri ("Create your first master CV …"), alan etiketleri ("New password"). V2 "+ Add to learning plan" (SPEC §6.8) V2 ile ele alınır.
+- **Alternatifler:** her yerde "New" (listeye not/görev eklerken garip, "Add job" SPEC'te yerleşik); tek seviye (kart içinde mor buton sayfanın ana eylemiyle yarışır).
+
+### D-197 · Select oku (#110)
+Kaynak: Fatih'in ekran görüntüleri (2026-11-26: ok kutuya çok yakın); Claude karar verdi.
+- **Karar:** Bütün select'ler `appearance: none` ve SVG chevron arka planı, ayrı dosya `static/img/select-chevron.svg` (CSP `img-src 'self'` `data:` resimlerini engeller, CSP gevşetilmez): sağdan 12px, 16px, `padding-right: 36px`; renk iki temada okunan `#8A94A6` (tema değişkeni eklenmez: `test_static` prototip değişkenlerini birebir karşılaştırır). Windows yüksek kontrastta (`forced-colors: active`) tarayıcının oku geri gelir. Select'e `px-*` verilmez (sağ boşluğu ezer), gerekirse `pl-*`. Toolbar'daki "Any work mode" 150 → 180px (metin sığsın).
+- **Alternatifler:** sarmalayıcı + ikon (her select şablonu değişir); sadece padding (tarayıcı oku yine kenarda).

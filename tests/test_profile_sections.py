@@ -297,7 +297,7 @@ def test_edit_form_shows_the_saved_bullets_and_a_way_to_add_more(profile_client,
     assert 'x-data="bulletList"' in html
     assert html.count('name="bullets"') == 3  # 2 saved + the empty row in <template>
     assert 'value="One"' in html and 'value="Two"' in html
-    assert "+ Add bullet" in html
+    assert ">Add bullet</button>" in html
 
 
 def test_removing_a_bullet(profile_client, session):
@@ -353,18 +353,12 @@ def test_row_actions_are_icon_buttons_with_names(profile_client):
     assert 'data-tooltip="Edit"' in page and 'data-tooltip="Delete"' in page
 
 
-def test_card_headings_use_plus_and_pencil_buttons(profile_client):
+def test_card_headings_use_add_and_pencil_buttons(profile_client):
     page = profile_client.get("/profile").text
 
-    for name in [
-        "Add experience",
-        "Add education",
-        "Add skill",
-        "Add language",
-        "Add certification",
-        "Add project",
-        "Edit personal info",
-        "Edit summary",
-    ]:
+    # Add buttons are labelled, with the plus icon (D-196); the pencil stays an icon.
+    for name in ["experience", "education", "skill", "language", "certification", "project"]:
+        assert f"</svg>Add {name}</button>" in page
+    for name in ["Edit personal info", "Edit summary"]:
         assert f'data-tooltip="{name}"' in page
         assert f'<span class="sr-only">{name}</span>' in page

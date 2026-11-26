@@ -32,7 +32,7 @@ def test_the_timeline_has_a_note_box(auth_client, session, user):
 
     html = auth_client.get(f"/applications/{job.id}").text
 
-    assert f'hx-post="/applications/{job.id}/notes"' in html and ">Add</button>" in html
+    assert f'hx-post="/applications/{job.id}/notes"' in html and ">Add note</button>" in html
 
 
 def test_a_note_appears_on_top_of_the_timeline(auth_client, session, user):

@@ -789,3 +789,12 @@
 - Check everything that can fail before the first write: a tool error should mean "nothing changed", otherwise the model may retry and do the change twice.
 - A flag like `confirm_lock=true` is the model's own claim, not proof the user agreed; the real gate is the client's per-call permission prompt (`destructiveHint`).
 - MCP tool results come back as JSON text in `content[0].text`; `structured_content` is only filled when the tool declares an output schema.
+
+## #110 — One Add-button pattern and the select chevron (2026-11-27, log written by Claude)
+
+- A design pattern is a rule with a few levels (page / card / inline / submit), not one button: the level fixes place, size and style; the wording ("Add {thing}") and the plus icon never change.
+- One Jinja macro that returns only CSS classes (`add_classes`) shares the look while each button keeps its own attributes (hx-get, data-dialog-open, type=submit).
+- The Content Security Policy also covers CSS: `img-src 'self'` blocked a `data:` SVG in `background-image`, so the arrow was silently missing. Tests passed; only looking at the page showed it.
+- Accessibility: when a button has an aria-label, it should start with the visible words ("Add task to AWS"), so voice users can say what they see (WCAG 2.5.3).
+- A test that checks "text X is not on the page" passes forever once X is renamed; anchor such tests on a stable marker (`name="story_id"`).
+

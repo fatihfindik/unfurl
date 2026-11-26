@@ -2,6 +2,8 @@
     draft. Drawn again after add, edit and delete (hx-target="#prep-likely").
     Context: application, prep_groups, prep_answered, prep_likely_count, prep_editable,
     prep_categories, max_question_text. -#}
+{%- from "components/forms.html" import add_classes -%}
+{%- from "components/icons.html" import icon -%}
 <section id="prep-likely" aria-labelledby="prep-likely-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
   <div class="flex flex-wrap items-baseline justify-between gap-2">
     <h2 id="prep-likely-title" class="m-0 text-base font-bold">Likely questions</h2>
@@ -28,10 +30,10 @@
           {%- endfor %}
         </select>
       </label>
-      <label class="flex min-w-[220px] flex-1 flex-col gap-1 text-[13px] font-semibold text-text-2">New question
+      <label class="flex min-w-[220px] flex-1 flex-col gap-1 text-[13px] font-semibold text-text-2">Question
         <input type="text" name="text" required maxlength="{{ max_question_text }}" class="h-9 w-full rounded-lg border border-border-strong px-3 text-sm">
       </label>
-      <button type="submit" class="inline-flex h-9 items-center justify-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted">Add a question</button>
+      <button type="submit" class="{{ add_classes('submit') }}">{{ icon("plus") }}Add question</button>
     </form>
   {%- endif %}
 </section>

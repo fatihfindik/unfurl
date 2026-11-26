@@ -122,6 +122,25 @@
   </button>
 {% endmacro %}
 
+{#- Classes for an "Add …" button (D-196). Every add button says "Add {thing}" and
+    starts with icon("plus"); its level fixes where it sits and how it looks:
+      page   – the page's main action, right of the page_header title (primary)
+      card   – right side of a card's heading row (outlined, small)
+      inline – a link inside a row, a small card or an empty state
+      submit – the submit button next to a field (outlined, as tall as the field)
+    Usage: <button … class="{{ add_classes('card') }}">{{ icon("plus") }}Add task</button> -#}
+{% macro add_classes(level) -%}
+  {%- if level == "page" -%}
+    inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]
+  {%- elif level == "card" -%}
+    inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border-strong bg-surface px-3 text-[13px] font-semibold text-text-2 hover:bg-muted
+  {%- elif level == "submit" -%}
+    inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border-strong bg-surface px-3 text-sm font-semibold text-text hover:bg-muted
+  {%- else -%}
+    inline-flex items-center gap-1 self-start border-0 bg-transparent p-0 text-xs font-semibold text-link hover:underline [&>svg]:size-3.5
+  {%- endif -%}
+{%- endmacro %}
+
 {#- size="lg" for full-width auth forms; size="sm" sits next to a secondary_button
     (Save + Cancel) and has the same height. -#}
 {% macro primary_button(label, type="submit", size="lg") %}

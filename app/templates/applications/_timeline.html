@@ -1,6 +1,8 @@
 {#- The timeline (SPEC §6.7): what happened to this application, newest first, and a
-    box to add a note. "Add" sends the note and gets this whole section back.
+    box to add a note. "Add note" sends the note and gets this whole section back.
     Context: application, timeline (text, when, type), note_values, note_errors. -#}
+{%- from "components/forms.html" import add_classes -%}
+{%- from "components/icons.html" import icon -%}
 {%- set dots = {
   "created": "bg-border-strong",
   "status_changed": "bg-[#2563EB]",
@@ -37,7 +39,7 @@
              placeholder="Add a note, e.g. Called Mira, she replies Friday"
              value="{{ note_values.text or '' }}" class="h-9 min-w-0 flex-1"
              {%- if note_errors.text %} aria-invalid="true" aria-describedby="timeline-note-error"{% endif %}>
-      <button type="submit" class="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3.5 text-sm font-medium text-text-2 hover:bg-muted">Add</button>
+      <button type="submit" class="{{ add_classes('submit') }}">{{ icon("plus") }}Add note</button>
     </div>
     {%- if note_errors.text %}
       <span id="timeline-note-error" class="text-xs font-medium text-red-text">{{ note_errors.text }}</span>
