@@ -24,6 +24,14 @@ compose() {
     --env-file "$UNFURL_ENV_FILE" "$@"
 }
 
+# The two data volumes are "external" (D-190): Compose won't create them, so the start
+# script does. `docker volume create` returns a volume that exists unchanged. Backup
+# and restore don't call this: they need a running instance, whose volumes exist.
+ensure_volumes() {
+  docker volume create "${UNFURL_PROJECT}_db" > /dev/null
+  docker volume create "${UNFURL_PROJECT}_uploads" > /dev/null
+}
+
 # The app runs in development mode, which skips its own production checks (D-156),
 # so the start script checks the key here: at least 32 characters, like production.
 check_keys() {

@@ -70,9 +70,14 @@ services:
       start_period: 5s
 
 volumes:
-  # Named after the project: unfurl-personal_db, unfurl-personal_uploads.
-  # They survive `down` and rebuilds. Only `down -v` deletes them: don't use -v here.
+  # unfurl-personal_db and unfurl-personal_uploads hold all your data. They are
+  # "external" (D-190): Compose never creates or deletes them, so no `down -v` can
+  # remove them, whatever -p or UNFURL_PROJECT says. scripts/start_personal.sh creates
+  # them (a volume that exists is left as it is). Only `docker volume rm` or a prune
+  # can delete them: backups are the real safety net.
   db:
     name: ${UNFURL_PROJECT:-unfurl-personal}_db
+    external: true
   uploads:
     name: ${UNFURL_PROJECT:-unfurl-personal}_uploads
+    external: true

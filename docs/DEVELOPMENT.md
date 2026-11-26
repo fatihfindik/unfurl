@@ -56,13 +56,15 @@ Open http://127.0.0.1:8100 and create your account. Always pass `--env-file .env
 | Back up (database + photos) | `scripts/backup_personal.sh` |
 | Restore a backup | `scripts/restore_personal.sh ~/Backups/unfurl/unfurl-YYYYMMDD-HHMMSS.dump` |
 | Update to new code | `scripts/backup_personal.sh`, then `git pull` and `scripts/start_personal.sh` |
+| Remove a test copy (never the real one) | `scripts/remove_test_copy.sh unfurl-sometest` (refuses `unfurl-personal`, asks `yes`) |
 | Import learning goals and tasks once (JSON, D-186) | back up first, then `docker compose -f docker-compose.personal.yml --env-file .env.personal exec -T app python -m app.tools.import_learning --email you@example.com < tasks.json` (dry run; add `--apply` to write) |
 
 - **Emails are not sent**, only written to the logs (`EMAIL_BACKEND=console`). Turn off the reminder email in Settings › Notifications; the in-app reminder still comes.
 - **Backups** go to `~/Backups/unfurl/` (readable only by you); the newest 14 are kept. Back up before every update (migrations change your real data) and about once a week. To run it every week by itself, add a launchd job or a `crontab -e` line such as `0 9 * * 1 cd ~/Projects/unfurl && scripts/backup_personal.sh`. Settings › Privacy › **Export my data** gives a second, readable copy (JSON). Turn on FileVault: the backups are not encrypted.
 - **Restore** checks the whole file, asks you to type `yes`, makes a backup of the current data first, then replaces everything in one transaction (if loading fails, the current data stays). An older backup is brought up to the current version when the app starts. Backup and restore never run at the same time.
 - **Keep `.env.personal` safe** (e.g. in a password manager): backups don't include it.
-- **Never run `down -v`** on this instance: `-v` deletes its volumes (`unfurl-personal_db`, `unfurl-personal_uploads`), that is all your data.
+- **Your data lives in two volumes**, `unfurl-personal_db` and `unfurl-personal_uploads`. They are *external* (D-190): Docker Compose never creates or deletes them, so even `down -v` leaves them alone; `scripts/start_personal.sh` creates them on a new machine. `docker volume rm`, `docker volume prune -a` or `docker system prune -a --volumes` (with the instance stopped) can still delete them: never run those on them. Backups are the real safety net.
+- **Test copies** (to try a script or an import first): `UNFURL_PROJECT=unfurl-sometest UNFURL_PORT=8199 UNFURL_BACKUP_DIR=/tmp/somewhere scripts/start_personal.sh`, and set the same `UNFURL_PROJECT` for every command on it. Remove it with `scripts/remove_test_copy.sh unfurl-sometest`.
 - **Chrome extension**: it talks to this instance by default (`extension/config.js`); its `EXTENSION_ORIGINS` is already in `.env.personal.example`. To try the extension against the development server, see `extension/TESTING.md`.
 - The settings are in development mode with `DEBUG=false` (production needs a mail server, D-156); the instance is reachable only from this computer.
 

@@ -171,8 +171,8 @@ cp .env.personal.example .env.personal   # fill in the keys (commands are in the
 scripts/start_personal.sh                # http://127.0.0.1:8100
 ```
 
-Back up with `scripts/backup_personal.sh`, keep `.env.personal` safe, and never run
-`docker compose … down -v` on it: that deletes the database.
+Back up with `scripts/backup_personal.sh` and keep `.env.personal` safe. The data volumes
+are external, so Compose can't delete them, but `docker volume rm` or a prune still can.
 
 Everything else (Docker for development, the extension, limits, emails, production
 checks) is in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
