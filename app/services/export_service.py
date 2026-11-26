@@ -36,6 +36,7 @@ from app.models import (
     LearningTask,
     Notification,
     NotificationPreference,
+    PendingChangeSet,
     Profile,
     Project,
     Skill,
@@ -89,6 +90,7 @@ SECTIONS = (
     Section("learning_tasks", LearningTask, "user"),
     Section("study_log", StudyLog, "user"),
     Section("notifications", Notification, "user"),
+    Section("pending_change_sets", PendingChangeSet, "user"),
 )
 # The single rows: the account, the profile and the settings.
 SINGLE_TABLES = ("user", "profile", "notificationpreference")

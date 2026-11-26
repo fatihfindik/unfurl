@@ -20,6 +20,7 @@ from app.models.application import (  # noqa: E402
     ApplicationDocument,
     ApplicationEvent,
 )
+from app.models.change_set import PendingChangeSet  # noqa: E402
 from app.models.cover_letter import CoverLetter  # noqa: E402
 from app.models.cv import CVDocument  # noqa: E402
 from app.models.interview import InterviewQuestion, InterviewStory  # noqa: E402
@@ -45,6 +46,7 @@ from app.models.trash import DeletedItem  # noqa: E402
 from app.models.user import User  # noqa: E402
 
 __all__ = [
+    "PendingChangeSet",
     "ApiToken",
     "Application",
     "ApplicationDocument",
