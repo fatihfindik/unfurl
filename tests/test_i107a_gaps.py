@@ -801,6 +801,8 @@ def test_no_tool_takes_a_delete_argument(engine, user):
         assert not tool.annotations.destructive_hint or tool.name in (
             "apply_changes",
             "undo_changes",
+            "schedule_interview",  # may lock documents (D-195)
+            "update_application_status",
         )
 
 

@@ -125,6 +125,7 @@ internet. Claude uses your own Claude subscription (no Anthropic API key).
 - **Allow carefully:** reading tools can be allowed always. `apply_changes` and
   `undo_changes` change many tasks at once: never choose "Always allow" for them, so you
   confirm every bulk change after reading its preview.
+- **Applications:** Claude can list and read your applications (never the saved posting text), add notes, set or finish the next step, save an interview and change the status. A change that would lock a linked CV or cover letter for good asks Claude to check with you first (`confirm_lock`). `schedule_interview` and `update_application_status` also ask for permission each time: don't "Always allow" them.
 - **More than two tasks** (shift the plan, add a block) always go through a preview
   (`propose_learning_changes`) that changes nothing until you say yes. An applied change
   can be undone within 24 hours. Nothing can be deleted.

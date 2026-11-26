@@ -135,11 +135,11 @@ def _jobs(session: Session, user: User, filters: Filters) -> list[Application]:
     jobs = list(session.exec(query.order_by(*order)))
     words = search_key(filters.q).split()
     if words:
-        jobs = [job for job in jobs if _matches(job, words)]
+        jobs = [job for job in jobs if matches(job, words)]
     return jobs
 
 
-def _matches(job: Application, words: list[str]) -> bool:
+def matches(job: Application, words: list[str]) -> bool:
     """True if every word of the search is in the company, the job title or the place.
     ("acme vienna" finds the Acme job in Vienna.)"""
     text = " ".join(search_key(value) for value in (job.company, job.job_title, job.location))
@@ -1166,8 +1166,8 @@ class TooManyNotes(Exception):
     """The application has MAX_NOTES_PER_APPLICATION notes already."""
 
 
-def add_note(session: Session, user: User, application: Application, text: str) -> ApplicationEvent:
-    """A note on the timeline (event "note_added"). The text was checked by NoteForm."""
+def has_room_for_note(session: Session, application: Application) -> bool:
+    """False if the application has MAX_NOTES_PER_APPLICATION notes already."""
     count = session.exec(
         select(func.count())
         .select_from(ApplicationEvent)
@@ -1176,7 +1176,12 @@ def add_note(session: Session, user: User, application: Application, text: str) 
             ApplicationEvent.type == "note_added",
         )
     ).one()
-    if count >= MAX_NOTES_PER_APPLICATION:
+    return count < MAX_NOTES_PER_APPLICATION
+
+
+def add_note(session: Session, user: User, application: Application, text: str) -> ApplicationEvent:
+    """A note on the timeline (event "note_added"). The text was checked by NoteForm."""
+    if not has_room_for_note(session, application):
         raise TooManyNotes
     event = _add_event(session, application, "note_added", message=text)
     session.commit()
