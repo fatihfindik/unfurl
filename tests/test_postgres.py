@@ -255,6 +255,7 @@ def test_lockout_and_email_limit_work_on_postgres(pg):
         assert not EmailLimiter().allow(USER_EMAIL)
         LoginLockout().clear_email(USER_EMAIL)
         assert not LoginLockout().is_locked("203.0.113.7", USER_EMAIL)
+        assert EmailLimiter().allow(USER_EMAIL)  # clear_email forgot the sent emails too
 
     with freeze_time("2026-11-27 13:00:00"):
-        assert purge_security_counters(pg, auth_service.utcnow()) > 0
+        assert purge_security_counters(pg, auth_service.utcnow()) == 1  # that email
