@@ -22,6 +22,7 @@ from app.models.application import (  # noqa: E402
 )
 from app.models.cover_letter import CoverLetter  # noqa: E402
 from app.models.cv import CVDocument  # noqa: E402
+from app.models.interview import InterviewQuestion  # noqa: E402
 from app.models.learning import (  # noqa: E402
     LearningGoal,
     LearningResource,
@@ -53,6 +54,7 @@ __all__ = [
     "Certification",
     "Education",
     "Experience",
+    "InterviewQuestion",
     "LanguageSkill",
     "LearningGoal",
     "LearningResource",
