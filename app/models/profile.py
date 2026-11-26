@@ -13,7 +13,7 @@ deletes its rows. The database does this itself (SQLite too, see app/db.py, D-03
 # the `date` type if it were imported by that name.
 import datetime as dt
 
-from sqlalchemy import JSON, Column
+from sqlalchemy import JSON, Column, Text
 from sqlmodel import Field, SQLModel
 
 from app.models.base import created_at_field, updated_at_field
@@ -146,6 +146,35 @@ class Project(SQLModel, table=True):
     name: str = Field(max_length=SHORT_TEXT)
     description: str | None = Field(default=None, max_length=LONG_TEXT)
     url: str | None = Field(default=None, max_length=URL_TEXT)
+
+    created_at: dt.datetime = created_at_field()
+    updated_at: dt.datetime = updated_at_field()
+
+
+# A STAR answer spoken in an interview takes about two minutes, so each part stays short
+# (D-182). Tags are one comma-separated line ("leadership, conflict").
+MAX_STORY_TEXT = 2000
+
+
+class Story(SQLModel, table=True):
+    """An interview story in the STAR format (M14b, D-181, D-182). Written once on My
+    profile and picked for interviews (InterviewStory). Never part of a CV."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    profile_id: int = Field(foreign_key="profile.id", ondelete="CASCADE", index=True)
+    sort_order: int = Field(default=0)
+
+    title: str = Field(max_length=SHORT_TEXT)
+    situation: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    task: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    action: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    result: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    tags: str | None = Field(default=None, max_length=SHORT_TEXT)
+    # The job it happened in. Only an experience of the same profile (checked by the form
+    # and by Undo); the database clears it when that experience is deleted.
+    experience_id: int | None = Field(
+        default=None, foreign_key="experience.id", ondelete="SET NULL", index=True
+    )
 
     created_at: dt.datetime = created_at_field()
     updated_at: dt.datetime = updated_at_field()

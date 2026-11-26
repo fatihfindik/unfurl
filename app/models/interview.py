@@ -10,7 +10,7 @@ The rules live in app/services/interview_prep_service.py.
 
 import datetime as dt
 
-from sqlalchemy import Column, Index, Text
+from sqlalchemy import Column, Index, Text, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from app.models.base import created_at_field, updated_at_field
@@ -24,6 +24,7 @@ MAX_QUESTIONS = 100  # per application, both kinds together
 MAX_QUESTION_TEXT = 300
 MAX_ANSWER = 5000
 MAX_INTERVIEW_NOTES = 10_000  # Application.interview_notes
+MAX_STORIES_PER_INTERVIEW = 20  # InterviewStory rows per application (D-183)
 
 
 class InterviewQuestion(SQLModel, table=True):
@@ -45,6 +46,26 @@ class InterviewQuestion(SQLModel, table=True):
     answer: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     asked: bool = Field(default=False)  # "to_ask" only
     position: int = Field(default=0)
+
+    created_at: dt.datetime = created_at_field()
+    updated_at: dt.datetime = updated_at_field()
+
+
+class InterviewStory(SQLModel, table=True):
+    """A story picked for one interview (M14b, D-183). Removing it only removes this
+    link; the story stays on My profile (D-184)."""
+
+    __tablename__ = "interviewstory"
+    __table_args__ = (
+        # One story at most once per interview. Starts with application_id, so it is
+        # also the index for reading one application's stories.
+        UniqueConstraint("application_id", "story_id", name="uq_interviewstory_pair"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    application_id: int = Field(foreign_key="application.id", ondelete="CASCADE")
+    story_id: int = Field(foreign_key="story.id", ondelete="CASCADE", index=True)
 
     created_at: dt.datetime = created_at_field()
     updated_at: dt.datetime = updated_at_field()

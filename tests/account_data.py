@@ -18,6 +18,7 @@ from app.models import (
     Education,
     Experience,
     InterviewQuestion,
+    InterviewStory,
     LanguageSkill,
     LearningGoal,
     LearningResource,
@@ -27,6 +28,7 @@ from app.models import (
     Profile,
     Project,
     Skill,
+    Story,
     StudyLog,
     User,
 )
@@ -109,6 +111,18 @@ def fill_account(session: Session, user: User, photo_path: str | None = None) ->
         )
     )
 
+    rows["story"] = add(
+        Story(
+            profile_id=profile.id,
+            title="Migration under deadline",
+            situation="Legacy system",
+            tags="leadership, SQL",
+            experience_id=rows["experience"].id,
+        )
+    )
+    rows["interview_story"] = add(
+        InterviewStory(user_id=user.id, application_id=job.id, story_id=rows["story"].id)
+    )
     rows["question"] = add(
         InterviewQuestion(
             user_id=user.id,
