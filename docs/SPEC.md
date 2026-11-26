@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.41 — 2026-11-26
+> **Durum:** MVP planı, v2.1.42 — 2026-11-26
+> v2.1.42: Yerel MCP sunucusu (#107): Claude Desktop, kişisel ortamın container'ında `python -m app.mcp_server` başlatır; Learning ve sonra Başvuru araçları; toplu değişiklikler PendingChangeSet önizlemesi + Claude Desktop izni + 24 saat Undo (D-191…D-195).
 > v2.1.41: Kişisel ortamın volume'ları `external`: compose `down -v` onları silemez; `start_personal.sh` oluşturur, test kopyası `remove_test_copy.sh` ile kaldırılır (D-190, #104).
 > v2.1.40: #103 Learning planı: **Done** ayrı sekme (bitmiş görevlerin hepsi, 30 gün sınırı yok), "Add task" kart başlığında, hedef filtresi (adreste `goal`), başlığa tıklayınca Edit (D-187…D-189).
 > v2.1.39: M14b Design kararları: STAR hikâyeleri My profile'da **Stories** bölümü (başlık, S/T/A/R, etiketler, isteğe bağlı deneyim; CV'ye ve profil gücüne girmez), Interview prep sekmesinde "Stories for this interview" kartıyla seçilir (başvuru başına 20, kaldırmada Undo yok), hikâye silme Undo'su bağlarıyla geri gelir; soruya bağlama V2 (D-181…D-185).
@@ -546,8 +547,8 @@ Aynı `application_id` + `profile_version` için önbellekteki sonuç döner. "Y
 | result | JSON | bkz. 9.11 |
 | open_count | int | Açık öneri sayısı (0 = hazır) |
 
-### 5.9c PendingChangeSet (asistanın önizlemeli değişiklikleri) · V2 (D-150)
-Asistan toplu değişiklik önerdiğinde değişiklikler hemen uygulanmaz, burada bekler.
+### 5.9c PendingChangeSet (önizlemeli değişiklikler) · MCP ile şimdi, asistan V2 (D-150, D-193)
+Toplu değişiklik önerildiğinde değişiklikler hemen uygulanmaz, burada bekler. Alanlar: `user_id`, `source` (mcp / assistant), `kind`, `changes`, `summary`, `status`, `created_at`, `applied_at`; `thread_id` sadece asistanla (V2). Model: `app/models/change_set.py`.
 | Alan | Tip | Not |
 |---|---|---|
 | thread_id | FK | |
