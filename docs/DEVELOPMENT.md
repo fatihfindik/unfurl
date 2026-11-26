@@ -56,6 +56,7 @@ Open http://127.0.0.1:8100 and create your account. Always pass `--env-file .env
 | Back up (database + photos) | `scripts/backup_personal.sh` |
 | Restore a backup | `scripts/restore_personal.sh ~/Backups/unfurl/unfurl-YYYYMMDD-HHMMSS.dump` |
 | Update to new code | `scripts/backup_personal.sh`, then `git pull` and `scripts/start_personal.sh` |
+| Import learning goals and tasks once (JSON, D-186) | back up first, then `docker compose -f docker-compose.personal.yml --env-file .env.personal exec -T app python -m app.tools.import_learning --email you@example.com < tasks.json` (dry run; add `--apply` to write) |
 
 - **Emails are not sent**, only written to the logs (`EMAIL_BACKEND=console`). Turn off the reminder email in Settings › Notifications; the in-app reminder still comes.
 - **Backups** go to `~/Backups/unfurl/` (readable only by you); the newest 14 are kept. Back up before every update (migrations change your real data) and about once a week. To run it every week by itself, add a launchd job or a `crontab -e` line such as `0 9 * * 1 cd ~/Projects/unfurl && scripts/backup_personal.sh`. Settings › Privacy › **Export my data** gives a second, readable copy (JSON). Turn on FileVault: the backups are not encrypted.
