@@ -119,7 +119,20 @@ def task_row(task, today: dt.date, goal_info: dict, spent: dict | None = None) -
     }
 
 
-def page_context(session: Session, user: User, view: str) -> dict:
+def chosen_goal(goals: list[LearningGoal], raw: str) -> int | None:
+    """The goal filter (D-188): a goal id of this user, else None ("All goals").
+    Anything else (text, a huge number, someone else's id) simply means no filter;
+    the templates only ever see this checked value, never the raw one."""
+    try:
+        number = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if not 0 < number <= learning.MAX_ID:
+        return None
+    return number if number in {goal.id for goal in goals} else None
+
+
+def page_context(session: Session, user: User, view: str, goal: str = "") -> dict:
     """Everything the page shows. The tasks are read once and split in Python."""
     today = clock.today()
     prefs = learning.preferences(session, user)
@@ -129,7 +142,10 @@ def page_context(session: Session, user: User, view: str) -> dict:
     tasks = learning.tasks(session, user)
     minutes = learning.minutes_by_goal(session, user)
     spent = learning.minutes_by_task(session, user)
-    plan = learning.build_plan(tasks, view, today)
+    goal_filter = chosen_goal(goals, goal)
+    # Only the plan is filtered; the summary cards and the Goals card stay whole.
+    plan_tasks = [t for t in tasks if t.goal_id == goal_filter] if goal_filter else tasks
+    plan = learning.build_plan(plan_tasks, view, today)
 
     goal_info = {}
     goal_cards = []
@@ -161,6 +177,10 @@ def page_context(session: Session, user: User, view: str) -> dict:
     counts = {"catchup": plan.catchup_count, "done": plan.done_count}
     return {
         "view": plan.view,
+        "goal_filter": goal_filter,
+        # Added to every link of the region, so a tab or a reload keeps the filter.
+        "goal_query": f"&goal={goal_filter}" if goal_filter else "",
+        "goal_options": [(goal.id, goal.title) for goal in goals],
         "views": [
             (key, f"{title} ({counts[key]})" if key in counts else title)
             for key, title in VIEW_TITLES.items()
@@ -188,8 +208,10 @@ def page_context(session: Session, user: User, view: str) -> dict:
 
 
 @router.get("/learning", response_class=HTMLResponse)
-def learning_page(request: Request, session: DbSession, user: RequiredUser, view: str = "today"):
-    context = page_context(session, user, view)
+def learning_page(
+    request: Request, session: DbSession, user: RequiredUser, view: str = "today", goal: str = ""
+):
+    context = page_context(session, user, view, goal)
     if is_htmx(request):
         # A tab was picked, or the page asks again after a change: only the region.
         return templates.TemplateResponse(request, "learning/_region.html", context)

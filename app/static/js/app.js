@@ -335,6 +335,14 @@ document.addEventListener("htmx:configRequest", (event) => {
   }
 });
 
+// The Learning goal filter (D-188): "All goals" sends goal="", which is left out so
+// the address stays "/learning?view=week".
+document.addEventListener("htmx:configRequest", (event) => {
+  if (event.detail.elt.id !== "learning-goal-filter") return;
+  const params = event.detail.parameters;
+  if (params.get("goal") === "") params.delete("goal");
+});
+
 // If saving a move fails, the card is in the wrong place on screen: reload the board.
 document.addEventListener("htmx:responseError", (event) => {
   if (event.detail.elt?.dataset?.boardList !== undefined) {
