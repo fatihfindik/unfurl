@@ -1057,6 +1057,7 @@ Kaynak: plan-reviewer, Fatih'in kararları (2026-11-26).
 ### D-194 · I107a araçları (Learning)
 - **Karar:** Okuma: `get_learning_plan`, `list_tasks` (filtreli, sayfalı; arayüzde yok, bilinçli). Tekli yazma: `create_learning_goal`, `add_task`, `update_task` (link dahil; bilinçli fazlalık), `set_task_done`, `log_study_time`. Toplu: `propose_learning_changes` (move, shift, add, update, complete, hedef oluşturma) → `apply_changes`, `undo_changes`, `discard_changes`. Silme aracı yok.
 
-### D-195 · I107b araçları (Başvurular) · geçici
-- **Karar:** `list_applications`, `get_application`, `add_application_note`, `set_next_action`, `schedule_interview`, `update_application_status`, toplu için `propose_application_changes`. Ayrıntılar (yan etkiler D-082, ApplicationEvent) I107b planında ve plan-review'unda.
+### D-195 · I107b araçları (Başvurular)
+- **Karar:** `list_applications`, `get_application` (ilan metni ve belge içeriği yok), `add_application_note`, `set_next_step`, `finish_next_step`, `schedule_interview`, `update_application_status` (board durumları + archived; bağlı belgeleri kilitleyebilir, D-082, destructive işaretli). Hepsi web route'larının servis ve formlarını kullanır. Toplu başvuru aracı ve MCP Undo'su yok (yan etkiler güvenle geri alınamaz); silme yok.
+- **Alternatifler:** `propose_application_changes` (ertelendi; ihtiyaç olursa ayrı issue).
 
