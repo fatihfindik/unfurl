@@ -37,6 +37,9 @@ services:
 
   app:
     build: .
+    # A fixed name, so the Claude app can start the MCP server in it (D-191):
+    #   docker exec -i unfurl-personal-app python -m app.mcp_server --email …
+    container_name: ${UNFURL_PROJECT:-unfurl-personal}-app
     restart: unless-stopped
     env_file: ${UNFURL_ENV_FILE:-.env.personal}
     environment:

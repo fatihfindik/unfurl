@@ -775,3 +775,11 @@
 - `external: true` volumes are never created or deleted by Compose; a script creates them with `docker volume create`, which leaves an existing volume unchanged.
 - A near-miss is worth a fix: the safety came from luck (the instance was running), not from the design.
 
+## #107 (I107a) — Local MCP server for Learning (2026-11-26, log written by Claude)
+
+- MCP (Model Context Protocol) lets an app give Claude "tools": a function with a name, a description and a JSON schema. Over stdio the Claude app starts the server as a process and they talk JSON-RPC over stdin/stdout, so nothing may print to stdout.
+- A preview-then-apply flow (PendingChangeSet) keeps a human in the loop: the model can only prepare a bulk change; the user's confirmation is the Claude app's permission prompt on `apply_changes`.
+- Compare-and-swap: store `before` with each change and write only if the row still looks like that; anything the user changed in between is skipped, not overwritten.
+- A conditional `UPDATE … WHERE status = 'pending'` "claims" a row, so two calls at the same time can't both apply the same change set.
+- Reviews found what tests missed: reopening a done task silently deleted logged time, so the MCP server can't reopen tasks; huge ids crashed the database driver instead of meaning "not found".
+

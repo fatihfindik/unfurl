@@ -361,11 +361,23 @@ def create_goal(
 
 
 def add_task(
-    session: Session, user: User, goal: LearningGoal, *, title: str, due_date: dt.date, minutes: int
+    session: Session,
+    user: User,
+    goal: LearningGoal,
+    *,
+    title: str,
+    due_date: dt.date,
+    minutes: int,
+    url: str | None = None,
 ) -> LearningTask:
     _check_room(session, user, LearningTask, MAX_TASKS)
     task = LearningTask(
-        user_id=user.id, goal_id=goal.id, title=title, due_date=due_date, estimated_minutes=minutes
+        user_id=user.id,
+        goal_id=goal.id,
+        title=title,
+        due_date=due_date,
+        estimated_minutes=minutes,
+        url=url,
     )
     session.add(task)
     session.commit()
@@ -378,6 +390,17 @@ def set_done(session: Session, user: User, task: LearningTask, done: bool) -> Le
     resource's units go up (or down)."""
     if task.done == done:
         return task
+    apply_done(session, user, task, done)
+    session.commit()
+    session.refresh(task)
+    return task
+
+
+def apply_done(session: Session, user: User, task: LearningTask, done: bool) -> None:
+    """The changes of set_done without the commit, so a set of changes can be written
+    in one transaction (D-193). Does nothing if the task is already in that state."""
+    if task.done == done:
+        return
     resource = None
     if task.resource_id is not None:
         resource = session.exec(
@@ -409,9 +432,18 @@ def set_done(session: Session, user: User, task: LearningTask, done: bool) -> Le
     if resource is not None:
         session.add(resource)
     session.add(task)
+
+
+def log_time(
+    session: Session, user: User, goal: LearningGoal, minutes: int, day: dt.date
+) -> StudyLog:
+    """Study time without a task (SPEC §9.8 log_study_time, D-194): counts for the
+    week's hours, the goal's time and the streak like any StudyLog row."""
+    log = StudyLog(user_id=user.id, goal_id=goal.id, task_id=None, date=day, minutes=minutes)
+    session.add(log)
     session.commit()
-    session.refresh(task)
-    return task
+    session.refresh(log)
+    return log
 
 
 def set_rest_days(session: Session, user: User, days: list[str]) -> NotificationPreference:
