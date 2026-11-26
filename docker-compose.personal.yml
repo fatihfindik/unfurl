@@ -18,6 +18,9 @@ services:
   db:
     # Same image as docker-compose.yml and ci.yml (D-143).
     image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+    # Named after the volume, not the -p project: a second database on the same data
+    # (a hand-typed `-p other` without UNFURL_PROJECT) can't start, the name is taken.
+    container_name: ${UNFURL_PROJECT:-unfurl-personal}-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env.personal}

@@ -7,9 +7,11 @@
 set -euo pipefail
 
 project="${1:-}"
-# Only simple lowercase names; the real instance is refused.
-if [[ ! "$project" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
-  echo "Usage: scripts/remove_test_copy.sh <test project name> (lowercase letters, digits, - and _)" >&2
+# Only test names: "unfurl-" and lowercase letters, digits, - and _. The real instance
+# is refused here, and below every volume must carry the test label (unfurl.test=1)
+# that start_personal.sh gives a test copy's volumes.
+if [[ ! "$project" =~ ^unfurl-[a-z0-9][a-z0-9_-]*$ ]]; then
+  echo "Usage: scripts/remove_test_copy.sh unfurl-<name> (lowercase letters, digits, - and _)" >&2
   exit 1
 fi
 if [[ "$project" == "unfurl-personal" ]]; then
@@ -21,19 +23,24 @@ fi
 export UNFURL_PROJECT="$project"
 source "$(dirname "${BASH_SOURCE[0]}")/personal.sh"
 
-compose down   # no -v: the volumes are external and deleted below by name
-
-volumes=("${project}_db" "${project}_uploads")
-echo "This deletes these volumes and everything in them:"
-for volume in "${volumes[@]}"; do
-  if docker volume inspect "$volume" > /dev/null 2>&1; then echo "  $volume"; fi
+volumes=()
+for volume in "${project}_db" "${project}_uploads"; do
+  if docker volume inspect "$volume" > /dev/null 2>&1; then
+    if [[ "$(docker volume inspect -f '{{ index .Labels "unfurl.test" }}' "$volume")" != "1" ]]; then
+      echo "$volume has no test label (unfurl.test=1): not a test copy, nothing done." >&2
+      exit 1
+    fi
+    volumes+=("$volume")
+  fi
 done
+
+echo "This stops the test copy $project and deletes these volumes and everything in them:"
+for volume in ${volumes[@]+"${volumes[@]}"}; do echo "  $volume"; done
 read -r -p "Type yes to continue: " answer
 if [[ "$answer" != "yes" ]]; then
-  echo "Nothing deleted (the containers are stopped)."
+  echo "Nothing changed."
   exit 1
 fi
-for volume in "${volumes[@]}"; do
-  if docker volume inspect "$volume" > /dev/null 2>&1; then docker volume rm "$volume" > /dev/null; fi
-done
+compose down   # no -v: the volumes are external and deleted below by name
+for volume in ${volumes[@]+"${volumes[@]}"}; do docker volume rm "$volume" > /dev/null; done
 echo "Removed the test copy $project."
