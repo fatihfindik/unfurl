@@ -1,0 +1,86 @@
+{#- The Interview prep tab (SPEC §6.7, M14a, D-176…D-180): likely questions with my
+    answer drafts, the company and role notes, and questions to ask them. No AI (D-175).
+    Context: application, prep_started, prep_groups [(key, title, questions)],
+    prep_likely_count, prep_answered, prep_to_ask, prep_interview_line.
+    Opening the tab writes nothing (D-178): the starter set comes with the button. -#}
+<div id="interview-prep" class="flex flex-col gap-4">
+  <section aria-labelledby="prep-when" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-5 py-4">
+    {%- if prep_interview_line %}
+      <p id="prep-when" class="m-0 text-sm"><strong>Interview</strong> · {{ prep_interview_line }}</p>
+    {%- else %}
+      <p id="prep-when" class="m-0 text-sm text-text-2">No interview date yet.</p>
+    {%- endif %}
+    {%- if application.status == "interview" and not application.archived %}
+      {#- The same modal as the Next step card's button (app.js openInterview). -#}
+      <button type="button" data-interview-open="{{ application.id }}"
+              class="text-[13px] font-semibold text-link hover:underline">{{ "Change" if application.interview_at else "Add it" }}</button>
+    {%- endif %}
+  </section>
+
+  {%- if application.archived %}
+    <p class="m-0 rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm text-text-2">This job is archived. Restore it to edit your prep.</p>
+  {%- endif %}
+
+  {%- if not prep_started %}
+    <section aria-labelledby="prep-start-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+      <h2 id="prep-start-title" class="m-0 text-base font-bold">Prepare for your interview</h2>
+      <p class="m-0 text-sm text-text-2">Write down answers to the questions you will likely get, notes about {{ application.company }}, and the questions you want to ask. Start with 12 common questions and 4 questions to ask, and change them as you like.</p>
+      {%- if not application.archived %}
+        <div class="flex flex-wrap gap-2.5">
+          {%- for starters, label, style in [("1", "Start interview prep", "border-transparent bg-[#4F46E5] text-white hover:bg-[#4338CA]"), ("0", "Start with an empty list", "border-border-strong bg-surface text-text hover:bg-muted")] %}
+            <button type="button" hx-post="/applications/{{ application.id }}/prep/start" hx-vals='{"starters": "{{ starters }}"}'
+                    hx-swap="none" hx-disabled-elt="this"
+                    class="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold {{ style }}">{{ label }}</button>
+          {%- endfor %}
+        </div>
+      {%- endif %}
+    </section>
+  {%- else %}
+    <section id="prep-likely" aria-labelledby="prep-likely-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="prep-likely-title" class="m-0 text-base font-bold">Likely questions</h2>
+        <span id="prep-answered" class="text-[13px] text-text-3">{{ prep_answered }} of {{ prep_likely_count }} answered</span>
+      </div>
+      {%- for key, title, questions in prep_groups %}
+        <h3 class="m-0 mt-1 text-[13px] font-bold text-text-2">{{ title }}</h3>
+        <ul class="m-0 flex list-none flex-col gap-2 p-0">
+          {%- for question in questions %}
+            <li id="prep-question-{{ question.id }}" class="flex flex-col gap-1 rounded-lg border border-border px-3.5 py-2.5">
+              <span class="break-words text-sm font-semibold">{{ question.text }}</span>
+              {%- if question.answer %}
+                <span class="whitespace-pre-line break-words text-[13px] text-text-2">{{ question.answer }}</span>
+              {%- endif %}
+            </li>
+          {%- endfor %}
+        </ul>
+      {%- else %}
+        <p class="m-0 text-sm text-text-2">No questions yet.</p>
+      {%- endfor %}
+    </section>
+
+    <section id="prep-notes" aria-labelledby="prep-notes-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+      <h2 id="prep-notes-title" class="m-0 text-base font-bold">Company &amp; role notes</h2>
+      {%- if application.interview_notes %}
+        <p class="m-0 whitespace-pre-line break-words text-sm text-text-2">{{ application.interview_notes }}</p>
+      {%- else %}
+        <p class="m-0 text-sm text-text-3">No notes yet.</p>
+      {%- endif %}
+    </section>
+
+    <section id="prep-to-ask" aria-labelledby="prep-to-ask-title" class="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5">
+      <h2 id="prep-to-ask-title" class="m-0 text-base font-bold">Questions to ask them</h2>
+      <ul class="m-0 flex list-none flex-col gap-2 p-0">
+        {%- for question in prep_to_ask %}
+          <li id="prep-question-{{ question.id }}" class="flex flex-col gap-1 rounded-lg border border-border px-3.5 py-2.5">
+            <span class="break-words text-sm font-semibold">{{ "✓ " if question.asked }}{{ question.text }}</span>
+            {%- if question.answer %}
+              <span class="whitespace-pre-line break-words text-[13px] text-text-2">{{ question.answer }}</span>
+            {%- endif %}
+          </li>
+        {%- else %}
+          <li class="text-sm text-text-2">No questions yet.</li>
+        {%- endfor %}
+      </ul>
+    </section>
+  {%- endif %}
+</div>

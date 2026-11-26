@@ -14,8 +14,9 @@
 {% endblock %}
 
 {#- One application (SPEC §6.7, docs/prototype/ApplicationDetail.dc.html; M4b, M9a).
-    Two tabs (D-164): Apply (a saved job) or Progress (sent or answered), and
-    Job & details. The tab is in the address (?tab=details), so a reload keeps it.
+    Tabs (D-164, D-176): Apply (a saved job) or Progress (sent or answered), Interview
+    prep (from Applied on) and Job & details. The tab is in the address (?tab=details,
+    ?tab=interview), so a reload keeps it.
     Context: see detail_context and application_detail in app/routers/applications.py. -#}
 {% block content %}
   {#- After a change (status, Undo, …) the server sends "application-changed"; the page
@@ -23,7 +24,7 @@
       the next step and the timeline always show what is stored (D-076). hx-disinherit:
       the buttons inside must not take over hx-select (they swap their own parts).
       -#}
-  {%- set page_url = "/applications/" ~ application.id ~ ("?tab=details" if tab == "details" else "") %}
+  {%- set page_url = "/applications/" ~ application.id ~ ("?tab=" ~ tab if tab in ("details", "interview") else "") %}
   <div id="application-page" class="flex flex-1 flex-col"
        hx-get="{{ page_url }}" hx-trigger="application-changed from:body"
        hx-select="#application-page" hx-swap="outerHTML" hx-disinherit="*">
@@ -73,12 +74,20 @@
         {%- endif %}
       </div>
     </div>
-    {#- Plain links, no JS (D-164): the first tab is Apply or Progress by status. -#}
+    {#- Plain links, no JS (D-164): the first tab is Apply or Progress by status.
+        Interview prep from Applied on (D-176), with a dot while the job is in the
+        interview stage (the dot is only a look; screen readers get the words). -#}
+    {%- set tabs = [(first_tab, "Apply" if first_tab == "apply" else "Progress")] %}
+    {%- if has_prep %}{% set tabs = tabs + [("interview", "Interview prep")] %}{% endif %}
     <nav aria-label="Application sections" class="flex gap-1 self-start rounded-lg bg-muted p-1 text-sm font-semibold">
-      {%- for key, label in [(first_tab, "Apply" if first_tab == "apply" else "Progress"), ("details", "Job & details")] %}
-        <a href="/applications/{{ application.id }}{{ '?tab=details' if key == 'details' else '' }}"
+      {%- for key, label in tabs + [("details", "Job & details")] %}
+        <a href="/applications/{{ application.id }}{{ '?tab=' ~ key if key in ('details', 'interview') else '' }}"
            {%- if tab == key %} aria-current="page"{% endif %}
-           class="rounded-md px-3 py-1.5 no-underline {{ 'bg-surface text-text shadow-sm' if tab == key else 'text-text-2 hover:text-text' }}">{{ label }}</a>
+           class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 no-underline {{ 'bg-surface text-text shadow-sm' if tab == key else 'text-text-2 hover:text-text' }}">
+          {{- label }}
+          {%- if key == "interview" and application.status == "interview" %}
+            <span aria-hidden="true" class="size-1.5 rounded-full bg-purple-text"></span><span class="sr-only"> (interview stage)</span>
+          {%- endif %}</a>
       {%- endfor %}
     </nav>
   </header>
@@ -89,6 +98,8 @@
         {% include "applications/_apply.html" %}
       {%- elif tab == "progress" %}
         {% include "applications/_progress.html" %}
+      {%- elif tab == "interview" %}
+        {% include "applications/_interview_prep.html" %}
       {%- else %}
       {% include "applications/_details.html" %}
       {%- if application.description_raw %}
