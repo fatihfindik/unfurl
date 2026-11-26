@@ -485,3 +485,20 @@ def test_failures_from_the_exempt_browser_still_count_on_the_email(client, user)
     fail_from_many_ips(login_lockout, times=16)
 
     assert log_in(TestClient(app), password=NEW_PASSWORD).status_code == 429
+
+
+def test_clear_email_also_forgets_the_emails_sent_to_it(engine):
+    # Account deletion calls clear_email: nothing about the address stays (D-198).
+    EmailLimiter().allow(USER_EMAIL)
+    EmailLimiter().allow("other@example.com")
+
+    LoginLockout().clear_email(USER_EMAIL, user_id=1)
+
+    assert len(counter_rows(engine, "email_sent")) == 1  # only the other address
+
+
+def test_counters_of_different_scopes_never_share_a_key(engine):
+    lockout = LoginLockout()
+    lockout.record_failure(IP, "5@example.com", user_id=5)
+    keys = [row.key for row in counter_rows(engine)]
+    assert len(set(keys)) == len(keys) == 3

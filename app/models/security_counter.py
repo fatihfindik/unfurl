@@ -4,10 +4,11 @@ One row per event: a failed sign-in, a lock, or an email sent to an address. The
 were kept in memory before; in the database a restart no longer clears a lock, and
 more than one app process would see the same counts.
 
-`key` and `email_key` are SHA-256 hashes, never the IP address or the email itself:
+`key` and `email_key` are HMAC-SHA256 hashes with SECRET_KEY (each with its scope:
+"pair", "email" or "user"), never the IP address or the email itself:
 the rows only need to match, and failures on addresses that have no account are not
-data we want to keep. Rows are a few hours old at most; the nightly job deletes the
-rest (scheduler.purge_security_counters).
+data we want to keep. Rows older than 2 hours are deleted with the key's next write
+and by the hourly job (scheduler.purge_security_counters).
 """
 
 import datetime as dt

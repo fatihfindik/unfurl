@@ -46,4 +46,4 @@ Branch `chore/tech-debt-2`. Fatih: "Teknik borçları da kapat" (2026-11-27); ka
 - Test motoru `_DbCounters.engine` sınıf alanına `monkeypatch` ile (kendini geri alır); motorsuz test boş in-memory veritabanına çarpar.
 - `FORWARDED_ALLOW_IPS` `os.environ`'dan okunur (`.env` yetmez, testi var); `Settings` alanı yok.
 - Scheduler kapalıyken de: anahtarın eski satırları bir sonraki yazımında silinir.
-- Sorular (Claude karar verdi): #64 kapanır, E2 için yeni V2 issue; kişisel ortamda kilit yeniden başlatmada kalkmaz, çıkış şifre sıfırlama (`docker logs unfurl-personal-app`) ya da beklemek; slowapi bellekte, M13c'de kalan sınırlama.
+- Sorular (Claude karar verdi): #64 kapanır, E2 için yeni V2 issue (#112); kişisel ortamda kilit yeniden başlatmada kalkmaz, çıkış şifre sıfırlama (`docker logs unfurl-personal-app`) ya da beklemek; slowapi bellekte, M13c'de kalan sınırlama.

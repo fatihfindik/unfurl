@@ -88,7 +88,9 @@ def engine(monkeypatch):
     enable_sqlite_foreign_keys(engine)  # like the app (D-034)
     SQLModel.metadata.create_all(engine)
     # The sign-in lockout and email limits keep their counts here (D-198).
-    # monkeypatch puts the old value back after the test.
+    # monkeypatch puts the old value back after the test. With StaticPool the counter
+    # session shares the route's connection, so these tests can't catch a caller that
+    # has uncommitted writes when it calls the lockout (rule in app/security.py, D-198).
     monkeypatch.setattr(security._DbCounters, "engine", engine)
     yield engine
     engine.dispose()

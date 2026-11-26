@@ -24,7 +24,9 @@ GENERATE_EVERY_MINUTES = 15
 PURGE_AT_HOUR = 3  # 03:00 in DEFAULT_TIMEZONE, when hardly anyone uses the app
 # Dead extension tokens at 03:10, so the two clean-ups don't hit the database at once.
 PURGE_TOKENS_AT_MINUTE = 10
-PURGE_COUNTERS_AT_MINUTE = 20  # old sign-in and email counters (D-198)
+# Old sign-in and email counters every hour at :20 (D-198): many failed sign-ins from
+# many IPs add rows quickly, so once a night would let the table grow for a day.
+PURGE_COUNTERS_AT_MINUTE = 20
 
 
 def generate_notifications(engine: Engine | None = None) -> None:
@@ -100,9 +102,7 @@ def build(settings: Settings) -> BackgroundScheduler:
     )
     scheduler.add_job(
         purge_security_counters,
-        CronTrigger(
-            hour=PURGE_AT_HOUR, minute=PURGE_COUNTERS_AT_MINUTE, timezone=settings.default_timezone
-        ),
+        CronTrigger(minute=PURGE_COUNTERS_AT_MINUTE, timezone=settings.default_timezone),
         id="purge_security_counters",
     )
     return scheduler

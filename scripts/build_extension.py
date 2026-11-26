@@ -13,6 +13,7 @@ extension/ itself stays as it is, pointing at the personal instance (D-155).
 """
 
 import argparse
+import ipaddress
 import json
 import re
 import shutil
@@ -22,7 +23,7 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "extension"
-LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
+LOCAL_NAMES = {"localhost"}
 # Development notes, not part of the shipped extension.
 LEFT_OUT = {"README.md", "TESTING.md"}
 
@@ -31,20 +32,50 @@ class BuildError(Exception):
     """The address can't be used for a production build."""
 
 
+def _is_local(host: str) -> bool:
+    """localhost, *.localhost, or an IP address that isn't on the public internet."""
+    host = host.rstrip(".")
+    if host in LOCAL_NAMES or host.endswith(".localhost"):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False  # a name
+    ip = getattr(ip, "ipv4_mapped", None) or ip  # ::ffff:127.0.0.1 is 127.0.0.1
+    return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_unspecified
+
+
 def check_base_url(url: str) -> str:
     """The address without a trailing slash, or BuildError."""
-    parts = urlsplit(url.strip())
-    if parts.scheme != "https" or not parts.hostname:
+    try:
+        parts = urlsplit(url.strip())
+        host, port = parts.hostname, parts.port  # .port raises on a bad port
+    except ValueError:
+        raise BuildError("That is not a valid address.") from None
+    if parts.scheme != "https" or not host:
         raise BuildError("The address must start with https://")
-    if parts.hostname in LOCAL_HOSTS or parts.hostname.endswith(".localhost"):
+    if parts.username or parts.password:
+        raise BuildError("The address must not contain a user name or password.")
+    if _is_local(host):
         raise BuildError("The address must not be a local one.")
     if parts.path not in ("", "/") or parts.query or parts.fragment:
         raise BuildError("Give only the site's address, e.g. https://unfurl.example.com")
-    return f"https://{parts.netloc}"
+    host = f"[{host}]" if ":" in host else host  # an IPv6 address needs brackets
+    return f"https://{host}" + (f":{port}" if port else "")
+
+
+def _check_out(out: Path) -> None:
+    """The old build is deleted first: only a folder that is one (or under dist/)."""
+    if not out.exists():
+        return
+    inside_dist = out.resolve().is_relative_to((ROOT / "dist").resolve())
+    if not (inside_dist or (out / "manifest.json").is_file()):
+        raise BuildError(f"{out} exists and is not an extension build; choose another --out.")
 
 
 def build(base_url: str, out: Path, source: Path = SOURCE) -> Path:
     base = check_base_url(base_url)
+    _check_out(out)
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(source, out, ignore=shutil.ignore_patterns(*LEFT_OUT))

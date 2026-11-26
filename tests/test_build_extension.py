@@ -23,6 +23,17 @@ spec.loader.exec_module(build_extension)
         "https://unfurl.example.com/app",
         "https://unfurl.example.com/?x=1",
         "ftp://unfurl.example.com",
+        "https://user:pass@unfurl.example.com",
+        "https://127.0.0.2",
+        "https://10.0.0.5",
+        "https://192.168.1.10",
+        "https://169.254.1.1",
+        "https://[::ffff:127.0.0.1]",
+        "https://[::1]",
+        "https://localhost.",
+        "https://[x",
+        "https://unfurl.example.com:99999",
+        "https://",
     ],
 )
 def test_refuses_an_address_that_is_not_a_public_https_site(tmp_path, url):
@@ -73,3 +84,21 @@ def test_a_second_build_replaces_the_first(tmp_path):
     assert json.loads((out / "manifest.json").read_text())["host_permissions"] == [
         "https://two.example.com/*"
     ]
+
+
+def test_keeps_a_port_and_a_public_ip(tmp_path):
+    assert build_extension.check_base_url("https://unfurl.example.com:8443") == (
+        "https://unfurl.example.com:8443"
+    )
+    assert build_extension.check_base_url("https://93.184.216.34") == "https://93.184.216.34"
+
+
+def test_never_deletes_a_folder_that_is_not_a_build(tmp_path):
+    precious = tmp_path / "notes"
+    precious.mkdir()
+    (precious / "keep.txt").write_text("mine")
+
+    with pytest.raises(build_extension.BuildError):
+        build_extension.build("https://unfurl.example.com", precious)
+
+    assert (precious / "keep.txt").read_text() == "mine"

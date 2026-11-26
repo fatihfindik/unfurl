@@ -73,7 +73,7 @@ def test_the_jobs_and_their_times():
     assert str(tokens.timezone) == "Europe/Vienna"
     counters = jobs["purge_security_counters"].trigger
     fields = {field.name: str(field) for field in counters.fields}
-    assert (fields["hour"], fields["minute"]) == ("3", "20")  # after the tokens (D-198)
+    assert (fields["hour"], fields["minute"]) == ("*", "20")  # every hour (D-198)
     assert str(counters.timezone) == "Europe/Vienna"
     assert str(built.timezone) == "Europe/Vienna"
     for job in jobs.values():

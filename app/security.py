@@ -291,11 +291,11 @@ class LoginLockout(_DbCounters):
             return False  # no account can have it; record_failure doesn't count it either
         now = utcnow()
         with self._session() as session:
-            if self._locked(session, "pair", _hash(ip, email_key), now):
+            if self._locked(session, "pair", _hash("pair", ip, email_key), now):
                 return True
-            if user_id is not None and self._locked(session, "user", _hash(user_id), now):
+            if user_id is not None and self._locked(session, "user", _hash("user", user_id), now):
                 return True
-            return per_email and self._locked(session, "email", _hash(email_key), now)
+            return per_email and self._locked(session, "email", _hash("email", email_key), now)
 
     def _count_failure(
         self,
@@ -326,12 +326,12 @@ class LoginLockout(_DbCounters):
         if email_key is None:
             return
         now = utcnow()
-        email_hash = _hash(email_key)
+        email_hash = _hash("email", email_key)
         with self._session() as session:
             self._count_failure(
                 session,
                 "pair",
-                _hash(ip, email_key),
+                _hash("pair", ip, email_key),
                 email_hash,
                 now,
                 self.WINDOW,
@@ -343,7 +343,7 @@ class LoginLockout(_DbCounters):
             if per_email:
                 scopes.append(("email", email_hash, email_hash))
             if user_id is not None:
-                scopes.append(("user", _hash(user_id), None))
+                scopes.append(("user", _hash("user", user_id), None))
             for scope, key, email_column in scopes:
                 self._count_failure(
                     session,
@@ -364,7 +364,7 @@ class LoginLockout(_DbCounters):
         if email_key is None:
             return
         with self._session() as session:
-            self._delete(session, ("fail_pair", "lock_pair"), _hash(ip, email_key))
+            self._delete(session, ("fail_pair", "lock_pair"), _hash("pair", ip, email_key))
             session.commit()
 
     def clear_email(self, email: str, user_id: int | None = None) -> None:
@@ -380,11 +380,13 @@ class LoginLockout(_DbCounters):
                         col(SecurityCounter.kind).in_(
                             ("fail_pair", "lock_pair", "fail_email", "lock_email")
                         ),
-                        SecurityCounter.email_key == _hash(email_key),
+                        SecurityCounter.email_key == _hash("email", email_key),
                     )
                 )
+                # The emails sent to it too: a deleted account leaves nothing behind.
+                self._delete(session, ("email_sent",), _hash("email", email_key))
             if user_id is not None:
-                self._delete(session, ("fail_user", "lock_user"), _hash(user_id))
+                self._delete(session, ("fail_user", "lock_user"), _hash("user", user_id))
             session.commit()
 
 
@@ -400,7 +402,7 @@ class EmailLimiter(_DbCounters):
         if email_key is None:
             return False
         now = utcnow()
-        key = _hash(email_key)
+        key = _hash("email", email_key)
         with self._session() as session:
             self._forget_old(session, key, now)
             session.commit()

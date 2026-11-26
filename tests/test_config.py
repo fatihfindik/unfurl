@@ -64,7 +64,8 @@ def test_production_rejects_empty_smtp_host():
 
 
 @pytest.mark.parametrize(
-    "url", ["http://localhost:8000", "http://unfurl.example.com", "unfurl.example.com"]
+    "url",
+    ["http://localhost:8000", "http://unfurl.example.com", "unfurl.example.com", "https://"],
 )
 def test_production_rejects_a_base_url_that_is_not_https(url):
     with pytest.raises(ValidationError, match="APP_BASE_URL"):

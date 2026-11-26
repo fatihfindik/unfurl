@@ -130,7 +130,8 @@ class Settings(BaseSettings):
             raise ValueError("SMTP_HOST must be set in production.")
 
         # Emails link to APP_BASE_URL: the default would send people to localhost (#18).
-        if not self.app_base_url.startswith("https://"):
+        base = urlsplit(self.app_base_url)
+        if base.scheme != "https" or not base.hostname:
             raise ValueError("APP_BASE_URL must be the site's https:// address in production.")
         # Behind a proxy every request seems to come from the proxy, so all users would
         # share one rate limit and lockout. Set it on purpose: the proxy's address (or *

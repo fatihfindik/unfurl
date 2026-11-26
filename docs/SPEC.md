@@ -3,7 +3,7 @@
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
 > **Durum:** MVP planı, v2.1.45 — 2026-11-27
-> v2.1.45: Teknik borçlar (#17, #18, #64): login kilidi ve e-posta sınırı `SecurityCounter` tablosunda (§5.13, HMAC'li anahtarlar, gece temizliği; D-198); production `https://` `APP_BASE_URL` ve `FORWARDED_ALLOW_IPS` ister; eklentinin production kopyası `scripts/build_extension.py` (D-199).
+> v2.1.45: Teknik borçlar (#17, #18, #64): login kilidi ve e-posta sınırı `SecurityCounter` tablosunda (§5.13, HMAC'li anahtarlar, saatlik temizlik; D-198); production `https://` `APP_BASE_URL` ve `FORWARDED_ALLOW_IPS` ister; eklentinin production kopyası `scripts/build_extension.py` (D-199).
 > v2.1.44: Tek ekleme deseni: her ekleme butonu "Add {şey}" ve `+` ikonu; sayfanın ana butonu başlığın sağında, kartınki kart başlığının sağında (New goal → Add goal, New CV → Add CV, New cover letter → Add cover letter). Select'ler kendi okunu çizer (D-196, D-197, #110).
 > v2.1.43: MCP başvuru araçları (I107b) ve §9.12 Yerel MCP sunucusu: belge kilitleyen değişiklik `confirm_lock=true` ister; ilan metni bağlama verilmez (D-195).
 > v2.1.42: Yerel MCP sunucusu (#107): Claude Desktop, kişisel ortamın container'ında `python -m app.mcp_server` başlatır; Learning ve sonra Başvuru araçları; toplu değişiklikler PendingChangeSet önizlemesi + Claude Desktop izni + 24 saat Undo (D-191…D-195).
@@ -603,7 +603,7 @@ Beş Learning tablosunun (NotificationPreference dahil) hepsinde `user_id` (FK, 
 | email_key | str(64), nullable, index | Çift ve e-posta satırlarında e-postanın HMAC'i (şifre sıfırlama bütün IP'lerdeki kilidi kaldırsın) |
 | at | datetime | Hata ya da e-posta anı; kilit satırında kilidin bittiği an |
 
-Kullanıcıya bağlı değil (FK yok): hesabı olmayan adreslere yapılan denemeler de sayılır. 2 saatten eski satırlar o anahtarın bir sonraki yazımında ve her gece 03:20'de silinir.
+Kullanıcıya bağlı değil (FK yok): hesabı olmayan adreslere yapılan denemeler de sayılır. 2 saatten eski satırlar o anahtarın bir sonraki yazımında ve her saat :20'de silinir; hesap silinince o adresin satırları da silinir.
 ---
 
 ## 6. Ekranlar ve Kullanıcı Akışları

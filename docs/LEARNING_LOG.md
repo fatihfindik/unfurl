@@ -800,7 +800,7 @@
 
 ## #17, #18, #64 — Tech debt: counters in the database, production checks (2026-11-27, log written by Claude)
 
-- State kept in process memory disappears on restart and isn't shared between processes; a small table with one row per event (and a nightly clean-up) fixes both without a new service like Redis.
+- State kept in process memory disappears on restart and isn't shared between processes; a small table with one row per event (and an hourly clean-up) fixes both without a new service like Redis.
 - Hashing a small value space (every IPv4 address, a known email) is reversible by trying them all; an HMAC with a server secret is not, and still lets rows match.
 - A short session of its own commits only its own rows; on SQLite it must not run while the caller holds an uncommitted write, or it waits for that lock.
 - uvicorn reads `FORWARDED_ALLOW_IPS` from the real environment, not from `.env`: a check that reads the settings file would pass while the server ignores the value.
