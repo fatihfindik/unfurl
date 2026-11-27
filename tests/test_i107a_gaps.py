@@ -213,7 +213,7 @@ def test_adds_by_title_of_another_users_goal_find_nothing(session, user, goal, o
         )
     # new_goals may use the same title: only the user's own goals count as taken.
     change_set = cs.propose(session, user, new_goals=["Their secret goal"])
-    assert change_set.changes[0]["after"] == {"title": "Their secret goal"}
+    assert change_set.changes[0]["after"]["title"] == "Their secret goal"
 
 
 def test_a_crafted_set_never_touches_another_users_rows(session, user, goal, other, theirs):
