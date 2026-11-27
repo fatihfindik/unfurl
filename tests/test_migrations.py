@@ -28,14 +28,14 @@ def test_upgrade_and_downgrade_run_cleanly(alembic_config):
     url = alembic_config.get_main_option("sqlalchemy.url")
 
     command.upgrade(alembic_config, "head")
-    assert current_revision(url) == "0023"
+    assert current_revision(url) == "0024"
 
     command.downgrade(alembic_config, "base")
     assert current_revision(url) is None
 
     # Running the chain again must also work (no leftovers from the downgrade).
     command.upgrade(alembic_config, "head")
-    assert current_revision(url) == "0023"
+    assert current_revision(url) == "0024"
 
 
 def test_models_and_migrations_are_in_sync(alembic_config):
@@ -80,3 +80,20 @@ def test_0015_fills_in_canonical_links_like_url_service(alembic_config):
             text("SELECT id, canonical_url FROM application ORDER BY id")
         ).all()
     assert rows == [(1, "https://karriere.at/jobs/7654321"), (2, None)]
+
+
+def test_0024_adds_and_removes_soft_delete_and_archive(alembic_config):
+    # D-200, D-201: both columns come with 0024 and leave again on downgrade.
+    url = alembic_config.get_main_option("sqlalchemy.url")
+
+    def columns(table: str) -> set[str]:
+        with create_engine(url).connect() as connection:
+            return {column["name"] for column in inspect(connection).get_columns(table)}
+
+    command.upgrade(alembic_config, "0024")
+    assert "deleted_at" in columns("learningtask")
+    assert "archived_at" in columns("learninggoal")
+
+    command.downgrade(alembic_config, "0023")
+    assert "deleted_at" not in columns("learningtask")
+    assert "archived_at" not in columns("learninggoal")
