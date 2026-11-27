@@ -737,7 +737,9 @@ def restore_goal(session: Session, user: User, payload: dict) -> None:
     linked to each other again, and its logs point at them again."""
     try:
         _check_room(session, user, LearningGoal, MAX_GOALS)
-        _check_room(session, user, LearningTask, MAX_TASKS, adding=len(payload["tasks"]))
+        # Soft-deleted tasks come back deleted: they don't count for the limit (D-200).
+        live_tasks = [t for t in payload["tasks"] if not (t or {}).get("deleted_at")]
+        _check_room(session, user, LearningTask, MAX_TASKS, adding=len(live_tasks))
     except TooMany:
         raise trash_service.CannotRestore from None
     goal = _new_row(LearningGoal, payload["goal"], user)

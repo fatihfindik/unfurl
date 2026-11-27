@@ -9,7 +9,7 @@ import pytest
 from app import mcp_server as m
 from app.models import LearningGoal, LearningTask, StudyLog
 from app.services import change_set_service as changes
-from app.services import clock, notification_service, undo_service
+from app.services import clock, notification_service, trash_service, undo_service
 from app.services import learning_service as learning
 from app.services.auth_service import create_user
 from app.services.change_set_service import ChangeSetError
@@ -250,9 +250,9 @@ def test_mcp_single_tools_refuse_them(session, user, old, gone):
         m.update_task(session, user, gone.id, title="X")
     with pytest.raises(m.Failed, match="archived goal"):
         m.set_task_done(session, user, archived_task)
-    with pytest.raises(m.Failed, match="archived goal"):
+    with pytest.raises(m.Failed, match=f"Goal {old.id} is archived"):
         m.add_task(session, user, old.id, "New", day(1).isoformat())
-    with pytest.raises(m.Failed, match="archived goal"):
+    with pytest.raises(m.Failed, match=f"Goal {old.id} is archived"):
         m.log_study_time(session, user, old.id, 30)
 
 
@@ -348,3 +348,20 @@ def test_undo_keeps_an_added_goal_archived_since(session, user):
 
     assert result.skipped == 1
     assert learning.archived_goals(session, user)[0].title == "Fresh"
+
+
+def test_goal_delete_undo_brings_deleted_tasks_back_deleted(session, user, live, monkeypatch):
+    # Web delete + Undo (D-086): a soft-deleted task comes back still deleted and
+    # doesn't count for the limit (security review #114).
+    add_task(session, live, "Kept", 0)
+    gone_task = add_task(session, live, "Gone", 0)
+    soft_delete(session, gone_task)
+    copy_id = learning.delete_goal(session, user, live)
+    monkeypatch.setattr(learning, "MAX_TASKS", 1)
+
+    payload = trash_service.take(session, user, copy_id).payload
+    learning.restore_goal(session, user, payload)
+    session.commit()
+
+    assert [t.title for t in learning.tasks(session, user)] == ["Kept"]
+    assert learning.count_rows(session, user, LearningTask) == 1

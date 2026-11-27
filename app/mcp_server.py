@@ -112,7 +112,9 @@ def _owned(session: Session, user: User, model, item_id) -> object:
         raise Failed(f"{name} {item_id!r} not found.") from None
     if model is LearningTask and row.deleted_at is not None:
         raise Failed(f"Task {row.id} was deleted; undo_changes can bring it back.")
-    raise Failed(f"{name} {row.id} belongs to an archived goal; unarchive it first.")
+    if model is LearningGoal:
+        raise Failed(f"Goal {row.id} is archived; unarchive it first.")
+    raise Failed(f"Task {row.id} belongs to an archived goal; unarchive it first.")
 
 
 def _date(value: str | None, what: str) -> dt.date | None:

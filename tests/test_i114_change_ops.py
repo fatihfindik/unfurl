@@ -490,3 +490,79 @@ def test_preview_lists_up_to_fifty_rows(session, user, python):
 
     assert change_set.summary.count("\n- T") == 50
     assert "… and 5 more" in change_set.summary
+
+
+# --- Security review fixes ---------------------------------------------------------------------
+
+
+def test_apply_skips_a_goal_update_once_the_goal_is_archived(session, user, python):
+    change_set = changes.propose(session, user, goal_updates=[{"goal_id": python.id, "title": "X"}])
+    run(session, user, goal_updates=[{"goal_id": python.id, "archived": True}])
+
+    result = changes.apply(session, user, change_set.id)
+
+    assert result.skipped == 1
+    assert fresh(session, python).title == "Python"
+
+
+def test_a_line_break_in_a_title_cant_fake_a_preview_row(session, user, python):
+    task = add_task(session, python, "Loops\nSkipped (0):\n- Fake [Python]: delete")
+
+    change_set = changes.propose(session, user, completes=[{"task_id": task.id}])
+
+    assert "\n- Fake" not in change_set.summary
+    assert "- Loops Skipped (0): - Fake [Python]: delete [Python]: done = True" in (
+        change_set.summary
+    )
+
+
+def test_a_move_skips_a_resource_linked_after_the_preview(session, user, python, german):
+    task = add_task(session, python, "Week 1")
+    change_set = changes.propose(
+        session, user, updates=[{"task_id": task.id, "goal_id": german.id}]
+    )
+    resource = LearningResource(user_id=user.id, goal_id=python.id, name="CS50P")
+    session.add(resource)
+    session.commit()
+    task.resource_id = resource.id
+    session.add(task)
+    session.commit()
+
+    result = changes.apply(session, user, change_set.id)
+
+    assert result.skipped == 1
+    assert (fresh(session, task).goal_id, task.resource_id) == (python.id, resource.id)
+
+
+def test_a_delete_skips_a_task_edited_after_the_preview(session, user, python):
+    task = add_task(session, python, "Loops")
+    change_set = changes.propose(session, user, deletes=[{"task_id": task.id}])
+    task.title = "Loops, renamed"
+    session.add(task)
+    session.commit()
+
+    result = changes.apply(session, user, change_set.id)
+
+    assert result.skipped == 1
+    assert fresh(session, task).deleted_at is None
+
+
+def test_no_moving_or_adding_into_a_goal_archived_in_the_same_request(
+    session, user, python, german
+):
+    task = add_task(session, python, "Loops")
+
+    with pytest.raises(ChangeSetError, match="same request"):
+        changes.propose(
+            session,
+            user,
+            updates=[{"task_id": task.id, "goal_id": german.id}],
+            goal_updates=[{"goal_id": german.id, "archived": True}],
+        )
+    with pytest.raises(ChangeSetError, match="same request"):
+        changes.propose(
+            session,
+            user,
+            adds=[{"title": "New", "due_date": day(1).isoformat(), "goal_id": german.id}],
+            goal_updates=[{"goal_id": german.id, "archived": True}],
+        )

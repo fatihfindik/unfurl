@@ -337,7 +337,8 @@ def _build(
     archived = _archived_ids(session, user)
 
     def task_for(item: dict, what: str, *, archived_ok: bool = False) -> LearningTask:
-        task = tasks.get(item.get("task_id"))
+        # _id_ok first: True == 1 in Python, so tasks.get(True) would find task 1.
+        task = tasks.get(item.get("task_id")) if _id_ok(item.get("task_id")) else None
         if task is None:
             raise ChangeSetError(f"{what}: task {item.get('task_id')!r} not found.")
         if task.goal_id in archived and not archived_ok:
@@ -404,7 +405,6 @@ def _build(
         if "goal_id" in item:
             goal = _owned_goal(session, user, item["goal_id"], f"Update task {task.id}")
             after["goal_id"] = goal.id
-            after["resource_id"] = None if goal.id != task.goal_id else task.resource_id
         if "due_date" in item:
             after["due_date"] = _date(item["due_date"], f"Update task {task.id}")
         if "minutes" in item:
@@ -413,8 +413,12 @@ def _build(
             after["url"] = _url(item["url"], f"Update task {task.id}")
         before = _current(task, after)
         after = {name: value for name, value in after.items() if before[name] != value}
+        if "goal_id" in after:
+            # The resource belongs to the old goal: always cleared, and always compared, so
+            # a resource linked between preview and apply makes apply skip the row.
+            after["resource_id"] = None
         if after:
-            before = {name: before[name] for name in after}
+            before = _current(task, after)
             changes.append(
                 {
                     "op": "update",
@@ -436,6 +440,8 @@ def _build(
                 "title": task.title,
                 "before": {"deleted": False},
                 "after": {"deleted": True},
+                # As the preview showed it: a task edited since is skipped at apply.
+                "seen": _current(task, FIELDS),
             }
         )
 
@@ -539,6 +545,15 @@ def _build(
             if type(item["archived"]) is not bool:
                 raise ChangeSetError(f"{what}: archived must be true or false.")
             after["archived"] = item["archived"]
+            if item["archived"] and any(
+                change["after"] and change["after"].get("goal_id") == goal.id
+                for change in changes
+                if change["op"] in ("update", "add")
+            ):
+                raise ChangeSetError(
+                    f"{what}: tasks are moved or added to this goal in the same request; "
+                    "don't archive it here."
+                )
         before = _goal_current(goal, after)
         after = {name: value for name, value in after.items() if before[name] != value}
         if after:
@@ -616,6 +631,12 @@ def _move(task: LearningTask, new: str) -> dict:
     }
 
 
+def _one_line(text) -> str:
+    """A title on one line: a line break inside it can't fake a row of the preview the
+    user says yes to (security review #114)."""
+    return " ".join(str(text).split())
+
+
 def _summary(changes: list[dict], skipped: list[str], titles: dict[int, str]) -> str:
     """The preview: counts per kind, the date range of moves, then one line per change
     (up to SAMPLE) with its goal, "[Old goal → New goal]" when it moves (#114)."""
@@ -631,7 +652,7 @@ def _summary(changes: list[dict], skipped: list[str], titles: dict[int, str]) ->
     new_goal_titles = {c["ref"]: c["after"]["title"] for c in changes if c["op"] == "add_goal"}
 
     def goal_name(goal_id) -> str:
-        return titles.get(goal_id, "?")
+        return _one_line(titles.get(goal_id, "?"))
 
     def fields(values: dict) -> dict:
         return {k: v for k, v in values.items() if k not in ("goal_id", "resource_id")}
@@ -651,7 +672,7 @@ def _summary(changes: list[dict], skipped: list[str], titles: dict[int, str]) ->
             goal = goal_name(change.get("goal_id"))
             if "goal_id" in change["after"]:
                 goal += f" → {goal_name(change['after']['goal_id'])}"
-            line = f"- {change['title']} [{goal}]"
+            line = f"- {_one_line(change['title'])} [{goal}]"
             if op == "complete":
                 line += f": done = {change['after']['done']}"
             elif op == "delete":
@@ -660,20 +681,23 @@ def _summary(changes: list[dict], skipped: list[str], titles: dict[int, str]) ->
                 line += f": {fields(change['before'])} → {fields(change['after'])}"
             lines.append(line)
         elif op == "update_goal":
-            lines.append(f'- goal "{change["title"]}": {change["before"]} → {change["after"]}')
+            lines.append(
+                f'- goal "{_one_line(change["title"])}": {change["before"]} → {change["after"]}'
+            )
         elif op == "add":
             after = change["after"]
             goal = goal_name(after["goal_id"]) if "goal_id" in after else ""
-            goal = goal or new_goal_titles.get(after.get("goal_ref"), "?")
-            lines.append(f"- new task: {after['title']} [{goal}] on {after['due_date']}")
+            goal = goal or _one_line(new_goal_titles.get(after.get("goal_ref"), "?"))
+            lines.append(f"- new task: {_one_line(after['title'])} [{goal}] on {after['due_date']}")
         else:
             extra = {k: v for k, v in change["after"].items() if k != "title" and v is not None}
-            lines.append(f"- new goal: {change['after']['title']}" + (f" {extra}" if extra else ""))
+            title = _one_line(change["after"]["title"])
+            lines.append(f"- new goal: {title}" + (f" {extra}" if extra else ""))
     if len(changes) > SAMPLE:
         lines.append(f"… and {len(changes) - SAMPLE} more")
     if skipped:
         lines.append(f"Skipped ({len(skipped)}):")
-        lines += [f"- {item}" for item in skipped[:SKIPPED_SAMPLE]]
+        lines += [f"- {_one_line(item)}" for item in skipped[:SKIPPED_SAMPLE]]
         if len(skipped) > SKIPPED_SAMPLE:
             lines.append(f"… and {len(skipped) - SKIPPED_SAMPLE} more")
     return "\n".join(lines)
@@ -733,7 +757,12 @@ def apply(session: Session, user: User, set_id) -> Result:
                 _set(task, after)
                 session.add(task)
             elif op == "delete":
-                if task is None or not live(task.goal_id) or task.goal_id != change["goal_id"]:
+                if (
+                    task is None
+                    or not live(task.goal_id)
+                    or task.goal_id != change["goal_id"]
+                    or _current(task, FIELDS) != change.get("seen", _current(task, FIELDS))
+                ):
                     skipped += 1
                     continue
                 task.deleted_at = utcnow()
@@ -756,6 +785,8 @@ def apply(session: Session, user: User, set_id) -> Result:
                 goal = goals.get(change["target_id"])
                 if (
                     goal is None
+                    # archived since the preview: read-only, only an unarchive goes on (D-201)
+                    or (goal.archived_at is not None and "archived" not in change["after"])
                     or _goal_current(goal, change["before"].keys()) != change["before"]
                     or _title_taken(goals, goal, change["after"].get("title"))
                 ):
