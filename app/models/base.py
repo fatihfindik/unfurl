@@ -26,10 +26,10 @@ def as_utc(value: datetime) -> datetime:
     return value
 
 
-def datetime_column(*, nullable: bool, onupdate=None) -> Column:
+def datetime_column(*, nullable: bool, onupdate=None, index: bool = False) -> Column:
     """A timezone-aware datetime column. Each call builds a new Column,
     because SQLAlchemy can't share one Column object between tables."""
-    return Column(DateTime(timezone=True), nullable=nullable, onupdate=onupdate)
+    return Column(DateTime(timezone=True), nullable=nullable, onupdate=onupdate, index=index)
 
 
 def created_at_field():

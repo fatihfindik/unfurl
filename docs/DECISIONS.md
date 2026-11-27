@@ -621,6 +621,7 @@ Kaynak: M11b Design fazı, plan-reviewer S6 (2026-11-18). SPEC §6.10.
 
 ### D-116 · Görevi düzenleme
 Kaynak: #39 Design fazı, plan-reviewer; **Claude karar verdi** (gece çalışması, 2026-11-18), Fatih'in onayını bekliyor. D-095'i günceller.
+- **Güncelleme: D-202** (#114, 2026-11-27): MCP'den bir görev (bitmiş olan da) başka hedefe taşınabilir; bitmiş görevde değişebilenler başlık ve hedef. Web'in Edit modalında hedef hâlâ değişmez.
 - **Karar:** Görev menüsünde "Edit" → "Edit task" modalı. Açık görevde başlık, tarih, süre (D-094 sınırları; değişmeyen tarih aralık kontrolüne girmez, eski Catch-up görevleri kaydedilebilsin). Tamamlanmış görevde başlık ve "Time spent" (1–600 dk, D-117). Hedef değiştirilemez. POST formu veritabanındaki şu anki duruma göre seçer; görev arada açıldı/kapandıysa hiçbir şey değişmez ve doğru form mesajla gelir. Undo yok (sadece silmede).
 - **Alternatifler:** Satır içinde düzenleme; görevi başka hedefe taşımak.
 
@@ -1060,6 +1061,7 @@ Kaynak: plan-reviewer, Fatih'in kararları (2026-11-26).
 
 ### D-194 · I107a araçları (Learning)
 - **Karar:** Okuma: `get_learning_plan`, `list_tasks` (filtreli, sayfalı; arayüzde yok, bilinçli). Tekli yazma: `create_learning_goal`, `add_task`, `update_task` (link dahil; bilinçli fazlalık), `set_task_done`, `log_study_time`. Toplu: `propose_learning_changes` (move, shift, add, update, complete, hedef oluşturma) → `apply_changes`, `undo_changes`, `discard_changes`. Silme aracı yok.
+- **Güncelleme: D-200, D-203** (#114, 2026-11-27): görevi taşıma, soft delete, hedef güncelleme ve arşiv eklendi (`move_task_to_goal`, `delete_task`, `update_goal`, `archive_goal`; `propose_learning_changes`'e `deletes`, `goal_updates`, `updates[].goal_id`). Satır silen araç hâlâ yok.
 
 ### D-195 · I107b araçları (Başvurular)
 Kaynak: I107b planı, plan-reviewer; Fatih "sormadan devam" dedi, Claude karar verdi (2026-11-26).
@@ -1101,3 +1103,35 @@ Kaynak: #18 (M1b security review L8), #64 (M6a security review E3), plan-reviewe
 - #64 E2 (eklentiden gelen ilan metni AI'a güvenilmeyen veri olarak gider) AI ile V2'de: M5 ve M7'nin kabul kriterinde yazılı, ayrı V2 issue'su #112. E4 zaten D-148 ile yapılmıştı.
 - **Alternatifler:** `FORWARDED_ALLOW_IPS`'i `Settings` alanı yapmak (`.env`'den okunur ama uvicorn görmez, kontrol yanıltır); eklenti için ayrı manifest dosyası (iki kopya elle senkron tutulur).
 
+
+### D-200 · Görevde soft delete (`deleted_at`) (#114)
+Kaynak: Fatih'in isteği ve kararları (2026-11-27: soft delete, kalıcı silme yok), plan-reviewer; ayrıntılar Claude karar verdi.
+- **Karar:** `learningtask.deleted_at` (datetime, nullable, index; migration 0024). MCP'den silinen görev satırı kalır; kalıcı silme işi yok (hedef web'den silinirse cascade ile gider). Canlı okumalar tek sorgudan: `learning_service.live_tasks_query` (silinmemiş, hedefi arşivli değil); Plan görünümleri, haftalık özet, ilerleme, sayılar, hatırlatmalar, MCP okumaları, shift ve tick Undo bunu kullanır. `get_owned(live=True)` silinmiş görevi 404 sayar.
+- **Geçmiş filtresiz:** seri (`done_at`), "bugün tamamlandı mı" ve StudyLog saatleri silinmiş/arşivli görevleri de okur; silme ve arşiv seriyi ve saatleri değiştirmez (testli).
+- **Sınırlar:** 1.000 görev sınırı silinmişleri saymaz (`count_rows`); silmenin undo'su sınırı tekrar kontrol eder. Web'deki silme (trash + Undo, D-086) değişmez; hedef silme onayındaki görev sayısı silinmişleri saymaz (kullanıcı onları görmüyor). Bitmiş görev silinir/taşınırsa kaynağın `units_done`'u değişmez (bilinçli). Export `deleted_at`'i de verir.
+- **Kabul edilen durum:** soft-deleted görevi olan bir hedef web'den silinip Undo ile geri getirilirse görev yeni bir id ile, hâlâ silinmiş olarak gelir; o silmenin `undo_changes`'i görevi artık bulamaz (atlar). Veri kaybolmaz (export'ta görünür), çökme yok (test-writer, testli).
+- **Alternatifler:** trash kopyası + gerçek silme (id değişir, "asistan silmez" esner); 30 günde kalıcı silme (yeni zamanlayıcı işi, Fatih istemedi).
+
+### D-201 · Hedef arşivi (`archived_at`) (#114)
+Kaynak: Fatih'in isteği ve kararları (2026-11-27); plan-reviewer.
+- **Karar:** `learninggoal.archived_at` (datetime, nullable). `status` korunur, Unarchive hedefi eski hâliyle getirir. Arşivli hedef ve **bütün** görevleri (açık ve bitmiş) Plan görünümlerinde, hedef filtresinde, Goals kartında, hatırlatmalarda, haftalık hedef saatinde ve `get_learning_plan`'de yok; `list_tasks(include_archived=true)` gösterir.
+- **Salt okunur:** arşivli hedefe görev eklenemez, taşınamaz, shift yapılamaz; görevleri ve hedefin kendisi değişmez (web 404, MCP "unarchive it first"). İstisnalar: Unarchive ve görevi canlı bir hedefe taşımak.
+- **Sınır ve başlık:** 50 hedef sınırı ve başlık tekilliği arşivlileri sayar; aynı adlı yeni hedef "an archived goal is named …; unarchive it instead" ile reddedilir.
+- **Web:** Goals kartının altında kapalı `<details>` "Show archived (n)": soluk satır (ad, saat, görev sayısı) ve "Unarchive" (POST, CSRF, 60/dk, sadece kendi hedefi, toast). Web'de arşivleme yok; arşivleme MCP'den, Undo'suyla.
+- **Alternatifler:** yeni bir `status="archived"` (Unarchive eski durumu bilemez); tamamen gizli (arşivden çıkarmak sadece Claude ile).
+
+### D-202 · Yeni change set op'ları (#114)
+Kaynak: I114 planı, plan-reviewer; Claude karar verdi.
+- **Karar:** `update` görevi başka hedefe de taşır (`goal_id`); taşıma ve alan değişikliği tek değişikliktir (sıra sorunu yok). Görevin eski hedefe ait `resource_id`'si kalkar; undo, kaynak hâlâ eski hedefteyse geri koyar. Bitmiş görevde değişebilenler `{title, goal_id, resource_id}` (D-116 güncellendi). Apply yeni hedefi, undo eski hedefi tekrar okur (var mı, arşivli mi); değilse satır atlanır, eski hedef silinmişse yabancı anahtar hatası olmaz. `delete` (before `deleted: false`, apply anı kaydedilir, undo sadece o anla eşleşen silinmiş görevi geri getirir). `update_goal` (title, weekly_hours, target_date, status, archived; karşılaştır-ve-yaz, başlık çakışması apply/undo'da tekrar kontrol). `add_goal` saat ve hedef tarih de taşır; undo "değişmemiş" kontrolünü bu değerlerle yapar.
+- Apply ve undo hedeflerin arşiv durumunu işlem sırasında güncel nesnelerden okur: aynı setteki "taşı + eski hedefi arşivle" undo'da önce arşivi kaldırır, sonra görevi geri taşır.
+- Önizlemede her görev satırı hedefini gösterir (`- Loops [Python → German]`), en fazla 50 satır (atlananlar 10).
+
+### D-203 · Tekil MCP araçları change set üzerinden (#114)
+Kaynak: Fatih'in kararı (2026-11-27: "undo'lu tekil araçlar"); plan-reviewer.
+- **Karar:** `move_task_to_goal`, `delete_task`, `update_goal` (`clear` ile saat/tarih boşaltılır; verilmeyen alan değişmez), `archive_goal(archived=true|false)`: `change_set_service.run_single` önizlemeyi ve apply'ı tek transaction'da yapar; geride bekleyen set kalmaz ve 10 bekleyen önizleme sınırına takılmaz. Sonuç `change_set_id` döner, `undo_changes` ile 24 saat geri alınır. `delete_task` ve `archive_goal` `destructiveHint` (Claude Desktop her seferinde sorar; DEVELOPMENT.md'de "Always allow" verilmeyecekler arasında).
+- Koruma testi: satır silen ya da adında delete/remove geçen tek araç `delete_task`, tek silme argümanı `propose_learning_changes.deletes`.
+
+### D-204 · Learning'de görev sayıları (#114)
+Kaynak: Fatih'in isteği (2026-11-27, ekran görüntüsü); Claude karar verdi.
+- **Karar:** Plan sekmelerinin hepsi sayı gösterir: Today (n), Next 7 days (n), All tasks (n) (açık görevler), Catch-up (n), Done (n); hedef filtresine uyar. Goals kartında her hedefin özetinde "biten/toplam tasks" (görevi yoksa yazılmaz). Silinmiş görevler ve arşivli hedeflerin görevleri sayılmaz.
+- **Alternatifler:** Plan kartında ayrı bir "toplam" rozeti (sekmelerle tekrar eder).

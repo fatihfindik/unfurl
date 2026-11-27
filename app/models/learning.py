@@ -38,6 +38,9 @@ class LearningGoal(SQLModel, table=True):
     )
     source_requirement: str | None = Field(default=None, max_length=SHORT_TEXT)
     sort_order: int = Field(default=0)
+    # Archived goals are hidden with their tasks but kept, history too (D-201).
+    # `status` is left as it was, so Unarchive brings the goal back the same.
+    archived_at: dt.datetime | None = Field(default=None, sa_column=datetime_column(nullable=True))
 
     created_at: dt.datetime = created_at_field()
     updated_at: dt.datetime = updated_at_field()
@@ -79,6 +82,11 @@ class LearningTask(SQLModel, table=True):
     done: bool = Field(default=False)
     done_at: dt.datetime | None = Field(default=None, sa_column=datetime_column(nullable=True))
     sort_order: int = Field(default=0)
+    # Soft delete from the MCP server (D-200): the row stays, every live query skips it,
+    # and undo_changes clears it again. The web's Delete still removes the row (D-086).
+    deleted_at: dt.datetime | None = Field(
+        default=None, sa_column=datetime_column(nullable=True, index=True)
+    )
 
     created_at: dt.datetime = created_at_field()
     updated_at: dt.datetime = updated_at_field()

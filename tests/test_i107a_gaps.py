@@ -213,7 +213,7 @@ def test_adds_by_title_of_another_users_goal_find_nothing(session, user, goal, o
         )
     # new_goals may use the same title: only the user's own goals count as taken.
     change_set = cs.propose(session, user, new_goals=["Their secret goal"])
-    assert change_set.changes[0]["after"] == {"title": "Their secret goal"}
+    assert change_set.changes[0]["after"]["title"] == "Their secret goal"
 
 
 def test_a_crafted_set_never_touches_another_users_rows(session, user, goal, other, theirs):
@@ -787,7 +787,9 @@ def test_undo_never_deletes_rows_it_did_not_add(session, user, goal):
     assert count(session, LearningTask) == 3 and count(session, LearningGoal) == 1
 
 
-def test_no_tool_takes_a_delete_argument(engine, user):
+def test_only_the_soft_task_delete_exists(engine, user):
+    """No tool removes rows: the one delete is delete_task (and propose's `deletes`),
+    a soft delete that undo_changes takes back (D-200, D-203, #114)."""
     from mcp import Client
 
     async def main():
@@ -796,11 +798,17 @@ def test_no_tool_takes_a_delete_argument(engine, user):
 
     tools = asyncio.run(main())
 
-    assert not [t.name for t in tools if "delete" in t.name or "remove" in t.name]
+    names = [t.name for t in tools if "delete" in t.name or "remove" in t.name]
+    assert names == ["delete_task"]
     for tool in tools:
+        arguments = set(tool.input_schema.get("properties", {}))
+        deleting = {a for a in arguments if "delete" in a or "remove" in a}
+        assert deleting <= ({"deletes"} if tool.name == "propose_learning_changes" else set())
         assert not tool.annotations.destructive_hint or tool.name in (
             "apply_changes",
             "undo_changes",
+            "delete_task",  # hides a task (D-203)
+            "archive_goal",  # hides a goal and its tasks
             "schedule_interview",  # may lock documents (D-195)
             "update_application_status",
         )

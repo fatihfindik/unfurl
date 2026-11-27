@@ -125,7 +125,12 @@ internet. Claude uses your own Claude subscription (no Anthropic API key).
 
 - **Allow carefully:** reading tools can be allowed always. `apply_changes` and
   `undo_changes` change many tasks at once: never choose "Always allow" for them, so you
-  confirm every bulk change after reading its preview.
+  confirm every bulk change after reading its preview. The same for `delete_task` and
+  `archive_goal`: they hide a task or a whole goal (both can be undone with
+  `undo_changes` for 24 hours; a deleted task is never removed from the database).
+- **Archived goals** disappear from the plan, the reminders and the weekly target, with
+  their tasks; their history stays. On the Learning page, "Show archived (n)" under the
+  Goals card lists them with "Unarchive".
 - **Applications:** Claude can list and read your applications (never the saved posting text), add notes, set or finish the next step, save an interview and change the status. A change that would lock a linked CV or cover letter for good asks Claude to check with you first (`confirm_lock`). `schedule_interview` and `update_application_status` also ask for permission each time: don't "Always allow" them.
 - **More than two tasks** (shift the plan, add a block) always go through a preview
   (`propose_learning_changes`) that changes nothing until you say yes. An applied change

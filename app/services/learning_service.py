@@ -142,16 +142,14 @@ def this_week(session: Session, user: User) -> Week:
     ).one()
     target = session.exec(
         select(func.sum(LearningGoal.weekly_hours_target)).where(
-            LearningGoal.user_id == user.id, LearningGoal.status == "active"
+            LearningGoal.user_id == user.id, LearningGoal.status == "active", LIVE_GOAL
         )
     ).one()
     tasks = list(
         session.exec(
-            select(LearningTask.done).where(
-                LearningTask.user_id == user.id,
-                LearningTask.due_date >= start,
-                LearningTask.due_date <= end,
-            )
+            live_tasks_query(user)
+            .with_only_columns(LearningTask.done)
+            .where(LearningTask.due_date >= start, LearningTask.due_date <= end)
         )
     )
     return Week(start, end, minutes or 0, float(target or 0), sum(tasks), len(tasks))
@@ -174,6 +172,11 @@ class Plan:
     groups: list[Group]  # open tasks (the Done tab: its one group of done tasks)
     catchup_count: int  # open tasks from before today, for the "Catch-up (n)" tab
     done_count: int  # all done tasks, for the "Done (n)" tab
+    # The other tabs show their count too (D-204): open tasks due today, in the next
+    # 7 days, and all open tasks.
+    today_count: int = 0
+    week_count: int = 0
+    all_count: int = 0
 
 
 def _newest_done_first(task: LearningTask) -> tuple:
@@ -196,12 +199,14 @@ def build_plan(all_tasks: list[LearningTask], view: str, today: dt.date) -> Plan
     open_tasks = [task for task in all_tasks if not task.done]
     done_tasks = [task for task in all_tasks if task.done]
     catchup = [task for task in open_tasks if task.due_date < today]
+    last = today + dt.timedelta(days=6)
+    due_today = [t for t in open_tasks if t.due_date == today]
+    next_7_days = [t for t in open_tasks if today <= t.due_date <= last]
 
     if view == "today":
-        groups = [Group("", [t for t in open_tasks if t.due_date == today])]
+        groups = [Group("", due_today)]
     elif view == "week":
-        last = today + dt.timedelta(days=6)
-        groups = [Group("", [t for t in open_tasks if today <= t.due_date <= last])]
+        groups = [Group("", next_7_days)]
     elif view == "catchup":
         groups = [Group("", catchup)]
     elif view == "done":
@@ -216,27 +221,66 @@ def build_plan(all_tasks: list[LearningTask], view: str, today: dt.date) -> Plan
             Group("Later", [t for t in open_tasks if t.due_date > next_sunday]),
         ]
         groups = [group for group in groups if group.tasks]
-    return Plan(view, groups, len(catchup), len(done_tasks))
+    return Plan(
+        view,
+        groups,
+        len(catchup),
+        len(done_tasks),
+        today_count=len(due_today),
+        week_count=len(next_7_days),
+        all_count=len(open_tasks),
+    )
 
 
 # --- Goals and tasks -------------------------------------------------------------------------
 
 
-def get_owned(session: Session, user: User, model, item_id):
-    """A row of `model` that belongs to `user`, otherwise 404 (also for bad ids)."""
+# Live rows (D-200, D-201): a task soft-deleted from the MCP server, a goal that is
+# archived and every task of an archived goal are hidden and can't be changed. History
+# (done_at for the streak, StudyLog for the hours) is read without these filters.
+LIVE_GOAL = col(LearningGoal.archived_at).is_(None)
+LIVE_TASK = col(LearningTask.deleted_at).is_(None)
+
+
+def live_tasks_query(user: User):
+    """SELECT of the user's tasks that are shown: not deleted, of a goal not archived."""
+    return (
+        select(LearningTask)
+        .join(LearningGoal, col(LearningGoal.id) == LearningTask.goal_id)
+        .where(LearningTask.user_id == user.id, LearningGoal.user_id == user.id)
+        .where(LIVE_TASK, LIVE_GOAL)
+    )
+
+
+def get_owned(session: Session, user: User, model, item_id, *, live: bool = True):
+    """A row of `model` that belongs to `user`, otherwise 404 (also for bad ids).
+    With live=True (the default) an archived goal, a deleted task and a task of an
+    archived goal count as missing too: they can't be changed (D-201)."""
     try:
         number = int(item_id)
     except (TypeError, ValueError):
         raise HTTPException(status_code=404) from None
     if not 0 < number <= MAX_ID:
         raise HTTPException(status_code=404)
-    row = session.exec(select(model).where(model.id == number, model.user_id == user.id)).first()
+    if model is LearningTask and live:
+        query = live_tasks_query(user).where(LearningTask.id == number)
+    else:
+        query = select(model).where(model.id == number, model.user_id == user.id)
+        if model is LearningGoal and live:
+            query = query.where(LIVE_GOAL)
+    row = session.exec(query).first()
     if row is None:
         raise HTTPException(status_code=404)
     return row
 
 
 def goals(session: Session, user: User) -> list[LearningGoal]:
+    """The goals that are shown: not archived."""
+    return [goal for goal in all_goals(session, user) if goal.archived_at is None]
+
+
+def all_goals(session: Session, user: User) -> list[LearningGoal]:
+    """Every goal, archived ones too: for the goal limit and unique titles (D-201)."""
     return list(
         session.exec(
             select(LearningGoal)
@@ -244,6 +288,33 @@ def goals(session: Session, user: User) -> list[LearningGoal]:
             .order_by(col(LearningGoal.sort_order), col(LearningGoal.id))
         )
     )
+
+
+def archived_goals(session: Session, user: User) -> list[LearningGoal]:
+    return [goal for goal in all_goals(session, user) if goal.archived_at is not None]
+
+
+def task_counts(session: Session, user: User) -> dict[int, tuple[int, int]]:
+    """(done, total) tasks per goal, soft-deleted ones left out (D-204). Archived goals
+    are included, so their row under "Show archived" can say how many tasks they keep."""
+    rows = session.exec(
+        select(LearningTask.goal_id, LearningTask.done, func.count())
+        .where(LearningTask.user_id == user.id, LIVE_TASK)
+        .group_by(LearningTask.goal_id, LearningTask.done)
+    )
+    counts: dict[int, tuple[int, int]] = {}
+    for goal_id, done, count in rows:
+        done_count, total = counts.get(goal_id, (0, 0))
+        counts[goal_id] = (done_count + (count if done else 0), total + count)
+    return counts
+
+
+def unarchive_goal(session: Session, user: User, goal: LearningGoal) -> None:
+    """Bring an archived goal back with its tasks (D-201). Its status is as it was.
+    Archiving is done from the MCP server (archive_goal), with Undo there."""
+    goal.archived_at = None
+    session.add(goal)
+    session.commit()
 
 
 def resources_by_goal(session: Session, user: User) -> dict[int, LearningResource]:
@@ -260,11 +331,10 @@ def resources_by_goal(session: Session, user: User) -> dict[int, LearningResourc
 
 
 def tasks(session: Session, user: User) -> list[LearningTask]:
+    """The live tasks (see live_tasks_query), sorted by date."""
     return list(
         session.exec(
-            select(LearningTask)
-            .where(LearningTask.user_id == user.id)
-            .order_by(
+            live_tasks_query(user).order_by(
                 col(LearningTask.due_date), col(LearningTask.sort_order), col(LearningTask.id)
             )
         )
@@ -299,12 +369,28 @@ def minutes_by_task(session: Session, user: User) -> dict[int, int]:
     return {task_id: minutes or 0 for task_id, minutes in rows}
 
 
+def count_rows(session: Session, user: User, model) -> int:
+    """Rows of `model` that count for the limits of D-094: archived goals and their
+    tasks count (the rows are there), soft-deleted tasks don't (D-200)."""
+    query = select(func.count()).select_from(model).where(model.user_id == user.id)
+    if model is LearningTask:
+        query = query.where(LIVE_TASK)
+    return session.exec(query).one()
+
+
+def goal_task_count(session: Session, user: User, goal: LearningGoal) -> int:
+    """A goal's tasks the user still sees as theirs (not soft-deleted), for the delete
+    confirmation. Deleted ones go with the goal too, but they are already gone for the user."""
+    return session.exec(
+        select(func.count())
+        .select_from(LearningTask)
+        .where(LearningTask.user_id == user.id, LearningTask.goal_id == goal.id, LIVE_TASK)
+    ).one()
+
+
 def _check_room(session: Session, user: User, model, limit: int, adding: int = 1) -> None:
     """Raise TooMany if `adding` more rows of `model` would pass the user's limit."""
-    count = session.exec(
-        select(func.count()).select_from(model).where(model.user_id == user.id)
-    ).one()
-    if count + adding > limit:
+    if count_rows(session, user, model) + adding > limit:
         raise TooMany
 
 
@@ -329,7 +415,7 @@ def create_goal(
         title=title,
         target_date=target_date,
         weekly_hours_target=weekly_hours,
-        sort_order=len(goals(session, user)),
+        sort_order=len(all_goals(session, user)),
     )
     session.add(goal)
     session.flush()
@@ -651,7 +737,9 @@ def restore_goal(session: Session, user: User, payload: dict) -> None:
     linked to each other again, and its logs point at them again."""
     try:
         _check_room(session, user, LearningGoal, MAX_GOALS)
-        _check_room(session, user, LearningTask, MAX_TASKS, adding=len(payload["tasks"]))
+        # Soft-deleted tasks come back deleted: they don't count for the limit (D-200).
+        live_tasks = [t for t in payload["tasks"] if not (t or {}).get("deleted_at")]
+        _check_room(session, user, LearningTask, MAX_TASKS, adding=len(live_tasks))
     except TooMany:
         raise trash_service.CannotRestore from None
     goal = _new_row(LearningGoal, payload["goal"], user)

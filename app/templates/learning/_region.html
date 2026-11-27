@@ -177,6 +177,29 @@
       {%- else %}
         <p class="m-0 text-sm text-text-3">Your goals and where you study for them show up here.</p>
       {%- endfor %}
+      {#- Archived goals (D-201): hidden with their tasks, kept with their history. A native
+          <details>, closed by default; Unarchive brings one back as it was. -#}
+      {%- if archived_goals %}
+        <details data-archived-goals class="group">
+          <summary class="cursor-pointer list-none text-xs font-semibold text-link hover:underline">
+            <span class="group-open:hidden">Show archived ({{ archived_goals | length }})</span>
+            <span class="hidden group-open:inline">Hide archived ({{ archived_goals | length }})</span>
+          </summary>
+          <ul class="m-0 mt-2.5 flex list-none flex-col gap-2 p-0">
+            {%- for goal in archived_goals %}
+              <li data-archived-goal="{{ goal.id }}" class="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-dashed border-border px-3.5 py-2.5 opacity-70">
+                <span class="flex min-w-0 flex-col gap-0.5">
+                  <span class="text-sm font-bold [overflow-wrap:anywhere]">{{ goal.title }}</span>
+                  <span class="text-xs text-text-3">{{ goal.hours }} h logged{% if goal.tasks %} · {{ goal.tasks }} task{{ "s" if goal.tasks != 1 }}{% endif %}</span>
+                </span>
+                <button hx-disabled-elt="this" type="button" hx-post="/learning/goals/{{ goal.id }}/unarchive" hx-swap="none"
+                        aria-label="Unarchive {{ goal.title }}"
+                        class="border-0 bg-transparent p-0 text-xs font-semibold text-link hover:underline">Unarchive</button>
+              </li>
+            {%- endfor %}
+          </ul>
+        </details>
+      {%- endif %}
     </section>
   </div>
 </div>
