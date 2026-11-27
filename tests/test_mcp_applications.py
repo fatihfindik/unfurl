@@ -273,4 +273,5 @@ def test_application_tools_are_registered(engine, user):
         assert tools[name].annotations.read_only_hint is True
     for name in ("update_application_status", "schedule_interview"):
         assert tools[name].annotations.destructive_hint is True  # they may lock documents
-    assert not any("delete" in name or "remove" in name for name in tools)
+    # Applications have no delete tool; the only delete is the soft delete_task (D-203).
+    assert [n for n in tools if "delete" in n or "remove" in n] == ["delete_task"]
