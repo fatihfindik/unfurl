@@ -7,7 +7,7 @@
 # the digest (sha256) makes Docker use exactly that image. Dependabot updates both.
 
 # uv binary, pinned to the same version used locally (and in ci.yml: keep in sync).
-FROM ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d AS uv
+FROM ghcr.io/astral-sh/uv:0.13.10@sha256:a3ea1357342c1a4bf9a0c53a3deb1b55379aefa037338d8113d5771efa01774f AS uv
 
 # Python 3.12 (SPEC §3), the base of both stages below.
 FROM python:3.12-slim-bookworm@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS base
