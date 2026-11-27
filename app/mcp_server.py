@@ -90,15 +90,25 @@ def task_info(task: LearningTask, goal_titles: dict[int, str]) -> dict:
 
 
 def _goal_titles(session: Session, user: User) -> dict[int, str]:
-    return {goal.id: goal.title for goal in learning.goals(session, user)}
+    """Titles of every goal, archived ones too (list_tasks can show their tasks)."""
+    return {goal.id: goal.title for goal in learning.all_goals(session, user)}
 
 
 def _owned(session: Session, user: User, model, item_id) -> object:
+    """A live goal or task of the user. An archived goal and its tasks are read-only,
+    a deleted task is gone (D-200, D-201): say which, so Claude can tell the user."""
+    name = "Goal" if model is LearningGoal else "Task"
     try:
         return learning.get_owned(session, user, model, item_id)
     except HTTPException:
-        name = "Goal" if model is LearningGoal else "Task"
+        pass
+    try:
+        row = learning.get_owned(session, user, model, item_id, live=False)
+    except HTTPException:
         raise Failed(f"{name} {item_id!r} not found.") from None
+    if model is LearningTask and row.deleted_at is not None:
+        raise Failed(f"Task {row.id} was deleted; undo_changes can bring it back.")
+    raise Failed(f"{name} {row.id} belongs to an archived goal; unarchive it first.")
 
 
 def _date(value: str | None, what: str) -> dt.date | None:
@@ -171,15 +181,25 @@ def list_tasks(
     text: str | None = None,
     limit: int = 50,
     offset: int = 0,
+    include_archived: bool = False,
 ) -> dict:
-    """Tasks by goal, state, date range or words in the title, sorted by date."""
+    """Tasks by goal, state, date range or words in the title, sorted by date. Deleted
+    tasks never; tasks of archived goals only with include_archived (D-201)."""
     if status not in ("open", "done", "all"):
         raise Failed('status must be "open", "done" or "all".')
     if not 1 <= limit <= MAX_LIST or offset < 0:
         raise Failed(f"limit must be 1…{MAX_LIST} and offset 0 or more.")
-    query = select(LearningTask).where(LearningTask.user_id == user.id)
+    if include_archived:
+        query = select(LearningTask).where(LearningTask.user_id == user.id, learning.LIVE_TASK)
+    else:
+        query = learning.live_tasks_query(user)
     if goal_id is not None:
-        query = query.where(LearningTask.goal_id == _owned(session, user, LearningGoal, goal_id).id)
+        try:
+            live = not include_archived
+            goal = learning.get_owned(session, user, LearningGoal, goal_id, live=live)
+        except HTTPException:
+            raise Failed(f"Goal {goal_id!r} not found (archived? use include_archived).") from None
+        query = query.where(LearningTask.goal_id == goal.id)
     if status != "all":
         query = query.where(col(LearningTask.done).is_(status == "done"))
     if start := _date(from_date, "from_date"):
@@ -217,9 +237,8 @@ def create_learning_goal(
         raise Failed(f"target_date must be between today and {TARGET_YEARS} years from now.")
     if weekly_hours is not None and not 0.5 <= weekly_hours <= MAX_HOURS_PER_WEEK:
         raise Failed(f"weekly_hours must be from 0.5 to {MAX_HOURS_PER_WEEK}.")
-    titles = {goal.title.casefold() for goal in learning.goals(session, user)}
-    if title.casefold() in titles:
-        raise Failed(f'You already have a goal "{title}".')
+    titles = {goal.title.casefold(): goal for goal in learning.all_goals(session, user)}
+    _check(changes._check_free_title, titles, title, "Goal")
     try:
         goal = learning.create_goal(
             session,
@@ -695,7 +714,7 @@ DESCRIPTIONS = {
     "tasks, the next 7 days, streak and this week's hours.",
     "list_tasks": "List tasks sorted by date. Filter by goal_id, status (open/done/all), "
     "from_date/to_date (YYYY-MM-DD) or text in the title. At most 200 per call; page with "
-    "offset.",
+    "offset. Tasks of archived goals only with include_archived=true.",
     "create_learning_goal": "Create one learning goal (optional target_date YYYY-MM-DD and "
     "weekly_hours).",
     "add_task": "Add one task to a goal: title, due_date (YYYY-MM-DD, 30 days ago to 2 "

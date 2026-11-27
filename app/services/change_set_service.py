@@ -118,14 +118,26 @@ def _set(task: LearningTask, values: dict) -> None:
 # --- Reading the user's rows -----------------------------------------------------------------
 
 
-def _tasks_by_id(session: Session, user: User, ids) -> dict[int, LearningTask]:
+def _tasks_by_id(
+    session: Session, user: User, ids, *, include_deleted: bool = False
+) -> dict[int, LearningTask]:
+    """The user's tasks with these ids. Soft-deleted ones (D-200) only if asked: just the
+    undo of a delete needs them. Tasks of archived goals are included; the callers
+    check _archived_ids, because moving one to a live goal is allowed (D-201)."""
     ids = {number for number in ids if _id_ok(number)}
     if not ids:
         return {}
-    rows = session.exec(
-        select(LearningTask).where(LearningTask.user_id == user.id, col(LearningTask.id).in_(ids))
+    query = select(LearningTask).where(
+        LearningTask.user_id == user.id, col(LearningTask.id).in_(ids)
     )
-    return {task.id: task for task in rows}
+    if not include_deleted:
+        query = query.where(learning.LIVE_TASK)
+    return {task.id: task for task in session.exec(query)}
+
+
+def _archived_ids(session: Session, user: User) -> set[int]:
+    """Ids of the user's archived goals: their tasks are read-only (D-201)."""
+    return {goal.id for goal in learning.archived_goals(session, user)}
 
 
 def _owned_set(session: Session, user: User, set_id) -> PendingChangeSet:
@@ -142,9 +154,8 @@ def _owned_set(session: Session, user: User, set_id) -> PendingChangeSet:
 
 
 def _count(session: Session, user: User, model) -> int:
-    return session.exec(
-        select(func.count()).select_from(model).where(model.user_id == user.id)
-    ).one()
+    """Rows that count for the limits: soft-deleted tasks don't (D-200)."""
+    return learning.count_rows(session, user, model)
 
 
 def _clean_up(session: Session, user: User) -> None:
@@ -183,11 +194,16 @@ def propose(
     touched: set[int] = set()
     ids = [c.get("task_id") for c in [*moves, *updates, *completes]]
     tasks = _tasks_by_id(session, user, ids)
+    archived = _archived_ids(session, user)
 
     def task_for(item: dict, what: str) -> LearningTask:
         task = tasks.get(item.get("task_id"))
         if task is None:
             raise ChangeSetError(f"{what}: task {item.get('task_id')!r} not found.")
+        if task.goal_id in archived:
+            raise ChangeSetError(
+                f"{what}: task {task.id} belongs to an archived goal; unarchive it first."
+            )
         if task.id in touched:
             raise ChangeSetError(f"Task {task.id} is changed more than once in this request.")
         touched.add(task.id)
@@ -201,9 +217,7 @@ def propose(
             raise ChangeSetError(
                 f"Shift: days must be from {SHIFT_DAYS[0]} to {SHIFT_DAYS[1]}, not 0."
             )
-        query = select(LearningTask).where(
-            LearningTask.user_id == user.id, col(LearningTask.done).is_(False)
-        )
+        query = learning.live_tasks_query(user).where(col(LearningTask.done).is_(False))
         if shift.get("goal_id") is not None:
             goal = _owned_goal(session, user, shift["goal_id"], "Shift")
             query = query.where(LearningTask.goal_id == goal.id)
@@ -279,13 +293,14 @@ def propose(
                 }
             )
 
-    goals = learning.goals(session, user)
+    goals = learning.all_goals(session, user)  # archived ones count for titles and the limit
     by_title = {goal.title.casefold(): goal for goal in goals}
     new_refs: dict[str, int] = {}
     for ref, raw in enumerate(new_goals):
         title = _title(raw, "New goal")
-        if title.casefold() in by_title or title.casefold() in new_refs:
+        if title.casefold() in new_refs:
             raise ChangeSetError(f'New goal: you already have a goal "{title}".')
+        _check_free_title(by_title, title, "New goal")
         new_refs[title.casefold()] = ref
         changes.append({"op": "add_goal", "ref": ref, "before": None, "after": {"title": title}})
 
@@ -302,7 +317,7 @@ def propose(
         elif isinstance(item.get("goal_title"), str):
             key = item["goal_title"].strip().casefold()
             if key in by_title:
-                after["goal_id"] = by_title[key].id
+                after["goal_id"] = _live_goal(by_title[key], what).id
             elif key in new_refs:
                 after["goal_ref"] = new_refs[key]
             else:
@@ -352,7 +367,10 @@ def _iso(value, what: str) -> dt.date:
         raise ChangeSetError(f"{what}: use a date like 2026-12-01.") from None
 
 
-def _owned_goal(session: Session, user: User, goal_id, what: str) -> LearningGoal:
+def _owned_goal(
+    session: Session, user: User, goal_id, what: str, *, archived_ok: bool = False
+) -> LearningGoal:
+    """The user's goal; an archived one only with archived_ok (D-201: it is read-only)."""
     goal = None
     if _id_ok(goal_id):
         goal = session.exec(
@@ -360,7 +378,23 @@ def _owned_goal(session: Session, user: User, goal_id, what: str) -> LearningGoa
         ).first()
     if goal is None:
         raise ChangeSetError(f"{what}: goal {goal_id!r} not found.")
+    return goal if archived_ok else _live_goal(goal, what)
+
+
+def _live_goal(goal: LearningGoal, what: str) -> LearningGoal:
+    if goal.archived_at is not None:
+        raise ChangeSetError(f'{what}: the goal "{goal.title}" is archived; unarchive it first.')
     return goal
+
+
+def _check_free_title(by_title: dict, title: str, what: str) -> None:
+    """Goal titles are unique per user, archived goals included (D-201)."""
+    taken = by_title.get(title.casefold())
+    if taken is None:
+        return
+    if taken.archived_at is not None:
+        raise ChangeSetError(f'{what}: an archived goal is named "{title}"; unarchive it instead.')
+    raise ChangeSetError(f'{what}: you already have a goal "{title}".')
 
 
 def _move(task: LearningTask, new: str) -> dict:
@@ -429,7 +463,9 @@ def apply(session: Session, user: User, set_id) -> Result:
     _claim(session, user, change_set, "pending")
 
     tasks = _tasks_by_id(session, user, [c.get("target_id") for c in changes])
-    goal_ids = {goal.id for goal in learning.goals(session, user)}
+    goal_ids = {goal.id for goal in learning.goals(session, user)}  # live goals only
+    archived = _archived_ids(session, user)
+    sort_base = _count(session, user, LearningGoal)
     refs: dict[int, int] = {}
     done = skipped = 0
     try:
@@ -442,6 +478,7 @@ def apply(session: Session, user: User, set_id) -> Result:
                 new_date = change["after"].get("due_date")
                 if (
                     task is None
+                    or task.goal_id in archived  # archived since the preview (D-201)
                     or task.goal_id != change.get("goal_id", task.goal_id)
                     or _current(task, fields) != change["before"]
                     or (task.done and set(change["after"]) - {"title"})  # D-116
@@ -452,7 +489,11 @@ def apply(session: Session, user: User, set_id) -> Result:
                 _set(task, change["after"])
                 session.add(task)
             elif op == "complete":
-                if task is None or task.done != change["before"]["done"]:
+                if (
+                    task is None
+                    or task.goal_id in archived
+                    or task.done != change["before"]["done"]
+                ):
                     skipped += 1
                     continue
                 learning.apply_done(session, user, task, change["after"]["done"])
@@ -466,8 +507,9 @@ def apply(session: Session, user: User, set_id) -> Result:
                     change["created_log"] = {"id": log.id, "minutes": log.minutes}
             elif op == "add_goal":
                 goal = LearningGoal(
-                    user_id=user.id, title=change["after"]["title"], sort_order=len(goal_ids)
+                    user_id=user.id, title=change["after"]["title"], sort_order=sort_base
                 )
+                sort_base += 1
                 session.add(goal)
                 session.flush()
                 goal_ids.add(goal.id)
@@ -522,6 +564,7 @@ def undo(session: Session, user: User, set_id) -> Result:
     changes = [c for c in change_set.changes if c.get("applied")]
     ids = [c.get("target_id") or c.get("created_id") for c in changes if c["op"] != "add_goal"]
     tasks = _tasks_by_id(session, user, ids)
+    archived = _archived_ids(session, user)
     done = skipped = 0
     try:
         for change in reversed(changes):
@@ -530,6 +573,7 @@ def undo(session: Session, user: User, set_id) -> Result:
                 task = tasks.get(change["target_id"])
                 if (
                     task is None
+                    or task.goal_id in archived  # read-only now (D-201)
                     or _current(task, change["after"].keys()) != change["after"]
                     or (task.done and set(change["before"]) - {"title"})  # D-116
                 ):
@@ -539,7 +583,12 @@ def undo(session: Session, user: User, set_id) -> Result:
                 session.add(task)
             elif op == "complete":
                 task = tasks.get(change["target_id"])
-                if task is None or not task.done or not _only_own_log(session, user, task, change):
+                if (
+                    task is None
+                    or task.goal_id in archived
+                    or not task.done
+                    or not _only_own_log(session, user, task, change)
+                ):
                     skipped += 1  # reopened since, or its time was edited in the app
                     continue
                 learning.apply_done(session, user, task, False)
@@ -549,6 +598,7 @@ def undo(session: Session, user: User, set_id) -> Result:
                 if (
                     task is None
                     or task.done
+                    or task.goal_id in archived
                     or task.resource_id is not None
                     or task.goal_id != change.get("placed_goal_id")
                     or _current(task, FIELDS) != expected
@@ -571,6 +621,7 @@ def undo(session: Session, user: User, set_id) -> Result:
                     or (goal.description, goal.target_date, goal.weekly_hours_target)
                     != (None, None, None)
                     or goal.status != "active"
+                    or goal.archived_at is not None
                     or _goal_in_use(session, user, goal)
                 ):
                     skipped += 1

@@ -11,7 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from pydantic import ValidationError
-from sqlmodel import Session, select
+from sqlmodel import Session
 from starlette.datastructures import FormData
 
 from app.db import get_session
@@ -278,7 +278,7 @@ def goal_create(request: Request, session: DbSession, user: RequiredUser, data: 
         )
     except learning.TooMany:
         # Either the goals are full, or the planned tasks would pass the task limit.
-        full = len(learning.goals(session, user)) >= learning.MAX_GOALS
+        full = learning.count_rows(session, user, LearningGoal) >= learning.MAX_GOALS
         return goal_form(request, values, {"form": too_many("goals" if full else "tasks")})
 
     response = goal_form(request)
@@ -369,8 +369,9 @@ def learning_undo(request: Request, session: DbSession, user: RequiredUser, data
     message = "Nothing to undo."
     if found is not None:
         task_id, done = found
+        # Only a live task: not deleted or archived since the tick (D-200, D-201).
         task = session.exec(
-            select(LearningTask).where(LearningTask.id == task_id, LearningTask.user_id == user.id)
+            learning.live_tasks_query(user).where(LearningTask.id == task_id)
         ).first()
         if task is not None and task.done == done:
             learning.set_done(session, user, task, not done)
@@ -571,7 +572,7 @@ def goal_update(
 def goal_delete_confirm(request: Request, session: DbSession, user: RequiredUser, goal_id: str):
     """The confirmation, loaded into its modal (app.js data-dialog-load)."""
     goal = learning.get_owned(session, user, LearningGoal, goal_id)
-    task_count = sum(1 for task in learning.tasks(session, user) if task.goal_id == goal.id)
+    task_count = learning.goal_task_count(session, user, goal)
     return templates.TemplateResponse(
         request, "learning/_goal_delete.html", {"goal": goal, "task_count": task_count}
     )

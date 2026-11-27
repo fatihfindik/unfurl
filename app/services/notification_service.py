@@ -182,17 +182,11 @@ def _done_today(session: Session, user: User, today: dt.date) -> bool:
 
 
 def _open_tasks(user: User):
-    """Open tasks of active goals: a paused or done goal's tasks stay in the plan but
-    don't trigger the study reminder (D-122, #46)."""
-    return (
-        select(LearningTask)
-        .join(LearningGoal, col(LearningGoal.id) == LearningTask.goal_id)
-        .where(
-            LearningTask.user_id == user.id,
-            LearningGoal.user_id == user.id,
-            LearningGoal.status == "active",
-            col(LearningTask.done).is_(False),
-        )
+    """Open live tasks of active goals: a paused or done goal's tasks stay in the plan
+    but don't trigger the study reminder (D-122, #46); deleted tasks and archived goals
+    are left out (D-200, D-201)."""
+    return learning_service.live_tasks_query(user).where(
+        LearningGoal.status == "active", col(LearningTask.done).is_(False)
     )
 
 
