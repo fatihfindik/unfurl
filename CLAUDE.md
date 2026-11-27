@@ -20,7 +20,7 @@ The clickable prototype in `docs/prototype/` is the design reference for layout,
 - Tests never call the real Anthropic API. Use `FakeAIClient`.
 - Every database query on user data must filter by `user_id`.
 - Documents: never edit a locked version (the only exception: the Undo of the status change that locked it may unlock it again, content unchanged; D-082, D-159); never edit a master in place unless the user explicitly unlocks it in the editor ("Edit master", D-048). Other changes create a new draft version.
-- The assistant never deletes data; changes to more than 2 records go through a PendingChangeSet preview.
+- The assistant never hard-deletes data (the MCP server's task delete is a soft delete that `undo_changes` takes back, D-200); changes to more than 2 records go through a PendingChangeSet preview.
 - Plan checks go through `app/billing/entitlements.py` (`can()`, `limit()`), never `user.plan == "pro"`.
 - Any work that changes a rule in the SPEC ships in the same PR as the SPEC update and closes the related issue.
 

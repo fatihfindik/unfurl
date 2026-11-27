@@ -806,3 +806,11 @@
 - uvicorn reads `FORWARDED_ALLOW_IPS` from the real environment, not from `.env`: a check that reads the settings file would pass while the server ignores the value.
 - `monkeypatch.setattr` on a class attribute changes it for every instance and is undone after the test: safer than setting a global by hand.
 
+
+## #114 — MCP: move, soft delete, goal updates and archive; task counts (2026-11-27, log written by Claude)
+
+- Soft delete is a column (`deleted_at`) instead of removing the row: every "live" query must skip it, so put that filter in ONE helper (`live_tasks_query`) and test each screen that reads it.
+- Not every query should filter: history (the streak, logged hours) reads deleted and archived rows on purpose, or deleting a task would change the past.
+- Compare-and-write undo must re-check what a row points at (the old goal, its resource): if the user deleted it in between, writing the old foreign key back would crash the whole transaction.
+- State read once at the start of a loop goes stale when the loop itself changes it; reading it from the live ORM objects fixed "move a task + archive its old goal" not undoing.
+- A "single" action can reuse the bulk machinery (a change set of one, applied at once) and get undo for free, instead of a second code path.
