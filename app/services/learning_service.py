@@ -172,6 +172,11 @@ class Plan:
     groups: list[Group]  # open tasks (the Done tab: its one group of done tasks)
     catchup_count: int  # open tasks from before today, for the "Catch-up (n)" tab
     done_count: int  # all done tasks, for the "Done (n)" tab
+    # The other tabs show their count too (D-204): open tasks due today, in the next
+    # 7 days, and all open tasks.
+    today_count: int = 0
+    week_count: int = 0
+    all_count: int = 0
 
 
 def _newest_done_first(task: LearningTask) -> tuple:
@@ -194,12 +199,14 @@ def build_plan(all_tasks: list[LearningTask], view: str, today: dt.date) -> Plan
     open_tasks = [task for task in all_tasks if not task.done]
     done_tasks = [task for task in all_tasks if task.done]
     catchup = [task for task in open_tasks if task.due_date < today]
+    last = today + dt.timedelta(days=6)
+    due_today = [t for t in open_tasks if t.due_date == today]
+    next_7_days = [t for t in open_tasks if today <= t.due_date <= last]
 
     if view == "today":
-        groups = [Group("", [t for t in open_tasks if t.due_date == today])]
+        groups = [Group("", due_today)]
     elif view == "week":
-        last = today + dt.timedelta(days=6)
-        groups = [Group("", [t for t in open_tasks if today <= t.due_date <= last])]
+        groups = [Group("", next_7_days)]
     elif view == "catchup":
         groups = [Group("", catchup)]
     elif view == "done":
@@ -214,7 +221,15 @@ def build_plan(all_tasks: list[LearningTask], view: str, today: dt.date) -> Plan
             Group("Later", [t for t in open_tasks if t.due_date > next_sunday]),
         ]
         groups = [group for group in groups if group.tasks]
-    return Plan(view, groups, len(catchup), len(done_tasks))
+    return Plan(
+        view,
+        groups,
+        len(catchup),
+        len(done_tasks),
+        today_count=len(due_today),
+        week_count=len(next_7_days),
+        all_count=len(open_tasks),
+    )
 
 
 # --- Goals and tasks -------------------------------------------------------------------------
@@ -277,6 +292,29 @@ def all_goals(session: Session, user: User) -> list[LearningGoal]:
 
 def archived_goals(session: Session, user: User) -> list[LearningGoal]:
     return [goal for goal in all_goals(session, user) if goal.archived_at is not None]
+
+
+def task_counts(session: Session, user: User) -> dict[int, tuple[int, int]]:
+    """(done, total) tasks per goal, soft-deleted ones left out (D-204). Archived goals
+    are included, so their row under "Show archived" can say how many tasks they keep."""
+    rows = session.exec(
+        select(LearningTask.goal_id, LearningTask.done, func.count())
+        .where(LearningTask.user_id == user.id, LIVE_TASK)
+        .group_by(LearningTask.goal_id, LearningTask.done)
+    )
+    counts: dict[int, tuple[int, int]] = {}
+    for goal_id, done, count in rows:
+        done_count, total = counts.get(goal_id, (0, 0))
+        counts[goal_id] = (done_count + (count if done else 0), total + count)
+    return counts
+
+
+def unarchive_goal(session: Session, user: User, goal: LearningGoal) -> None:
+    """Bring an archived goal back with its tasks (D-201). Its status is as it was.
+    Archiving is done from the MCP server (archive_goal), with Undo there."""
+    goal.archived_at = None
+    session.add(goal)
+    session.commit()
 
 
 def resources_by_goal(session: Session, user: User) -> dict[int, LearningResource]:

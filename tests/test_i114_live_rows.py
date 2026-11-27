@@ -123,7 +123,8 @@ def test_page_hides_them(auth_client, session, live, old, gone):
 
     assert "Kept" in page
     assert "Deleted task" not in page
-    assert "German" not in page
+    assert "German open" not in page and "German done" not in page
+    assert f'data-goal="{old.id}"' not in page  # only under "Show archived" (D-201)
 
 
 def test_this_week_skips_them(session, user, live, old, gone):

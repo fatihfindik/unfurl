@@ -141,6 +141,7 @@ def page_context(session: Session, user: User, view: str, goal: str = "") -> dic
     resources = learning.resources_by_goal(session, user)
     tasks = learning.tasks(session, user)
     minutes = learning.minutes_by_goal(session, user)
+    task_counts = learning.task_counts(session, user)
     spent = learning.minutes_by_task(session, user)
     goal_filter = chosen_goal(goals, goal)
     # Only the plan is filtered; the summary cards and the Goals card stay whole.
@@ -158,6 +159,9 @@ def page_context(session: Session, user: User, view: str, goal: str = "") -> dic
         if resource is not None and resource.units_total:
             progress = f"{resource.unit_label} {resource.units_done} / {resource.units_total}"
         meta = [f"{hours_text(minutes.get(goal.id, 0))} h logged"]
+        done_tasks, total_tasks = task_counts.get(goal.id, (0, 0))
+        if total_tasks:
+            meta.append(f"{done_tasks}/{total_tasks} tasks")  # done / all (D-204)
         if goal.target_date:
             meta.append(f"target {goal.target_date.strftime('%b %Y')}")
         goal_cards.append(
@@ -174,7 +178,13 @@ def page_context(session: Session, user: User, view: str, goal: str = "") -> dic
         )
 
     target_minutes = round(week.target_hours * 60)
-    counts = {"catchup": plan.catchup_count, "done": plan.done_count}
+    counts = {
+        "today": plan.today_count,
+        "week": plan.week_count,
+        "all": plan.all_count,
+        "catchup": plan.catchup_count,
+        "done": plan.done_count,
+    }
     return {
         "view": plan.view,
         "goal_filter": goal_filter,
@@ -202,6 +212,16 @@ def page_context(session: Session, user: User, view: str, goal: str = "") -> dic
         "tasks_total": week.tasks_total,
         "week_range": f"{week.start.strftime('%a, %-d %b')} – {week.end.strftime('%a, %-d %b')}",
         "goal_cards": goal_cards,
+        # Hidden goals, listed under "Show archived (n)" with Unarchive (D-201).
+        "archived_goals": [
+            {
+                "id": goal.id,
+                "title": goal.title,
+                "tasks": task_counts.get(goal.id, (0, 0))[1],
+                "hours": hours_text(minutes.get(goal.id, 0)),
+            }
+            for goal in learning.archived_goals(session, user)
+        ],
         "rest_days": prefs.rest_days,  # the rest days modal (D-090)
         "next_reminder": notifications.next_reminder(session, user, clock.now()),  # D-115
     }
@@ -566,6 +586,18 @@ def goal_update(
     response = goal_edit_form(request, goal)
     response.headers.update(page_events(toast="Goal updated.", **{"close-dialog": "edit-goal"}))
     return response
+
+
+@router.post("/learning/goals/{goal_id}/unarchive")
+@limiter.limit("60/minute")
+def goal_unarchive(request: Request, session: DbSession, user: RequiredUser, goal_id: str):
+    """Bring an archived goal back (D-201). Only the user's own goal (else 404); a goal
+    that isn't archived just gets a toast."""
+    goal = learning.get_owned(session, user, LearningGoal, goal_id, live=False)
+    if goal.archived_at is None:
+        return Response(status_code=204, headers=page_events(toast="This goal isn't archived."))
+    learning.unarchive_goal(session, user, goal)
+    return Response(status_code=204, headers=page_events(toast="Goal unarchived."))
 
 
 @router.get("/learning/goals/{goal_id}/delete", response_class=HTMLResponse)
