@@ -798,3 +798,11 @@
 - Accessibility: when a button has an aria-label, it should start with the visible words ("Add task to AWS"), so voice users can say what they see (WCAG 2.5.3).
 - A test that checks "text X is not on the page" passes forever once X is renamed; anchor such tests on a stable marker (`name="story_id"`).
 
+## #17, #18, #64 — Tech debt: counters in the database, production checks (2026-11-27, log written by Claude)
+
+- State kept in process memory disappears on restart and isn't shared between processes; a small table with one row per event (and an hourly clean-up) fixes both without a new service like Redis.
+- Hashing a small value space (every IPv4 address, a known email) is reversible by trying them all; an HMAC with a server secret is not, and still lets rows match.
+- A short session of its own commits only its own rows; on SQLite it must not run while the caller holds an uncommitted write, or it waits for that lock.
+- uvicorn reads `FORWARDED_ALLOW_IPS` from the real environment, not from `.env`: a check that reads the settings file would pass while the server ignores the value.
+- `monkeypatch.setattr` on a class attribute changes it for every instance and is undone after the test: safer than setting a global by hand.
+

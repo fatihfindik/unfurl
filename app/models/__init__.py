@@ -42,11 +42,13 @@ from app.models.profile import (  # noqa: E402
     Skill,
     Story,
 )
+from app.models.security_counter import SecurityCounter  # noqa: E402
 from app.models.trash import DeletedItem  # noqa: E402
 from app.models.user import User  # noqa: E402
 
 __all__ = [
     "PendingChangeSet",
+    "SecurityCounter",
     "ApiToken",
     "Application",
     "ApplicationDocument",

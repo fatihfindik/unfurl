@@ -4,6 +4,7 @@ Every variable from `.env.example` becomes a typed attribute here, so a wrong
 value (e.g. `SMTP_PORT=abc`) is caught when the app starts, not later.
 """
 
+import os
 from functools import lru_cache
 from typing import Literal
 from urllib.parse import urlsplit
@@ -14,6 +15,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The placeholder value from .env.example. It must never be used in production.
 DEFAULT_SECRET_KEY = "change-me"
+DEFAULT_APP_BASE_URL = "http://localhost:8000"
 MIN_SECRET_KEY_LENGTH = 32
 
 
@@ -27,7 +29,7 @@ class Settings(BaseSettings):
     # Required, no default: if a deploy forgot APP_ENV and we silently fell back to
     # "development", every production check below would be skipped.
     app_env: Literal["development", "production"]
-    app_base_url: str = "http://localhost:8000"
+    app_base_url: str = DEFAULT_APP_BASE_URL
     # SecretStr hides the value when printed or logged ("**********").
     secret_key: SecretStr = SecretStr(DEFAULT_SECRET_KEY)
     encryption_key: SecretStr = SecretStr("")
@@ -126,6 +128,21 @@ class Settings(BaseSettings):
             raise ValueError("EMAIL_BACKEND must be smtp in production.")
         if not self.smtp_host:
             raise ValueError("SMTP_HOST must be set in production.")
+
+        # Emails link to APP_BASE_URL: the default would send people to localhost (#18).
+        base = urlsplit(self.app_base_url)
+        if base.scheme != "https" or not base.hostname:
+            raise ValueError("APP_BASE_URL must be the site's https:// address in production.")
+        # Behind a proxy every request seems to come from the proxy, so all users would
+        # share one rate limit and lockout. Set it on purpose: the proxy's address (or *
+        # on Render), or 127.0.0.1 without a proxy (D-199).
+        # Read from the process environment, not .env: uvicorn (`fastapi run`) only sees
+        # real environment variables. Unset, it trusts only 127.0.0.1.
+        if not os.environ.get("FORWARDED_ALLOW_IPS", "").strip():
+            raise ValueError(
+                "FORWARDED_ALLOW_IPS must be set in production (the proxy's address, "
+                "or 127.0.0.1 without a proxy)."
+            )
         return self
 
 

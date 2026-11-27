@@ -63,6 +63,40 @@ def test_production_rejects_empty_smtp_host():
         make_production_settings(smtp_host="")
 
 
+@pytest.mark.parametrize(
+    "url",
+    ["http://localhost:8000", "http://unfurl.example.com", "unfurl.example.com", "https://"],
+)
+def test_production_rejects_a_base_url_that_is_not_https(url):
+    with pytest.raises(ValidationError, match="APP_BASE_URL"):
+        make_production_settings(app_base_url=url)
+
+
+@pytest.mark.parametrize("value", [None, "", "  "])
+def test_production_needs_forwarded_allow_ips_set_on_purpose(monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv("FORWARDED_ALLOW_IPS")
+    else:
+        monkeypatch.setenv("FORWARDED_ALLOW_IPS", value)
+    with pytest.raises(ValidationError, match="FORWARDED_ALLOW_IPS"):
+        make_production_settings()
+
+
+def test_forwarded_allow_ips_only_in_an_env_file_is_not_enough(monkeypatch, tmp_path):
+    # uvicorn doesn't read .env, so a value only there would be ignored.
+    monkeypatch.delenv("FORWARDED_ALLOW_IPS")
+    env_file = tmp_path / ".env"
+    env_file.write_text("FORWARDED_ALLOW_IPS=*\n")
+    with pytest.raises(ValidationError, match="FORWARDED_ALLOW_IPS"):
+        Settings(_env_file=env_file, **PRODUCTION_SETTINGS)
+
+
+def test_development_needs_neither_https_nor_forwarded_allow_ips(monkeypatch):
+    monkeypatch.delenv("FORWARDED_ALLOW_IPS")
+    settings = make_settings(app_env="development", app_base_url="http://127.0.0.1:8100")
+    assert settings.app_base_url.startswith("http://")
+
+
 def test_production_accepts_real_secrets_and_smtp():
     settings = make_production_settings()
     assert settings.app_env == "production"

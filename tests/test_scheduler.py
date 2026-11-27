@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from app import scheduler
 from app.config import Settings, get_settings
 from app.main import create_app
-from app.models import ApiToken, Notification
+from app.models import ApiToken, Notification, SecurityCounter
 from app.services import application_service as apps
 from app.services import notification_service, token_service
 from app.services.auth_service import create_user
@@ -55,7 +55,12 @@ def test_the_jobs_and_their_times():
     finally:
         built.shutdown(wait=False)
 
-    assert set(jobs) == {"generate_notifications", "purge_notifications", "purge_api_tokens"}
+    assert set(jobs) == {
+        "generate_notifications",
+        "purge_notifications",
+        "purge_api_tokens",
+        "purge_security_counters",
+    }
     generate = {field.name: str(field) for field in jobs["generate_notifications"].trigger.fields}
     assert generate["minute"] == "*/15"  # :00, :15, :30, :45 (D-109)
     purge = jobs["purge_notifications"].trigger
@@ -66,6 +71,10 @@ def test_the_jobs_and_their_times():
     fields = {field.name: str(field) for field in tokens.fields}
     assert (fields["hour"], fields["minute"]) == ("3", "10")  # after the notifications (D-148)
     assert str(tokens.timezone) == "Europe/Vienna"
+    counters = jobs["purge_security_counters"].trigger
+    fields = {field.name: str(field) for field in counters.fields}
+    assert (fields["hour"], fields["minute"]) == ("*", "20")  # every hour (D-198)
+    assert str(counters.timezone) == "Europe/Vienna"
     assert str(built.timezone) == "Europe/Vienna"
     for job in jobs.values():
         assert job.max_instances == 1 and job.coalesce is True
@@ -158,6 +167,28 @@ def test_a_failing_token_purge_is_logged(engine, monkeypatch, caplog):
     assert "Purging extension tokens failed" in caplog.text
 
 
+def test_a_failing_counter_purge_is_logged(engine, monkeypatch, caplog):
+    def broken(session, now):
+        raise RuntimeError("database gone")
+
+    monkeypatch.setattr(scheduler.security, "purge_security_counters", broken)
+
+    scheduler.purge_security_counters(engine)  # does not raise
+
+    assert "Purging security counters failed" in caplog.text
+
+
+def test_the_counter_purge_deletes_old_rows(engine):
+    from app.security import LoginLockout
+
+    with freeze_time("2026-11-27 10:00:00"):
+        LoginLockout().record_failure("203.0.113.7", "jana@example.com")
+    with freeze_time("2026-11-27 13:00:00"):
+        scheduler.purge_security_counters(engine)
+    with Session(engine) as session:
+        assert session.exec(select(SecurityCounter)).all() == []
+
+
 def test_a_failing_purge_is_logged(engine, monkeypatch, caplog):
     def broken(session, now):
         raise RuntimeError("database gone")
@@ -170,7 +201,13 @@ def test_a_failing_purge_is_logged(engine, monkeypatch, caplog):
 
 
 @pytest.mark.parametrize(
-    "job", ["generate_notifications", "purge_notifications", "purge_api_tokens"]
+    "job",
+    [
+        "generate_notifications",
+        "purge_notifications",
+        "purge_api_tokens",
+        "purge_security_counters",
+    ],
 )
 def test_jobs_use_the_app_database_by_default(monkeypatch, job):
     used = []
@@ -189,6 +226,7 @@ def test_jobs_use_the_app_database_by_default(monkeypatch, job):
     monkeypatch.setattr(notification_service, "generate_due", lambda s, now: 0)
     monkeypatch.setattr(notification_service, "purge", lambda s, now: None)
     monkeypatch.setattr(token_service, "purge_dead", lambda s, now: 0)
+    monkeypatch.setattr(scheduler.security, "purge_security_counters", lambda s, now: 0)
 
     getattr(scheduler, job)()
 

@@ -2,7 +2,8 @@
 
 > **Ürün adı:** Unfurl (önceki çalışma adı: ApplyKit). Marka ve domain kontrolü ürünleşme öncesi yapılacak (EUIPO/TMview).
 > **Sahibi:** Fatih Findik
-> **Durum:** MVP planı, v2.1.44 — 2026-11-27
+> **Durum:** MVP planı, v2.1.45 — 2026-11-27
+> v2.1.45: Teknik borçlar (#17, #18, #64): login kilidi ve e-posta sınırı `SecurityCounter` tablosunda (§5.13, HMAC'li anahtarlar, saatlik temizlik; D-198); production `https://` `APP_BASE_URL` ve `FORWARDED_ALLOW_IPS` ister; eklentinin production kopyası `scripts/build_extension.py` (D-199).
 > v2.1.44: Tek ekleme deseni: her ekleme butonu "Add {şey}" ve `+` ikonu; sayfanın ana butonu başlığın sağında, kartınki kart başlığının sağında (New goal → Add goal, New CV → Add CV, New cover letter → Add cover letter). Select'ler kendi okunu çizer (D-196, D-197, #110).
 > v2.1.43: MCP başvuru araçları (I107b) ve §9.12 Yerel MCP sunucusu: belge kilitleyen değişiklik `confirm_lock=true` ister; ilan metni bağlama verilmez (D-195).
 > v2.1.42: Yerel MCP sunucusu (#107): Claude Desktop, kişisel ortamın container'ında `python -m app.mcp_server` başlatır; Learning ve sonra Başvuru araçları; toplu değişiklikler PendingChangeSet önizlemesi + Claude Desktop izni + 24 saat Undo (D-191…D-195).
@@ -593,6 +594,16 @@ Beş Learning tablosunun (NotificationPreference dahil) hepsinde `user_id` (FK, 
 
 Ölü token'lar (iptal edilmiş, süresi geçmiş ya da eski oturum sürümüne ait) eklentiye girişte o kullanıcı için, ayrıca her gece 03:10'da bütün kullanıcılar için silinir (D-148); en fazla 10 etkin token, fazlası en eskiyi iptal eder. Dışa aktarmaya girmez (D-136).
 
+
+### 5.13 SecurityCounter (login kilidi ve e-posta sınırı, D-198)
+| Alan | Tip | Not |
+|---|---|---|
+| kind | str | `fail_pair`, `fail_email`, `fail_user`, `lock_pair`, `lock_email`, `lock_user`, `email_sent` |
+| key | str(64) | IP + e-posta, e-posta ya da kullanıcı id'sinin `SECRET_KEY` ile HMAC-SHA256'sı; düz değer saklanmaz |
+| email_key | str(64), nullable, index | Çift ve e-posta satırlarında e-postanın HMAC'i (şifre sıfırlama bütün IP'lerdeki kilidi kaldırsın) |
+| at | datetime | Hata ya da e-posta anı; kilit satırında kilidin bittiği an |
+
+Kullanıcıya bağlı değil (FK yok): hesabı olmayan adreslere yapılan denemeler de sayılır. 2 saatten eski satırlar o anahtarın bir sonraki yazımında ve her saat :20'de silinir; hesap silinince o adresin satırları da silinir.
 ---
 
 ## 6. Ekranlar ve Kullanıcı Akışları
@@ -1266,7 +1277,7 @@ M1 dışında: onboarding sihirbazı (V2, D-150), temanın `User.theme`'e bağla
 - Admin için basit maliyet raporu: `uv run python -m app.billing.report` → son 30 gün, plan ve özellik bazında kullanıcı başına ortalama token ve tahmini maliyet
 - `evals/extract_job` + `run_evals.py`
 - Gizlilik sayfasına Anthropic'i (AI işleme, ABD aktarımı ve dayanağı) ekle (D-133)
-- **Kabul:** Kota aşımı 429 dönüyor. BYOK ile kredi düşmüyor. Testler FakeAIClient ile geçiyor. Eval doğruluğu ≥ %85 (company + job_title).
+- **Kabul:** Kota aşımı 429 dönüyor. BYOK ile kredi düşmüyor. Testler FakeAIClient ile geçiyor. Eval doğruluğu ≥ %85 (company + job_title). Eklentiden gelen `description_raw` (sayfa sahibinin yazdığı gizli JSON-LD dahil) prompt'a güvenilmeyen veri olarak etiketli girer (§ Prompt injection koruması) ve hiçbir araç eylemini PendingChangeSet önizlemesi olmadan başlatamaz; bir test bunu kötü niyetli bir ilan metniyle dener (#64).
 
 ### M6 — Chrome eklentisi (D-135: M6a ve M6b)
 M6 ikiye bölündü. Sıra (D-150, D-155): M6a ✓ → M8a → M8b → M9a → M13d; M6b ve diğer AI milestone'ları V2; M13c sonra.
@@ -1286,7 +1297,7 @@ M6 ikiye bölündü. Sıra (D-150, D-155): M6a ✓ → M8a → M8b → M9a → M
 - `fit_analysis` özelliği, önbellekleme (profile_version), Apply › **Should I apply?** adımı (archive, "prepare" geçişi), Kanban kartında skor rozeti (eklentideki "Analyze fit" M6b'de, D-135)
 - `evals/fit_analysis`
 - Should I apply? eksiklerinde "Add to learning plan" modalı (M10'dan taşındı, D-089)
-- **Kabul:** Sonuç kaydediliyor ve önbellekten dönüyor. Profil değişince "Profile changed – re-analyze?" uyarısı çıkıyor. Eval'de verdict'lerin en az 4/5'i beklenen aralıkta. Eksikten oluşturulan hedef başvuruya bağlı.
+- **Kabul:** Sonuç kaydediliyor ve önbellekten dönüyor. Profil değişince "Profile changed – re-analyze?" uyarısı çıkıyor. İlan metni M5'teki gibi güvenilmeyen veri olarak etiketli (#64). Eval'de verdict'lerin en az 4/5'i beklenen aralıkta. Eksikten oluşturulan hedef başvuruya bağlı.
 
 ### M8 — Motivasyon mektubu (D-150: M8a ve M8b, AI'sız)
 AI ile oluşturma V2. Mektup CV'lerle aynı master/kopya/kilit kurallarını kullanır.
@@ -1355,8 +1366,8 @@ AI ile oluşturma V2. Mektup CV'lerle aynı master/kopya/kilit kurallarını kul
 
 ### M13c — Deploy (D-123) · Sonra (D-155)
 MVP'de deploy yok; kişisel local ortam kullanılır (§11, D-155, D-156). Aşağıdakiler deploy edilince yapılır.
-- Render'a deploy (Docker, Frankfurt, Postgres), production env, HSTS, proxy header'ları ve `APP_BASE_URL` kontrolü (#18), e-postada `List-Unsubscribe`, eklentide prod URL
-- Zamanlayıcı tek instance'ta; #17 belgelenmiş sınırlama olarak kalır. Deploy öncesi Postgres test çalıştırması (CI `postgres-tests`).
+- Render'a deploy (Docker, Frankfurt, Postgres), production env, HSTS, proxy header'ları ve `APP_BASE_URL` kontrolü (#18, D-199: production `https://` adres ve `FORWARDED_ALLOW_IPS` olmadan başlamaz), e-postada `List-Unsubscribe`, eklentide prod URL (`scripts/build_extension.py <https-adres>`: sadece https, `key` çıkarılır; D-199)
+- Zamanlayıcı tek instance'ta. Login kilidi ve e-posta sınırı veritabanında (D-198); kalan sınırlama: slowapi istek sınırları bellekte, birden çok instance'ta Redis gerekir. Deploy öncesi Postgres test çalıştırması (CI `postgres-tests`).
 - Yasal sayfalarda sağlayıcıların gerçek adları; SPEC §10.1 kontrol listesi madde madde işaretlenir.
 - **Kabul:** Canlı URL'de kayıttan ilan kaydına, CV ve mektup indirmeye kadar tüm akış çalışıyor.
 

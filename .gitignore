@@ -26,3 +26,6 @@ uploads/
 
 # Tailwind build output (scripts/build_css.sh)
 app/static/css/app.css
+
+# Built extension for the Web Store (scripts/build_extension.py)
+/dist/
